@@ -110,7 +110,7 @@ function initComplaintFormValidation() {
         const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
 
         input.addEventListener(eventName, function () {
-            if (input.name === 'fab_number' || input.name === 'pincode') {
+            if (input.name === 'fab_number') {
                 input.value = input.value.replace(/\D/g, '');
             }
 

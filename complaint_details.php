@@ -6,6 +6,151 @@ include 'includes/complaint_status.php';
 include 'includes/service_report_helpers.php';
 include 'includes/complaint_address_helpers.php';
 
+// TEmp
+/*
+$stmt = $obconn->prepare("
+    CREATE TABLE postcodes (
+        id SERIAL PRIMARY KEY,
+        postcode VARCHAR(20) NOT NULL,
+        city VARCHAR(100),
+        district VARCHAR(100),
+        state VARCHAR(100),
+        country VARCHAR(100) DEFAULT 'India',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+");
+$stmt->execute();
+
+$stmt = $obconn->prepare("
+    CREATE INDEX idx_postcodes_postcode
+    ON postcodes(postcode)
+");
+
+
+
+// Delete and Insert Data
+$stmtDelete = $obconn->prepare("
+    DELETE FROM postcodes
+    WHERE postcode = :postcode
+");
+
+$stmtInsert = $obconn->prepare("
+    INSERT INTO postcodes 
+    (postcode, city, district, state)
+    VALUES
+    (:postcode, :city, :district, :state)
+");
+
+$data = [
+
+    // Coimbatore
+    ['postcode'=>'641001','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641002','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641003','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641004','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641005','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641006','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641007','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641008','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641009','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641010','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641011','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641012','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641013','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641014','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641015','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641016','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641017','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641018','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641019','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641020','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641021','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641022','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641023','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641024','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+    ['postcode'=>'641025','city'=>'Coimbatore','district'=>'Coimbatore','state'=>'Tamil Nadu'],
+
+
+    // Chennai
+    ['postcode'=>'600001','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600002','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600003','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600004','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600005','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600006','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600007','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600008','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600009','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600010','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600011','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600012','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600013','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600014','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600015','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600016','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600017','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600018','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600019','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600020','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600021','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600022','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600023','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600024','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+    ['postcode'=>'600025','city'=>'Chennai','district'=>'Chennai','state'=>'Tamil Nadu'],
+];
+
+
+foreach ($data as $row) {
+
+
+    // Delete existing pincode
+    $stmtDelete->bindValue(
+        ':postcode',
+        $row['postcode'],
+        PDO::PARAM_STR
+    );
+
+    $stmtDelete->execute();
+
+
+
+    // Insert new data
+    $stmtInsert->bindValue(
+        ':postcode',
+        $row['postcode'],
+        PDO::PARAM_STR
+    );
+
+    $stmtInsert->bindValue(
+        ':city',
+        $row['city'],
+        PDO::PARAM_STR
+    );
+
+    $stmtInsert->bindValue(
+        ':district',
+        $row['district'],
+        PDO::PARAM_STR
+    );
+
+    $stmtInsert->bindValue(
+        ':state',
+        $row['state'],
+        PDO::PARAM_STR
+    );
+
+
+    $stmtInsert->execute();
+
+}
+
+
+echo "Postcodes imported successfully";
+*/
+// END Temp
+
+
 $id = (int)base64_decode($_GET['id'] ?? '', true);
  
 if ($id <= 0) {

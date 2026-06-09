@@ -67,6 +67,11 @@
     }
 }
 
+.complaint-form-card .address-auto-field[readonly] {
+    background-color: #f8fafc;
+    cursor: default;
+}
+
 .complaint-form-header {
     display: flex;
     align-items: center;

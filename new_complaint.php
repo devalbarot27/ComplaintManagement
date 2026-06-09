@@ -170,6 +170,8 @@ if(isset($_POST['submit_complaint']))
     <link href="css/complaint_status_cards.css" rel="stylesheet" />
     <link href="css/complaint_botton.css" rel="stylesheet" />
     <link href="css/complaint_form.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="css/select2_change.css" rel="stylesheet" />
 
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -184,7 +186,9 @@ if(isset($_POST['submit_complaint']))
 
 <!-- validate.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
- 
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="js/pincode_select2.js"></script>
+
 </head>
  
 <body>
@@ -318,13 +322,14 @@ if(isset($_POST['submit_complaint']))
                                     <div class="text-danger validation-msg" data-field="street_2"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
-                                    <label class="form-label">
+                                    <label class="form-label" for="pincodeSelect">
                                         <i class="bi bi-mailbox"></i>
                                         Pincode <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control" name="pincode" inputmode="numeric"
-                                        pattern="[0-9]*" autocomplete="postal-code" maxlength="6"
-                                        placeholder="6-digit pincode">
+                                    <select class="form-control" name="pincode" id="pincodeSelect"
+                                        data-placeholder="Search pincode">
+                                        <option value=""></option>
+                                    </select>
                                     <div class="text-danger validation-msg" data-field="pincode"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
@@ -332,8 +337,8 @@ if(isset($_POST['submit_complaint']))
                                         <i class="bi bi-building"></i>
                                         City <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control" name="city" maxlength="100"
-                                        placeholder="Enter city">
+                                    <input type="text" class="form-control address-auto-field" name="city"
+                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
                                     <div class="text-danger validation-msg" data-field="city"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
@@ -341,8 +346,8 @@ if(isset($_POST['submit_complaint']))
                                         <i class="bi bi-geo"></i>
                                         District <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control" name="district" maxlength="100"
-                                        placeholder="Enter district">
+                                    <input type="text" class="form-control address-auto-field" name="district"
+                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
                                     <div class="text-danger validation-msg" data-field="district"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
@@ -350,8 +355,8 @@ if(isset($_POST['submit_complaint']))
                                         <i class="bi bi-map"></i>
                                         State <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control" name="state" maxlength="100"
-                                        placeholder="Enter state">
+                                    <input type="text" class="form-control address-auto-field" name="state"
+                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
                                     <div class="text-danger validation-msg" data-field="state"></div>
                                 </div>
                             </div>
@@ -757,7 +762,7 @@ function initComplaintFormValidation() {
         const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
 
         input.addEventListener(eventName, function () {
-            if (input.name === 'fab_number' || input.name === 'pincode') {
+            if (input.name === 'fab_number') {
                 input.value = input.value.replace(/\D/g, '');
             }
 
@@ -807,6 +812,7 @@ form.addEventListener('submit', function (e) {
  
     form.addEventListener('reset', function () {
         clearValidationState();
+        resetPincodeSelect2(form);
     });
 }
 
@@ -1188,6 +1194,7 @@ $(document).ready(function() {
 
     initComplaintEntryDatatable();
     initComplaintFormValidation();
+    initPincodeSelect2();
     initAssignValidation();
     initClosureValidation();
 
@@ -1277,6 +1284,7 @@ closeOrderForm.addEventListener('click', function() {
 
     if (complaintForm) {
         complaintForm.reset();
+        resetPincodeSelect2(complaintForm);
         complaintForm.querySelectorAll('.is-invalid').forEach(function (el) {
             el.classList.remove('is-invalid');
         });
