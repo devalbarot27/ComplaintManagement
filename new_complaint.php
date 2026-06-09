@@ -3,6 +3,7 @@ session_start();
  
 include('pdo_obconn.php');
 include('includes/complaint_activity_helpers.php');
+include('includes/complaint_address_helpers.php');
 include('includes/complaint_status.php');
  
 $success_message = '';
@@ -12,12 +13,16 @@ if(isset($_POST['submit_complaint']))
 {
     $fab_number = trim($_POST['fab_number']);
     $customer_name = trim($_POST['customer_name']);
-    $customer_address = trim($_POST['customer_address']);
+    $address = complaint_address_from_post($_POST);
     $complaint_description = trim($_POST['complaint_description']);
     $assign_complaint = trim($_POST['assign_complaint'] ?? '');
     $remarks = trim($_POST['remarks'] ?? '');
 
-    if (strlen($remarks) > 500) {
+    $addressError = complaint_validate_address_fields($address);
+
+    if ($addressError !== null) {
+        $error_message = $addressError;
+    } elseif (strlen($remarks) > 500) {
         $error_message = 'Remarks cannot exceed 500 characters.';
     } else {
         try {
@@ -33,7 +38,12 @@ if(isset($_POST['submit_complaint']))
                 (
                     fab_number,
                     customer_name,
-                    customer_address,
+                    street_1,
+                    street_2,
+                    pincode,
+                    city,
+                    district,
+                    state,
                     complaint_description,
                     status,
                     added_by
@@ -42,7 +52,12 @@ if(isset($_POST['submit_complaint']))
                 (
                     :fab_number,
                     :customer_name,
-                    :customer_address,
+                    :street_1,
+                    :street_2,
+                    :pincode,
+                    :city,
+                    :district,
+                    :state,
                     :complaint_description,
                     :status,
                     :added_by
@@ -51,7 +66,12 @@ if(isset($_POST['submit_complaint']))
 
             $insert->bindValue(':fab_number', $fab_number);
             $insert->bindValue(':customer_name', $customer_name);
-            $insert->bindValue(':customer_address', $customer_address);
+            $insert->bindValue(':street_1', $address['street_1']);
+            $insert->bindValue(':street_2', $address['street_2'] !== '' ? $address['street_2'] : null);
+            $insert->bindValue(':pincode', $address['pincode']);
+            $insert->bindValue(':city', $address['city']);
+            $insert->bindValue(':district', $address['district']);
+            $insert->bindValue(':state', $address['state']);
             $insert->bindValue(':complaint_description', $complaint_description);
             $insert->bindValue(':status', $complaintStatus, PDO::PARAM_INT);
             $insert->bindValue(':added_by', $assigned_by, PDO::PARAM_INT);
@@ -279,14 +299,60 @@ if(isset($_POST['submit_complaint']))
                                         placeholder="Enter customer name">
                                     <div class="text-danger validation-msg" data-field="customer_name"></div>
                                 </div>
-                                <div class="col-12 form-group">
+                                <div class="col-md-6 form-group">
                                     <label class="form-label">
-                                        <i class="bi bi-geo-alt"></i>
-                                        Customer Address <span class="text-danger">*</span>
+                                        <i class="bi bi-signpost"></i>
+                                        Street 1 <span class="text-danger">*</span>
                                     </label>
-                                    <textarea class="form-control" name="customer_address" rows="2"
-                                        placeholder="Enter full address"></textarea>
-                                    <div class="text-danger validation-msg" data-field="customer_address"></div>
+                                    <input type="text" class="form-control" name="street_1" maxlength="255"
+                                        placeholder="House / building / street">
+                                    <div class="text-danger validation-msg" data-field="street_1"></div>
+                                </div>
+                                <div class="col-md-6 form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-signpost-2"></i>
+                                        Street 2
+                                    </label>
+                                    <input type="text" class="form-control" name="street_2" maxlength="255"
+                                        placeholder="Area / landmark (optional)">
+                                    <div class="text-danger validation-msg" data-field="street_2"></div>
+                                </div>
+                                <div class="col-md-3 form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-mailbox"></i>
+                                        Pincode <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" name="pincode" inputmode="numeric"
+                                        pattern="[0-9]*" autocomplete="postal-code" maxlength="6"
+                                        placeholder="6-digit pincode">
+                                    <div class="text-danger validation-msg" data-field="pincode"></div>
+                                </div>
+                                <div class="col-md-3 form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-building"></i>
+                                        City <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" name="city" maxlength="100"
+                                        placeholder="Enter city">
+                                    <div class="text-danger validation-msg" data-field="city"></div>
+                                </div>
+                                <div class="col-md-3 form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-geo"></i>
+                                        District <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" name="district" maxlength="100"
+                                        placeholder="Enter district">
+                                    <div class="text-danger validation-msg" data-field="district"></div>
+                                </div>
+                                <div class="col-md-3 form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-map"></i>
+                                        State <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text" class="form-control" name="state" maxlength="100"
+                                        placeholder="Enter state">
+                                    <div class="text-danger validation-msg" data-field="state"></div>
                                 </div>
                             </div>
                         </section>
@@ -599,10 +665,44 @@ function initComplaintFormValidation() {
                 message: '^Customer Name is required'
             }
         },
-        customer_address: {
+        street_1: {
             presence: {
                 allowEmpty: false,
-                message: '^Customer Address is required'
+                message: '^Street 1 is required'
+            }
+        },
+        street_2: {
+            length: {
+                maximum: 255,
+                message: '^Street 2 cannot exceed 255 characters'
+            }
+        },
+        pincode: {
+            presence: {
+                allowEmpty: false,
+                message: '^Pincode is required'
+            },
+            format: {
+                pattern: /^\d{6}$/,
+                message: '^Pincode must be a 6-digit number'
+            }
+        },
+        city: {
+            presence: {
+                allowEmpty: false,
+                message: '^City is required'
+            }
+        },
+        district: {
+            presence: {
+                allowEmpty: false,
+                message: '^District is required'
+            }
+        },
+        state: {
+            presence: {
+                allowEmpty: false,
+                message: '^State is required'
             }
         },
         complaint_description: {
@@ -657,7 +757,7 @@ function initComplaintFormValidation() {
         const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
 
         input.addEventListener(eventName, function () {
-            if (input.name === 'fab_number') {
+            if (input.name === 'fab_number' || input.name === 'pincode') {
                 input.value = input.value.replace(/\D/g, '');
             }
 

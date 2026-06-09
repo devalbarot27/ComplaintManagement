@@ -1,10 +1,10 @@
 function initComplaintFormValidation() {
     const form = document.getElementById('complaintForm');
- 
+
     if (!form || typeof validate === 'undefined') {
         return;
     }
- 
+
     const constraints = {
         fab_number: {
             presence: {
@@ -18,10 +18,44 @@ function initComplaintFormValidation() {
                // message: 'Customer Name is required'
             }
         },
-        customer_address: {
+        street_1: {
             presence: {
                 allowEmpty: false,
-              //  message: 'Customer Address is required'
+                message: '^Street 1 is required'
+            }
+        },
+        street_2: {
+            length: {
+                maximum: 255,
+                message: '^Street 2 cannot exceed 255 characters'
+            }
+        },
+        pincode: {
+            presence: {
+                allowEmpty: false,
+                message: '^Pincode is required'
+            },
+            format: {
+                pattern: /^\d{6}$/,
+                message: '^Pincode must be a 6-digit number'
+            }
+        },
+        city: {
+            presence: {
+                allowEmpty: false,
+                message: '^City is required'
+            }
+        },
+        district: {
+            presence: {
+                allowEmpty: false,
+                message: '^District is required'
+            }
+        },
+        state: {
+            presence: {
+                allowEmpty: false,
+                message: '^State is required'
             }
         },
         complaint_description: {
@@ -37,7 +71,7 @@ function initComplaintFormValidation() {
             }
         }
     };
- 
+
     function clearValidationState() {
         form.querySelectorAll('.is-invalid').forEach(function (el) {
             el.classList.remove('is-invalid');
@@ -46,28 +80,28 @@ function initComplaintFormValidation() {
             el.textContent = '';
         });
     }
- 
+
     function showErrors(errors) {
         clearValidationState();
- 
+
         if (!errors) {
             return;
         }
- 
+
         Object.keys(errors).forEach(function (field) {
             const input = form.querySelector('[name="' + field + '"]');
             const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
- 
+
             if (input) {
                 input.classList.add('is-invalid');
             }
- 
+
             if (msg && errors[field] && errors[field].length) {
                 msg.textContent = errors[field][0];
             }
         });
     }
- 
+
     form.querySelectorAll('input, textarea, select').forEach(function (input) {
         if (!constraints[input.name]) {
             return;
@@ -76,7 +110,7 @@ function initComplaintFormValidation() {
         const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
 
         input.addEventListener(eventName, function () {
-            if (input.name === 'fab_number') {
+            if (input.name === 'fab_number' || input.name === 'pincode') {
                 input.value = input.value.replace(/\D/g, '');
             }
 
@@ -90,16 +124,16 @@ function initComplaintFormValidation() {
             }
         });
     });
- 
+
     form.addEventListener('submit', function (e) {
         const errors = validate(form, constraints);
         showErrors(errors);
- 
+
         if (errors) {
             e.preventDefault();
         }
     });
- 
+
     form.addEventListener('reset', function () {
         clearValidationState();
     });

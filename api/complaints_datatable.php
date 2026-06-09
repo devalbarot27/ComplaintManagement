@@ -2,12 +2,13 @@
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
- 
+require_once dirname(__DIR__) . '/includes/complaint_address_helpers.php';
+
 $allowedOrderColumns = [
     'id',
     'fab_number',
     'customer_name',
-    'customer_address',
+    'city',
     'complaint_description',
     'status',
     'created_at',
@@ -27,7 +28,7 @@ $filterParams = [];
 if ($req['searchValue'] !== '') {
     $searchFilter = dt_complaint_search_filter(
         $req['searchValue'],
-        ['fab_number', 'customer_name', 'customer_address', 'complaint_description'],
+        array_merge(['fab_number', 'customer_name', 'complaint_description'], complaint_address_search_columns()),
         'status'
     );
     $filterWhere .= ' AND ' . $searchFilter['sql'];
@@ -49,6 +50,12 @@ $dataQuery = "
         id,
         fab_number,
         customer_name,
+        street_1,
+        street_2,
+        pincode,
+        city,
+        district,
+        state,
         customer_address,
         complaint_description,
         status,
@@ -116,7 +123,7 @@ foreach ($rows as $row) {
         'id' => '#' . (int) $row['id'],
         'fab_number' => htmlspecialchars($row['fab_number'], ENT_QUOTES, 'UTF-8'),
         'customer_name' => htmlspecialchars($row['customer_name'], ENT_QUOTES, 'UTF-8'),
-        'customer_address' => htmlspecialchars($row['customer_address'], ENT_QUOTES, 'UTF-8'),
+        'customer_address' => htmlspecialchars(complaint_format_address($row), ENT_QUOTES, 'UTF-8'),
         'complaint_description' => htmlspecialchars(mb_strimwidth($row['complaint_description'], 0, 80, '...'), ENT_QUOTES, 'UTF-8'),
         'status' => complaint_status_badge($status),
         'created_at' => date('d M Y H:i', strtotime($row['created_at'])),
@@ -142,7 +149,7 @@ $allowedOrderColumns = [
     'id',
     'fab_number',
     'customer_name',
-    'customer_address',
+    'city',
     'complaint_description',
     'status',
     'created_at',
@@ -162,7 +169,7 @@ $filterParams = [];
 if ($req['searchValue'] !== '') {
     $searchFilter = dt_complaint_search_filter(
         $req['searchValue'],
-        ['fab_number', 'customer_name', 'customer_address', 'complaint_description'],
+        array_merge(['fab_number', 'customer_name', 'complaint_description'], complaint_address_search_columns()),
         'status'
     );
     $filterWhere .= ' AND ' . $searchFilter['sql'];
@@ -184,6 +191,12 @@ $dataQuery = "
         id,
         fab_number,
         customer_name,
+        street_1,
+        street_2,
+        pincode,
+        city,
+        district,
+        state,
         customer_address,
         complaint_description,
         status,
@@ -211,7 +224,7 @@ foreach ($rows as $row) {
         'id' => '#' . (int) $row['id'],
         'fab_number' => htmlspecialchars($row['fab_number'], ENT_QUOTES, 'UTF-8'),
         'customer_name' => htmlspecialchars($row['customer_name'], ENT_QUOTES, 'UTF-8'),
-        'customer_address' => htmlspecialchars($row['customer_address'], ENT_QUOTES, 'UTF-8'),
+        'customer_address' => htmlspecialchars(complaint_format_address($row), ENT_QUOTES, 'UTF-8'),
         'complaint_description' => htmlspecialchars($row['complaint_description'], ENT_QUOTES, 'UTF-8'),
         'status' => complaint_status_badge($status),
         'created_at' => date('d M Y H:i', strtotime($row['created_at'])),

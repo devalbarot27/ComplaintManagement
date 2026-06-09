@@ -4,6 +4,7 @@ include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
 include 'includes/complaint_status.php';
 include 'includes/service_report_helpers.php';
+include 'includes/complaint_address_helpers.php';
 
 $id = (int)base64_decode($_GET['id'] ?? '', true);
  
@@ -170,7 +171,7 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
  
                     <div class="col-md-12">
                         <strong>Address:</strong>
-                        <?php echo nl2br(htmlspecialchars($complaint['customer_address'])); ?>
+                        <?php echo complaint_format_address_html($complaint); ?>
                     </div>
  
                     <div class="col-md-12">
