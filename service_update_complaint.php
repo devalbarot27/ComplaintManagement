@@ -4,6 +4,7 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
 include 'includes/complaint_status.php';
+include 'includes/service_report_helpers.php';
  
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: dse_lse_complaint_list.php');
@@ -32,34 +33,18 @@ if (!$visitDate || $visitDate->format('Y-m-d') !== $customer_visit_date) {
 
 
  
-if (
-    !isset($_FILES['service_report'])
-    || (int) $_FILES['service_report']['error'] !== UPLOAD_ERR_OK
-) {
-    $_SESSION['error_message'] = 'Service report upload is required.';
+$uploadError = service_report_validate_uploads($_FILES['service_report'] ?? null);
+
+if ($uploadError !== null) {
+    $_SESSION['error_message'] = $uploadError;
     header('Location: dse_lse_complaint_list.php');
     exit;
 }
- 
-$allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
-$originalName = (string) $_FILES['service_report']['name'];
-$extension = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
- 
-if (!in_array($extension, $allowedExtensions, true)) {
-    $_SESSION['error_message'] = 'Invalid file type. Allowed: PDF, JPG, PNG, DOC, DOCX.';
-    header('Location: dse_lse_complaint_list.php');
-    exit;
-}
- 
-$maxFileSize = 2 * 1024 * 1024;
-if ((int) $_FILES['service_report']['size'] > $maxFileSize) {
-    $_SESSION['error_message'] = 'Service report must be 2 MB or smaller.';
-    header('Location: dse_lse_complaint_list.php');
-    exit;
-}
- 
-$storedFileName = null;
-$targetPath = null;
+
+$uploadFiles = service_report_normalize_uploads($_FILES['service_report'] ?? null);
+
+$storedFileNames = null;
+$storedPaths = [];
  
 try {
     $complaintStmt = $obconn->prepare("
@@ -109,12 +94,14 @@ try {
         header('Location: dse_lse_complaint_list.php');
         exit;
     }
- 
-    $storedFileName = uniqid('service_report_', true) . '.' . $extension;
-    $targetPath = $uploadDir . $storedFileName;
- 
-    if (!move_uploaded_file($_FILES['service_report']['tmp_name'], $targetPath)) {
-        $_SESSION['error_message'] = 'Unable to save uploaded file.';
+
+    try {
+        $uploadResult = service_report_store_uploads($uploadFiles, $uploadDir);
+        $storedFileNames = $uploadResult['stored'];
+        $storedPaths = $uploadResult['paths'];
+    } catch (RuntimeException $e) {
+        service_report_delete_files($storedPaths);
+        $_SESSION['error_message'] = $e->getMessage();
         header('Location: dse_lse_complaint_list.php');
         exit;
     }
@@ -151,7 +138,7 @@ try {
     $insert->bindValue(':customer_visit_date', $customer_visit_date);
     $insert->bindValue(':complaint_action_taken', $complaint_action_taken);
     $insert->bindValue(':part_replaced', $part_replaced !== '' ? $part_replaced : null);
-    $insert->bindValue(':service_report', $storedFileName);
+    $insert->bindValue(':service_report', $storedFileNames);
     $insert->bindValue(':created_by', $created_by, PDO::PARAM_INT);
     $insert->execute();
 
@@ -182,8 +169,11 @@ try {
         $activityDescription .= '. Part replaced: ' . $part_replaced;
     }
  
-    if ($storedFileName !== null) {
-        $activityDescription .= '. Service report uploaded.';
+    if ($storedFileNames !== null) {
+        $reportCount = count(service_report_parse_filenames($storedFileNames));
+        $activityDescription .= $reportCount === 1
+            ? '. Service report uploaded.'
+            : '. Service reports uploaded (' . $reportCount . ' files).';
     }
  
     complaint_log_activity(
@@ -203,18 +193,16 @@ try {
     if ($obconn->inTransaction()) {
         $obconn->rollBack();
     }
- 
-    if (!empty($storedFileName) && isset($targetPath) && is_file($targetPath)) {
-        unlink($targetPath);
-    }
- 
+
+    service_report_delete_files($storedPaths);
+
     $_SESSION['error_message'] = 'Failed to save service update.';
 }
- 
+
 header('Location: dse_lse_complaint_list.php');
 exit;
- 
- 
+
+
 /*
 session_start();
 include 'pdo_obconn.php';

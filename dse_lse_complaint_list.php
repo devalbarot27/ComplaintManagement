@@ -197,12 +197,11 @@ $active_menu = 'complaint_list';
                                         <i class="bi bi-paperclip"></i>
                                         Service Report <span class="text-danger">*</span> 
                                     </label>
-                                    <small class="text-muted" style="font-size:10px">
-        Allowed file types: JPG, JPEG, PNG, GIF, PDF, DOC, DOCX. Maximum file size: 2 MB.
-    </small>
-                                    <input type="file" class="form-control" name="service_report" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                    <small class="text-muted d-block mb-2">
+                                        Allowed file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum file size: 2 MB per file.
+                                    </small>
+                                    <input type="file" class="form-control" name="service_report[]" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
                                     <div class="text-danger validation-msg" data-field="service_report"></div>
-                                    
                                 </div>
                             </div>
                         </section>
@@ -277,7 +276,9 @@ function initServiceUpdateValidation() {
     }
 
     function setFieldError(fieldName, message) {
-        const input = form.querySelector('[name="' + fieldName + '"]');
+        const input = fieldName === 'service_report'
+            ? form.querySelector('input[name="service_report[]"]')
+            : form.querySelector('[name="' + fieldName + '"]');
         const msg = form.querySelector('.validation-msg[data-field="' + fieldName + '"]');
 
         if (input) {
@@ -312,21 +313,23 @@ function initServiceUpdateValidation() {
     }
 
     function validateServiceReport() {
-        const fileInput = form.querySelector('[name="service_report"]');
-        const file = fileInput && fileInput.files.length ? fileInput.files[0] : null;
+        const fileInput = form.querySelector('input[name="service_report[]"]');
 
-        if (!file) {
-            return 'Service report is required';
+        if (!fileInput || !fileInput.files.length) {
+            return 'At least one service report file is required';
         }
 
-        const extension = file.name.split('.').pop().toLowerCase();
+        for (let i = 0; i < fileInput.files.length; i++) {
+            const file = fileInput.files[i];
+            const extension = file.name.split('.').pop().toLowerCase();
 
-        if (!allowedExtensions.includes(extension)) {
-            return 'Allowed file types: PDF, JPG, PNG, DOC, DOCX';
-        }
+            if (!allowedExtensions.includes(extension)) {
+                return 'Invalid file type for "' + file.name + '". Allowed: PDF, JPG, PNG, DOC, DOCX';
+            }
 
-        if (file.size > maxFileSize) {
-            return 'File size must be 2 MB or smaller';
+            if (file.size > maxFileSize) {
+                return 'File "' + file.name + '" must be 2 MB or smaller';
+            }
         }
 
         return null;
@@ -372,7 +375,9 @@ function initServiceUpdateValidation() {
     }
 
     function showFieldValidation(fieldName, message) {
-        const input = form.querySelector('[name="' + fieldName + '"]');
+        const input = fieldName === 'service_report'
+            ? form.querySelector('input[name="service_report[]"]')
+            : form.querySelector('[name="' + fieldName + '"]');
         const msg = form.querySelector('.validation-msg[data-field="' + fieldName + '"]');
 
         if (input) {
@@ -405,7 +410,7 @@ function initServiceUpdateValidation() {
         });
     }
 
-    const serviceReportInput = form.querySelector('[name="service_report"]');
+    const serviceReportInput = form.querySelector('input[name="service_report[]"]');
     if (serviceReportInput) {
         serviceReportInput.addEventListener('change', function () {
             showFieldValidation('service_report', validateServiceReport());

@@ -3,6 +3,7 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
 include 'includes/complaint_status.php';
+include 'includes/service_report_helpers.php';
 
 $id = (int)base64_decode($_GET['id'] ?? '', true);
  
@@ -299,14 +300,24 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                                 </td>
  
                                 <td>
-                                    <?php if (!empty($service['service_report'])) { ?>
-                                    <a href="uploads/service_reports/<?php echo rawurlencode($service['service_report']); ?>"
+                                    <?php
+                                    $serviceReports = service_report_parse_filenames($service['service_report'] ?? null);
+                                    if (!empty($serviceReports)) {
+                                        foreach ($serviceReports as $reportIndex => $reportFile) {
+                                            if ($reportIndex > 0) {
+                                                echo ' ';
+                                            }
+                                    ?>
+                                    <a href="uploads/service_reports/<?php echo rawurlencode($reportFile); ?>"
                                         target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-dark">
-                                        <i class="bi bi-eye"></i> View
+                                        <i class="bi bi-eye"></i> View<?php echo count($serviceReports) > 1 ? ' ' . ($reportIndex + 1) : ''; ?>
                                     </a>
-                                    <?php } else { ?>
-                                    -
-                                    <?php } ?>
+                                    <?php
+                                        }
+                                    } else {
+                                        echo '-';
+                                    }
+                                    ?>
                                 </td>
  
                                 <td>
