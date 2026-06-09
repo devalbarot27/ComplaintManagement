@@ -169,9 +169,34 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                         <?php echo $statusMap[$complaint['status']] ?? 'Unknown'; ?>
                     </div>
  
-                    <div class="col-md-12">
-                        <strong>Address:</strong>
-                        <?php echo complaint_format_address_html($complaint); ?>
+                    <div class="col-md-6">
+                        <strong>Street 1:</strong>
+                        <?php echo nl2br(htmlspecialchars(complaint_address_display_value($complaint, 'street_1'))); ?>
+                    </div>
+
+                    <div class="col-md-6">
+                        <strong>Street 2:</strong>
+                        <?php echo htmlspecialchars(complaint_address_display_value($complaint, 'street_2')); ?>
+                    </div>
+
+                    <div class="col-md-3">
+                        <strong>Pincode:</strong>
+                        <?php echo htmlspecialchars(complaint_address_display_value($complaint, 'pincode')); ?>
+                    </div>
+
+                    <div class="col-md-3">
+                        <strong>City:</strong>
+                        <?php echo htmlspecialchars(complaint_address_display_value($complaint, 'city')); ?>
+                    </div>
+
+                    <div class="col-md-3">
+                        <strong>District:</strong>
+                        <?php echo htmlspecialchars(complaint_address_display_value($complaint, 'district')); ?>
+                    </div>
+
+                    <div class="col-md-3">
+                        <strong>State:</strong>
+                        <?php echo htmlspecialchars(complaint_address_display_value($complaint, 'state')); ?>
                     </div>
  
                     <div class="col-md-12">

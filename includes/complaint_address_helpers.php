@@ -105,6 +105,17 @@ function complaint_format_address(array $row): string
     return implode(', ', $parts);
 }
 
+function complaint_address_display_value(array $row, string $field): string
+{
+    $value = trim((string) ($row[$field] ?? ''));
+
+    if ($field === 'street_1' && $value === '' && !empty($row['customer_address'])) {
+        return trim((string) $row['customer_address']);
+    }
+
+    return $value !== '' ? $value : '-';
+}
+
 function complaint_format_address_html(array $row): string
 {
     $lines = [];
