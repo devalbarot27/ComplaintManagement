@@ -29,6 +29,18 @@ if (!$row) {
     exit;
 }
 
+$complaint_date = $row['complaint_date'];
+$date = new DateTime($complaint_date);
+$formatted_complaint_date = $date->format('Y-m-d');
+
+$visit_date = $row['visit_date'];
+$date = new DateTime($visit_date);
+$formatted_visit_date = $date->format('Y-m-d'); 
+
+$closure_date = $row['closure_date'];
+$date = new DateTime($closure_date);
+$formatted_closure_date = $date->format('Y-m-d');
+
 echo json_encode([
     'id' => (int) $row['id'],
     'installed_base_id' => (int) $row['installed_base_id'],
@@ -36,12 +48,12 @@ echo json_encode([
     'serial_number' => $row['serial_number'],
     'machine_model' => $row['machine_model'],
     'warranty_chargeable' => $row['warranty_chargeable'],
-    'complaint_date' => $row['complaint_date'],
+    'complaint_date' => $formatted_complaint_date,
     'issue_description' => $row['issue_description'],
     'engineer_name' => $row['engineer_name'],
-    'visit_date' => $row['visit_date'],
+    'visit_date' => $formatted_visit_date,
     'action_taken' => $row['action_taken'],
-    'closure_date' => $row['closure_date'],
+    'closure_date' => $formatted_closure_date,
     'part_replaced' => $row['part_replaced'],
     'running_hours' => $row['running_hours'],
     'loaded_hours' => $row['loaded_hours'],

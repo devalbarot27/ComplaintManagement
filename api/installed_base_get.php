@@ -29,6 +29,14 @@ if (!$row) {
     exit;
 }
 
+$invoice_date = $row['invoice_date'];
+$date = new DateTime($invoice_date);
+$formatted_invoice_date = $date->format('Y-m-d');
+
+$commissioning_date = $row['commissioning_date'];
+$date = new DateTime($commissioning_date);
+$formatted_commissioning_date = $date->format('Y-m-d'); 
+ 
 echo json_encode([
     'id' => (int) $row['id'],
     'order_id' => $row['order_id'],
@@ -39,8 +47,8 @@ echo json_encode([
     'email' => $row['email'],
     'dealer_name' => $row['dealer_name'],
     'machine_model' => $row['machine_model'],
-    'invoice_date' => $row['invoice_date'],
-    'commissioning_date' => $row['commissioning_date'],
+    'invoice_date' => $formatted_invoice_date,
+    'commissioning_date' => $formatted_commissioning_date,
     'running_hours' => $row['running_hours'],
     'industry_segment' => $row['industry_segment'],
     'remarks' => $row['remarks'],
