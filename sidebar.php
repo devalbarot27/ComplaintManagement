@@ -10,6 +10,8 @@ if (!isset($active_menu)) {
         $active_menu = 'complaint_entry';
     } elseif ($current_page === 'installed_base.php' || $current_page === 'installed_base_details.php') {
         $active_menu = 'installed_base';
+    } elseif ($current_page === 'service_log.php' || $current_page === 'service_log_details.php') {
+        $active_menu = 'service_log';
     } else {
         $active_menu = '';
     }
@@ -78,14 +80,15 @@ if (!isset($active_menu)) {
      Installed Base Capture
 
  </a>
-<!-- <a href="dispatch_details.php"
-     class="menu-item">
+ <a href="service_log.php"
+     class="menu-item<?php echo ($active_menu === 'service_log') ? ' active' : ''; ?>">
 
      <i class="bi bi-clipboard-pulse"></i>
 
      Service Log Capture
 
  </a>
+<!--
 <a href="dispatch_details.php"
      class="menu-item">
 
