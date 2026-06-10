@@ -6,8 +6,10 @@ if (!isset($active_menu)) {
     } elseif ($current_page === 'complaint_details.php') {
         $from = $_GET['from'] ?? 'entry';
         $active_menu = ($from === 'list') ? 'complaint_list' : 'complaint_entry';
-    } elseif ($current_page === 'new_complaint') {
+    } elseif ($current_page === 'new_complaint.php' || $current_page === 'new_complaint') {
         $active_menu = 'complaint_entry';
+    } elseif ($current_page === 'installed_base.php' || $current_page === 'installed_base_details.php') {
+        $active_menu = 'installed_base';
     } else {
         $active_menu = '';
     }
@@ -42,6 +44,8 @@ if (!isset($active_menu)) {
 
      <!-- MENU -->
 
+
+   
      <div class="menu-section">
 
          <div class="menu-heading">
@@ -57,6 +61,41 @@ if (!isset($active_menu)) {
          </a>
 
      </div>
+
+
+
+     <div class="menu-section">
+ 
+ <div class="menu-heading">
+     AFTER MARKET
+</div>
+
+ <a href="installed_base.php"
+     class="menu-item<?php echo ($active_menu === 'installed_base') ? ' active' : ''; ?>">
+
+     <i class="bi bi-bank"></i>
+
+     Installed Base Capture
+
+ </a>
+<!-- <a href="dispatch_details.php"
+     class="menu-item">
+
+     <i class="bi bi-clipboard-pulse"></i>
+
+     Service Log Capture
+
+ </a>
+<a href="dispatch_details.php"
+     class="menu-item">
+
+     <i class="bi bi-gear"></i>
+
+     Spare Parts Consumption
+
+ </a> -->
+
+</div>
 
 
 
