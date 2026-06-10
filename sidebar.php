@@ -1,141 +1,266 @@
-<?php
-if (!isset($active_menu)) {
-    $current_page = basename($_SERVER['PHP_SELF']);
-    if ($current_page === 'dse_lse_complaint_list.php') {
-        $active_menu = 'complaint_list';
-    } elseif ($current_page === 'complaint_details.php') {
-        $from = $_GET['from'] ?? 'entry';
-        $active_menu = ($from === 'list') ? 'complaint_list' : 'complaint_entry';
-    } elseif ($current_page === 'new_complaint.php' || $current_page === 'new_complaint') {
-        $active_menu = 'complaint_entry';
-    } elseif ($current_page === 'installed_base.php' || $current_page === 'installed_base_details.php') {
-        $active_menu = 'installed_base';
-    } elseif ($current_page === 'service_log.php' || $current_page === 'service_log_details.php') {
-        $active_menu = 'service_log';
-    } else {
-        $active_menu = '';
+  <?php
+
+    if (session_status() === PHP_SESSION_NONE) {
+
+        session_start();
+
     }
-}
-?>
- <div class="sidebar" id="sidebar">
-     <div class="mobile-close" id="mobileClose">
 
-         <i class="bi bi-x-lg"></i>
+    include("session_check.php");
 
-     </div>
+    $currentPage = basename($_SERVER['PHP_SELF']);
 
-     <div class="brand-section">
+    $pageName = "";
 
-         <div class="brand-wrapper">
+    if ($currentPage == "orderbooking.php") {
 
-             <div class="brand-logo">
-                 DP
-             </div>
+        $pageName = "Create Order";
 
-             <div>
+    } else if ($currentPage == "order_acknowledgement.php") {
 
-                 <div class="brand-title">
-                     Dealer Portal
-                 </div>
+        $pageName = "Order Acknowledgement List";
 
-             </div>
+    } else if ($currentPage == "pending_order.php") {
 
-         </div>
+        $pageName = "Pending Order List";
 
-     </div>
+    } else if ($currentPage == "new_complaint.php") {
 
-     <!-- MENU -->
+        $pageName = "Complaint Entry";
 
+    } else if ($currentPage == "dse_lse_complaint_list.php") {
 
-   
-     <div class="menu-section">
+        $pageName = "Assigned Complaint List";
 
-         <div class="menu-heading">
-             OVERVIEW
-         </div>
+    }else if ($currentPage == "installed_base.php") {
 
-         <a href="new_complaint.php" class="menu-item<?php echo ($active_menu === 'home') ? ' active' : ''; ?>">
+        $pageName = "Installed Base Capture";
 
-             <i class="bi bi-grid"></i>
+    }else if ($currentPage == "service_log.php") {
 
-             Home
+        $pageName = "Service Log Capture";
 
-         </a>
+    }
 
-     </div>
-
-
-
-     <div class="menu-section">
+    ?>
+<!-- TOPBAR -->
+<div class="topbar">
+<div class="topbar-left">
+<i class="bi bi-list toggle-btn" id="menuToggle"></i>
+<h5 class="page-subtitle mb-0">
+<?php echo $pageName; ?>
+</h5>
+</div>
+<?php include('topbar.php'); ?>
+</div>
  
- <div class="menu-heading">
-     AFTER MARKET
+  <div class="sidebar" id="sidebar">
+<div class="mobile-close"
+
+          id="mobileClose">
+ 
+          <i class="bi bi-x-lg"></i>
+ 
+      </div>
+ 
+      <div class="brand-section">
+ 
+          <div class="brand-wrapper">
+ 
+              <div class="brand-logo">
+
+                  DP
 </div>
+ 
+              <div>
+ 
+                  <div class="brand-title">
 
- <a href="installed_base.php"
-     class="menu-item<?php echo ($active_menu === 'installed_base') ? ' active' : ''; ?>">
-
-     <i class="bi bi-bank"></i>
-
-     Installed Base Capture
-
- </a>
- <a href="service_log.php"
-     class="menu-item<?php echo ($active_menu === 'service_log') ? ' active' : ''; ?>">
-
-     <i class="bi bi-clipboard-pulse"></i>
-
-     Service Log Capture
-
- </a>
-<!--
-<a href="dispatch_details.php"
-     class="menu-item">
-
-     <i class="bi bi-gear"></i>
-
-     Spare Parts Consumption
-
- </a> -->
-
+                      Dealer Portal
 </div>
+ 
+              </div>
+ 
+          </div>
+ 
+      </div>
+ 
+      <!-- MENU -->
+ 
+      <div class="menu-section">
+ 
+          <div class="menu-heading">
 
+              OVERVIEW
+</div>
+ 
+          <a href="dashboard.php"
 
+              class="menu-item <?= ($currentPage == 'dashboard.php') ? 'active' : '' ?>">
+ 
+              <i class="bi bi-grid"></i>
+ 
+              Dashboard
+ 
+          </a>
+ 
+      </div>
+ 
+      <div class="menu-section">
+ 
+          <div class="menu-heading">
 
-     <div class="menu-section">
-         <div class="menu-heading">
-             SUPPORT
-         </div>
-         <a href="new_complaint.php" class="menu-item<?php echo ($active_menu === 'complaint_entry') ? ' active' : ''; ?>">
-             <i class="bi bi-credit-card"></i>
-             Complaint Entry
-         </a>
-     
-         <a href="dse_lse_complaint_list.php" class="menu-item<?php echo ($active_menu === 'complaint_list') ? ' active' : ''; ?>">
-             <i class="bi bi-credit-card"></i>
-             Assigned Complaint List
-         </a>
-     </div>
+              ORDERS
+</div>
+ 
+          <a href="orderbooking.php"
 
+              class="menu-item <?= ($currentPage == 'orderbooking.php') ? 'active' : '' ?>">
+ 
+              <i class="bi bi-cart"></i>
+ 
+              Order Booking
+ 
+          </a>
+ 
+          <a href="order_acknowledgement.php"
 
+              class="menu-item <?= ($currentPage == 'order_acknowledgement.php') ? 'active' : '' ?>">
+ 
+              <i class="bi bi-check2-square"></i>
+ 
+              Order Acknowledgement
+ 
+          </a>
+ 
+          <a href="pending_order.php"
 
+              class="menu-item <?= ($currentPage == 'pending_order.php') ? 'active' : '' ?>">
+ 
+              <i class="bi bi-clock-history"></i>
+ 
+              Pending Orders
+ 
+          </a>
+ 
+      </div>
+ 
+      <div class="menu-section">
+ 
+          <div class="menu-heading">
 
- </div>
- <script>
-const menuToggle = document.getElementById('menuToggle');
-menuToggle.addEventListener('click', function() {
+              AFTER MARKET
+</div>
+ 
+          <a href="installed_base.php"
 
-    if (window.innerWidth <= 768) {
+              class="menu-item <?= ($currentPage == 'installed_base.php' || $currentPage == 'installed_base_details.php') ? 'active' : '' ?>">
+ 
+              <i class="bi bi-bank"></i>
+ 
+              Installed Base Capture
+ 
+          </a>
+<a href="service_log.php"
 
-        sidebar.classList.toggle('mobile-show');
+              class="menu-item <?= ($currentPage == 'service_log.php' || $currentPage == 'service_log_details.php') ? 'active' : '' ?>">
+ 
+              <i class="bi bi-clipboard-pulse"></i>
+ 
+              Service Log Capture
+ 
+          </a>
+<a href="spare_parts_consumption.php"
 
-    } else {
+              class="menu-item <?= ($currentPage == 'spare_parts_consumption.php') ? 'active' : '' ?>">
+ 
+              <i class="bi bi-gear"></i>
+ 
+              Spare Parts Consumption
+ 
+          </a>
+ 
+      </div>
+ 
+      <!-- <div class="menu-section">
+ 
+          <div class="menu-heading">
 
-        sidebar.classList.toggle('hide');
+              FINANCE
+</div>
+ 
+          <a href="ar_statement.php"
 
-        mainWrapper.classList.toggle('full');
+              class="menu-item">
+ 
+              <i class="bi bi-credit-card"></i>
+ 
+              AR Statement
+ 
+          </a>
+ 
+      </div> -->
+ 
+ 
+      <div class="menu-section">
+ 
+          <div class="menu-heading">
 
-    }
+              SUPPORT
+</div>
+ 
+          <a href="new_complaint.php"
 
-});
- </script>
+              class="menu-item <?= ($currentPage == 'new_complaint.php' || ($currentPage == 'complaint_details.php' && @$_GET['from'] == 'entry')) ? 'active' : '' ?>">
+<i class="bi bi-credit-card"></i>
+
+              Complaint Entry
+</a>
+<a href="dse_lse_complaint_list.php" class="menu-item <?= ($currentPage == 'dse_lse_complaint_list.php' || ($currentPage == 'complaint_details.php' && @$_GET['from'] == 'list')) ? 'active' : '' ?>">
+<i class="bi bi-microsoft-teams"></i>
+
+              Assigned Complaint List
+</a>
+ 
+ 
+      </div>
+ 
+ 
+  </div>
+<script>
+
+      const menuToggle = document.getElementById('menuToggle');
+
+      const sidebar = document.getElementById('sidebar');
+ 
+      menuToggle.addEventListener('click', function() {
+ 
+          if (window.innerWidth <= 768) {
+ 
+              sidebar.classList.toggle('mobile-show');
+ 
+          } else {
+ 
+              sidebar.classList.toggle('hide');
+ 
+              const mainWrapper = document.getElementById('mainWrapper');
+
+              if (mainWrapper) {
+
+                  mainWrapper.classList.toggle('full');
+
+              }
+
+          }
+ 
+      });
+ 
+      const mobileClose = document.getElementById('mobileClose');
+ 
+      mobileClose.addEventListener('click', function() {
+
+          sidebar.classList.remove('mobile-show');
+
+      });
+</script>
+ 
