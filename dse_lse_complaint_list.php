@@ -197,8 +197,10 @@ $active_menu = 'complaint_list';
                                         <i class="bi bi-paperclip"></i>
                                         Service Report <span class="text-danger">*</span> 
                                     </label>
-                                    <small class="text-muted d-block mb-2">
-                                        Allowed file types: PDF, JPG, JPEG, PNG, DOC, DOCX. Maximum file size: 2 MB per file.
+                                    <small class="text-muted d-block mb-2" style="font-size:12px">
+                                        Multiple files allowed.
+                                        <br>Allowed file types: PDF, JPG, JPEG, PNG, DOC, DOCX.
+                                        <br>Maximum file size: 2 MB per file.                                    
                                     </small>
                                     <input type="file" class="form-control" name="service_report[]" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
                                     <div class="text-danger validation-msg" data-field="service_report"></div>

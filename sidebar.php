@@ -40,6 +40,14 @@
 
         $pageName = "Service Log Capture";
 
+    }else if ($currentPage == "spare_parts_consumption.php") {
+
+        $pageName = "Spare Parts Consumption";
+
+    }else if ($currentPage == "spare_parts_consumption_details.php") {
+
+        $pageName = "Spare Parts Consumption";
+
     }
 
     ?>
@@ -172,7 +180,7 @@
           </a>
 <a href="spare_parts_consumption.php"
 
-              class="menu-item <?= ($currentPage == 'spare_parts_consumption.php') ? 'active' : '' ?>">
+              class="menu-item <?= ($currentPage == 'spare_parts_consumption.php' || $currentPage == 'spare_parts_consumption_details.php') ? 'active' : '' ?>">
  
               <i class="bi bi-gear"></i>
  
