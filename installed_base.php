@@ -17,9 +17,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
 
     if ($validationError !== null) {
         $error_message = $validationError;
-    } elseif (!installed_base_get_order($data['order_id'])) {
-        $error_message = 'Selected Order ID was not found in the system.';
     } else {
+        $orderRefId = (int) $data['order_ref_id'];
+        $order = installed_base_get_order($obconn, $orderRefId);
+
+        if (!$order) {
+            $error_message = 'Selected Order ID was not found in the system.';
+        } elseif ($order['order_id'] !== $data['order_id']) {
+            $error_message = 'Order details do not match the selected order.';
+        } else {
         try {
             if ($recordId > 0) {
                 $checkStmt = $obconn->prepare('
@@ -37,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                     $update = $obconn->prepare('
                         UPDATE installed_base
                         SET
+                            order_ref_id = :order_ref_id,
                             order_id = :order_id,
                             fab_number = :fab_number,
                             customer_name = :customer_name,
@@ -55,7 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                           AND deleted_at IS NULL
                     ');
 
-                    $update->bindValue(':order_id', $data['order_id']);
+                    $update->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
+                    $update->bindValue(':order_id', $order['order_id']);
                     $update->bindValue(':fab_number', $data['fab_number']);
                     $update->bindValue(':customer_name', $data['customer_name']);
                     $update->bindValue(':address', $data['address']);
@@ -77,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                 $insert = $obconn->prepare('
                     INSERT INTO installed_base
                     (
+                        order_ref_id,
                         order_id,
                         fab_number,
                         customer_name,
@@ -94,6 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                     )
                     VALUES
                     (
+                        :order_ref_id,
                         :order_id,
                         :fab_number,
                         :customer_name,
@@ -111,7 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                     )
                 ');
 
-                $insert->bindValue(':order_id', $data['order_id']);
+                $insert->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
+                $insert->bindValue(':order_id', $order['order_id']);
                 $insert->bindValue(':fab_number', $data['fab_number']);
                 $insert->bindValue(':customer_name', $data['customer_name']);
                 $insert->bindValue(':address', $data['address']);
@@ -131,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
             }
         } catch (PDOException $e) {
             $error_message = 'Failed to save installed base record.';
+        }
         }
     }
 }
@@ -245,11 +257,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                         <i class="bi bi-receipt"></i>
                                         Order ID <span class="text-danger">*</span>
                                     </label>
-                                    <select class="form-control" name="order_id" id="orderIdSelect"
+                                    <select class="form-control" name="order_ref_id" id="orderIdSelect"
                                         data-placeholder="Search order ID">
                                         <option value=""></option>
                                     </select>
-                                    <div class="text-danger validation-msg" data-field="order_id"></div>
+                                    <input type="hidden" name="order_id" id="orderIdDisplay">
+                                    <div class="text-danger validation-msg" data-field="order_ref_id"></div>
+                                </div>
+                                <div class="col-md-4 form-group d-flex align-items-end">
+                                    <button type="button" class="submit-btn btn-complaint-primary w-100" id="openCreateOrderModal">
+                                        <i class="bi bi-plus-lg"></i> New Order
+                                    </button>
                                 </div>
                                 <div class="col-md-4 form-group">
                                     <label class="form-label">
@@ -425,6 +443,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                         <tbody></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="createOrderModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content complaint-form-modal">
+                <div class="complaint-form-header">
+                    <div class="complaint-form-header__main">
+                        <div class="complaint-form-header__icon"><i class="bi bi-receipt"></i></div>
+                        <div>
+                            <h2 class="complaint-form-header__title">Create New Order</h2>
+                            <p class="complaint-form-header__subtitle">Order ID will be generated as ORD/YYYY/00001</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="createOrderForm" class="complaint-form-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6 form-group">
+                            <label class="form-label">Fab Number <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="fab_number" maxlength="20">
+                            <div class="text-danger validation-msg" data-field="fab_number"></div>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="form-label">Machine Model <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="machine_model" maxlength="150">
+                            <div class="text-danger validation-msg" data-field="machine_model"></div>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="form-label">Customer Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="customer_name" maxlength="200">
+                            <div class="text-danger validation-msg" data-field="customer_name"></div>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="form-label">Dealer Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="dealer_name" maxlength="200">
+                            <div class="text-danger validation-msg" data-field="dealer_name"></div>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="form-label">Invoice Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="invoice_date">
+                            <div class="text-danger validation-msg" data-field="invoice_date"></div>
+                        </div>
+                    </div>
+                    <div class="complaint-form-actions mt-3">
+                        <button type="button" class="cancel-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="submit-btn btn-complaint-primary" id="submitCreateOrderBtn">
+                            <i class="bi bi-check-lg"></i> Create Order
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

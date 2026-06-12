@@ -12,7 +12,7 @@ if ($term === '') {
 }
 
 $stmt = $obconn->prepare("
-    SELECT id, order_id, fab_number, customer_name, machine_model, running_hours
+    SELECT id, order_ref_id, order_id, fab_number, customer_name, machine_model, running_hours
     FROM installed_base
     WHERE deleted_at IS NULL
       AND (
@@ -37,6 +37,7 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'text' => $label,
         'installed_base_id' => (int) $row['id'],
         'order_id' => $row['order_id'],
+        'order_ref_id' => (int) ($row['order_ref_id'] ?? 0),
         'serial_number' => $row['fab_number'],
         'machine_model' => $row['machine_model'],
         'running_hours' => $row['running_hours'],

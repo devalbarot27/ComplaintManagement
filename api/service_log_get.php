@@ -44,6 +44,7 @@ $formatted_closure_date = $date->format('Y-m-d');
 echo json_encode([
     'id' => (int) $row['id'],
     'installed_base_id' => (int) $row['installed_base_id'],
+    'order_ref_id' => $row['order_ref_id'] ? (int) $row['order_ref_id'] : '',
     'order_id' => $row['order_id'],
     'serial_number' => $row['serial_number'],
     'machine_model' => $row['machine_model'],

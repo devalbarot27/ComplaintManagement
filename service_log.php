@@ -28,9 +28,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
         $error_message = 'Selected installed base record was not found.';
     } else {
         try {
-            $bindData = function ($stmt) use ($data) {
+            $bindData = function ($stmt) use ($data, $installedBase) {
+                $orderRefId = (int) ($installedBase['order_ref_id'] ?? 0);
                 $stmt->bindValue(':installed_base_id', (int) $data['installed_base_id'], PDO::PARAM_INT);
-                $stmt->bindValue(':order_id', $data['order_id']);
+                if ($orderRefId > 0) {
+                    $stmt->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
+                } else {
+                    $stmt->bindValue(':order_ref_id', null, PDO::PARAM_NULL);
+                }
+                $stmt->bindValue(':order_id', $installedBase['order_id']);
                 $stmt->bindValue(':serial_number', $data['serial_number']);
                 $stmt->bindValue(':machine_model', $data['machine_model']);
                 $stmt->bindValue(':warranty_chargeable', $data['warranty_chargeable']);
@@ -61,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                     $update = $obconn->prepare('
                         UPDATE service_logs SET
                             installed_base_id = :installed_base_id,
+                            order_ref_id = :order_ref_id,
                             order_id = :order_id,
                             serial_number = :serial_number,
                             machine_model = :machine_model,
@@ -87,12 +94,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
             } else {
                 $insert = $obconn->prepare('
                     INSERT INTO service_logs (
-                        installed_base_id, order_id, serial_number, machine_model,
+                        installed_base_id, order_ref_id, order_id, serial_number, machine_model,
                         warranty_chargeable, complaint_date, issue_description, engineer_name,
                         visit_date, action_taken, closure_date, part_replaced,
                         running_hours, loaded_hours, customer_feedback, remarks, created_by
                     ) VALUES (
-                        :installed_base_id, :order_id, :serial_number, :machine_model,
+                        :installed_base_id, :order_ref_id, :order_id, :serial_number, :machine_model,
                         :warranty_chargeable, :complaint_date, :issue_description, :engineer_name,
                         :visit_date, :action_taken, :closure_date, :part_replaced,
                         :running_hours, :loaded_hours, :customer_feedback, :remarks, :created_by

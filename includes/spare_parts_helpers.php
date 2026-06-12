@@ -30,7 +30,7 @@ function spare_parts_from_post(array $post): array
 function spare_parts_get_installed_base(PDO $conn, int $installedBaseId): ?array
 {
     $stmt = $conn->prepare('
-        SELECT id, order_id, fab_number, customer_name, machine_model, running_hours
+        SELECT id, order_ref_id, order_id, fab_number, customer_name, machine_model, running_hours
         FROM installed_base
         WHERE id = :id
           AND deleted_at IS NULL

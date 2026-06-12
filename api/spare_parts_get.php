@@ -29,12 +29,16 @@ if (!$row) {
     exit;
 }
 
+$consumption_date = $row['consumption_date'];
+$date = new DateTime($consumption_date);
+$formatted_consumption_date = $date->format('Y-m-d');
+
 echo json_encode([
     'id' => (int) $row['id'],
     'installed_base_id' => (int) $row['installed_base_id'],
     'service_log_id' => $row['service_log_id'] ? (int) $row['service_log_id'] : '',
     'serial_number' => $row['serial_number'],
-    'consumption_date' => $row['consumption_date'],
+    'consumption_date' => $formatted_consumption_date,
     'warranty_chargeable' => $row['warranty_chargeable'],
     'spare_kit_number' => $row['spare_kit_number'],
     'quantity' => $row['quantity'],

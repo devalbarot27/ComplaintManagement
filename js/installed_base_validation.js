@@ -6,7 +6,7 @@ function initInstalledBaseFormValidation() {
     }
 
     const constraints = {
-        order_id: {
+        order_ref_id: {
             presence: {
                 allowEmpty: false,
                 message: '^Order ID is required'

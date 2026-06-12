@@ -45,9 +45,15 @@ function fillInstalledBaseForm(record) {
         : '<i class="bi bi-check-lg"></i> Save Record';
 
     const $order = $('#orderIdSelect');
-    if ($order.length && record.order_id) {
-        const option = new Option(record.order_id, record.order_id, true, true);
+    if ($order.length && record.order_ref_id) {
+        const label = record.order_id + (record.customer_name ? ' — ' + record.customer_name : '');
+        const option = new Option(label, record.order_ref_id, true, true);
         $order.append(option).trigger('change');
+    }
+
+    const orderIdDisplay = form.querySelector('#orderIdDisplay');
+    if (orderIdDisplay) {
+        orderIdDisplay.value = record.order_id || '';
     }
 
     const fields = [

@@ -1,82 +1,6 @@
 <?php
 
-function installed_base_static_orders(): array
-{
-    return [
-        [
-            'order_id' => 'ORD-10001',
-            'fab_number' => '1000000001',
-            'customer_name' => 'Alpha Textiles Pvt Ltd',
-            'invoice_date' => '2024-01-15',
-            'dealer_name' => 'Dealer One',
-            'machine_model' => 'Model X100',
-        ],
-        [
-            'order_id' => 'ORD-10002',
-            'fab_number' => '1000000002',
-            'customer_name' => 'Beta Engineering Works',
-            'invoice_date' => '2024-02-20',
-            'dealer_name' => 'Dealer Two',
-            'machine_model' => 'Model X200',
-        ],
-        [
-            'order_id' => 'ORD-10003',
-            'fab_number' => '1000000003',
-            'customer_name' => 'Gamma Pharma Ltd',
-            'invoice_date' => '2024-03-10',
-            'dealer_name' => 'Dealer Three',
-            'machine_model' => 'Model X300',
-        ],
-        [
-            'order_id' => 'ORD-10004',
-            'fab_number' => '1000000004',
-            'customer_name' => 'Delta Foods Pvt Ltd',
-            'invoice_date' => '2024-04-05',
-            'dealer_name' => 'Dealer Four',
-            'machine_model' => 'Model X400',
-        ],
-        [
-            'order_id' => 'ORD-10005',
-            'fab_number' => '1000000005',
-            'customer_name' => 'Epsilon Auto Components',
-            'invoice_date' => '2024-05-18',
-            'dealer_name' => 'Dealer Five',
-            'machine_model' => 'Model X500',
-        ],
-    ];
-}
-
-function installed_base_search_orders(string $term, int $limit = 25): array
-{
-    $term = trim($term);
-
-    if ($term === '') {
-        return [];
-    }
-
-    $needle = strtolower($term);
-    $results = [];
-
-    foreach (installed_base_static_orders() as $order) {
-        $haystack = strtolower(implode(' ', [
-            $order['order_id'],
-            $order['fab_number'],
-            $order['customer_name'],
-        ]));
-
-        if (strpos($haystack, $needle) === false) {
-            continue;
-        }
-
-        $results[] = $order;
-
-        if (count($results) >= $limit) {
-            break;
-        }
-    }
-
-    return $results;
-}
+require_once __DIR__ . '/order_helpers.php';
 
 function installed_base_industry_segments(): array
 {
@@ -98,6 +22,7 @@ function installed_base_industry_segments(): array
 function installed_base_from_post(array $post): array
 {
     return [
+        'order_ref_id' => trim((string) ($post['order_ref_id'] ?? '')),
         'order_id' => trim((string) ($post['order_id'] ?? '')),
         'fab_number' => trim((string) ($post['fab_number'] ?? '')),
         'customer_name' => trim((string) ($post['customer_name'] ?? '')),
@@ -116,6 +41,10 @@ function installed_base_from_post(array $post): array
 
 function installed_base_validate(array $data): ?string
 {
+    if ($data['order_ref_id'] === '' || (int) $data['order_ref_id'] <= 0) {
+        return 'Order ID is required.';
+    }
+
     if ($data['order_id'] === '') {
         return 'Order ID is required.';
     }
@@ -187,17 +116,9 @@ function installed_base_validate(array $data): ?string
     return null;
 }
 
-function installed_base_get_order(string $orderId): ?array
+function installed_base_get_order(PDO $conn, int $orderRefId): ?array
 {
-    $orderId = trim($orderId);
-
-    foreach (installed_base_static_orders() as $order) {
-        if ($order['order_id'] === $orderId) {
-            return $order;
-        }
-    }
-
-    return null;
+    return order_get_by_id($conn, $orderRefId);
 }
 
 function installed_base_format_date(?string $value): string

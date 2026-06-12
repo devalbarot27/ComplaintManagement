@@ -39,6 +39,7 @@ $formatted_commissioning_date = $date->format('Y-m-d');
  
 echo json_encode([
     'id' => (int) $row['id'],
+    'order_ref_id' => (int) ($row['order_ref_id'] ?? 0),
     'order_id' => $row['order_id'],
     'fab_number' => $row['fab_number'],
     'customer_name' => $row['customer_name'],
