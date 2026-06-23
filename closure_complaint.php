@@ -2,6 +2,7 @@
 session_start();
 include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
+include 'includes/complaint_assignment_helpers.php';
 include 'includes/complaint_status.php';
  
 $redirect = 'new_complaint.php';
@@ -37,6 +38,12 @@ if ($call_closure === 'No' && $reassign_assign_complaint === '') {
 
 if ($call_closure === 'No' && strlen($reassign_remarks) > 500) {
     $_SESSION['error_message'] = 'Remarks cannot exceed 500 characters.';
+    header('Location: ' . $redirect);
+    exit;
+}
+
+if ($call_closure === 'No' && ($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $reassign_assign_complaint)) !== null) {
+    $_SESSION['error_message'] = $assigneeError;
     header('Location: ' . $redirect);
     exit;
 }

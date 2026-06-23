@@ -5,6 +5,7 @@ include('pdo_obconn.php');
 require_once 'includes/rbac_page_guard.php';
 include 'includes/complaint_activity_helpers.php';
 include('includes/complaint_assignment_mail_helpers.php');
+include('includes/complaint_assignment_helpers.php');
 include('includes/complaint_address_helpers.php');
 include('includes/complaint_status.php');
 include('includes/ln_invoice_helpers.php');
@@ -12,6 +13,8 @@ include('includes/ln_invoice_helpers.php');
 $success_message = '';
 $error_message = '';
 $userName = current_username();
+$complaintAssignees = complaint_fetch_elgi_engineer_assignees($obconn);
+$complaintAssigneeOptionsHtml = complaint_render_assignee_options($complaintAssignees);
 
 if(isset($_POST['submit_complaint']))
 {
@@ -32,6 +35,8 @@ if(isset($_POST['submit_complaint']))
         $error_message = 'Selected Fab Number was not found in invoice details.';
     } elseif (strlen($remarks) > 500) {
         $error_message = 'Remarks cannot exceed 500 characters.';
+    } elseif ($assign_complaint !== '' && ($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $assign_complaint)) !== null) {
+        $error_message = $assigneeError;
     } else {
         try {
             $obconn->beginTransaction();
@@ -427,12 +432,7 @@ if(isset($_POST['submit_complaint']))
                                     </label>
                                     <select class="form-control" name="assign_complaint" id="complaintAssignToSelect"
                                         data-placeholder="Search assignee">
-                                        <option value=""></option>
-                                        <option value="Option 1">Option 1</option>
-                                        <option value="Option 2">Option 2</option>
-                                        <option value="Option 3">Option 3</option>
-                                        <option value="Option 4">Option 4</option>
-                                        <option value="Option 5">Option 5</option>
+                                        <?php echo $complaintAssigneeOptionsHtml; ?>
                                     </select>
                                     <div class="text-danger validation-msg" data-field="assign_complaint"></div>
                                 </div>
@@ -534,12 +534,7 @@ if(isset($_POST['submit_complaint']))
                                     </label>
                                     <select class="form-control" name="assign_complaint" id="assignModalAssignToSelect"
                                         data-placeholder="Search assignee">
-                                        <option value=""></option>
-                                        <option value="Option 1">Option 1</option>
-                                        <option value="Option 2">Option 2</option>
-                                        <option value="Option 3">Option 3</option>
-                                        <option value="Option 4">Option 4</option>
-                                        <option value="Option 5">Option 5</option>
+                                        <?php echo $complaintAssigneeOptionsHtml; ?>
                                     </select>
                                     <div class="text-danger validation-msg" data-field="assign_complaint"></div>
                                 </div>
@@ -643,12 +638,7 @@ if(isset($_POST['submit_complaint']))
                                     </label>
                                     <select class="form-control" name="reassign_complaint" id="closureReassignToSelect"
                                         data-placeholder="Search assignee">
-                                        <option value=""></option>
-                                        <option value="Option 1">Option 1</option>
-                                        <option value="Option 2">Option 2</option>
-                                        <option value="Option 3">Option 3</option>
-                                        <option value="Option 4">Option 4</option>
-                                        <option value="Option 5">Option 5</option>
+                                        <?php echo $complaintAssigneeOptionsHtml; ?>
                                     </select>
                                     <div class="text-danger validation-msg" data-field="reassign_complaint"></div>
                                 </div>
@@ -935,7 +925,7 @@ function initAssignValidation() {
         assign_complaint: {
             presence: {
                 allowEmpty: false,
-                message: '^Please select Assign To option'
+                message: '^Please select an ELGi Engineer'
             }
         },
         remarks: {
