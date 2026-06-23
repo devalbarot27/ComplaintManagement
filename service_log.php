@@ -9,12 +9,12 @@ require_once 'includes/spare_parts_helpers.php';
 $active_menu = 'service_log';
 $success_message = '';
 $error_message = '';
-$warrantyTypes = service_log_warranty_types();
-$partReplacedOptions = service_log_part_replaced_options();
-$feedbackOptions = service_log_customer_feedback_options();
+$warrantyTypes = service_log_warranty_types($obconn);
+$partReplacedOptions = service_log_part_replaced_options($obconn);
+$feedbackOptions = service_log_customer_feedback_options($obconn);
 $canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
-$sparePartsWarrantyTypes = spare_parts_warranty_types();
-$sparePartsReasons = spare_parts_reasons();
+$sparePartsWarrantyTypes = spare_parts_warranty_types($obconn);
+$sparePartsReasons = spare_parts_reasons($obconn);
 $createdBy = 1;
 $userName = current_username();
 
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
         $data['machine_model'] = service_log_machine_model_from_installed_base($installedBase);
     }
 
-    $validationError = service_log_validate($data);
+    $validationError = service_log_validate($obconn, $data);
 
     if ($validationError !== null) {
         $error_message = $validationError;

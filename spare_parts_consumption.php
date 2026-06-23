@@ -7,15 +7,15 @@ include 'includes/spare_parts_helpers.php';
 
 $success_message = '';
 $error_message = '';
-$warrantyTypes = spare_parts_warranty_types();
-$reasons = spare_parts_reasons();
+$warrantyTypes = spare_parts_warranty_types($obconn);
+$reasons = spare_parts_reasons($obconn);
 $createdBy = 1;
 $userName = current_username();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = spare_parts_from_post($_POST);
-    $validationError = spare_parts_validate($data);
+    $validationError = spare_parts_validate($obconn, $data);
     $installedBaseId = (int) $data['installed_base_id'];
     $installedBase = $installedBaseId > 0
         ? spare_parts_get_installed_base($obconn, $installedBaseId)

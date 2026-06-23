@@ -1,13 +1,15 @@
 <?php
 
-function spare_parts_warranty_types(): array
+require_once __DIR__ . '/system_config_master_helpers.php';
+
+function spare_parts_warranty_types(PDO $conn): array
 {
-    return ['Warranty', 'Chargeable'];
+    return scm_get_active_names($conn, 'warranty_chargeable');
 }
 
-function spare_parts_reasons(): array
+function spare_parts_reasons(PDO $conn): array
 {
-    return ['PM', 'Breakdown'];
+    return scm_get_active_names($conn, 'reason');
 }
 
 function spare_parts_from_post(array $post): array
@@ -61,7 +63,7 @@ function spare_parts_get_service_log(PDO $conn, int $serviceLogId): ?array
     return $row ?: null;
 }
 
-function spare_parts_validate(array $data): ?string
+function spare_parts_validate(PDO $conn, array $data): ?string
 {
     if ($data['installed_base_id'] === '' || (int) $data['installed_base_id'] <= 0) {
         return 'Machine (installed base) is required.';
@@ -87,7 +89,7 @@ function spare_parts_validate(array $data): ?string
         return 'Warranty / Chargeable is required.';
     }
 
-    if (!in_array($data['warranty_chargeable'], spare_parts_warranty_types(), true)) {
+    if (!scm_option_exists($conn, 'warranty_chargeable', $data['warranty_chargeable'])) {
         return 'Invalid Warranty / Chargeable selection.';
     }
 
@@ -115,7 +117,7 @@ function spare_parts_validate(array $data): ?string
         return 'Reason is required.';
     }
 
-    if (!in_array($data['reason'], spare_parts_reasons(), true)) {
+    if (!scm_option_exists($conn, 'reason', $data['reason'])) {
         return 'Invalid Reason selected.';
     }
 
@@ -173,7 +175,7 @@ function spare_parts_display_value($value): string
 function spare_parts_create_record(PDO $conn, array $post, string $username, int $createdBy = 1): array
 {
     $data = spare_parts_from_post($post);
-    $validationError = spare_parts_validate($data);
+    $validationError = spare_parts_validate($conn, $data);
     $installedBaseId = (int) $data['installed_base_id'];
     $installedBase = $installedBaseId > 0
         ? spare_parts_get_installed_base($conn, $installedBaseId)

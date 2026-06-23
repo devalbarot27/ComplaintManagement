@@ -58,6 +58,26 @@
         $pageName = "Permission Details";
     } else if ($currentPage == 'assign_permissions.php') {
         $pageName = "Assign Permissions";
+    } else if ($currentPage == 'industry_segments.php') {
+        $pageName = "Industry Segment";
+    } else if ($currentPage == 'industry_segment_details.php') {
+        $pageName = "Industry Segment Details";
+    } else if ($currentPage == 'warranty_chargeable.php') {
+        $pageName = "Warranty / Chargeable";
+    } else if ($currentPage == 'warranty_chargeable_details.php') {
+        $pageName = "Warranty / Chargeable Details";
+    } else if ($currentPage == 'part_replaced.php') {
+        $pageName = "Part Replaced";
+    } else if ($currentPage == 'part_replaced_details.php') {
+        $pageName = "Part Replaced Details";
+    } else if ($currentPage == 'customer_feedback.php') {
+        $pageName = "Customer Feedback";
+    } else if ($currentPage == 'customer_feedback_details.php') {
+        $pageName = "Customer Feedback Details";
+    } else if ($currentPage == 'reasons.php') {
+        $pageName = "Reason";
+    } else if ($currentPage == 'reason_details.php') {
+        $pageName = "Reason Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     }
@@ -303,6 +323,46 @@
               class="menu-item <?= ($currentPage == 'assign_permissions.php') ? 'active' : '' ?>">
               <i class="bi bi-check2-square"></i>
               Assign Permissions
+          </a>
+
+      </div>
+      <?php } ?>
+
+      <?php if (is_system_admin()) { ?>
+      <div class="menu-section">
+
+          <div class="menu-heading">
+              SYSTEM CONFIGURATION
+          </div>
+
+          <a href="industry_segments.php"
+              class="menu-item <?= in_array($currentPage, ['industry_segments.php', 'industry_segment_details.php'], true) ? 'active' : '' ?>">
+              <i class="bi bi-building"></i>
+              Industry Segment
+          </a>
+
+          <a href="warranty_chargeable.php"
+              class="menu-item <?= in_array($currentPage, ['warranty_chargeable.php', 'warranty_chargeable_details.php'], true) ? 'active' : '' ?>">
+              <i class="bi bi-shield-check"></i>
+              Warranty / Chargeable
+          </a>
+
+          <a href="part_replaced.php"
+              class="menu-item <?= in_array($currentPage, ['part_replaced.php', 'part_replaced_details.php'], true) ? 'active' : '' ?>">
+              <i class="bi bi-tools"></i>
+              Part Replaced
+          </a>
+
+          <a href="customer_feedback.php"
+              class="menu-item <?= in_array($currentPage, ['customer_feedback.php', 'customer_feedback_details.php'], true) ? 'active' : '' ?>">
+              <i class="bi bi-chat-left-text"></i>
+              Customer Feedback
+          </a>
+
+          <a href="reasons.php"
+              class="menu-item <?= in_array($currentPage, ['reasons.php', 'reason_details.php'], true) ? 'active' : '' ?>">
+              <i class="bi bi-list-check"></i>
+              Reason
           </a>
 
       </div>

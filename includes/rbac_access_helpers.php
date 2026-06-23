@@ -20,6 +20,21 @@ function rbac_admin_pages(): array
         'permission_details.php',
         'delete_permission.php',
         'assign_permissions.php',
+        'industry_segments.php',
+        'industry_segment_details.php',
+        'delete_industry_segment.php',
+        'warranty_chargeable.php',
+        'warranty_chargeable_details.php',
+        'delete_warranty_chargeable.php',
+        'part_replaced.php',
+        'part_replaced_details.php',
+        'delete_part_replaced.php',
+        'customer_feedback.php',
+        'customer_feedback_details.php',
+        'delete_customer_feedback.php',
+        'reasons.php',
+        'reason_details.php',
+        'delete_reason.php',
     ];
 }
 

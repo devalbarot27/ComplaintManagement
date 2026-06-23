@@ -3,22 +3,11 @@
 require_once __DIR__ . '/order_helpers.php';
 require_once __DIR__ . '/complaint_address_helpers.php';
 require_once __DIR__ . '/ln_invoice_helpers.php';
+require_once __DIR__ . '/system_config_master_helpers.php';
 
-function installed_base_industry_segments(): array
+function installed_base_industry_segments(PDO $conn): array
 {
-    return [
-        'Manufacturing',
-        'Textiles',
-        'Automotive',
-        'Pharmaceuticals',
-        'FMCG',
-        'Engineering',
-        'Construction',
-        'Agriculture',
-        'Food Processing',
-        'Healthcare',
-        'Others',
-    ];
+    return scm_get_active_names($conn, 'industry_segment');
 }
 
 function installed_base_address_search_columns(): array
@@ -60,7 +49,7 @@ function installed_base_from_post(array $post): array
     ], complaint_address_from_post($post));
 }
 
-function installed_base_validate(array $data): ?string
+function installed_base_validate(PDO $conn, array $data): ?string
 {
     if ($data['order_ref_id'] === '' || (int) $data['order_ref_id'] <= 0) {
         return 'Order ID is required.';
@@ -127,7 +116,7 @@ function installed_base_validate(array $data): ?string
         return 'Industry Segment is required.';
     }
 
-    if (!in_array($data['industry_segment'], installed_base_industry_segments(), true)) {
+    if (!scm_option_exists($conn, 'industry_segment', $data['industry_segment'])) {
         return 'Invalid Industry Segment selected.';
     }
 

@@ -2,6 +2,23 @@ function getPermissionCheckboxes() {
     return Array.prototype.slice.call(document.querySelectorAll('.permission-checkbox'));
 }
 
+function updateAssignedSummary() {
+    const assignedEl = document.getElementById('rbacAssignedCount');
+    const totalEl = document.getElementById('rbacTotalCount');
+
+    if (!assignedEl || !totalEl) {
+        return;
+    }
+
+    const boxes = getPermissionCheckboxes();
+    const checkedCount = boxes.filter(function (box) {
+        return box.checked;
+    }).length;
+
+    assignedEl.textContent = String(checkedCount);
+    totalEl.textContent = String(boxes.length);
+}
+
 function updateMasterCheckboxState() {
     const master = document.getElementById('checkAllPermissions');
     if (!master) {
@@ -40,12 +57,17 @@ function updateModuleCheckboxStates() {
     });
 }
 
+function refreshPermissionUi() {
+    updateMasterCheckboxState();
+    updateModuleCheckboxStates();
+    updateAssignedSummary();
+}
+
 function setAllPermissionCheckboxes(checked) {
     getPermissionCheckboxes().forEach(function (box) {
         box.checked = checked;
     });
-    updateMasterCheckboxState();
-    updateModuleCheckboxStates();
+    refreshPermissionUi();
 }
 
 function initAssignPermissionCheckAll() {
@@ -75,20 +97,15 @@ function initAssignPermissionCheckAll() {
                 box.checked = moduleCheck.checked;
             });
 
-            updateMasterCheckboxState();
-            updateModuleCheckboxStates();
+            refreshPermissionUi();
         });
     });
 
     getPermissionCheckboxes().forEach(function (box) {
-        box.addEventListener('change', function () {
-            updateMasterCheckboxState();
-            updateModuleCheckboxStates();
-        });
+        box.addEventListener('change', refreshPermissionUi);
     });
 
-    updateMasterCheckboxState();
-    updateModuleCheckboxStates();
+    refreshPermissionUi();
 }
 
 function bootAssignPermissionsPage() {

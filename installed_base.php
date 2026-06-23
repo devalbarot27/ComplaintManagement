@@ -9,18 +9,18 @@ require_once 'includes/service_log_helpers.php';
 $active_menu = 'installed_base';
 $success_message = '';
 $error_message = '';
-$industrySegments = installed_base_industry_segments();
+$industrySegments = installed_base_industry_segments($obconn);
 $canAddServiceLog = rbac_user_can($obconn, 'service-log-capture', 'add');
-$serviceLogWarrantyTypes = service_log_warranty_types();
-$partReplacedOptions = service_log_part_replaced_options();
-$feedbackOptions = service_log_customer_feedback_options();
+$serviceLogWarrantyTypes = service_log_warranty_types($obconn);
+$partReplacedOptions = service_log_part_replaced_options($obconn);
+$feedbackOptions = service_log_customer_feedback_options($obconn);
 $createdBy = 1;
 $userName = current_username();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = installed_base_from_post($_POST);
-    $validationError = installed_base_validate($data);
+    $validationError = installed_base_validate($obconn, $data);
 
     if ($validationError !== null) {
         $error_message = $validationError;

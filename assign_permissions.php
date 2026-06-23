@@ -34,6 +34,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_role_permissio
 }
 
 $permissionMatrix = $selectedRoleId > 0 ? role_permission_matrix($obconn, $selectedRoleId) : [];
+$selectedRole = $selectedRoleId > 0 ? role_get_by_id($obconn, $selectedRoleId) : null;
+$totalPermissionCount = 0;
+$assignedPermissionCount = 0;
+
+foreach ($permissionMatrix as $module) {
+    foreach ($module['permissions'] as $permission) {
+        $totalPermissionCount++;
+        if (!empty($permission['assigned'])) {
+            $assignedPermissionCount++;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -46,7 +58,6 @@ $permissionMatrix = $selectedRoleId > 0 ? role_permission_matrix($obconn, $selec
     <link href="css/new_complaint.css" rel="stylesheet" />
     <link href="css/complaint_buttons.css" rel="stylesheet" />
     <link href="css/orderbook_style.css" rel="stylesheet" />
-    <link href="css/complaint_form.css" rel="stylesheet" />
     <link href="css/rbac_assign.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -97,24 +108,29 @@ $permissionMatrix = $selectedRoleId > 0 ? role_permission_matrix($obconn, $selec
                         </div>
                         <div class="col-md-6">
                             <button type="submit" class="btn btn-dark">
-                                <i class="bi bi-search"></i> Load Permissions
+                                Load Permissions
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
 
-            <?php if ($selectedRoleId > 0) { ?>
+            <?php if ($selectedRoleId > 0 && $selectedRole !== null) { ?>
             <form method="POST" id="assignPermissionForm">
                 <input type="hidden" name="role_id" value="<?php echo $selectedRoleId; ?>">
                 <input type="hidden" name="submit_role_permissions" value="1">
 
                 <div class="booking-card">
                     <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <div class="booking-title">Permission Assignment</div>
-                        <button type="submit" class="submit-btn btn-complaint-primary">
-                            <i class="bi bi-check-lg"></i> Save Permission Assignment
-                        </button>
+                        <div class="booking-title">
+                            Permissions for <?php echo htmlspecialchars($selectedRole['role_name']); ?>
+                        </div>
+                        <div class="rbac-assigned-count text-muted">
+                            Assigned:
+                            <span id="rbacAssignedCount"><?php echo $assignedPermissionCount; ?></span>
+                            /
+                            <span id="rbacTotalCount"><?php echo $totalPermissionCount; ?></span>
+                        </div>
                     </div>
 
                     <div class="p-3" id="permissionMatrixContainer">
@@ -124,20 +140,20 @@ $permissionMatrix = $selectedRoleId > 0 ? role_permission_matrix($obconn, $selec
                         </div>
                         <?php } else { ?>
                         <div class="rbac-select-all-bar">
-                            <label class="rbac-permission-item rbac-select-all-label">
+                            <label class="rbac-permission-item">
                                 <input type="checkbox" id="checkAllPermissions">
-                                <span><strong>Select All Permissions</strong></span>
+                                <span><strong>Select All</strong></span>
                             </label>
                             <button type="button" class="btn btn-sm btn-outline-dark" id="clearAllPermissions">
                                 Clear All
                             </button>
                         </div>
+
                         <?php foreach ($permissionMatrix as $module) { ?>
                         <div class="rbac-module-block">
                             <div class="rbac-module-title">
                                 <label class="rbac-module-check-all">
                                     <input type="checkbox" class="module-check-all">
-                                    <i class="bi bi-folder2-open"></i>
                                     <span><?php echo htmlspecialchars($module['module_name']); ?></span>
                                 </label>
                             </div>
@@ -163,14 +179,20 @@ $permissionMatrix = $selectedRoleId > 0 ? role_permission_matrix($obconn, $selec
                     </div>
 
                     <?php if (!empty($permissionMatrix)) { ?>
-                    <div class="complaint-form-actions border-top">
+                    <div class="p-3 border-top text-end">
                         <button type="submit" class="submit-btn btn-complaint-primary">
-                            <i class="bi bi-check-lg"></i> Save Permission Assignment
+                            Save Permission Assignment
                         </button>
                     </div>
                     <?php } ?>
                 </div>
             </form>
+            <?php } elseif ($selectedRoleId <= 0) { ?>
+            <div class="booking-card">
+                <div class="p-4 text-center text-muted">
+                    Select a role above to load permissions.
+                </div>
+            </div>
             <?php } ?>
         </div>
     </div>

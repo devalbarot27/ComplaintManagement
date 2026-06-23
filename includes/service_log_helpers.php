@@ -1,9 +1,10 @@
 <?php
 require_once __DIR__ . '/installed_base_helpers.php';
+require_once __DIR__ . '/system_config_master_helpers.php';
 
-function service_log_warranty_types(): array
+function service_log_warranty_types(PDO $conn): array
 {
-    return ['Warranty', 'Chargeable'];
+    return scm_get_active_names($conn, 'warranty_chargeable');
 }
 
 function service_log_engineers(): array
@@ -17,19 +18,14 @@ function service_log_engineers(): array
     ];
 }
 
-function service_log_part_replaced_options(): array
+function service_log_part_replaced_options(PDO $conn): array
 {
-    return ['Yes', 'No'];
+    return scm_get_active_names($conn, 'part_replaced');
 }
 
-function service_log_customer_feedback_options(): array
+function service_log_customer_feedback_options(PDO $conn): array
 {
-    return [
-        'Excellent',
-        'Good',
-        'Average',
-        'Poor',
-    ];
+    return scm_get_active_names($conn, 'customer_feedback');
 }
 
 function service_log_remaining_consumable_fields(): array
@@ -115,7 +111,7 @@ function service_log_machine_model_from_installed_base(array $installedBase): st
     return $label === '-' ? '' : $label;
 }
 
-function service_log_validate(array $data): ?string
+function service_log_validate(PDO $conn, array $data): ?string
 {
     if ($data['installed_base_id'] === '' || (int) $data['installed_base_id'] <= 0) {
         return 'Installed base record is required.';
@@ -141,7 +137,7 @@ function service_log_validate(array $data): ?string
         return 'Warranty / Chargeable is required.';
     }
 
-    if (!in_array($data['warranty_chargeable'], service_log_warranty_types(), true)) {
+    if (!scm_option_exists($conn, 'warranty_chargeable', $data['warranty_chargeable'])) {
         return 'Invalid Warranty / Chargeable selection.';
     }
 
@@ -177,7 +173,7 @@ function service_log_validate(array $data): ?string
         return 'Part Replaced is required.';
     }
 
-    if (!in_array($data['part_replaced'], service_log_part_replaced_options(), true)) {
+    if (!scm_option_exists($conn, 'part_replaced', $data['part_replaced'])) {
         return 'Invalid Part Replaced selection.';
     }
 
@@ -198,7 +194,7 @@ function service_log_validate(array $data): ?string
     }
 
     if ($data['customer_feedback'] !== ''
-        && !in_array($data['customer_feedback'], service_log_customer_feedback_options(), true)) {
+        && !scm_option_exists($conn, 'customer_feedback', $data['customer_feedback'])) {
         return 'Invalid Customer Feedback selection.';
     }
 
@@ -312,7 +308,7 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
         $data['machine_model'] = service_log_machine_model_from_installed_base($installedBase);
     }
 
-    $validationError = service_log_validate($data);
+    $validationError = service_log_validate($conn, $data);
 
     if ($validationError !== null) {
         return ['success' => false, 'message' => $validationError];
