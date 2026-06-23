@@ -170,6 +170,101 @@ function spare_parts_display_value($value): string
     return trim((string) $value);
 }
 
+function spare_parts_create_record(PDO $conn, array $post, string $username, int $createdBy = 1): array
+{
+    $data = spare_parts_from_post($post);
+    $validationError = spare_parts_validate($data);
+    $installedBaseId = (int) $data['installed_base_id'];
+    $installedBase = $installedBaseId > 0
+        ? spare_parts_get_installed_base($conn, $installedBaseId)
+        : null;
+    $serviceLogId = $data['service_log_id'] !== '' ? (int) $data['service_log_id'] : 0;
+    $serviceLog = $serviceLogId > 0
+        ? spare_parts_get_service_log_for_user($conn, $serviceLogId, $username)
+        : null;
+
+    if ($validationError !== null) {
+        return ['success' => false, 'message' => $validationError];
+    }
+
+    if (!$installedBase) {
+        return ['success' => false, 'message' => 'Selected machine was not found in installed base records.'];
+    }
+
+    if ($serviceLogId > 0 && (!$serviceLog || (int) $serviceLog['installed_base_id'] !== $installedBaseId)) {
+        return ['success' => false, 'message' => 'Selected service record does not belong to the selected machine.'];
+    }
+
+    if ($installedBase['order_id'] !== $data['order_id']) {
+        return ['success' => false, 'message' => 'Order ID does not match the selected machine.'];
+    }
+
+    if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {
+        return ['success' => false, 'message' => 'Fab Number does not match the selected machine.'];
+    }
+
+    try {
+        $insert = $conn->prepare('
+            INSERT INTO spare_parts_consumption (
+                installed_base_id, service_log_id, serial_number, fab_number, consumption_date,
+                warranty_chargeable, spare_kit_number, quantity, order_value,
+                reason, running_hours, remarks, created_by, username
+            ) VALUES (
+                :installed_base_id, :service_log_id, :serial_number, :fab_number, :consumption_date,
+                :warranty_chargeable, :spare_kit_number, :quantity, :order_value,
+                :reason, :running_hours, :remarks, :created_by, :username
+            )
+        ');
+
+        $insert->bindValue(':installed_base_id', $installedBaseId, PDO::PARAM_INT);
+        if ($serviceLogId > 0) {
+            $insert->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+        } else {
+            $insert->bindValue(':service_log_id', null, PDO::PARAM_NULL);
+        }
+        $insert->bindValue(':serial_number', $data['serial_number']);
+        $insert->bindValue(':fab_number', $data['fab_number']);
+        $insert->bindValue(':consumption_date', $data['consumption_date']);
+        $insert->bindValue(':warranty_chargeable', $data['warranty_chargeable']);
+        $insert->bindValue(':spare_kit_number', $data['spare_kit_number']);
+        $insert->bindValue(':quantity', $data['quantity']);
+        $insert->bindValue(':order_value', $data['order_value']);
+        $insert->bindValue(':reason', $data['reason']);
+        $insert->bindValue(':running_hours', $data['running_hours']);
+        $insert->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
+        $insert->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
+        $insert->bindValue(':username', $username);
+        $insert->execute();
+
+        return ['success' => true, 'message' => 'Spare parts record saved successfully.'];
+    } catch (PDOException $e) {
+        return ['success' => false, 'message' => 'Failed to save spare parts record.'];
+    }
+}
+
+function spare_parts_get_service_log_for_user(PDO $conn, int $serviceLogId, string $username): ?array
+{
+    $username = trim($username);
+    if ($username === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id, installed_base_id, order_id, serial_number
+        FROM service_logs
+        WHERE id = :id
+          AND deleted_at IS NULL
+          AND TRIM(username) = :username
+    ');
+    $stmt->bindValue(':id', $serviceLogId, PDO::PARAM_INT);
+    $stmt->bindValue(':username', $username);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
 function spare_parts_entry_actions(int $id): string
 {
     $encodedId = base64_encode((string) $id);

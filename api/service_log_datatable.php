@@ -89,6 +89,7 @@ $dataStmt->bindValue(':offset', $req['start'], PDO::PARAM_INT);
 $dataStmt->execute();
 
 $data = [];
+$canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
 
 foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $data[] = [
@@ -101,7 +102,7 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'visit_date' => service_log_format_date($row['visit_date']),
         'closure_date' => service_log_format_date($row['closure_date']),
         'created_at' => date('d M Y H:i', strtotime($row['created_at'])),
-        'actions' => service_log_entry_actions((int) $row['id']),
+        'actions' => service_log_entry_actions((int) $row['id'], $canAddSpareParts),
     ];
 }
 

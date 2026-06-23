@@ -4,11 +4,16 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/installed_base_helpers.php';
+require_once 'includes/service_log_helpers.php';
 
 $active_menu = 'installed_base';
 $success_message = '';
 $error_message = '';
 $industrySegments = installed_base_industry_segments();
+$canAddServiceLog = rbac_user_can($obconn, 'service-log-capture', 'add');
+$serviceLogWarrantyTypes = service_log_warranty_types();
+$partReplacedOptions = service_log_part_replaced_options();
+$feedbackOptions = service_log_customer_feedback_options();
 $createdBy = 1;
 $userName = current_username();
 
@@ -601,6 +606,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
         </div>
     </div>
 
+    <?php if ($canAddServiceLog) { ?>
+    <?php include 'includes/installed_base_service_log_modal.php'; ?>
+    <?php } ?>
+
     <script src="js/static_select2.js"></script>
     <script src="js/pincode_select2.js"></script>
     <script src="js/fabno_select2.js"></script>
@@ -609,10 +618,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <script src="js/installed_base_machine_model_select2.js"></script>
     <script src="js/installed_base_validation.js"></script>
     <script src="js/installed_base.js"></script>
+    <?php if ($canAddServiceLog) { ?>
+    <script src="js/installed_base_service_log_modal.js"></script>
+    <?php } ?>
     <script>
     $(document).ready(function () {
         initInstalledBasePage();
         initPincodeSelect2('installedBaseForm', 'installedBasePincodeSelect');
+        <?php if ($canAddServiceLog) { ?>
+        initInstalledBaseServiceLogModal();
+        <?php } ?>
 
         document.getElementById('cancelInstalledBaseForm').addEventListener('click', closeInstalledBaseFormPanel);
 

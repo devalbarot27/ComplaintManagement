@@ -190,11 +190,11 @@ function installed_base_machine_model_label(array $row): string
     return '-';
 }
 
-function installed_base_entry_actions(int $id): string
+function installed_base_entry_actions(int $id, bool $canAddServiceLog = false): string
 {
     $encodedId = base64_encode((string) $id);
 
-    return '
+    $html = '
         <div class="d-flex gap-1">
             <a href="installed_base_details.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark" title="View">
@@ -203,7 +203,17 @@ function installed_base_entry_actions(int $id): string
             <button type="button" class="btn btn-sm btn-outline-dark edit-installed-base-btn"
                 data-id="' . $id . '" title="Edit">
                 <i class="bi bi-pencil"></i>
-            </button>
+            </button>';
+
+    if ($canAddServiceLog) {
+        $html .= '
+            <button type="button" class="btn btn-sm btn-outline-dark add-service-log-btn"
+                data-id="' . $id . '" title="Add Service Log Capture">
+                <i class="bi bi-clipboard-pulse"></i>
+            </button>';
+    }
+
+    $html .= '
             <a href="delete_installed_base.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
                 onclick="return confirm(\'Delete this installed base record?\');" title="Delete">
@@ -211,4 +221,6 @@ function installed_base_entry_actions(int $id): string
             </a>
         </div>
     ';
+
+    return $html;
 }

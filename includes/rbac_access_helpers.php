@@ -60,8 +60,12 @@ function rbac_api_access_rules(): array
         'service_log_datatable.php' => ['module' => 'service-log-capture', 'permission' => 'view'],
         'service_log_get.php' => ['module' => 'service-log-capture', 'permission' => 'view'],
         'service_log_link_search.php' => ['module' => 'service-log-capture', 'permission' => 'view'],
+        'service_log_create.php' => ['module' => 'service-log-capture', 'permission' => 'add'],
+        'installed_base_service_log_prefill.php' => ['module' => 'service-log-capture', 'permission' => 'add'],
         'spare_parts_datatable.php' => ['module' => 'spare-parts-consumption', 'permission' => 'view'],
         'spare_parts_get.php' => ['module' => 'spare-parts-consumption', 'permission' => 'view'],
+        'spare_parts_create.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
+        'service_log_spare_parts_prefill.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
         'complaints_datatable.php' => ['module' => 'complaint-entry', 'permission' => 'view'],
         'assigned_complaints_datatable.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
     ];

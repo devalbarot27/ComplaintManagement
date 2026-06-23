@@ -300,11 +300,92 @@ function service_log_remaining_consumable_insert_placeholders(): string
     ));
 }
 
-function service_log_entry_actions(int $id): string
+function service_log_create_record(PDO $conn, array $post, string $username, int $createdBy = 1): array
+{
+    $data = service_log_from_post($post);
+    $installedBaseId = (int) $data['installed_base_id'];
+    $installedBase = $installedBaseId > 0
+        ? service_log_get_installed_base($conn, $installedBaseId, $username)
+        : null;
+
+    if ($installedBase) {
+        $data['machine_model'] = service_log_machine_model_from_installed_base($installedBase);
+    }
+
+    $validationError = service_log_validate($data);
+
+    if ($validationError !== null) {
+        return ['success' => false, 'message' => $validationError];
+    }
+
+    if (!$installedBase) {
+        return ['success' => false, 'message' => 'Selected installed base record was not found or is not assigned to your account.'];
+    }
+
+    if ($installedBase['order_id'] !== $data['order_id']) {
+        return ['success' => false, 'message' => 'Order ID does not match the selected installed base record.'];
+    }
+
+    if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {
+        return ['success' => false, 'message' => 'Fab Number does not match the selected installed base record.'];
+    }
+
+    try {
+        $insert = $conn->prepare('
+            INSERT INTO service_logs (
+                installed_base_id, order_ref_id, order_id, fab_number, serial_number, machine_model,
+                warranty_chargeable, complaint_date, issue_description, engineer_name,
+                visit_date, action_taken, closure_date, part_replaced,
+                running_hours, loaded_hours, customer_feedback, remarks,
+                ' . service_log_remaining_consumable_insert_columns() . ', created_by, username
+            ) VALUES (
+                :installed_base_id, :order_ref_id, :order_id, :fab_number, :serial_number, :machine_model,
+                :warranty_chargeable, :complaint_date, :issue_description, :engineer_name,
+                :visit_date, :action_taken, :closure_date, :part_replaced,
+                :running_hours, :loaded_hours, :customer_feedback, :remarks,
+                ' . service_log_remaining_consumable_insert_placeholders() . ', :created_by, :username
+            )
+        ');
+
+        $orderRefId = (int) ($installedBase['order_ref_id'] ?? 0);
+        $insert->bindValue(':installed_base_id', $installedBaseId, PDO::PARAM_INT);
+        if ($orderRefId > 0) {
+            $insert->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
+        } else {
+            $insert->bindValue(':order_ref_id', null, PDO::PARAM_NULL);
+        }
+        $insert->bindValue(':order_id', $installedBase['order_id']);
+        $insert->bindValue(':fab_number', $data['fab_number']);
+        $insert->bindValue(':serial_number', $data['serial_number']);
+        $insert->bindValue(':machine_model', $data['machine_model']);
+        $insert->bindValue(':warranty_chargeable', $data['warranty_chargeable']);
+        $insert->bindValue(':complaint_date', $data['complaint_date']);
+        $insert->bindValue(':issue_description', $data['issue_description']);
+        $insert->bindValue(':engineer_name', $data['engineer_name']);
+        $insert->bindValue(':visit_date', $data['visit_date']);
+        $insert->bindValue(':action_taken', $data['action_taken']);
+        $insert->bindValue(':closure_date', $data['closure_date']);
+        $insert->bindValue(':part_replaced', $data['part_replaced']);
+        $insert->bindValue(':running_hours', $data['running_hours']);
+        $insert->bindValue(':loaded_hours', $data['loaded_hours']);
+        $insert->bindValue(':customer_feedback', $data['customer_feedback'] !== '' ? $data['customer_feedback'] : null);
+        $insert->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
+        service_log_bind_remaining_consumables($insert, $data);
+        $insert->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
+        $insert->bindValue(':username', $username);
+        $insert->execute();
+
+        return ['success' => true, 'message' => 'Service log saved successfully.'];
+    } catch (PDOException $e) {
+        return ['success' => false, 'message' => 'Failed to save service log.'];
+    }
+}
+
+function service_log_entry_actions(int $id, bool $canAddSpareParts = false): string
 {
     $encodedId = base64_encode((string) $id);
 
-    return '
+    $html = '
         <div class="d-flex gap-1">
             <a href="service_log_details.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark" title="View">
@@ -313,7 +394,17 @@ function service_log_entry_actions(int $id): string
             <button type="button" class="btn btn-sm btn-outline-dark edit-service-log-btn"
                 data-id="' . $id . '" title="Edit">
                 <i class="bi bi-pencil"></i>
-            </button>
+            </button>';
+
+    if ($canAddSpareParts) {
+        $html .= '
+            <button type="button" class="btn btn-sm btn-outline-dark add-spare-parts-btn"
+                data-id="' . $id . '" title="Spare Parts Consumption">
+                <i class="bi bi-gear"></i>
+            </button>';
+    }
+
+    $html .= '
             <a href="delete_service_log.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
                 onclick="return confirm(\'Delete this service log?\');" title="Delete">
@@ -321,4 +412,6 @@ function service_log_entry_actions(int $id): string
             </a>
         </div>
     ';
+
+    return $html;
 }

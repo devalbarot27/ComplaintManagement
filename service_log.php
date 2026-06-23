@@ -4,6 +4,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/service_log_helpers.php';
+require_once 'includes/spare_parts_helpers.php';
 
 $active_menu = 'service_log';
 $success_message = '';
@@ -11,6 +12,9 @@ $error_message = '';
 $warrantyTypes = service_log_warranty_types();
 $partReplacedOptions = service_log_part_replaced_options();
 $feedbackOptions = service_log_customer_feedback_options();
+$canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
+$sparePartsWarrantyTypes = spare_parts_warranty_types();
+$sparePartsReasons = spare_parts_reasons();
 $createdBy = 1;
 $userName = current_username();
 
@@ -438,13 +442,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
         </div>
     </div>
 
+    <?php if ($canAddSpareParts) { ?>
+    <?php include 'includes/service_log_spare_parts_modal.php'; ?>
+    <?php } ?>
+
     <script src="js/static_select2.js"></script>
     <script src="js/service_log_installed_base_select2.js"></script>
     <script src="js/service_log_validation.js"></script>
     <script src="js/service_log.js"></script>
+    <?php if ($canAddSpareParts) { ?>
+    <script src="js/service_log_spare_parts_modal.js"></script>
+    <?php } ?>
     <script>
     $(document).ready(function () {
         initServiceLogPage();
+        <?php if ($canAddSpareParts) { ?>
+        initServiceLogSparePartsModal();
+        <?php } ?>
         document.getElementById('cancelServiceLogForm').addEventListener('click', closeServiceLogFormPanel);
         setTimeout(function () { $('.alert-success').fadeOut(); }, 3000);
     });
