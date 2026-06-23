@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 rbac_require_api_access($obconn);
 
+
 header('Content-Type: application/json; charset=utf-8');
 
 $term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? ''));

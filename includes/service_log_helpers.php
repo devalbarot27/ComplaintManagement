@@ -1,5 +1,4 @@
 <?php
-
 require_once __DIR__ . '/installed_base_helpers.php';
 
 function service_log_warranty_types(): array

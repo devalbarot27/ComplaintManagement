@@ -3,6 +3,7 @@ function setServiceLogInstalledBaseFields(form, data) {
         return;
     }
 
+    
     const mapping = {
         order_id: data.order_id || '',
         fab_number: data.fab_number || '',

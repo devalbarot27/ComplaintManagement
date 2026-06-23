@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+
 $id = (int) ($_GET['id'] ?? 0);
 $username = current_username();
 

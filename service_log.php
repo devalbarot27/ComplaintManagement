@@ -14,6 +14,7 @@ $feedbackOptions = service_log_customer_feedback_options();
 $createdBy = 1;
 $userName = current_username();
 
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = service_log_from_post($_POST);
