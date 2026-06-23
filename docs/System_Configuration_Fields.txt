@@ -1,0 +1,297 @@
+SYSTEM CONFIGURATION - DATABASE FIELD LIST
+==========================================
+
+Database Name: complaint_management
+Access: System Admin only (user_master.role = 6)
+Migration: sql/migrate_system_configuration_masters.sql
+Migration Runner: sql/run_system_configuration_migration.php
+
+Shared API: api/system_config_datatable.php, api/system_config_get.php
+Shared JS: js/system_config_master.js
+Shared Helpers: includes/system_config_master_helpers.php
+
+
+All five masters share the same table structure and CRUD pattern:
+  - Add / Edit form with Name + Status
+  - DataTable list with search and pagination
+  - Soft delete (deleted_at)
+  - Only active records appear in application dropdowns
+
+
+COMMON status VALUES (all masters)
+----------------------------------
+active
+inactive
+
+
+COMMON TABLE COLUMNS (all masters)
+----------------------------------
+id                  SERIAL PRIMARY KEY
+name                VARCHAR(100) NOT NULL      (Unique display/value name)
+status              VARCHAR(20) NOT NULL       (active / inactive)
+created_by          VARCHAR(100)               (Username who created the record)
+created_at          TIMESTAMP NOT NULL         (Record creation timestamp)
+updated_at          TIMESTAMP NULL             (Last update timestamp)
+deleted_at          TIMESTAMP NULL             (Soft delete timestamp)
+
+
+COMMON FORM FIELDS (Add / Edit - all masters)
+---------------------------------------------
+record_id           Hidden                     (0 = Add, >0 = Edit)
+submit_*            Hidden                     (Form submit flag - see each module)
+name                Text *                     -> {table}.name
+status              Dropdown *                 -> {table}.status
+
+
+COMMON LIST COLUMNS (DataTable - all masters)
+---------------------------------------------
+ID, Name, Status, Created At, Action
+
+
+======================================================================
+1. INDUSTRY SEGMENT
+======================================================================
+Page: industry_segments.php
+Details Page: industry_segment_details.php
+Delete: delete_industry_segment.php
+Submit Key: submit_industry_segment
+
+
+TABLE: industry_segments
+------------------------
+id
+name
+status
+created_by
+created_at
+updated_at
+deleted_at
+
+
+USED IN APPLICATION
+-------------------
+Module: Installed Base Capture
+Form Field: industry_segment
+Saved To: installed_base.industry_segment
+Dropdown Source: industry_segments (status = active, deleted_at IS NULL)
+Helper: installed_base_industry_segments($conn)
+
+
+DEFAULT SEED VALUES
+-------------------
+Manufacturing
+Textiles
+Automotive
+Pharmaceuticals
+FMCG
+Engineering
+Construction
+Agriculture
+Food Processing
+Healthcare
+Others
+
+
+======================================================================
+2. WARRANTY / CHARGEABLE
+======================================================================
+Page: warranty_chargeable.php
+Details Page: warranty_chargeable_details.php
+Delete: delete_warranty_chargeable.php
+Submit Key: submit_warranty_chargeable
+
+
+TABLE: warranty_chargeable_types
+--------------------------------
+id
+name
+status
+created_by
+created_at
+updated_at
+deleted_at
+
+
+USED IN APPLICATION
+-------------------
+Module: Service Log Capture
+Form Field: warranty_chargeable
+Saved To: service_logs.warranty_chargeable
+Helper: service_log_warranty_types($conn)
+
+Module: Spare Parts Consumption
+Form Field: warranty_chargeable
+Saved To: spare_parts_consumption.warranty_chargeable
+Helper: spare_parts_warranty_types($conn)
+
+Module: Installed Base Capture (Service Log modal)
+Form Field: warranty_chargeable
+Saved To: service_logs.warranty_chargeable (via modal)
+
+
+DEFAULT SEED VALUES
+-------------------
+Warranty
+Chargeable
+
+
+======================================================================
+3. PART REPLACED
+======================================================================
+Page: part_replaced.php
+Details Page: part_replaced_details.php
+Delete: delete_part_replaced.php
+Submit Key: submit_part_replaced
+
+
+TABLE: part_replaced_masters
+----------------------------
+id
+name
+status
+created_by
+created_at
+updated_at
+deleted_at
+
+
+USED IN APPLICATION
+-------------------
+Module: Service Log Capture
+Form Field: part_replaced
+Saved To: service_logs.part_replaced
+Helper: service_log_part_replaced_options($conn)
+
+Module: Installed Base Capture (Service Log modal)
+Form Field: part_replaced
+Saved To: service_logs.part_replaced (via modal)
+
+
+DEFAULT SEED VALUES
+-------------------
+Yes
+No
+
+
+======================================================================
+4. CUSTOMER FEEDBACK
+======================================================================
+Page: customer_feedback.php
+Details Page: customer_feedback_details.php
+Delete: delete_customer_feedback.php
+Submit Key: submit_customer_feedback
+
+
+TABLE: customer_feedback_options
+--------------------------------
+id
+name
+status
+created_by
+created_at
+updated_at
+deleted_at
+
+
+USED IN APPLICATION
+-------------------
+Module: Service Log Capture
+Form Field: customer_feedback
+Saved To: service_logs.customer_feedback  (optional field)
+Helper: service_log_customer_feedback_options($conn)
+
+Module: Installed Base Capture (Service Log modal)
+Form Field: customer_feedback
+Saved To: service_logs.customer_feedback (via modal)
+
+
+DEFAULT SEED VALUES
+-------------------
+Excellent
+Good
+Average
+Poor
+
+
+======================================================================
+5. REASON
+======================================================================
+Page: reasons.php
+Details Page: reason_details.php
+Delete: delete_reason.php
+Submit Key: submit_reason
+
+
+TABLE: reason_masters
+---------------------
+id
+name
+status
+created_by
+created_at
+updated_at
+deleted_at
+
+
+USED IN APPLICATION
+-------------------
+Module: Spare Parts Consumption
+Form Field: reason
+Saved To: spare_parts_consumption.reason
+Helper: spare_parts_reasons($conn)
+
+Module: Service Log Capture (Spare Parts modal)
+Form Field: reason
+Saved To: spare_parts_consumption.reason (via modal)
+
+
+DEFAULT SEED VALUES
+-------------------
+PM
+Breakdown
+
+
+======================================================================
+API PARAMETERS
+======================================================================
+
+system_config_datatable.php (POST)
+----------------------------------
+type                Required                   (industry_segment | warranty_chargeable |
+                                               part_replaced | customer_feedback | reason)
+draw, start, length  DataTables pagination
+search[value]       Search text (matches name, status)
+order               Sort columns: id, name, status, created_at
+
+
+system_config_get.php (GET)
+---------------------------
+type                Required                   (master type key - see above)
+id                  Required                   (Record ID for edit form prefill)
+
+
+======================================================================
+VALIDATION RULES (all masters)
+======================================================================
+- name is required
+- name max length: 100 characters
+- name must be unique among active (non-deleted) records (case-insensitive)
+- status is required (active or inactive)
+- Inactive options are hidden from dropdowns but existing transaction values remain valid
+
+
+======================================================================
+RELATIONSHIP SUMMARY
+======================================================================
+
+industry_segments.name          ----->  installed_base.industry_segment
+warranty_chargeable_types.name  ----->  service_logs.warranty_chargeable
+warranty_chargeable_types.name  ----->  spare_parts_consumption.warranty_chargeable
+part_replaced_masters.name      ----->  service_logs.part_replaced
+customer_feedback_options.name  ----->  service_logs.customer_feedback
+reason_masters.name             ----->  spare_parts_consumption.reason
+
+Flow:
+  System Admin maintains master values in System Configuration tables
+    -> Active names load into dropdowns on After Market forms
+      -> Selected name is saved as text in the transaction table column

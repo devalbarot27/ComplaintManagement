@@ -1,0 +1,256 @@
+RBAC ADMINISTRATION - DATABASE FIELD LIST
+=========================================
+
+Database Name: complaint_management
+Access: System Admin only (user_master.role = 6)
+
+
+======================================================================
+1. USER MANAGEMENT
+======================================================================
+Page: users.php
+Details Page: user_details.php
+Delete: delete_user.php
+API: api/users_datatable.php, api/users_get.php
+
+
+TABLE: user_master
+------------------
+id                  SERIAL PRIMARY KEY
+role                SMALLINT NOT NULL          (User role type - see values below)
+username            VARCHAR(100) NOT NULL      (Unique login username)
+name                VARCHAR(255) NOT NULL      (Full display name)
+email               VARCHAR(255) NOT NULL      (Unique email address)
+password            VARCHAR(64) NOT NULL       (MD5 hashed password)
+mobile_number       VARCHAR(20)                (10-digit mobile number)
+last_login_at       TIMESTAMP NULL             (Last successful login time)
+created_by          VARCHAR(100)               (Username who created the record)
+created_at          TIMESTAMP NOT NULL         (Record creation timestamp)
+updated_at          TIMESTAMP NULL             (Last update timestamp)
+deleted_at          TIMESTAMP NULL             (Soft delete timestamp)
+
+
+FORM FIELDS (Add / Edit User)
+-----------------------------
+record_id           Hidden                     (0 = Add, >0 = Edit)
+submit_user         Hidden                     (Form submit flag)
+role                Dropdown *                 -> user_master.role
+username            Text *                     -> user_master.username
+name                Text *                     -> user_master.name
+email               Email *                    -> user_master.email
+mobile_number       Text *                     -> user_master.mobile_number
+password            Password *                 -> user_master.password (Add required; Edit optional)
+
+
+LIST COLUMNS (DataTable)
+------------------------
+ID, Role, Username, Name, Email, Mobile, Last Login, Created At, Action
+
+
+user_master.role VALUES
+-----------------------
+1 = Dealer User
+2 = Dealer Engineer
+3 = ELGi Engineer
+4 = Sales Coordinator
+5 = Management
+6 = System Admin
+
+
+NOTES
+-----
+- Username, email, and mobile number must be unique among active (non-deleted) users.
+- Password rules: minimum 8 characters with digit, uppercase, lowercase, and special character.
+- On edit, password is updated only when a new value is entered.
+- user_master.role links to roles.id (same ID values) for RBAC permission assignment.
+
+
+======================================================================
+2. ROLE MANAGEMENT
+======================================================================
+Page: roles.php
+Details Page: role_details.php
+Delete: delete_role.php
+API: api/roles_datatable.php, api/roles_get.php
+
+
+TABLE: roles
+------------
+id                  SERIAL PRIMARY KEY
+role_name           VARCHAR(100) NOT NULL      (Unique role name)
+description         TEXT                       (Role description)
+status              VARCHAR(20) NOT NULL       (active / inactive)
+created_by          VARCHAR(100)               (Username who created the record)
+created_at          TIMESTAMP NOT NULL         (Record creation timestamp)
+updated_at          TIMESTAMP NULL             (Last update timestamp)
+deleted_at          TIMESTAMP NULL             (Soft delete timestamp)
+
+
+FORM FIELDS (Add / Edit Role)
+-----------------------------
+record_id           Hidden                     (0 = Add, >0 = Edit)
+submit_role         Hidden                     (Form submit flag)
+role_name           Text *                     -> roles.role_name
+description         Textarea                   -> roles.description
+
+
+LIST COLUMNS (DataTable)
+------------------------
+ID, Role Name, Description, Created At, Action
+
+
+roles.status VALUES
+-------------------
+active
+inactive
+
+
+NOTES
+-----
+- role_name must be unique among active (non-deleted) roles.
+- Default seeded role IDs (1-6) match user_master.role values.
+- Deleting a role soft-deletes related role_permissions records.
+
+
+======================================================================
+3. PERMISSION MANAGEMENT
+======================================================================
+Page: permissions.php
+Details Page: permission_details.php
+Delete: delete_permission.php
+API: api/permissions_datatable.php, api/permissions_get.php
+
+(Related table: modules - permissions are grouped under modules)
+
+
+TABLE: modules  (Permission grouping - Module Management)
+---------------------------------------------------------
+id                  SERIAL PRIMARY KEY
+module_name         VARCHAR(100) NOT NULL      (Display name)
+module_slug         VARCHAR(100) NOT NULL      (Unique slug for RBAC checks)
+description         TEXT                       (Module description)
+status              VARCHAR(20) NOT NULL       (active / inactive)
+created_by          VARCHAR(100)
+created_at          TIMESTAMP NOT NULL
+updated_at          TIMESTAMP NULL
+deleted_at          TIMESTAMP NULL
+
+
+TABLE: permissions
+------------------
+id                  SERIAL PRIMARY KEY
+module_id           INT NOT NULL               (FK -> modules.id)
+permission_name     VARCHAR(100) NOT NULL      (Display name e.g. View, Add)
+permission_slug     VARCHAR(100) NOT NULL      (Unique slug per module e.g. view, add)
+description         TEXT                       (Permission description)
+status              VARCHAR(20) NOT NULL       (active / inactive)
+created_by          VARCHAR(100)
+created_at          TIMESTAMP NOT NULL
+updated_at          TIMESTAMP NULL
+deleted_at          TIMESTAMP NULL
+
+
+FORM FIELDS (Add / Edit Permission)
+-----------------------------------
+record_id           Hidden                     (0 = Add, >0 = Edit)
+submit_permission   Hidden                     (Form submit flag)
+module_id           Dropdown *                 -> permissions.module_id
+permission_name     Text *                     -> permissions.permission_name
+permission_slug     Text *                     -> permissions.permission_slug
+description         Textarea                   -> permissions.description
+
+
+LIST COLUMNS (DataTable)
+------------------------
+ID, Module, Permission Name, Permission Slug, Description, Created At, Action
+
+
+permissions.status VALUES
+-----------------------
+active
+inactive
+
+
+COMMON permission_slug VALUES
+-----------------------------
+view
+add
+edit
+delete
+assign-complaint
+complaint-closure
+reassign-complaint
+service-update
+
+
+NOTES
+-----
+- permission_slug must be unique per module among active records.
+- permission_slug format: lowercase letters, numbers, hyphens, underscores only.
+- Page/API access is checked using module_slug + permission_slug in rbac_access_helpers.php.
+
+
+======================================================================
+4. ASSIGN PERMISSIONS
+======================================================================
+Page: assign_permissions.php
+API: (form POST only - no separate datatable API)
+
+
+TABLE: role_permissions
+-----------------------
+id                  SERIAL PRIMARY KEY
+role_id             INT NOT NULL               (FK -> roles.id)
+permission_id       INT NOT NULL               (FK -> permissions.id)
+created_by          VARCHAR(100)               (Username who assigned permission)
+created_at          TIMESTAMP NOT NULL         (Assignment timestamp)
+deleted_at          TIMESTAMP NULL             (Soft delete - unassigned permission)
+
+
+FORM FIELDS (Assign Permissions)
+--------------------------------
+role_id             Dropdown / Hidden *        -> role_permissions.role_id
+permission_ids[]    Checkbox array *           -> role_permissions.permission_id (multiple)
+submit_role_permissions  Hidden                (Form submit flag)
+checkAllPermissions Checkbox                 (Select all - UI only)
+module-check-all    Checkbox per module        (Select module permissions - UI only)
+
+
+SCREEN SECTIONS
+---------------
+1. Select Role       -> Loads permission matrix for selected role (GET role_id)
+2. Permission Matrix -> Grouped by module name with checkboxes per permission
+3. Save Assignment   -> Replaces role's active permission set
+
+
+LIST DISPLAY (Permission Matrix)
+--------------------------------
+Module Name (with module check-all)
+  - Permission Name checkboxes (permission_ids[])
+
+
+NOTES
+-----
+- One role can have many permissions; one permission can belong to many roles.
+- Unique constraint: (role_id, permission_id) where deleted_at IS NULL.
+- Saving unchecks permissions by soft-deleting role_permissions rows.
+- Re-assigning a previously removed permission restores the row (deleted_at = NULL).
+- Only active modules and active permissions appear in the assignment matrix.
+- Access control: logged-in user's role (from user_master.role) must have matching
+  role_permissions to access application modules/pages.
+
+
+======================================================================
+RELATIONSHIP SUMMARY
+======================================================================
+
+user_master.role  ----->  roles.id
+roles.id          ----->  role_permissions.role_id
+permissions.id    ----->  role_permissions.permission_id
+modules.id        ----->  permissions.module_id
+
+Flow:
+  User (user_master) has a role ID
+    -> Role (roles) is assigned permissions (role_permissions)
+      -> Each permission (permissions) belongs to a module (modules)
+        -> Module slug + permission slug control page/menu access
