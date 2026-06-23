@@ -240,6 +240,43 @@ function dashboard_fetch_monthly_chart_data(PDO $conn, string $userName, int $mo
     ];
 }
 
+function dashboard_format_dispatches_delivered_this_week_alert(int $count): string
+{
+    $label = $count === 1 ? 'dispatch' : 'dispatches';
+
+    return $count . ' ' . $label . ' delivered this week';
+}
+
+function dashboard_fetch_dispatched_count(PDO $conn, string $userName, string $period): int
+{
+    $dateFilter = dashboard_period_date_sql('a.invdate', $period);
+
+    try {
+        $stmt = $conn->prepare("
+            SELECT COUNT(*) AS cnt
+            FROM (
+                SELECT DISTINCT ON (a.invdate, a.cmp, a.ordno, a.invref, a.invno) a.invno
+                FROM despatch a
+                LEFT JOIN lr_details b
+                    ON a.invref = b.invref AND a.invno = b.invno AND a.cmp = b.company
+                LEFT JOIN dpst_master d ON d.dpst_code::text = a.dpst
+                INNER JOIN user_area_dpst_mapping u
+                    ON trim(a.dpst) = ANY(u.dpst) AND u.valid = 'Y' AND u.usr_name = :uname
+                WHERE a.cmp != 600
+                  AND a.dpst NOT IN ('SLS500', 'SLS01', 'SO0600', 'SAL01')
+                  AND $dateFilter
+                ORDER BY a.invdate DESC, a.ordno, a.invref, a.invno
+            ) x
+        ");
+        $stmt->bindValue(':uname', $userName);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
 function dashboard_fetch_stats(PDO $dpconn, PDO $obconn, string $userName, ?string $period = null): array
 {
     $selectedPeriod = dashboard_resolve_period($period);
@@ -253,6 +290,8 @@ function dashboard_fetch_stats(PDO $dpconn, PDO $obconn, string $userName, ?stri
         'acknowledgement_count' => dashboard_fetch_acknowledgement_count($dpconn, $userName, $selectedPeriod),
         'total_orders_count' => dashboard_fetch_total_orders_count($obconn, $userName, $selectedPeriod),
         'pending_over_10_days_count' => dashboard_fetch_pending_over_10_days_count($dpconn, $userName),
+        'dispatched_orders_count' => dashboard_fetch_dispatched_count($dpconn, $userName, $selectedPeriod),
+        'dispatches_delivered_this_week_count' => dashboard_fetch_dispatched_count($dpconn, $userName, 'this_week'),
         'monthly_chart' => dashboard_fetch_monthly_chart_data($dpconn, $userName),
     ];
 }

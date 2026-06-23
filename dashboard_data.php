@@ -5,10 +5,6 @@ require_once __DIR__ . '/includes/dashboard_helpers.php';
 $userName = $_SESSION['usr_name'] ?? '102464';
 $dashboardStats = dashboard_fetch_stats($dpconn, $obconn, $userName, $_GET['period'] ?? null);
 
-//Static data
-$dispatched_orders_count = 23;
-//End Static data
-
 $selectedPeriod = $dashboardStats['selected_period'];
 $selectedPeriodLabel = $dashboardStats['selected_period_label'];
 $periodOptions = $dashboardStats['period_options'];
@@ -19,6 +15,10 @@ $pendingOrdersCount = $dashboardStats['pending_orders_count'];
 $acknowledgementCount = $dashboardStats['acknowledgement_count'];
 $pendingOver10DaysCount = $dashboardStats['pending_over_10_days_count'];
 $pendingOver10DaysAlert = dashboard_format_pending_over_10_days_alert($pendingOver10DaysCount);
+$dispatched_orders_count = $dashboardStats['dispatched_orders_count'];
+$dispatchesDeliveredThisWeekAlert = dashboard_format_dispatches_delivered_this_week_alert(
+    $dashboardStats['dispatches_delivered_this_week_count']
+);
 
 $monthlyChartData = $dashboardStats['monthly_chart'];
 $monthlyChartMax = max(
@@ -112,7 +112,7 @@ $monthlyChartMax = max(4, (int) (ceil($monthlyChartMax / 4) * 4));
         </div>
 
         <div class="custom-alert alert-green">
-            5 dispatches delivered this week
+            <?php echo htmlspecialchars($dispatchesDeliveredThisWeekAlert); ?>
         </div>
 
     </div>
@@ -190,7 +190,7 @@ $monthlyChartMax = max(4, (int) (ceil($monthlyChartMax / 4) * 4));
                     </div>
 
                     <div class="card-value">
-                        23
+                        <?php echo htmlspecialchars((string) $dispatched_orders_count); ?>
                     </div>
 
                     <!-- <div class="card-sub">
@@ -341,7 +341,7 @@ $monthlyChartMax = max(4, (int) (ceil($monthlyChartMax / 4) * 4));
                 <div class="legend-item">
                     <div class="legend-dot"
                         style="background:#16a34a"></div>
-                    Dispatched: 23
+                    Dispatched: <?php echo htmlspecialchars((string) $dispatched_orders_count); ?>
                 </div>
 
             </div>
@@ -806,7 +806,7 @@ $monthlyChartMax = max(4, (int) (ceil($monthlyChartMax / 4) * 4));
 
             datasets: [{
 
-                data: [<?php echo (int) $totalCreatedOrdersCount; ?>, <?php echo (int) $acknowledgementCount; ?>, <?php echo (int) $pendingOrdersCount; ?>, 23],
+                data: [<?php echo (int) $totalCreatedOrdersCount; ?>, <?php echo (int) $acknowledgementCount; ?>, <?php echo (int) $pendingOrdersCount; ?>, <?php echo (int) $dispatched_orders_count; ?>],
 
                 backgroundColor: [
                     '#2563eb',
