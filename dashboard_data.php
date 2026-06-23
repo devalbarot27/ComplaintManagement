@@ -108,7 +108,7 @@ $monthlyChartMax = max(4, (int) (ceil($monthlyChartMax / 4) * 4));
         </div>
 
         <div class="custom-alert alert-blue d-none">
-            Credit utilization at 68% ù ?19.7L available
+            Credit utilization at 68% ÔøΩ ?19.7L available
         </div>
 
         <div class="custom-alert alert-green">
@@ -196,7 +196,6 @@ $monthlyChartMax = max(4, (int) (ceil($monthlyChartMax / 4) * 4));
                     <!-- <div class="card-sub">
                         ? 8% vs last month
                     </div> -->
-
                 </div>
 
                 <div class="icon-box">
