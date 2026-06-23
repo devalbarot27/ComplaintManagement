@@ -1,0 +1,114 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>After Market Module - Field List</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 12pt; margin: 40px; }
+h1 { font-size: 16pt; }
+h2 { font-size: 13pt; margin-top: 24px; }
+p { margin: 8px 0; }
+ul { margin: 6px 0 16px 0; }
+li { margin: 2px 0; }
+</style>
+</head>
+<body>
+
+<h1>After Market Module - Database Field List</h1>
+
+<p><strong>Database Name:</strong> complaint_management</p>
+
+<h2>Table: installed_base</h2>
+<ul>
+<li>id</li>
+<li>order_ref_id</li>
+<li>order_id</li>
+<li>fab_number</li>
+<li>customer_name</li>
+<li>street_1</li>
+<li>street_2</li>
+<li>pincode</li>
+<li>city</li>
+<li>district</li>
+<li>state</li>
+<li>address</li>
+<li>mobile</li>
+<li>email</li>
+<li>dealer_name</li>
+<li>machine_model</li>
+<li>machine_model_code</li>
+<li>invoice_date</li>
+<li>commissioning_date</li>
+<li>running_hours</li>
+<li>industry_segment</li>
+<li>remarks</li>
+<li>created_by</li>
+<li>username</li>
+<li>created_at</li>
+<li>updated_at</li>
+<li>deleted_at</li>
+</ul>
+
+<h2>Table: service_logs</h2>
+<ul>
+<li>id</li>
+<li>installed_base_id</li>
+<li>order_ref_id</li>
+<li>order_id</li>
+<li>fab_number</li>
+<li>serial_number</li>
+<li>machine_model</li>
+<li>warranty_chargeable</li>
+<li>complaint_date</li>
+<li>issue_description</li>
+<li>engineer_name</li>
+<li>visit_date</li>
+<li>action_taken</li>
+<li>closure_date</li>
+<li>part_replaced</li>
+<li>running_hours</li>
+<li>loaded_hours</li>
+<li>customer_feedback</li>
+<li>remarks</li>
+<li>separator_remaining_date</li>
+<li>separator_remaining_hours</li>
+<li>air_filter_remaining_date</li>
+<li>air_filter_remaining_hours</li>
+<li>oil_filter_remaining_date</li>
+<li>oil_filter_remaining_hours</li>
+<li>oil_remaining_date</li>
+<li>oil_remaining_hours</li>
+<li>valve_kit_remaining_date</li>
+<li>valve_kit_remaining_hours</li>
+<li>grease_remaining_date</li>
+<li>grease_remaining_hours</li>
+<li>created_by</li>
+<li>username</li>
+<li>created_at</li>
+<li>updated_at</li>
+<li>deleted_at</li>
+</ul>
+
+<h2>Table: spare_parts_consumption</h2>
+<ul>
+<li>id</li>
+<li>installed_base_id</li>
+<li>service_log_id</li>
+<li>serial_number</li>
+<li>fab_number</li>
+<li>consumption_date</li>
+<li>warranty_chargeable</li>
+<li>spare_kit_number</li>
+<li>quantity</li>
+<li>order_value</li>
+<li>reason</li>
+<li>running_hours</li>
+<li>remarks</li>
+<li>created_by</li>
+<li>username</li>
+<li>created_at</li>
+<li>updated_at</li>
+<li>deleted_at</li>
+</ul>
+
+</body>
+</html>

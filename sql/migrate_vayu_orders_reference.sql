@@ -1,0 +1,6 @@
+-- Order references now use tbl_vayu_orders_header:
+--   order_ref_id -> tbl_vayu_orders_header.id
+--   order_id     -> tbl_vayu_orders_header.order_no
+--
+-- If existing installed_base / service_logs rows were linked to the legacy
+-- orders table, re-select the correct Vayu order or update order_ref_id manually.

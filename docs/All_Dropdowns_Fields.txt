@@ -1,0 +1,145 @@
+ALL DROPDOWNS - TABLE & FIELD LIST
+==================================
+
+----------------------------------------------------------------------
+DYNAMIC DROPDOWNS (Search from Database)
+----------------------------------------------------------------------
+
+1. Fab Number
+   Module: Complaint Entry, Installed Base Capture
+   Form Field: fab_number
+   Database: dealerportal
+   Table: ln_invoice_details
+   Search Field: fabno
+   Display Field: fabno
+   Saved To: complaints.fab_number / installed_base.fab_number
+   API: api/ln_invoice_fabno_search.php
+
+2. Pincode
+   Module: Complaint Entry, Installed Base Capture
+   Form Field: pincode
+   Database: complaint_management
+   Table: postcodes
+   Search Field: postcode
+   Display Fields: postcode, city, state
+   Auto-fill Fields: city, district, state
+   Saved To: complaints.pincode / installed_base.pincode
+   API: api/postcode_search.php
+
+3. Order ID
+   Module: Installed Base Capture
+   Form Field: order_ref_id
+   Database: complaint_management
+   Table: tbl_vayu_orders_header
+   Search Fields: order_no, dealer_address, order_category
+   Display Field: order_no
+   Value Field: id
+   Saved To: installed_base.order_ref_id, installed_base.order_id
+   API: api/order_search.php
+
+4. Machine Model
+   Module: Installed Base Capture
+   Form Field: machine_model_code
+   Database: complaint_management
+   Table: product_master
+   Search Fields: tplcode, tpldesc
+   Display Fields: tplcode, tpldesc
+   Value Field: tplcode
+   Saved To: installed_base.machine_model_code, installed_base.machine_model
+   API: api/machine_model_search.php
+
+5. Installed Base
+   Module: Service Log Capture, Spare Parts Consumption
+   Form Field: installed_base_id
+   Database: complaint_management
+   Table: installed_base
+   Search Fields: order_id, fab_number, customer_name, machine_model, machine_model_code
+   Display Fields: id, order_id, fab_number, customer_name
+   Value Field: id
+   Saved To: service_logs.installed_base_id / spare_parts_consumption.installed_base_id
+   API: api/installed_base_link_search.php
+
+6. Service Record
+   Module: Spare Parts Consumption
+   Form Field: service_log_id
+   Database: complaint_management
+   Table: service_logs
+   Search Fields: id, order_id, engineer_name
+   Display Fields: id, order_id, visit_date
+   Value Field: id
+   Saved To: spare_parts_consumption.service_log_id
+   API: api/service_log_link_search.php
+
+
+----------------------------------------------------------------------
+STATIC DROPDOWNS (Fixed Values in Code)
+----------------------------------------------------------------------
+
+7. Assign To
+   Module: Complaint Entry, Assign Complaint, Complaint Closure
+   Form Field: assign_complaint / reassign_complaint
+   Source: Static (hardcoded in form)
+   Values: Option 1, Option 2, Option 3, Option 4, Option 5
+   Saved To: complaint_assignments.assign_complaint
+
+8. Call Closure
+   Module: Complaint Entry (Closure modal)
+   Form Field: call_closure
+   Source: Static
+   Values: Yes, No
+   Saved To: complaint_closures.call_closure
+
+9. Industry Segment
+   Module: Installed Base Capture
+   Form Field: industry_segment
+   Source: Static (includes/installed_base_helpers.php)
+   Values: Manufacturing, Textiles, Automotive, Pharmaceuticals, FMCG, Engineering, Construction, Agriculture, Food Processing, Healthcare, Others
+   Saved To: installed_base.industry_segment
+
+10. Warranty / Chargeable
+    Module: Service Log Capture, Spare Parts Consumption
+    Form Field: warranty_chargeable
+    Source: Static (service_log_helpers.php / spare_parts_helpers.php)
+    Values: Warranty, Chargeable
+    Saved To: service_logs.warranty_chargeable / spare_parts_consumption.warranty_chargeable
+
+11. Part Replaced
+    Module: Service Log Capture
+    Form Field: part_replaced
+    Source: Static (includes/service_log_helpers.php)
+    Values: Yes, No
+    Saved To: service_logs.part_replaced
+
+12. Customer Feedback
+    Module: Service Log Capture
+    Form Field: customer_feedback
+    Source: Static (includes/service_log_helpers.php)
+    Values: Excellent, Good, Average, Poor
+    Saved To: service_logs.customer_feedback
+
+13. Reason
+    Module: Spare Parts Consumption
+    Form Field: reason
+    Source: Static (includes/spare_parts_helpers.php)
+    Values: PM, Breakdown
+    Saved To: spare_parts_consumption.reason
+
+14. Role
+    Module: User Management
+    Form Field: role
+    Source: Static (includes/user_helpers.php)
+    Values:
+      1 = Dealer User
+      2 = Dealer Engineer
+      3 = ELGi Engineer
+      4 = Sales Coordinator
+      5 = Management
+      6 = System Admin
+    Saved To: user_master.role
+
+15. Dashboard Period
+    Module: Dashboard
+    Form Field: period (filter only)
+    Source: Static (includes/dashboard_helpers.php)
+    Values: today, this_week, this_month, last_3_months, last_6_months, this_year, last_year
+    Saved To: Not saved (UI filter only)

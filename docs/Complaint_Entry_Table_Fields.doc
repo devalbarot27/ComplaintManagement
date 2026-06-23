@@ -1,0 +1,550 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="Complaint Management System">
+<title>Complaint Entry - Table Field Documentation</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #222; margin: 40px; }
+h1 { font-size: 20pt; color: #1a365d; border-bottom: 2px solid #1a365d; padding-bottom: 8px; }
+h2 { font-size: 14pt; color: #2c5282; margin-top: 28px; margin-bottom: 8px; }
+h3 { font-size: 12pt; color: #2d3748; margin-top: 18px; }
+p, li { line-height: 1.5; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0 20px 0; }
+th { background: #2c5282; color: #fff; font-weight: bold; text-align: left; padding: 8px; border: 1px solid #2c5282; }
+td { border: 1px solid #cbd5e0; padding: 7px 8px; vertical-align: top; }
+tr:nth-child(even) td { background: #f7fafc; }
+.meta { color: #4a5568; font-size: 10pt; margin-bottom: 24px; }
+.note { background: #ebf8ff; border-left: 4px solid #3182ce; padding: 10px 12px; margin: 16px 0; }
+code { font-family: Consolas, monospace; background: #edf2f7; padding: 1px 4px; }
+</style>
+</head>
+<body>
+
+<h1>Complaint Entry Module &mdash; Database Table Field Documentation</h1>
+
+<p class="meta">
+<strong>Project:</strong> Complaint Management (Dealer Portal)<br>
+<strong>Module:</strong> Complaint Entry<br>
+<strong>Page:</strong> new_complaint.php<br>
+<strong>Database:</strong> complaint_management<br>
+<strong>Generated:</strong> June 2026
+</p>
+
+<div class="note">
+This document describes all database tables and fields used by the <strong>Complaint Entry</strong> module,
+including the main complaint record, optional assignment at registration, activity logging, and related workflow tables.
+</div>
+
+<h2>1. Overview</h2>
+<p>When a user submits a new complaint from <strong>Complaint Entry</strong>, the system:</p>
+<ol>
+<li>Inserts a record into the <code>complaints</code> table.</li>
+<li>Optionally inserts an assignment into <code>complaint_assignments</code> if <em>Assign To</em> is selected.</li>
+<li>Logs activity into <code>complaint_activity_logs</code>.</li>
+<li>Sets initial status to <strong>Open (1)</strong> or <strong>In Progress (2)</strong> if assigned during entry.</li>
+</ol>
+
+<h2>2. Primary Table: complaints</h2>
+<p>Stores the main complaint registration details entered on the Complaint Entry form.</p>
+
+<table>
+<tr>
+<th>Field Name</th>
+<th>Data Type</th>
+<th>Required</th>
+<th>Form Label</th>
+<th>Description / Business Rules</th>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer (Auto)</td>
+<td>Auto</td>
+<td>&mdash;</td>
+<td>Primary key. Auto-generated complaint ID displayed as #ID in lists and details.</td>
+</tr>
+<tr>
+<td><code>fab_number</code></td>
+<td>Varchar</td>
+<td>Yes</td>
+<td>Fab Number</td>
+<td>Machine fabric number. Selected from invoice search (Select2). Must exist in dealer portal invoice details (<code>ln_invoice</code>). JavaScript and server validation required.</td>
+</tr>
+<tr>
+<td><code>customer_name</code></td>
+<td>Varchar</td>
+<td>Yes</td>
+<td>Customer Name</td>
+<td>Name of the customer reporting the complaint. Maximum 200 characters on form.</td>
+</tr>
+<tr>
+<td><code>street_1</code></td>
+<td>Varchar(255)</td>
+<td>Yes</td>
+<td>Street 1</td>
+<td>Primary address line (house / building / street). Maximum 255 characters.</td>
+</tr>
+<tr>
+<td><code>street_2</code></td>
+<td>Varchar(255)</td>
+<td>No</td>
+<td>Street 2</td>
+<td>Secondary address line (area / landmark). Optional. Maximum 255 characters.</td>
+</tr>
+<tr>
+<td><code>pincode</code></td>
+<td>Varchar(20)</td>
+<td>Yes</td>
+<td>Pincode</td>
+<td>6-digit Indian pincode. Selected from postcode master. Auto-fills city, district, and state.</td>
+</tr>
+<tr>
+<td><code>city</code></td>
+<td>Varchar(100)</td>
+<td>Yes</td>
+<td>City</td>
+<td>City name. Auto-populated from pincode lookup. Read-only on form.</td>
+</tr>
+<tr>
+<td><code>district</code></td>
+<td>Varchar(100)</td>
+<td>Yes</td>
+<td>District</td>
+<td>District name. Auto-populated from pincode lookup. Read-only on form.</td>
+</tr>
+<tr>
+<td><code>state</code></td>
+<td>Varchar(100)</td>
+<td>Yes</td>
+<td>State</td>
+<td>State name. Auto-populated from pincode lookup. Read-only on form.</td>
+</tr>
+<tr>
+<td><code>customer_address</code></td>
+<td>Text / Varchar</td>
+<td>Legacy</td>
+<td>&mdash;</td>
+<td>Legacy single-line address field retained for older records. New entries use structured address fields (<code>street_1</code> to <code>state</code>). Display falls back to this field when <code>street_1</code> is empty.</td>
+</tr>
+<tr>
+<td><code>complaint_description</code></td>
+<td>Text</td>
+<td>Yes</td>
+<td>Complaint Description</td>
+<td>Detailed description of the issue reported by the customer.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>Smallint / Integer</td>
+<td>Auto</td>
+<td>Status</td>
+<td>Complaint workflow status. Set automatically on insert. See Section 5 for status values.</td>
+</tr>
+<tr>
+<td><code>added_by</code></td>
+<td>Integer</td>
+<td>Auto</td>
+<td>&mdash;</td>
+<td>User ID of the person who registered the complaint. Currently stored as system user ID.</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>Varchar(100)</td>
+<td>Auto</td>
+<td>&mdash;</td>
+<td>Logged-in username from session (<code>$_SESSION['usr_name']</code>). Used to filter complaints by creator.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>Timestamp</td>
+<td>Auto</td>
+<td>Created At</td>
+<td>Date and time when the complaint was registered. Set by database default.</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>Timestamp</td>
+<td>Auto</td>
+<td>Updated At</td>
+<td>Date and time of last update. Updated during assignment, service update, closure, and delete operations.</td>
+</tr>
+<tr>
+<td><code>deleted_at</code></td>
+<td>Timestamp</td>
+<td>Auto</td>
+<td>&mdash;</td>
+<td>Soft delete timestamp. When set, the complaint is hidden from lists. Physical record is not removed.</td>
+</tr>
+</table>
+
+<h2>3. Complaint Entry Form Fields (UI Mapping)</h2>
+<p>Fields shown on the <strong>New Complaint</strong> form and their mapping to database columns.</p>
+
+<table>
+<tr>
+<th>Section</th>
+<th>Form Field Name</th>
+<th>UI Label</th>
+<th>Maps To Table.Column</th>
+<th>Validation</th>
+</tr>
+<tr>
+<td>Customer Information</td>
+<td><code>fab_number</code></td>
+<td>Fab Number</td>
+<td>complaints.fab_number</td>
+<td>Required; must exist in invoice master</td>
+</tr>
+<tr>
+<td>Customer Information</td>
+<td><code>customer_name</code></td>
+<td>Customer Name</td>
+<td>complaints.customer_name</td>
+<td>Required</td>
+</tr>
+<tr>
+<td>Customer Information</td>
+<td><code>street_1</code></td>
+<td>Street 1</td>
+<td>complaints.street_1</td>
+<td>Required; max 255 chars</td>
+</tr>
+<tr>
+<td>Customer Information</td>
+<td><code>street_2</code></td>
+<td>Street 2</td>
+<td>complaints.street_2</td>
+<td>Optional; max 255 chars</td>
+</tr>
+<tr>
+<td>Customer Information</td>
+<td><code>pincode</code></td>
+<td>Pincode</td>
+<td>complaints.pincode</td>
+<td>Required; exactly 6 digits</td>
+</tr>
+<tr>
+<td>Customer Information</td>
+<td><code>city</code></td>
+<td>City</td>
+<td>complaints.city</td>
+<td>Required; auto-filled from pincode</td>
+</tr>
+<tr>
+<td>Customer Information</td>
+<td><code>district</code></td>
+<td>District</td>
+<td>complaints.district</td>
+<td>Required; auto-filled from pincode</td>
+</tr>
+<tr>
+<td>Customer Information</td>
+<td><code>state</code></td>
+<td>State</td>
+<td>complaints.state</td>
+<td>Required; auto-filled from pincode</td>
+</tr>
+<tr>
+<td>Complaint Details</td>
+<td><code>complaint_description</code></td>
+<td>Complaint Description</td>
+<td>complaints.complaint_description</td>
+<td>Required</td>
+</tr>
+<tr>
+<td>Assignment (Optional)</td>
+<td><code>assign_complaint</code></td>
+<td>Assign To</td>
+<td>complaint_assignments.assign_complaint</td>
+<td>Optional at entry; if provided, status becomes In Progress</td>
+</tr>
+<tr>
+<td>Assignment (Optional)</td>
+<td><code>remarks</code></td>
+<td>Remarks</td>
+<td>complaint_assignments.remarks</td>
+<td>Optional; max 500 characters</td>
+</tr>
+</table>
+
+<h2>4. Related Table: complaint_assignments</h2>
+<p>Created during Complaint Entry when <em>Assign To</em> is selected, or later via manual assignment.</p>
+
+<table>
+<tr>
+<th>Field Name</th>
+<th>Data Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer (Auto)</td>
+<td>Auto</td>
+<td>Primary key for assignment record.</td>
+</tr>
+<tr>
+<td><code>complaint_id</code></td>
+<td>Integer</td>
+<td>Yes</td>
+<td>Foreign key referencing <code>complaints.id</code>.</td>
+</tr>
+<tr>
+<td><code>assign_complaint</code></td>
+<td>Varchar</td>
+<td>Yes</td>
+<td>Name or label of the assignee (DSE/LSE/engineer).</td>
+</tr>
+<tr>
+<td><code>assigned_to</code></td>
+<td>Integer</td>
+<td>Yes</td>
+<td>Assignee user ID (system reference).</td>
+</tr>
+<tr>
+<td><code>assign_complaint_datetime</code></td>
+<td>Timestamp</td>
+<td>Yes</td>
+<td>Date and time when the complaint was assigned.</td>
+</tr>
+<tr>
+<td><code>remarks</code></td>
+<td>Text</td>
+<td>No</td>
+<td>Assignment remarks entered during registration or reassignment. Max 500 characters.</td>
+</tr>
+<tr>
+<td><code>assigned_by</code></td>
+<td>Integer</td>
+<td>Yes</td>
+<td>User ID of the person who performed the assignment.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>Timestamp</td>
+<td>Auto</td>
+<td>Record creation timestamp.</td>
+</tr>
+<tr>
+<td><code>is_service_updated</code></td>
+<td>Boolean / Flag</td>
+<td>Auto</td>
+<td>Indicates whether a service update has been recorded against this assignment.</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>Varchar(100)</td>
+<td>Auto</td>
+<td>Logged-in username who created the assignment.</td>
+</tr>
+</table>
+
+<h2>5. Complaint Status Values</h2>
+<p>Stored in <code>complaints.status</code>. Managed by <code>includes/complaint_status.php</code>.</p>
+
+<table>
+<tr>
+<th>Status ID</th>
+<th>Status Label</th>
+<th>When Set</th>
+</tr>
+<tr>
+<td>1</td>
+<td>Open</td>
+<td>Default when complaint is registered without assignment.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>In Progress</td>
+<td>When complaint is assigned during entry or via manual assignment.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Pending With HO</td>
+<td>After service update is submitted by assigned engineer.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Re-Open</td>
+<td>When closure is marked as No and complaint is reassigned.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Resolved</td>
+<td>When closure is marked as Yes after service update.</td>
+</tr>
+</table>
+
+<h2>6. Activity Log Table: complaint_activity_logs</h2>
+<p>Automatically populated when a complaint is created, assigned, updated, or closed.</p>
+
+<table>
+<tr>
+<th>Field Name</th>
+<th>Data Type</th>
+<th>Description</th>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer (Auto)</td>
+<td>Primary key.</td>
+</tr>
+<tr>
+<td><code>complaint_id</code></td>
+<td>Integer</td>
+<td>Reference to <code>complaints.id</code>.</td>
+</tr>
+<tr>
+<td><code>activity_type</code></td>
+<td>Varchar</td>
+<td>Activity category: Created, Assignment, Reassignment, Service Update, Closure, Status Change, Deleted.</td>
+</tr>
+<tr>
+<td><code>activity_description</code></td>
+<td>Text</td>
+<td>Human-readable activity detail shown on complaint timeline.</td>
+</tr>
+<tr>
+<td><code>user_id</code></td>
+<td>Integer</td>
+<td>User ID associated with the activity.</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>Varchar(100)</td>
+<td>Logged-in username who performed the action.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>Timestamp</td>
+<td>Activity timestamp.</td>
+</tr>
+</table>
+
+<h2>7. Downstream Workflow Tables (Post Entry)</h2>
+<p>These tables are not part of the Complaint Entry form but are linked after assignment and service workflow.</p>
+
+<h3>7.1 complaint_service_updates</h3>
+<table>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+<tr><td><code>id</code></td><td>Primary key</td></tr>
+<tr><td><code>complaint_id</code></td><td>Linked complaint</td></tr>
+<tr><td><code>assignment_id</code></td><td>Linked assignment record</td></tr>
+<tr><td><code>customer_visit_date</code></td><td>Date of customer site visit</td></tr>
+<tr><td><code>complaint_action_taken</code></td><td>Actions performed during visit</td></tr>
+<tr><td><code>part_replaced</code></td><td>Spare part replacement details (optional)</td></tr>
+<tr><td><code>service_report</code></td><td>Uploaded service report file name(s)</td></tr>
+<tr><td><code>created_by</code></td><td>User who submitted service update</td></tr>
+<tr><td><code>created_at</code> / <code>updated_at</code></td><td>Timestamps</td></tr>
+<tr><td><code>username</code></td><td>Logged-in username</td></tr>
+</table>
+
+<h3>7.2 complaint_closures</h3>
+<table>
+<tr>
+<th>Field Name</th>
+<th>Description</th>
+</tr>
+<tr><td><code>id</code></td><td>Primary key</td></tr>
+<tr><td><code>complaint_id</code></td><td>Linked complaint</td></tr>
+<tr><td><code>call_closure</code></td><td>Yes or No</td></tr>
+<tr><td><code>closure_remarks</code></td><td>Required when call_closure = Yes</td></tr>
+<tr><td><code>reassignment_details</code></td><td>Remarks when call_closure = No (reassignment)</td></tr>
+<tr><td><code>closed_by</code></td><td>User who closed the complaint</td></tr>
+<tr><td><code>created_at</code></td><td>Closure timestamp</td></tr>
+<tr><td><code>username</code></td><td>Logged-in username</td></tr>
+</table>
+
+<h2>8. Validation Summary (Complaint Entry)</h2>
+<table>
+<tr>
+<th>Field</th>
+<th>Client-Side (JavaScript)</th>
+<th>Server-Side (PHP)</th>
+</tr>
+<tr>
+<td>Fab Number</td>
+<td>Required</td>
+<td>Required; must exist in invoice details</td>
+</tr>
+<tr>
+<td>Customer Name</td>
+<td>Required</td>
+<td>Implicit via form submission</td>
+</tr>
+<tr>
+<td>Street 1</td>
+<td>Required; max 255</td>
+<td>Required; max 255</td>
+</tr>
+<tr>
+<td>Street 2</td>
+<td>Max 255</td>
+<td>Max 255</td>
+</tr>
+<tr>
+<td>Pincode</td>
+<td>Required; 6 digits</td>
+<td>Required; 6 digits</td>
+</tr>
+<tr>
+<td>City / District / State</td>
+<td>Required</td>
+<td>Required</td>
+</tr>
+<tr>
+<td>Complaint Description</td>
+<td>Required</td>
+<td>Required</td>
+</tr>
+<tr>
+<td>Remarks</td>
+<td>Max 500</td>
+<td>Max 500</td>
+</tr>
+</table>
+
+<h2>9. List View Columns (Complaint Entry Grid)</h2>
+<p>The Complaint Entry listing page displays the following columns from the <code>complaints</code> table:</p>
+<ul>
+<li>ID</li>
+<li>Fab Number</li>
+<li>Customer Name</li>
+<li>Customer Address (formatted from street, city, district, state, pincode)</li>
+<li>Complaint Description</li>
+<li>Status (label, not raw ID)</li>
+<li>Created At</li>
+<li>Actions (View, Assign, Delete)</li>
+</ul>
+
+<h2>10. Source Files Reference</h2>
+<table>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+<tr><td>new_complaint.php</td><td>Complaint Entry form and insert logic</td></tr>
+<tr><td>api/complaints_datatable.php</td><td>Server-side listing with search and pagination</td></tr>
+<tr><td>complaint_details.php</td><td>View complaint details</td></tr>
+<tr><td>assign_complaint.php</td><td>Manual assignment handler</td></tr>
+<tr><td>delete_complaint.php</td><td>Soft delete handler</td></tr>
+<tr><td>includes/complaint_address_helpers.php</td><td>Address validation and formatting</td></tr>
+<tr><td>includes/complaint_status.php</td><td>Status constants and labels</td></tr>
+<tr><td>includes/complaint_activity_helpers.php</td><td>Activity log insert helpers</td></tr>
+<tr><td>js/complaint_form_validation.js</td><td>Client-side form validation</td></tr>
+<tr><td>sql/migrate_complaint_address_fields.sql</td><td>Structured address migration</td></tr>
+<tr><td>sql/migrate_complaint_username.sql</td><td>Username column migration</td></tr>
+<tr><td>sql/migrate_complaint_status.sql</td><td>Status workflow migration</td></tr>
+</table>
+
+<p style="margin-top: 40px; color: #718096; font-size: 10pt;">
+&mdash; End of Document &mdash;
+</p>
+
+</body>
+</html>

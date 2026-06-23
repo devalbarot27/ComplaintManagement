@@ -1,0 +1,65 @@
+ASSIGNED COMPLAINT LIST - DATABASE FIELD LIST
+==============================================
+
+Database Name: complaint_management
+
+
+TABLE: complaints
+-----------------
+id
+fab_number
+customer_name
+street_1
+street_2
+pincode
+city
+district
+state
+customer_address
+complaint_description
+status
+added_by
+username
+created_at
+updated_at
+deleted_at
+
+
+TABLE: complaint_assignments
+----------------------------
+id
+complaint_id
+assign_complaint
+assigned_to
+assign_complaint_datetime
+remarks
+assigned_by
+created_at
+is_service_updated
+username
+
+
+TABLE: complaint_service_updates  (Service Update form from Assigned Complaint List)
+------------------------------------------------------------------------------------
+id
+complaint_id
+assignment_id
+customer_visit_date
+complaint_action_taken
+part_replaced
+service_report
+created_by
+created_at
+updated_at
+username
+
+
+TABLE: complaint_activity_logs  (auto-created on service update)
+----------------------------------------------------------------
+id
+complaint_id
+activity_type
+activity_description
+user_id
+username
+created_at

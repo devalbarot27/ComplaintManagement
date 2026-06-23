@@ -1,0 +1,50 @@
+COMPLAINT ENTRY - DATABASE FIELD LIST
+======================================
+
+Database Name: complaint_management
+
+
+TABLE: complaints
+-----------------
+id
+fab_number
+customer_name
+street_1
+street_2
+pincode
+city
+district
+state
+customer_address
+complaint_description
+status
+added_by
+username
+created_at
+updated_at
+deleted_at
+
+
+TABLE: complaint_assignments  (optional - when Assign To is selected at entry)
+--------------------------------------------------------------------------------
+id
+complaint_id
+assign_complaint
+assigned_to
+assign_complaint_datetime
+remarks
+assigned_by
+created_at
+is_service_updated
+username
+
+
+TABLE: complaint_activity_logs  (auto-created on entry)
+-------------------------------------------------------
+id
+complaint_id
+activity_type
+activity_description
+user_id
+username
+created_at

@@ -1,0 +1,730 @@
+<!-- CONTENT -->
+<div class="content">
+
+    <!-- FILTER -->
+
+    <div class="filter-row">
+
+        <button class="month-btn">
+
+            <div class="d-flex align-items-center gap-2">
+
+                <i class="bi bi-calendar2"></i>
+
+                This Month
+
+            </div>
+
+            <i class="bi bi-chevron-down"></i>
+
+        </button>
+
+        <div class="action-group">
+
+            <button class="action-btn">
+
+                <i class="bi bi-download"></i>
+
+                Export
+
+            </button>
+
+            <button class="action-btn">
+
+                <i class="bi bi-arrow-clockwise"></i>
+
+                Refresh
+
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- ALERTS -->
+
+    <div class="alert-grid">
+
+        <div class="custom-alert alert-orange">
+            3 orders pending for more than 10 days
+        </div>
+
+        <div class="custom-alert alert-blue">
+            Credit utilization at 68% — ₹19.7L available
+        </div>
+
+        <div class="custom-alert alert-green">
+            5 dispatches delivered this week
+        </div>
+
+    </div>
+
+    <!-- STATS -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="card-top">
+
+                <div>
+
+                    <div class="card-title">
+                        Total Orders
+                    </div>
+
+                    <div class="card-value">
+                        63
+                    </div>
+
+                    <div class="card-sub">
+                        ↑ 12% vs last month
+                    </div>
+
+                </div>
+
+                <div class="icon-box">
+                    <i class="bi bi-cart"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="stat-card">
+
+            <div class="card-top">
+
+                <div>
+
+                    <div class="card-title">
+                        Pending Orders
+                    </div>
+
+                    <div class="card-value">
+                        15
+                    </div>
+
+                    <div class="card-sub gray">
+                        ₹18.5L value
+                    </div>
+
+                </div>
+
+                <div class="icon-box">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="stat-card">
+
+            <div class="card-top">
+
+                <div>
+
+                    <div class="card-title">
+                        Dispatched This Month
+                    </div>
+
+                    <div class="card-value">
+                        23
+                    </div>
+
+                    <div class="card-sub">
+                        ↑ 8% vs last month
+                    </div>
+
+                </div>
+
+                <div class="icon-box">
+                    <i class="bi bi-truck"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="stat-card">
+
+            <div class="card-top">
+
+                <div>
+
+                    <div class="card-title">
+                        Outstanding Balance
+                    </div>
+
+                    <div class="card-value">
+                        ₹42.3L
+                    </div>
+
+                    <div class="card-sub gray">
+                        Credit: 90 days
+                    </div>
+
+                </div>
+
+                <div class="icon-box">
+                    <i class="bi bi-credit-card"></i>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- PIPELINE -->
+
+    <div class="pipeline-card">
+
+        <div class="pipeline-header">
+
+            <div class="pipeline-title">
+                Order Pipeline
+            </div>
+
+            <div class="pipeline-total">
+                Total: 63 orders
+            </div>
+
+        </div>
+
+        <div class="pipeline-wrapper">
+
+            <div class="pipeline-step">
+                <div class="pipeline-count blue">12</div>
+                <div class="pipeline-label">Created</div>
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-count blue">8</div>
+                <div class="pipeline-label">Approved</div>
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-count purple">5</div>
+                <div class="pipeline-label">Acknowledged</div>
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-count orange">15</div>
+                <div class="pipeline-label">Pending</div>
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-count green">23</div>
+                <div class="pipeline-label">Dispatched</div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- CHARTS -->
+
+    <div class="chart-grid">
+
+        <div class="chart-card">
+
+            <div class="chart-title">
+
+                <i class="bi bi-graph-up-arrow"></i>
+
+                Monthly Orders
+
+            </div>
+
+            <div class="chart-wrapper">
+
+                <canvas id="monthlyChart"></canvas>
+
+            </div>
+
+        </div>
+
+        <div class="chart-card">
+
+            <div class="chart-title">
+                Status Distribution
+            </div>
+
+            <div class="d-flex justify-content-center">
+
+                <canvas id="statusChart"></canvas>
+
+            </div>
+
+            <div class="status-legend">
+
+                <div class="legend-item">
+                    <div class="legend-dot"
+                        style="background:#2563eb"></div>
+                    Created: 12
+                </div>
+
+                <div class="legend-item">
+                    <div class="legend-dot"
+                        style="background:#0ea5e9"></div>
+                    Approved: 8
+                </div>
+
+                <div class="legend-item">
+                    <div class="legend-dot"
+                        style="background:#7c3aed"></div>
+                    Acknowledged: 5
+                </div>
+
+                <div class="legend-item">
+                    <div class="legend-dot"
+                        style="background:#f59e0b"></div>
+                    Pending: 15
+                </div>
+
+                <div class="legend-item">
+                    <div class="legend-dot"
+                        style="background:#16a34a"></div>
+                    Dispatched: 23
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+
+
+    <!-- RECENT ORDERS -->
+
+    <div class="recent-card">
+
+        <div class="recent-header">
+
+            <div class="recent-title">
+                Recent Orders
+            </div>
+
+            <a href="#"
+                class="view-all">
+
+                View All
+
+                <i class="bi bi-arrow-right"></i>
+
+            </a>
+
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="recent-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Order ID</th>
+
+                        <th>Date</th>
+
+                        <th>Type</th>
+
+                        <th>Value</th>
+
+                        <th>Status</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr>
+
+                        <td>
+                            <a href="#"
+                                class="order-link">
+
+                                ORD-2024-1847
+
+                            </a>
+                        </td>
+
+                        <td>12 Apr 2024</td>
+
+                        <td>List Price</td>
+
+                        <td class="fw-semibold">₹1,25,000</td>
+
+                        <td>
+                            <span class="status-badge created">
+                                Created
+                            </span>
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>
+                            <a href="#"
+                                class="order-link">
+
+                                ORD-2024-1842
+
+                            </a>
+                        </td>
+
+                        <td>11 Apr 2024</td>
+
+                        <td>Special Price</td>
+
+                        <td class="fw-semibold">₹3,50,000</td>
+
+                        <td>
+                            <span class="status-badge approved">
+                                Approved
+                            </span>
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>
+                            <a href="#"
+                                class="order-link">
+
+                                ORD-2024-1838
+
+                            </a>
+                        </td>
+
+                        <td>10 Apr 2024</td>
+
+                        <td>DMW</td>
+
+                        <td class="fw-semibold">₹78,500</td>
+
+                        <td>
+                            <span class="status-badge dispatched">
+                                Dispatched
+                            </span>
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>
+                            <a href="#"
+                                class="order-link">
+
+                                ORD-2024-1835
+
+                            </a>
+                        </td>
+
+                        <td>09 Apr 2024</td>
+
+                        <td>List Price</td>
+
+                        <td class="fw-semibold">₹2,15,000</td>
+
+                        <td>
+                            <span class="status-badge pending">
+                                Pending
+                            </span>
+                        </td>
+
+                    </tr>
+
+                    <tr>
+
+                        <td>
+                            <a href="#"
+                                class="order-link">
+
+                                ORD-2024-1830
+
+                            </a>
+                        </td>
+
+                        <td>08 Apr 2024</td>
+
+                        <td>List Price</td>
+
+                        <td class="fw-semibold">₹95,200</td>
+
+                        <td>
+                            <span class="status-badge acknowledge">
+                                Acknowledged
+                            </span>
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    <!-- QUICK ACTIONS -->
+
+    <div class="quick-card">
+
+        <div class="quick-title">
+            Quick Actions
+        </div>
+
+        <div class="quick-grid">
+
+            <div class="quick-item">
+
+                <div class="quick-icon blue-icon">
+                    <i class="bi bi-cart"></i>
+                </div>
+
+                <div class="quick-text">
+                    New Order
+                </div>
+
+            </div>
+
+            <div class="quick-item">
+
+                <div class="quick-icon orange-icon">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+
+                <div class="quick-text">
+                    Pending Orders
+                </div>
+
+            </div>
+
+            <div class="quick-item">
+
+                <div class="quick-icon red-icon">
+                    <i class="bi bi-credit-card"></i>
+                </div>
+
+                <div class="quick-text">
+                    File Complaint
+                </div>
+
+            </div>
+
+            <div class="quick-item">
+
+                <div class="quick-icon green-icon">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+
+                <div class="quick-text">
+                    AR Statement
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+<script>
+    // BAR CHART
+
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+
+    /* EXACT COLORS */
+
+    const darkBlue = '#1565d8';
+
+    const lightBlue = '#1f9ad6';
+
+    new Chart(ctx, {
+
+        type: 'bar',
+
+        data: {
+
+            labels: ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar'],
+
+            datasets: [
+
+                {
+                    data: [45, 52, 38, 61, 55, 68],
+
+                    backgroundColor: darkBlue,
+
+                    borderRadius: 3,
+
+                    borderSkipped: false,
+
+                    categoryPercentage: 0.72,
+
+                    barPercentage: 0.88
+                },
+
+                {
+                    data: [32, 41, 28, 55, 48, 62],
+
+                    backgroundColor: lightBlue,
+
+                    borderRadius: 3,
+
+                    borderSkipped: false,
+
+                    categoryPercentage: 0.72,
+
+                    barPercentage: 0.88
+                }
+
+            ]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            animation: false,
+
+            plugins: {
+
+                legend: {
+                    display: false
+                },
+
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: '#111827',
+                    titleFont: {
+                        size: 12,
+                        weight: '600'
+                    },
+                    bodyFont: {
+                        size: 12
+                    },
+                    padding: 10
+                }
+
+            },
+
+            scales: {
+
+                x: {
+
+                    grid: {
+                        color: '#e5e7eb',
+                        borderDash: [3, 3],
+                        drawBorder: false
+                    },
+
+                    ticks: {
+
+                        color: '#64748b',
+
+                        font: {
+                            size: 12,
+                            weight: '500',
+                            family: 'Inter'
+                        }
+
+                    }
+
+                },
+
+                y: {
+
+                    beginAtZero: true,
+
+                    max: 80,
+
+                    ticks: {
+
+                        stepSize: 20,
+
+                        color: '#64748b',
+
+                        font: {
+                            size: 12,
+                            weight: '500',
+                            family: 'Inter'
+                        }
+
+                    },
+
+                    grid: {
+                        color: '#e5e7eb',
+                        borderDash: [3, 3],
+                        drawBorder: false
+                    }
+
+                }
+
+            }
+
+        }
+
+    });
+
+    // DONUT CHART
+
+    new Chart(document.getElementById('statusChart'), {
+
+        type: 'doughnut',
+
+        data: {
+
+            datasets: [{
+
+                data: [12, 8, 5, 15, 23],
+
+                backgroundColor: [
+                    '#2563eb',
+                    '#0ea5e9',
+                    '#7c3aed',
+                    '#f59e0b',
+                    '#16a34a'
+                ],
+
+                borderWidth: 0
+
+            }]
+
+        },
+
+        options: {
+
+            cutout: '68%',
+
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+
+        }
+
+    });
+</script>

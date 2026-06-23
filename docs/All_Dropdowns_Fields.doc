@@ -1,0 +1,79 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>All Dropdowns - Table & Field List</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 12pt; margin: 40px; }
+h1 { font-size: 16pt; }
+h2 { font-size: 13pt; margin-top: 24px; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0 20px 0; }
+th { background: #2c5282; color: #fff; padding: 8px; border: 1px solid #2c5282; text-align: left; }
+td { border: 1px solid #cbd5e0; padding: 7px 8px; vertical-align: top; }
+tr:nth-child(even) td { background: #f7fafc; }
+</style>
+</head>
+<body>
+
+<h1>All Dropdowns - Table &amp; Field List</h1>
+
+<h2>Dynamic Dropdowns (Search from Database)</h2>
+<table>
+<tr>
+<th>#</th><th>Dropdown</th><th>Module</th><th>Database</th><th>Table</th><th>Search / Display Fields</th><th>Saved To</th>
+</tr>
+<tr>
+<td>1</td><td>Fab Number</td><td>Complaint Entry, Installed Base</td><td>dealerportal</td><td>ln_invoice_details</td><td>fabno</td><td>complaints.fab_number / installed_base.fab_number</td>
+</tr>
+<tr>
+<td>2</td><td>Pincode</td><td>Complaint Entry, Installed Base</td><td>complaint_management</td><td>postcodes</td><td>postcode, city, district, state</td><td>complaints.pincode / installed_base.pincode</td>
+</tr>
+<tr>
+<td>3</td><td>Order ID</td><td>Installed Base</td><td>complaint_management</td><td>tbl_vayu_orders_header</td><td>order_no (display), id (value)</td><td>installed_base.order_ref_id, installed_base.order_id</td>
+</tr>
+<tr>
+<td>4</td><td>Machine Model</td><td>Installed Base</td><td>complaint_management</td><td>product_master</td><td>tplcode, tpldesc</td><td>installed_base.machine_model_code, installed_base.machine_model</td>
+</tr>
+<tr>
+<td>5</td><td>Installed Base</td><td>Service Log, Spare Parts</td><td>complaint_management</td><td>installed_base</td><td>id, order_id, fab_number, customer_name</td><td>service_logs.installed_base_id / spare_parts_consumption.installed_base_id</td>
+</tr>
+<tr>
+<td>6</td><td>Service Record</td><td>Spare Parts</td><td>complaint_management</td><td>service_logs</td><td>id, order_id, engineer_name, visit_date</td><td>spare_parts_consumption.service_log_id</td>
+</tr>
+</table>
+
+<h2>Static Dropdowns (Fixed Values in Code)</h2>
+<table>
+<tr>
+<th>#</th><th>Dropdown</th><th>Module</th><th>Values</th><th>Saved To</th>
+</tr>
+<tr>
+<td>7</td><td>Assign To</td><td>Complaint Entry / Assign / Closure</td><td>Option 1, Option 2, Option 3, Option 4, Option 5</td><td>complaint_assignments.assign_complaint</td>
+</tr>
+<tr>
+<td>8</td><td>Call Closure</td><td>Complaint Closure</td><td>Yes, No</td><td>complaint_closures.call_closure</td>
+</tr>
+<tr>
+<td>9</td><td>Industry Segment</td><td>Installed Base</td><td>Manufacturing, Textiles, Automotive, Pharmaceuticals, FMCG, Engineering, Construction, Agriculture, Food Processing, Healthcare, Others</td><td>installed_base.industry_segment</td>
+</tr>
+<tr>
+<td>10</td><td>Warranty / Chargeable</td><td>Service Log, Spare Parts</td><td>Warranty, Chargeable</td><td>service_logs.warranty_chargeable / spare_parts_consumption.warranty_chargeable</td>
+</tr>
+<tr>
+<td>11</td><td>Part Replaced</td><td>Service Log</td><td>Yes, No</td><td>service_logs.part_replaced</td>
+</tr>
+<tr>
+<td>12</td><td>Customer Feedback</td><td>Service Log</td><td>Excellent, Good, Average, Poor</td><td>service_logs.customer_feedback</td>
+</tr>
+<tr>
+<td>13</td><td>Reason</td><td>Spare Parts</td><td>PM, Breakdown</td><td>spare_parts_consumption.reason</td>
+</tr>
+<tr>
+<td>14</td><td>Role</td><td>User Management</td><td>1=Dealer User, 2=Dealer Engineer, 3=ELGi Engineer, 4=Sales Coordinator, 5=Management, 6=System Admin</td><td>user_master.role</td>
+</tr>
+<tr>
+<td>15</td><td>Dashboard Period</td><td>Dashboard</td><td>today, this_week, this_month, last_3_months, last_6_months, this_year, last_year</td><td>Filter only (not saved)</td>
+</tr>
+</table>
+
+</body>
+</html>

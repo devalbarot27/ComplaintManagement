@@ -1,0 +1,67 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>Complaint Entry - Field List</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 12pt; margin: 40px; }
+h1 { font-size: 16pt; }
+h2 { font-size: 13pt; margin-top: 24px; }
+p { margin: 8px 0; }
+ul { margin: 6px 0 16px 0; }
+li { margin: 2px 0; }
+</style>
+</head>
+<body>
+
+<h1>Complaint Entry - Database Field List</h1>
+
+<p><strong>Database Name:</strong> complaint_management</p>
+
+<h2>Table: complaints</h2>
+<ul>
+<li>id</li>
+<li>fab_number</li>
+<li>customer_name</li>
+<li>street_1</li>
+<li>street_2</li>
+<li>pincode</li>
+<li>city</li>
+<li>district</li>
+<li>state</li>
+<li>customer_address</li>
+<li>complaint_description</li>
+<li>status</li>
+<li>added_by</li>
+<li>username</li>
+<li>created_at</li>
+<li>updated_at</li>
+<li>deleted_at</li>
+</ul>
+
+<h2>Table: complaint_assignments</h2>
+<ul>
+<li>id</li>
+<li>complaint_id</li>
+<li>assign_complaint</li>
+<li>assigned_to</li>
+<li>assign_complaint_datetime</li>
+<li>remarks</li>
+<li>assigned_by</li>
+<li>created_at</li>
+<li>is_service_updated</li>
+<li>username</li>
+</ul>
+
+<h2>Table: complaint_activity_logs</h2>
+<ul>
+<li>id</li>
+<li>complaint_id</li>
+<li>activity_type</li>
+<li>activity_description</li>
+<li>user_id</li>
+<li>username</li>
+<li>created_at</li>
+</ul>
+
+</body>
+</html>

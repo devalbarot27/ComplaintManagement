@@ -1,0 +1,322 @@
+================================================================================
+DEALER PORTAL - NOTES: ASSIGN NEW ROLE AND PERMISSION
+================================================================================
+Project : ComplaintManagementLatest
+Database: complaint_management (obconn)
+================================================================================
+
+OVERVIEW
+--------
+RBAC flow in this application:
+
+  Role  -->  Permissions (via Assign Permissions screen)
+  User  -->  Role (via Users screen, field: user_master.role)
+
+Access check reads:
+  - roles
+  - modules
+  - permissions
+  - role_permissions
+
+Important:
+  Assigning permission in database/UI alone is NOT always enough for a new page.
+  Page/API/Menu must also be mapped in code file:
+    includes/rbac_access_helpers.php
+
+================================================================================
+PART 1 - LOGIN REQUIREMENT
+================================================================================
+
+1. Login as System Admin user.
+   - user_master.role = 6
+   - Role name in roles table = "System Admin"
+
+2. Open sidebar section: ADMINISTRATION
+
+================================================================================
+PART 2 - CREATE NEW ROLE (IF REQUIRED)
+================================================================================
+
+Menu path:
+  ADMINISTRATION -> Roles -> roles.php
+
+Steps:
+  1. Open Roles page.
+  2. Click Add / open role form.
+  3. Enter:
+       Role Name     : e.g. Dealer Engineer
+       Description   : optional
+  4. Save.
+
+Notes:
+  - Role name must be unique.
+  - If you add a completely new role type for users, also update code in:
+      includes/user_helpers.php
+      function user_role_options()
+    Example:
+      7 => 'New Role Name',
+    And user_master.role must use that same numeric ID.
+
+  - RBAC resolves role mainly by role NAME from user_role_options(), then roles table.
+  - Keep role name in DB same as label in user_role_options().
+
+Existing default roles (user_master.role):
+  1 = Dealer User
+  2 = Dealer Engineer
+  3 = ELGi Engineer
+  4 = Sales Coordinator
+  5 = Management
+  6 = System Admin
+
+================================================================================
+PART 3 - CREATE MODULE (IF REQUIRED)
+================================================================================
+
+Menu path:
+  ADMINISTRATION -> Modules -> modules.php
+
+Steps:
+  1. Open Modules page.
+  2. Click Add.
+  3. Enter:
+       Module Name  : e.g. Complaint Entry
+       Module Slug  : e.g. complaint-entry   (lowercase, hyphen format)
+       Description  : optional
+  4. Save.
+
+Notes:
+  - Module slug must be unique.
+  - Module slug is used in code mapping and permission checks.
+  - Use same slug everywhere (DB + code).
+
+Example module slugs already used:
+  dashboard
+  installed-base-capture
+  service-log-capture
+  spare-parts-consumption
+  complaint-entry
+  assigned-complaint-list
+  order-booking
+  order-acknowledgement
+  pending-orders
+  recent-orders
+  despatch-details
+  lr-details
+
+================================================================================
+PART 4 - CREATE PERMISSION (IF REQUIRED)
+================================================================================
+
+Menu path:
+  ADMINISTRATION -> Permissions -> permissions.php
+
+Steps:
+  1. Open Permissions page.
+  2. Click Add.
+  3. Select Module.
+  4. Enter:
+       Permission Name : e.g. View, Add, Edit, Delete, Service Update
+       Permission Slug : e.g. view, add, edit, delete, service-update
+       Description     : optional
+  5. Save.
+
+Notes:
+  - Permission slug must be unique within the same module.
+  - Common slugs:
+      view
+      add
+      edit
+      delete
+      assign-complaint
+      complaint-closure
+      reassign-complaint
+      service-update
+
+Complaint Entry example permissions:
+  view, add, delete, assign-complaint, complaint-closure, reassign-complaint
+
+Assigned Complaint List example permissions:
+  view, service-update
+
+================================================================================
+PART 5 - ASSIGN PERMISSIONS TO ROLE
+================================================================================
+
+Menu path:
+  ADMINISTRATION -> Assign Permissions -> assign_permissions.php
+
+Steps:
+  1. Open Assign Permissions page.
+  2. Select Role from dropdown.
+  3. Permission matrix will load module-wise.
+  4. Tick required permission checkboxes.
+       - Use Select All / Clear All if needed.
+  5. Click Save.
+  6. Message: "Permissions assigned successfully."
+
+Example:
+  Role: Dealer User
+  Module: Complaint Entry
+  Permissions: View, Add
+
+Result:
+  Dealer User can access complaint entry only if code mapping exists and user
+  has correct role assigned.
+
+================================================================================
+PART 6 - ASSIGN ROLE TO USER
+================================================================================
+
+Menu path:
+  ADMINISTRATION -> Users -> users.php
+
+Steps:
+  1. Open Users page.
+  2. Add new user OR edit existing user.
+  3. Select Role from dropdown.
+  4. Save user.
+
+Notes:
+  - Role value saved in user_master.role.
+  - User must logout and login again to refresh session permissions.
+
+================================================================================
+PART 7 - CODE MAPPING REQUIRED (FOR NEW PAGE / API / MENU)
+================================================================================
+
+File:
+  includes/rbac_access_helpers.php
+
+When adding a NEW screen or API, developer must add mapping in 3 arrays:
+
+A) rbac_page_access_rules()
+   Maps PHP page file -> module slug + permission slug
+
+   Example:
+   'reports.php' => ['module' => 'reports', 'permission' => 'view'],
+
+   Used by:
+   - session_check.php
+   - includes/rbac_page_guard.php
+
+B) rbac_api_access_rules()
+   Maps API file in api/ folder -> module slug + permission slug
+
+   Example:
+   'reports_datatable.php' => ['module' => 'reports', 'permission' => 'view'],
+
+   Used by:
+   - rbac_require_api_access($obconn) in API files
+
+C) rbac_sidebar_modules()
+   Maps menu page file -> module slug + permission slug
+
+   Example:
+   'reports.php' => ['module' => 'reports', 'permission' => 'view'],
+
+   Used by:
+   - sidebar.php via rbac_can_access_menu()
+
+Special case:
+  complaint_details.php uses dynamic rule in rbac_resolve_page_rule()
+  - from=list  -> assigned-complaint-list / view
+  - otherwise  -> complaint-entry / view
+
+================================================================================
+PART 8 - PAGE / API GUARD (DEVELOPER)
+================================================================================
+
+Protected PHP page should include (after session_start and pdo_obconn):
+
+  require_once 'includes/rbac_page_guard.php';
+
+Protected API file should include:
+
+  require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
+  rbac_require_api_access($obconn);
+
+Admin pages (Roles, Modules, Permissions, Users, Assign Permissions):
+  - Protected by System Admin check
+  - require_system_admin($obconn)
+
+Admin APIs:
+  - includes/admin_api_guard.php
+  - admin_api_require_system_admin($obconn)
+
+================================================================================
+PART 9 - ACCESS DENIED BEHAVIOR
+================================================================================
+
+If user opens page without permission:
+  -> Redirect to access_denied.php
+
+If user calls API without permission:
+  -> HTTP 403 JSON error
+
+System Admin (role 6):
+  -> Bypasses normal module permission checks
+
+================================================================================
+PART 10 - DATABASE SEED (OPTIONAL)
+================================================================================
+
+SQL files:
+  sql/rbac_schema.sql        - creates roles, modules, permissions tables
+  sql/rbac_seed_data.sql     - sample roles, modules, permissions insert queries
+
+Run order:
+  1. sql/run_rbac_migration.php
+  2. sql/run_rbac_seed.php (or run rbac_seed_data.sql in pgAdmin)
+
+Tables:
+  roles
+  modules
+  permissions
+  role_permissions
+
+================================================================================
+QUICK WORKFLOW SUMMARY
+================================================================================
+
+For existing module/permission (only assign to role):
+  1. Assign Permissions -> select role -> tick permissions -> Save
+  2. Users -> assign role to user -> Save
+  3. User logout/login
+
+For brand new feature/module:
+  1. Modules    -> create module (slug)
+  2. Permissions -> create permissions under module
+  3. Assign Permissions -> assign to role
+  4. Users      -> assign role to user
+  5. Developer  -> update includes/rbac_access_helpers.php
+                   (page rules, api rules, sidebar rules)
+  6. Developer  -> add rbac_page_guard on page / rbac_require_api_access on API
+  7. User logout/login and test with non-admin user
+
+================================================================================
+TESTING CHECKLIST
+================================================================================
+
+  [ ] Login with non-admin test user
+  [ ] Sidebar shows only allowed menus
+  [ ] Allowed page opens successfully
+  [ ] Direct URL to blocked page shows access_denied.php
+  [ ] Datatable/API returns 403 when permission missing
+  [ ] After permission change, user re-login done
+  [ ] System Admin still sees all admin menus
+
+================================================================================
+COMMON MISTAKES
+================================================================================
+
+  1. Permission assigned in DB but page not added in rbac_page_access_rules()
+  2. Module slug mismatch (complaint_entry vs complaint-entry)
+  3. Permission slug mismatch (View vs view)
+  4. Testing only with System Admin (admin bypasses checks)
+  5. Forgot to assign role to user in Users screen
+  6. User not logged out after permission update
+  7. API protected in page but datatable API not mapped in rbac_api_access_rules()
+
+================================================================================
+END OF NOTES
+================================================================================

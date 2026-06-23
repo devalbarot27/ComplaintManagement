@@ -1,0 +1,719 @@
+/* PAGE */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+ 
+.page-subtitle {
+    font-size: 15px;
+    color: #64748b;
+    font-weight: 500;
+}
+ 
+/* BUTTON */
+ 
+.new-order-btn {
+    height: 40px;
+    padding: 0 18px;
+    border: none;
+    border-radius: 10px;
+    background: #1565d8;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+ 
+/* CARD */
+ 
+.booking-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+}
+ 
+/* HEADER */
+ 
+.booking-header {
+    padding: 22px 24px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+ 
+.booking-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+}
+ 
+.booking-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+ 
+/* SEARCH */
+ 
+.search-box {
+    width: 200px;
+    height: 40px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 10px;
+}
+ 
+.search-box i {
+    color: #64748b;
+    font-size: 14px;
+}
+ 
+.search-box input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+}
+ 
+/* SELECT */
+ 
+.filter-select {
+    height: 40px;
+    min-width: 145px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    padding: 0 14px;
+    background: white;
+    font-size: 14px;
+    color: #334155;
+}
+ 
+.active-filter {
+    border: 2px solid #d93d0f;
+}
+ 
+/* TABLE */
+ 
+.booking-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+ 
+.booking-table thead th {
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+    padding: 14px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+}
+ 
+.booking-table tbody td {
+    padding: 18px 24px;
+    font-size: 14px;
+    color: #0f172a;
+    border-bottom: 1px solid #e2e8f0;
+}
+ 
+.booking-table tbody tr:last-child td {
+    border-bottom: none;
+}
+ 
+/* LINK */
+ 
+.order-link {
+    color: #0f62fe;
+    text-decoration: none;
+    font-weight: 600;
+}
+ 
+/* BADGE */
+ 
+.status-badge {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+ 
+.created {
+    background: #dbeafe;
+    color: #d93d0f;
+}
+ 
+.dispatched {
+    background: #dcfce7;
+    color: #16a34a;
+}
+ 
+.pending {
+    background: #fef3c7;
+    color: #d97706;
+}
+ 
+/* MOBILE */
+ 
+@media(max-width:992px) {
+ 
+    .booking-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+ 
+    .booking-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+ 
+}
+ 
+@media(max-width:768px) {
+ 
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+ 
+    .new-order-btn {
+        width: 100%;
+        justify-content: center;
+    }
+ 
+    .search-box {
+        width: 100%;
+    }
+ 
+    .filter-select {
+        flex: 1;
+    }
+ 
+    .booking-table {
+        min-width: 800px;
+    }
+ 
+}
+ 
+/* GRID */
+ 
+.complaint-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+ 
+/* FULL WIDTH */
+ 
+.full-width {
+    grid-column: 1 / -1;
+}
+ 
+/* LABEL */
+ 
+.form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 10px;
+    display: block;
+}
+ 
+/* REQUIRED */
+ 
+.required {
+    color: #ef4444;
+}
+ 
+/* INPUT */
+ 
+.custom-input {
+    width: 100%;
+    height: 42px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    padding: 0 14px;
+    font-size: 14px;
+    color: #0f172a;
+    outline: none;
+    background: #fff;
+}
+ 
+.custom-input:focus {
+    border-color: #1565d8;
+}
+ 
+/* TEXTAREA */
+ 
+.custom-textarea {
+    width: 100%;
+    min-height: 140px;
+    border: 1px solid #dbe2ea;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 14px;
+    color: #0f172a;
+    outline: none;
+    resize: vertical;
+    background: #fff;
+}
+ 
+.custom-textarea:focus {
+    border-color: #1565d8;
+}
+ 
+/* BUTTON WRAPPER */
+ 
+.complaint-btn-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+ 
+/* CANCEL */
+ 
+.cancel-btn {
+    height: 40px;
+    padding: 0 20px;
+    border: 1px solid #dbe2ea;
+    background: #fff;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+}
+ 
+/* SUBMIT */
+ 
+.submit-btn {
+    height: 40px;
+    padding: 0 20px;
+    border: none;
+    background: #1565d8;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+}
+ 
+/* MOBILE */
+ 
+@media(max-width:768px) {
+ 
+    .complaint-grid {
+        grid-template-columns: 1fr;
+    }
+ 
+    .complaint-btn-wrapper {
+        flex-direction: column;
+    }
+ 
+    .cancel-btn,
+    .submit-btn {
+        width: 100%;
+    }
+ 
+}
+
+
+
+
+/* Temp */
+.complaint-action-btn--closure {
+    background: #7c3aed;
+}
+ 
+.complaint-action-btn--closure:hover {
+    background: #6d28d9;
+    color: #fff;
+}
+.complaint-status-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 16px;
+
+    margin-bottom: 20px;
+
+}
+
+ 
+
+.complaint-status-card {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    background: #fff;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 14px;
+
+    padding: 20px 22px;
+
+    min-height: 110px;
+
+}
+
+ 
+
+.complaint-status-body {
+
+    flex: 1;
+
+    min-width: 0;
+
+}
+
+ 
+
+.complaint-status-label {
+
+    font-size: 14px;
+
+    font-weight: 500;
+
+    color: #64748b;
+
+    margin-bottom: 8px;
+
+}
+
+ 
+
+.complaint-status-value {
+
+    font-size: 32px;
+
+    font-weight: 700;
+
+    color: #0f172a;
+
+    line-height: 1.1;
+
+    letter-spacing: -0.5px;
+
+}
+
+ 
+
+.complaint-status-hint {
+
+    margin-top: 6px;
+
+    font-size: 13px;
+
+    font-weight: 500;
+
+    color: #ef4444;
+
+}
+
+ 
+
+.complaint-status-icon {
+
+    flex-shrink: 0;
+
+    width: 48px;
+
+    height: 48px;
+
+    border-radius: 50%;
+
+    background: #eff6ff;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    margin-left: 16px;
+
+}
+
+ 
+
+.complaint-status-icon i {
+
+    font-size: 22px;
+
+    color: #d93d0f;
+
+    font-weight: 700;
+
+}
+
+ 
+
+@media (max-width: 992px) {
+
+    .complaint-status-grid {
+
+        grid-template-columns: 1fr;
+
+    }
+
+}
+
+ 
+
+@media (max-width: 576px) {
+
+    .complaint-status-card {
+
+        padding: 16px 18px;
+
+    }
+
+ 
+
+    .complaint-status-value {
+
+        font-size: 28px;
+
+    }
+
+ 
+
+    .complaint-status-icon {
+
+        width: 42px;
+
+        height: 42px;
+
+    }
+
+ 
+
+    .complaint-status-icon i {
+
+        font-size: 18px;
+
+    }
+
+}
+
+
+
+
+
+/* Primary action buttons (replaces blue) */
+.btn-primary{
+ background-color: #F44611 !important;
+    border-color: #F44611 !important;
+    color: #fff !important;
+
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.content .btn-primary:hover,
+.content .btn-primary:focus,
+.modal .btn-primary:hover,
+.modal .btn-primary:focus {
+    background-color: #d93d0f !important;
+    border-color: #d93d0f !important;
+    color: #fff !important;
+}
+
+.btn-secondary,.cancel-btn{
+    height: 40px;
+    padding: 0 20px;
+    border: 1px solid #dbe2ea !important;
+    background: #fff !important;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a !important;
+}
+.btn-secondary:hover,.btn-secondary:focus,.btn-secondary:active
+{
+    height: 40px;
+    padding: 0 20px;
+    border: 1px solid #dbe2ea !important;
+    background: #dbe2ea !important;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a !important;
+}
+
+
+.btn-complaint-primary,
+.content .btn-complaint-primary,
+.modal .btn-complaint-primary {
+    background-color: #F44611 !important;
+    border-color: #F44611 !important;
+    color: #fff !important;
+}
+ 
+.btn-complaint-primary:hover,
+.btn-complaint-primary:focus,
+.content .btn-complaint-primary:hover,
+.content .btn-complaint-primary:focus,
+.modal .btn-complaint-primary:hover,
+.modal .btn-complaint-primary:focus {
+    background-color: #d93d0f !important;
+    border-color: #d93d0f !important;
+    color: #fff !important;
+}
+ 
+.btn-complaint-primary:active,
+.content .btn-complaint-primary:active,
+.modal .btn-complaint-primary:active {
+    background-color: #c4350e !important;
+    border-color: #c4350e !important;
+    color: #fff !important;
+}
+ 
+/* Grid / table action icon buttons */
+.complaint-action-cell {
+    display: inline-flex;
+    align-items: center;
+  line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: none;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+ 
+.btn-complaint-action i {
+    font-size: 14px;
+    pointer-events: none;
+    color: inherit;
+}
+ 
+.btn-complaint-action:hover,
+.btn-complaint-action:focus {
+    background: #000 !important;
+    color: #fff !important;
+    border-color: #000 !important;
+    text-decoration: none;
+}
+ 
+.btn-complaint-action:hover i,
+.btn-complaint-action:focus i {
+    color: #fff !important;
+}
+ 
+.btn-complaint-action:active {
+    background: #000 !important;
+    color: #fff !important;
+    border-color: #000 !important;
+}
+
+
+
+.complaint-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #000 !important;
+    border-radius: 8px;
+    background: transparent !important;
+    color: #000 !important;
+    font-size: 14px;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: none;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+ 
+.complaint-action-btn:hover {
+    background: #000 !important;
+    color: #fff !important;
+    border-color: #000 !important;
+}
+ 
+.disabled_btn {
+    pointer-events: none;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+ 
+.dataTables_wrapper .dataTables_paginate .paginate_button{
+     padding: 0px !important;
+}
+ 
+.form-select-sm {
+       border-color: #dbe2ea !important;
+}
+.page-item.active .page-link {
+    background-color: #000 !important;
+    border-color: #000 !important;
+    color: #fff !important;
+}
+ 
+.page-link {
+    color: #000 !important;
+    background-color: #fff !important;
+    border: 1px solid #000 !important;
+}
+
+
+ 
+.page-link:hover {
+    background-color: #000 !important;
+    color: #fff !important;
+    border-color: #000 !important;
+}
+ 
+.page-item.disabled .page-link {
+    color: #6c757d !important;
+    background-color: #fff !important;
+    border-color: #dee2e6 !important;
+}
+ 
+
+.page-link:focus,
+.page-link:active,
+.page-link:focus-visible {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:focus,
+.dataTables_wrapper .dataTables_paginate .paginate_button:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+ 
+
+.complaint-status-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+}
+
+@media (max-width: 1200px) {
+    .complaint-status-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 992px) {
+    .complaint-status-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
