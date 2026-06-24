@@ -15,7 +15,6 @@ $allowedOrderColumns = [
     'complaint_category_name',
     'city',
     'username',
-    'complaint_description',
     'status',
     'created_at',
 ];
@@ -69,7 +68,6 @@ $dataQuery = "
         district,
         state,
         customer_address,
-        complaint_description,
         complaint_category_id,
         complaint_category_name,
         username,
@@ -141,7 +139,6 @@ foreach ($rows as $row) {
         'complaint_category' => htmlspecialchars(complaint_category_display_name($row), ENT_QUOTES, 'UTF-8'),
         'customer_address' => htmlspecialchars(complaint_format_address($row), ENT_QUOTES, 'UTF-8'),
         'username' => htmlspecialchars((string) ($row['username'] ?? ''), ENT_QUOTES, 'UTF-8'),
-        'complaint_description' => htmlspecialchars(mb_strimwidth($row['complaint_description'], 0, 80, '...'), ENT_QUOTES, 'UTF-8'),
         'status' => complaint_status_badge($status),
         'created_at' => date('d M Y H:i', strtotime($row['created_at'])),
         'actions' => complaint_entry_actions(

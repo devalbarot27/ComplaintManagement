@@ -508,8 +508,7 @@ if(isset($_POST['submit_complaint']))
                                 <th width="10%">Fab Number</th>
                                 <th width="12%">Customer Name</th>
                                 <th width="12%">Complaint Category</th>
-                                <th width="12%">Customer Address</th>
-                                <th>Complaint Description</th>
+                                <th>Customer Address</th>
                                 <th width="15%">Status</th>
                                 <th width="12%">Created At</th>
                                 <th width="8%">Action</th>
@@ -932,7 +931,6 @@ function initComplaintEntryDatatable() {
             { data: 'customer_name' },
             { data: 'complaint_category' },
             { data: 'customer_address' },
-            { data: 'complaint_description' },
             { data: 'status', orderable: false },
             { data: 'created_at' },
             { data: 'actions', orderable: false, searchable: false }

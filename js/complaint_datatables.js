@@ -19,7 +19,6 @@ function initComplaintEntryDatatable() {
             { data: 'fab_number' },
             { data: 'customer_name' },
             { data: 'customer_address' },
-            { data: 'complaint_description' },
             { data: 'status', orderable: false },
             { data: 'created_at' },
             { data: 'actions', orderable: false, searchable: false }
