@@ -12,17 +12,12 @@ $allowedOrderColumns = ['id', 'name', 'status', 'created_at'];
 $req = dt_parse_request($allowedOrderColumns, 'id');
 
 $statusFilter = strtolower(trim((string) ($_POST['status_filter'] ?? '')));
-$recordFilter = strtolower(trim((string) ($_POST['record_filter'] ?? 'active')));
-
-if (!in_array($recordFilter, ['active', 'deleted'], true)) {
-    $recordFilter = 'active';
-}
 
 if ($statusFilter !== '' && !array_key_exists($statusFilter, rbac_status_options())) {
     $statusFilter = '';
 }
 
-$baseWhere = $recordFilter === 'deleted' ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL';
+$baseWhere = 'deleted_at IS NULL';
 $filterParams = [];
 
 $recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM complaint_categories WHERE {$baseWhere}");
@@ -31,7 +26,7 @@ $recordsTotal = (int) $recordsTotalStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
 $filterWhere = $baseWhere;
 
-if ($recordFilter === 'active' && $statusFilter !== '') {
+if ($statusFilter !== '') {
     $filterWhere .= ' AND status = :status_filter';
     $filterParams[':status_filter'] = $statusFilter;
 }
@@ -66,7 +61,6 @@ $dataStmt->bindValue(':offset', $req['start'], PDO::PARAM_INT);
 $dataStmt->execute();
 
 $data = [];
-$isDeletedList = $recordFilter === 'deleted';
 
 foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $data[] = [
@@ -74,7 +68,7 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'name' => htmlspecialchars($row['name'], ENT_QUOTES, 'UTF-8'),
         'status' => rbac_status_badge($row['status']),
         'created_at' => rbac_format_datetime($row['created_at']),
-        'actions' => complaint_category_entry_actions((int) $row['id'], $isDeletedList),
+        'actions' => complaint_category_entry_actions((int) $row['id']),
     ];
 }
 

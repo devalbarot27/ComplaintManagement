@@ -64,7 +64,6 @@ function initComplaintCategoryDatatable() {
             type: 'POST',
             data: function (payload) {
                 payload.status_filter = document.getElementById('complaintCategoryStatusFilter').value;
-                payload.record_filter = document.getElementById('complaintCategoryRecordFilter').value;
             }
         },
         order: [[0, 'desc']],
@@ -128,26 +127,6 @@ function closeComplaintCategoryFormPanel() {
     resetComplaintCategoryForm();
 }
 
-function toggleComplaintCategoryFilters(table) {
-    const recordFilter = document.getElementById('complaintCategoryRecordFilter');
-    const statusFilter = document.getElementById('complaintCategoryStatusFilter');
-    const isDeleted = recordFilter.value === 'deleted';
-
-    statusFilter.disabled = isDeleted;
-    if (isDeleted) {
-        statusFilter.value = '';
-    }
-
-    document.getElementById('openComplaintCategoryForm').style.display = isDeleted ? 'none' : 'flex';
-    if (isDeleted) {
-        closeComplaintCategoryFormPanel();
-    }
-
-    if (table) {
-        table.ajax.reload();
-    }
-}
-
 function bootComplaintCategoriesPage() {
     initComplaintCategoryFormValidation();
     const table = initComplaintCategoryDatatable();
@@ -159,9 +138,6 @@ function bootComplaintCategoriesPage() {
         openComplaintCategoryFormPanel();
     });
 
-    document.getElementById('complaintCategoryRecordFilter').addEventListener('change', function () {
-        toggleComplaintCategoryFilters(table);
-    });
     document.getElementById('complaintCategoryStatusFilter').addEventListener('change', function () {
         if (table) {
             table.ajax.reload();

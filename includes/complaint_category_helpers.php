@@ -73,41 +73,9 @@ function complaint_category_get_by_id(PDO $conn, int $id): ?array
     return $row ?: null;
 }
 
-function complaint_category_get_deleted_by_id(PDO $conn, int $id): ?array
-{
-    $stmt = $conn->prepare('
-        SELECT *
-        FROM complaint_categories
-        WHERE id = :id
-          AND deleted_at IS NOT NULL
-    ');
-    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $stmt->execute();
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return $row ?: null;
-}
-
-function complaint_category_entry_actions(int $id, bool $deleted = false): string
+function complaint_category_entry_actions(int $id): string
 {
     $encodedId = base64_encode((string) $id);
-
-    if ($deleted) {
-        return '
-            <div class="d-flex gap-1">
-                <a href="complaint_category_details.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '&deleted=1"
-                    class="btn btn-sm btn-outline-dark" title="View">
-                    <i class="bi bi-eye"></i>
-                </a>
-                <a href="restore_complaint_category.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
-                    class="btn btn-sm btn-outline-dark"
-                    onclick="return confirm(\'Restore this complaint category?\');" title="Restore">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                </a>
-            </div>
-        ';
-    }
 
     return '
         <div class="d-flex gap-1">
@@ -168,19 +136,6 @@ function complaint_category_soft_delete(PDO $conn, int $id): void
             updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
           AND deleted_at IS NULL
-    ');
-    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $stmt->execute();
-}
-
-function complaint_category_restore(PDO $conn, int $id): void
-{
-    $stmt = $conn->prepare('
-        UPDATE complaint_categories
-        SET deleted_at = NULL,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = :id
-          AND deleted_at IS NOT NULL
     ');
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();

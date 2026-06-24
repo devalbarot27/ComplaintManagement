@@ -157,10 +157,6 @@ $statusOptions = rbac_status_options();
                 <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div class="booking-title">Complaint Category List</div>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
-                        <select class="form-control form-control-sm" id="complaintCategoryRecordFilter" style="width:auto; min-width:140px;">
-                            <option value="active">Active Records</option>
-                            <option value="deleted">Deleted Records</option>
-                        </select>
                         <select class="form-control form-control-sm" id="complaintCategoryStatusFilter" style="width:auto; min-width:130px;">
                             <option value="">All Status</option>
                             <?php foreach ($statusOptions as $value => $label) { ?>
