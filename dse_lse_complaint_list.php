@@ -98,7 +98,7 @@ $active_menu = 'complaint_list';
                                 <th width="5%">ID</th>
                                 <th width="10%">Fab Number</th>
                                 <th width="10%">Customer Name</th>
-                                <th >Complaint Description</th>
+                                <th width="10%">Complaint Category</th>
                                 <th width="10%">Assigned To</th>
                                 <th width="15%">Assigned Date</th>
                                 <th>Remarks</th>
@@ -243,7 +243,7 @@ function initAssignedComplaintDatatable() {
             { data: 'c_id' },
             { data: 'fab_number' },
             { data: 'customer_name' },
-            { data: 'complaint_description' },
+            { data: 'complaint_category' },
             { data: 'assign_complaint' },
             { data: 'assign_complaint_datetime' },
             { data: 'remarks' },

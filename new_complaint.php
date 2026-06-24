@@ -7,6 +7,7 @@ include 'includes/complaint_activity_helpers.php';
 include('includes/complaint_assignment_mail_helpers.php');
 include('includes/complaint_assignment_helpers.php');
 include('includes/complaint_address_helpers.php');
+include('includes/complaint_category_helpers.php');
 include('includes/complaint_status.php');
 include('includes/ln_invoice_helpers.php');
  
@@ -15,6 +16,8 @@ $error_message = '';
 $userName = current_username();
 $complaintAssignees = complaint_fetch_elgi_engineer_assignees($obconn);
 $complaintAssigneeOptionsHtml = complaint_render_assignee_options($complaintAssignees);
+$complaintCategoryOptions = complaint_category_get_active_options($obconn);
+$complaintCategoryOptionsHtml = complaint_category_render_options($complaintCategoryOptions);
 
 if(isset($_POST['submit_complaint']))
 {
@@ -22,10 +25,12 @@ if(isset($_POST['submit_complaint']))
     $customer_name = trim($_POST['customer_name']);
     $address = complaint_address_from_post($_POST);
     $complaint_description = trim($_POST['complaint_description']);
+    $complaint_category_id = (int) ($_POST['complaint_category_id'] ?? 0);
     $assign_complaint = trim($_POST['assign_complaint'] ?? '');
     $remarks = trim($_POST['remarks'] ?? '');
 
     $addressError = complaint_validate_address_fields($address);
+    $complaintCategory = complaint_category_resolve_for_complaint($obconn, $complaint_category_id);
 
     if ($addressError !== null) {
         $error_message = $addressError;
@@ -33,6 +38,8 @@ if(isset($_POST['submit_complaint']))
         $error_message = 'Fab Number is required.';
     } elseif (!ln_invoice_fabno_exists($dpconn, $fab_number)) {
         $error_message = 'Selected Fab Number was not found in invoice details.';
+    } elseif ($complaintCategory === null) {
+        $error_message = 'Complaint Category is required.';
     } elseif (strlen($remarks) > 500) {
         $error_message = 'Remarks cannot exceed 500 characters.';
     } elseif ($assign_complaint !== '' && ($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $assign_complaint)) !== null) {
@@ -58,6 +65,8 @@ if(isset($_POST['submit_complaint']))
                     district,
                     state,
                     complaint_description,
+                    complaint_category_id,
+                    complaint_category_name,
                     status,
                     added_by,
                     username
@@ -73,6 +82,8 @@ if(isset($_POST['submit_complaint']))
                     :district,
                     :state,
                     :complaint_description,
+                    :complaint_category_id,
+                    :complaint_category_name,
                     :status,
                     :added_by,
                     :username
@@ -88,6 +99,8 @@ if(isset($_POST['submit_complaint']))
             $insert->bindValue(':district', $address['district']);
             $insert->bindValue(':state', $address['state']);
             $insert->bindValue(':complaint_description', $complaint_description);
+            $insert->bindValue(':complaint_category_id', (int) $complaintCategory['id'], PDO::PARAM_INT);
+            $insert->bindValue(':complaint_category_name', $complaintCategory['name']);
             $insert->bindValue(':status', $complaintStatus, PDO::PARAM_INT);
             $insert->bindValue(':added_by', $assigned_by, PDO::PARAM_INT);
             $insert->bindValue(':username', $userName);
@@ -219,6 +232,7 @@ if(isset($_POST['submit_complaint']))
 <script src="js/pincode_select2.js"></script>
 <script src="js/fabno_select2.js"></script>
 <script src="js/assign_to_select2.js"></script>
+<script src="js/static_select2.js"></script>
 
 </head>
  
@@ -404,6 +418,18 @@ if(isset($_POST['submit_complaint']))
                                 </div>
                             </div>
                             <div class="row g-3">
+                                <div class="col-md-6 form-group">
+                                    <label class="form-label" for="complaintCategorySelect">
+                                        <i class="bi bi-tags"></i>
+                                        Complaint Category <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-control" name="complaint_category_id" id="complaintCategorySelect"
+                                        data-placeholder="Select complaint category">
+                                        <?php echo $complaintCategoryOptionsHtml; ?>
+                                    </select>
+                                    <input type="hidden" name="complaint_category_name" id="complaintCategoryName" value="">
+                                    <div class="text-danger validation-msg" data-field="complaint_category_id"></div>
+                                </div>
                                 <div class="col-12 form-group">
                                     <label class="form-label">
                                         <i class="bi bi-chat-left-text"></i>
@@ -480,11 +506,12 @@ if(isset($_POST['submit_complaint']))
                             <tr>
                                 <th width="5%">ID</th>
                                 <th width="10%">Fab Number</th>
-                                <th width="15%">Customer Name</th>
-                                <th width="15%">Customer Address</th>
+                                <th width="12%">Customer Name</th>
+                                <th width="12%">Complaint Category</th>
+                                <th width="12%">Customer Address</th>
                                 <th>Complaint Description</th>
-                                <th width="12%">Status</th>
-                                <th width="15%">Created At</th>
+                                <th width="15%">Status</th>
+                                <th width="12%">Created At</th>
                                 <th width="8%">Action</th>
                             </tr>
                         </thead>
@@ -737,6 +764,12 @@ function initComplaintFormValidation() {
                 message: '^Complaint Description is required'
             }
         },
+        complaint_category_id: {
+            presence: {
+                allowEmpty: false,
+                message: '^Complaint Category is required'
+            }
+        },
         remarks: {
             length: {
                 maximum: 500,
@@ -779,6 +812,10 @@ function initComplaintFormValidation() {
 
             if (field === 'assign_complaint') {
                 $('#complaintAssignToSelect').addClass('is-invalid');
+            }
+
+            if (field === 'complaint_category_id') {
+                $('#complaintCategorySelect').addClass('is-invalid');
             }
  
             if (msg && errors[field] && errors[field].length) {
@@ -825,6 +862,7 @@ form.addEventListener('submit', function (e) {
         	return;
     	}
 
+    	syncComplaintCategoryName();
     	const errors = validate(form, constraints);
     	showErrors(errors);
     	if (errors && Object.keys(errors).length > 0) {
@@ -844,7 +882,31 @@ form.addEventListener('submit', function (e) {
         resetPincodeSelect2(form);
         resetFabNumberSelect2ById('complaintFabNumberSelect');
         resetAssignToSelect2('complaintAssignToSelect');
+        resetStaticSelect2('complaintCategorySelect');
+        document.getElementById('complaintCategoryName').value = '';
     });
+}
+
+function syncComplaintCategoryName() {
+    const $select = $('#complaintCategorySelect');
+    const nameInput = document.getElementById('complaintCategoryName');
+
+    if (!$select.length || !nameInput) {
+        return;
+    }
+
+    const selected = $select.find(':selected');
+    nameInput.value = selected.data('name') || '';
+}
+
+function initComplaintCategorySelect2() {
+    initStaticSelect2('complaintForm', 'complaintCategorySelect', {
+        validationField: 'complaint_category_id',
+        allowClear: false,
+        noResultsText: 'No complaint category found'
+    });
+
+    $('#complaintCategorySelect').on('select2:select select2:clear', syncComplaintCategoryName);
 }
 
 
@@ -868,6 +930,7 @@ function initComplaintEntryDatatable() {
             { data: 'id' },
             { data: 'fab_number' },
             { data: 'customer_name' },
+            { data: 'complaint_category' },
             { data: 'customer_address' },
             { data: 'complaint_description' },
             { data: 'status', orderable: false },
@@ -1241,6 +1304,7 @@ $(document).ready(function() {
     initComplaintFormValidation();
     initPincodeSelect2();
     initFabnoSelect2('complaintForm', 'complaintFabNumberSelect');
+    initComplaintCategorySelect2();
     initAssignToSelect2('complaintForm', 'complaintAssignToSelect');
     initAssignToSelect2('assignComplaintForm', 'assignModalAssignToSelect', {
         dropdownParent: $('#assignModal')
@@ -1330,6 +1394,8 @@ closeOrderForm.addEventListener('click', function() {
         complaintForm.reset();
         resetPincodeSelect2(complaintForm);
         resetFabNumberSelect2ById('complaintFabNumberSelect');
+        resetStaticSelect2('complaintCategorySelect');
+        document.getElementById('complaintCategoryName').value = '';
         resetAssignToSelect2('complaintAssignToSelect');
         complaintForm.querySelectorAll('.is-invalid').forEach(function (el) {
             el.classList.remove('is-invalid');

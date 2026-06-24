@@ -6,6 +6,7 @@ include 'includes/complaint_activity_helpers.php';
 include 'includes/complaint_status.php';
 include 'includes/service_report_helpers.php';
 include 'includes/complaint_address_helpers.php';
+include 'includes/complaint_category_helpers.php';
 
 $id = (int)base64_decode($_GET['id'] ?? '', true);
  
@@ -163,6 +164,11 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                     <div class="col-md-4">
                         <strong>Customer Name:</strong>
                         <?php echo htmlspecialchars($complaint['customer_name']); ?>
+                    </div>
+
+                    <div class="col-md-4">
+                        <strong>Complaint Category:</strong>
+                        <?php echo htmlspecialchars(complaint_category_display_name($complaint)); ?>
                     </div>
  
                     <div class="col-md-4">

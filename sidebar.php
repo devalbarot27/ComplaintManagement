@@ -339,6 +339,12 @@
               SYSTEM CONFIGURATION
           </div>
 
+          <a href="complaint_categories.php"
+              class="menu-item <?= in_array($currentPage, ['complaint_categories.php', 'complaint_category_details.php'], true) ? 'active' : '' ?>">
+              <i class="bi bi-tags"></i>
+              Complaint Category
+          </a>
+
           <a href="industry_segments.php"
               class="menu-item <?= in_array($currentPage, ['industry_segments.php', 'industry_segment_details.php'], true) ? 'active' : '' ?>">
               <i class="bi bi-building"></i>
@@ -367,12 +373,6 @@
               class="menu-item <?= in_array($currentPage, ['reasons.php', 'reason_details.php'], true) ? 'active' : '' ?>">
               <i class="bi bi-list-check"></i>
               Reason
-          </a>
-
-          <a href="complaint_categories.php"
-              class="menu-item <?= in_array($currentPage, ['complaint_categories.php', 'complaint_category_details.php'], true) ? 'active' : '' ?>">
-              <i class="bi bi-tags"></i>
-              Complaint Category
           </a>
 
       </div>

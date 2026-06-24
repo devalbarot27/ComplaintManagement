@@ -141,6 +141,61 @@ function complaint_category_soft_delete(PDO $conn, int $id): void
     $stmt->execute();
 }
 
+function complaint_category_get_active_options(PDO $conn): array
+{
+    $stmt = $conn->query("
+        SELECT id, name
+        FROM complaint_categories
+        WHERE deleted_at IS NULL
+          AND status = 'active'
+        ORDER BY name ASC
+    ");
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function complaint_category_resolve_for_complaint(PDO $conn, int $categoryId): ?array
+{
+    if ($categoryId <= 0) {
+        return null;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT id, name
+        FROM complaint_categories
+        WHERE id = :id
+          AND deleted_at IS NULL
+          AND status = 'active'
+        LIMIT 1
+    ");
+    $stmt->bindValue(':id', $categoryId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+function complaint_category_render_options(array $categories): string
+{
+    $html = '<option value=""></option>';
+
+    foreach ($categories as $category) {
+        $id = (int) $category['id'];
+        $name = htmlspecialchars((string) $category['name'], ENT_QUOTES, 'UTF-8');
+        $html .= '<option value="' . $id . '" data-name="' . $name . '">' . $name . '</option>';
+    }
+
+    return $html;
+}
+
+function complaint_category_display_name(?array $complaint): string
+{
+    $name = trim((string) ($complaint['complaint_category_name'] ?? ''));
+
+    return $name !== '' ? $name : '-';
+}
+
 function complaint_category_created_by_label(array $record): string
 {
     $userId = (int) ($record['created_by'] ?? 0);

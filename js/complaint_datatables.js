@@ -51,7 +51,7 @@ function initAssignedComplaintDatatable() {
             { data: 'ca_id' },
             { data: 'fab_number' },
             { data: 'customer_name' },
-            { data: 'complaint_description' },
+            { data: 'complaint_category' },
             { data: 'assign_complaint' },
             { data: 'assign_complaint_datetime' },
             { data: 'remarks' },

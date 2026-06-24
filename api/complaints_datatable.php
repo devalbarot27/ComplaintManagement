@@ -5,12 +5,14 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_address_helpers.php';
+require_once dirname(__DIR__) . '/includes/complaint_category_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 
 $allowedOrderColumns = [
     'id',
     'fab_number',
     'customer_name',
+    'complaint_category_name',
     'city',
     'username',
     'complaint_description',
@@ -38,7 +40,7 @@ $filterWhere = $baseWhere;
 if ($req['searchValue'] !== '') {
     $searchFilter = dt_complaint_search_filter(
         $req['searchValue'],
-        array_merge(['fab_number', 'customer_name', 'username', 'complaint_description'], complaint_address_search_columns()),
+        array_merge(['fab_number', 'customer_name', 'complaint_category_name', 'username', 'complaint_description'], complaint_address_search_columns()),
         'status'
     );
     $filterWhere .= ' AND ' . $searchFilter['sql'];
@@ -68,6 +70,8 @@ $dataQuery = "
         state,
         customer_address,
         complaint_description,
+        complaint_category_id,
+        complaint_category_name,
         username,
         status,
         created_at,
@@ -134,6 +138,7 @@ foreach ($rows as $row) {
         'id' => '#' . (int) $row['id'],
         'fab_number' => htmlspecialchars($row['fab_number'], ENT_QUOTES, 'UTF-8'),
         'customer_name' => htmlspecialchars($row['customer_name'], ENT_QUOTES, 'UTF-8'),
+        'complaint_category' => htmlspecialchars(complaint_category_display_name($row), ENT_QUOTES, 'UTF-8'),
         'customer_address' => htmlspecialchars(complaint_format_address($row), ENT_QUOTES, 'UTF-8'),
         'username' => htmlspecialchars((string) ($row['username'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'complaint_description' => htmlspecialchars(mb_strimwidth($row['complaint_description'], 0, 80, '...'), ENT_QUOTES, 'UTF-8'),

@@ -5,14 +5,15 @@ require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
+require_once dirname(__DIR__) . '/includes/complaint_category_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
  
 $allowedOrderColumns = [
     'ca.id',
     'c.fab_number',
     'c.customer_name',
+    'c.complaint_category_name',
     'c.username',
-    'c.complaint_description',
     'ca.assign_complaint',
     'ca.assign_complaint_datetime',
     'ca.remarks',
@@ -59,7 +60,7 @@ $filterParams = $baseParams;
 if ($req['searchValue'] !== '') {
     $searchFilter = dt_complaint_search_filter(
         $req['searchValue'],
-        ['c.fab_number', 'c.customer_name', 'c.username', 'c.complaint_description', 'ca.assign_complaint', 'ca.remarks'],
+        ['c.fab_number', 'c.customer_name', 'c.complaint_category_name', 'c.username', 'c.complaint_description', 'ca.assign_complaint', 'ca.remarks'],
         'c.status'
     );
     $filterWhere .= ' AND ' . $searchFilter['sql'];
@@ -86,8 +87,8 @@ $dataQuery = "
         ca.id as c_id,
         c.fab_number,
         c.customer_name,
+        c.complaint_category_name,
         c.username,
-        c.complaint_description,
         c.status,
         ca.assign_complaint,
         ca.assign_complaint_datetime,
@@ -124,8 +125,8 @@ foreach ($rows as $row) {
         'c_id' => '#' . (int) $row['c_id'],
         'fab_number' => htmlspecialchars($row['fab_number'], ENT_QUOTES, 'UTF-8'),
         'customer_name' => htmlspecialchars($row['customer_name'], ENT_QUOTES, 'UTF-8'),
+        'complaint_category' => htmlspecialchars(complaint_category_display_name($row), ENT_QUOTES, 'UTF-8'),
         'username' => htmlspecialchars((string) ($row['username'] ?? ''), ENT_QUOTES, 'UTF-8'),
-        'complaint_description' => htmlspecialchars(mb_strimwidth($row['complaint_description'], 0, 80, '...'), ENT_QUOTES, 'UTF-8'),
         'assign_complaint' => htmlspecialchars($row['assign_complaint'], ENT_QUOTES, 'UTF-8'),
         'assign_complaint_datetime' => date('d M Y h:i A', strtotime($row['assign_complaint_datetime'])),
         'remarks' => htmlspecialchars(mb_strimwidth($row['remarks'], 0, 80, '...'), ENT_QUOTES, 'UTF-8'),
