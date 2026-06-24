@@ -35,7 +35,13 @@ if (($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $assign
 }
  
 $assigned_by = 1;
-$assigned_to = 1;
+$assigned_to = complaint_resolve_assignee_user_id($obconn, $assign_complaint);
+
+if ($assigned_to <= 0) {
+    $_SESSION['error_message'] = 'Selected assignee must be an active ELGi Engineer.';
+    header('Location: ' . $redirect);
+    exit;
+}
  
 try {
     $complaintStmt = $obconn->prepare("

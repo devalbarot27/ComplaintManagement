@@ -56,14 +56,15 @@ function complaint_status_counts(PDO $conn, bool $assignedOnly = false, string $
 
     $username = trim($username);
     $usernameFilter = $username !== '' ? ' AND username = :username' : '';
-    $assignedUsernameFilter = $username !== '' ? ' AND c.username = :username' : '';
 
     if ($assignedOnly) {
+        require_once __DIR__ . '/complaint_assignment_helpers.php';
+
         $sql = "
             SELECT c.status, COUNT(DISTINCT c.id) AS total
             FROM complaints c
-            INNER JOIN complaint_assignments ca ON ca.complaint_id = c.id
-            WHERE c.deleted_at IS NULL{$assignedUsernameFilter}
+            " . complaint_assigned_list_join_sql() . "
+            WHERE " . complaint_assigned_list_where_sql() . "
             GROUP BY c.status
         ";
     } else {
@@ -76,7 +77,11 @@ function complaint_status_counts(PDO $conn, bool $assignedOnly = false, string $
     }
 
     $stmt = $conn->prepare($sql);
-    if ($username !== '') {
+    if ($assignedOnly) {
+        foreach (complaint_assigned_list_params() as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+    } elseif ($username !== '') {
         $stmt->bindValue(':username', $username);
     }
     $stmt->execute();

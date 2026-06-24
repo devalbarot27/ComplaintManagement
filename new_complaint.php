@@ -116,7 +116,11 @@ if(isset($_POST['submit_complaint']))
             );
 
             if ($hasAssignee) {
-                $assigned_to = 1;
+                $assigned_to = complaint_resolve_assignee_user_id($obconn, $assign_complaint);
+
+                if ($assigned_to <= 0) {
+                    throw new PDOException('Invalid assignee.');
+                }
 
                 $assignmentInsert = $obconn->prepare("
                     INSERT INTO complaint_assignments

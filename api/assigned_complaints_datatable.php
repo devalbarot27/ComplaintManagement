@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_category_helpers.php';
+require_once dirname(__DIR__) . '/includes/complaint_assignment_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
  
 $allowedOrderColumns = [
@@ -22,26 +23,11 @@ $allowedOrderColumns = [
  
 $req = dt_parse_request($allowedOrderColumns, 'ca.assign_complaint_datetime');
 
-// Static list filters for DSE/LSE assigned complaint grid
-$assignedListAssignTo = '0';
-
-$baseWhere = 'c.deleted_at IS NULL
-    AND ca.is_service_updated = 0
-    AND c.status IN (:status_in_progress, :status_reopen)
-    AND ca.assigned_to != :assigned_to
-    AND c.username = :username';
-
-$baseParams = [
-    ':status_in_progress' => COMPLAINT_STATUS_IN_PROGRESS,
-    ':status_reopen' => COMPLAINT_STATUS_REOPEN,
-    ':assigned_to' => $assignedListAssignTo,
-    ':username' => current_username(),
-];
-
+$baseWhere = complaint_assigned_list_where_sql();
+$baseParams = complaint_assigned_list_params();
 $fromJoin = '
     FROM complaints c
-    INNER JOIN complaint_assignments ca ON ca.complaint_id = c.id
-';
+    ' . complaint_assigned_list_join_sql();
 
 $recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total {$fromJoin} WHERE {$baseWhere}");
 foreach ($baseParams as $key => $value) {
@@ -129,12 +115,11 @@ foreach ($rows as $row) {
         'username' => htmlspecialchars((string) ($row['username'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'assign_complaint' => htmlspecialchars($row['assign_complaint'], ENT_QUOTES, 'UTF-8'),
         'assign_complaint_datetime' => date('d M Y h:i A', strtotime($row['assign_complaint_datetime'])),
-        'remarks' => htmlspecialchars(mb_strimwidth($row['remarks'], 0, 80, '...'), ENT_QUOTES, 'UTF-8'),
+        'remarks' => htmlspecialchars(mb_strimwidth((string) ($row['remarks'] ?? ''), 0, 80, '...'), ENT_QUOTES, 'UTF-8'),
         'status' => complaint_status_badge($status),
         'actions' => complaint_assigned_actions((int) $row['id'], $status, $hasServiceUpdate),
     ];
 }
  
 dt_json_response($req['draw'], $recordsTotal, $recordsFiltered, $data);
- 
  

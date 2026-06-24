@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/user_helpers.php';
+require_once __DIR__ . '/current_username_helpers.php';
 
 function complaint_elgi_engineer_role_id(): int
 {
@@ -115,4 +116,47 @@ function complaint_fetch_latest_assignment(PDO $conn, int $complaintId): ?array
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $row ?: null;
+}
+
+function complaint_resolve_assignee_user_id(PDO $conn, string $assignTo): int
+{
+    $assignee = complaint_fetch_assignee_by_name($conn, $assignTo);
+
+    return $assignee ? (int) ($assignee['id'] ?? 0) : 0;
+}
+
+function complaint_assigned_list_join_sql(): string
+{
+    return '
+        INNER JOIN LATERAL (
+            SELECT
+                ca_inner.id,
+                ca_inner.assign_complaint,
+                ca_inner.assign_complaint_datetime,
+                ca_inner.remarks,
+                ca_inner.is_service_updated,
+                ca_inner.assigned_to
+            FROM complaint_assignments ca_inner
+            WHERE ca_inner.complaint_id = c.id
+            ORDER BY ca_inner.assign_complaint_datetime DESC, ca_inner.id DESC
+            LIMIT 1
+        ) ca ON TRUE
+    ';
+}
+
+function complaint_assigned_list_where_sql(): string
+{
+    return 'c.deleted_at IS NULL
+        AND ca.is_service_updated = 0
+        AND c.status IN (:status_in_progress, :status_reopen)
+        AND TRIM(ca.assign_complaint) = :assignee_name';
+}
+
+function complaint_assigned_list_params(): array
+{
+    return [
+        ':status_in_progress' => 2,
+        ':status_reopen' => 4,
+        ':assignee_name' => current_assignee_name(),
+    ];
 }

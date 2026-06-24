@@ -123,7 +123,12 @@ try {
 
     if ($call_closure === 'No') {
         $assigned_by = 1;
-        $assigned_to = 1;
+        $assigned_to = complaint_resolve_assignee_user_id($obconn, $reassign_assign_complaint);
+
+        if ($assigned_to <= 0) {
+            throw new PDOException('Invalid assignee.');
+        }
+
         $assign_complaint_datetime = date('Y-m-d H:i:s');
 
         $assignmentInsert = $obconn->prepare("
