@@ -324,23 +324,8 @@ function initInstalledBaseServiceLogValidation() {
             data: $(form).serialize(),
             dataType: 'json'
         })
-            .done(function (response) {
-                const modalEl = document.getElementById('installedBaseServiceLogModal');
-                const modal = modalEl ? bootstrap.Modal.getInstance(modalEl) : null;
-
-                if (modal) {
-                    modal.hide();
-                }
-
-                resetInstalledBaseServiceLogForm();
-
-                if (window.installedBaseTable) {
-                    window.installedBaseTable.ajax.reload(null, false);
-                }
-
-                if (response && response.message) {
-                    showInstalledBasePageAlert('success', response.message);
-                }
+            .done(function () {
+                window.location.reload();
             })
             .fail(function (xhr) {
                 const message = xhr.responseJSON && xhr.responseJSON.error

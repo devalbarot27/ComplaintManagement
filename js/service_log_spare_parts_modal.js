@@ -340,6 +340,11 @@ function initServiceLogSparePartsValidation() {
             dataType: 'json'
         })
             .done(function (response) {
+                if (window.installedBaseTable) {
+                    window.location.reload();
+                    return;
+                }
+
                 const modalEl = document.getElementById('serviceLogSparePartsModal');
                 const modal = modalEl ? bootstrap.Modal.getInstance(modalEl) : null;
 
@@ -351,10 +356,6 @@ function initServiceLogSparePartsValidation() {
 
                 if (window.serviceLogTable) {
                     window.serviceLogTable.ajax.reload(null, false);
-                }
-
-                if (window.installedBaseTable) {
-                    window.installedBaseTable.ajax.reload(null, false);
                 }
 
                 if (response && response.message) {
