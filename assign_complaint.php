@@ -2,8 +2,7 @@
 session_start();
 include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
-include 'includes/complaint_assignment_mail_helpers.php';
-include 'includes/complaint_assignment_helpers.php';
+require_once 'includes/complaint_assignment_mail_helpers.php';
 include 'includes/complaint_status.php';
  
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

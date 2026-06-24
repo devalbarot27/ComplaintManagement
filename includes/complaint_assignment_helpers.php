@@ -79,3 +79,40 @@ function complaint_render_assignee_options(array $assignees, ?string $selectedVa
 
     return $html;
 }
+
+function complaint_fetch_assignee_by_name(PDO $conn, string $assignTo): ?array
+{
+    $assignTo = trim($assignTo);
+    if ($assignTo === '') {
+        return null;
+    }
+
+    foreach (complaint_fetch_elgi_engineer_assignees($conn) as $user) {
+        if (complaint_assignee_option_value($user) === $assignTo) {
+            return $user;
+        }
+    }
+
+    return null;
+}
+
+function complaint_fetch_latest_assignment(PDO $conn, int $complaintId): ?array
+{
+    if ($complaintId <= 0) {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT assign_complaint, assign_complaint_datetime, remarks
+        FROM complaint_assignments
+        WHERE complaint_id = :complaint_id
+        ORDER BY assign_complaint_datetime DESC, id DESC
+        LIMIT 1
+    ');
+    $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}

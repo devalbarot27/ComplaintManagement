@@ -2,7 +2,7 @@
 session_start();
 include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
-include 'includes/complaint_assignment_helpers.php';
+require_once 'includes/complaint_assignment_mail_helpers.php';
 include 'includes/complaint_status.php';
  
 $redirect = 'new_complaint.php';
@@ -206,10 +206,19 @@ try {
     );
  
     $obconn->commit();
- 
+
     if ($call_closure === 'Yes') {
+        complaint_closure_notify_email($obconn, $complaint_id, $closure_remarks);
         $_SESSION['success_message'] = 'Complaint closed successfully.';
     } else {
+        complaint_assignment_notify_email(
+            $obconn,
+            $complaint_id,
+            $reassign_assign_complaint,
+            $assign_complaint_datetime,
+            $reassign_remarks,
+            true
+        );
         $_SESSION['success_message'] = 'Complaint closed with No. Reassigned successfully.';
     }
 } catch (PDOException $e) {
