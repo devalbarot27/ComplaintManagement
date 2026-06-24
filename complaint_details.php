@@ -53,14 +53,18 @@ if ($from === 'list') {
  
 $assignmentStmt = $obconn->prepare("
     SELECT
-        id,
-        assign_complaint,
-        assign_complaint_datetime,
-        assigned_by,
-        remarks
-    FROM complaint_assignments
-    WHERE complaint_id = :complaint_id
-    ORDER BY assign_complaint_datetime DESC
+        ca.id,
+        ca.assign_complaint,
+        ca.assign_complaint_datetime,
+        ca.assigned_by,
+        ca.remarks,
+        COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(um.username), ''), '-') AS assigned_by_name
+    FROM complaint_assignments ca
+    LEFT JOIN user_master um
+        ON um.id = ca.assigned_by
+       AND um.deleted_at IS NULL
+    WHERE ca.complaint_id = :complaint_id
+    ORDER BY ca.assign_complaint_datetime DESC
 ");
  
 $assignmentStmt->bindValue(':complaint_id', $complaint['id'], PDO::PARAM_INT);
@@ -263,7 +267,7 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                                 </td>
  
                                 <td>
-                                    User <?php echo htmlspecialchars($assignment['assigned_by']); ?>
+                                    <?php echo htmlspecialchars($assignment['assigned_by_name']); ?>
                                 </td>
  
                                 <td>
