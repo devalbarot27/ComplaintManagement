@@ -4,6 +4,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/complaint_activity_helpers.php';
+require_once 'includes/current_username_helpers.php';
 include 'includes/complaint_status.php';
 include 'includes/service_report_helpers.php';
  
@@ -107,8 +108,13 @@ try {
         exit;
     }
  
-    $created_by = 1;
- 
+    $created_by = current_user_id($obconn);
+    if ($created_by === null || $created_by <= 0) {
+        $_SESSION['error_message'] = 'Unable to resolve logged-in user.';
+        header('Location: dse_lse_complaint_list.php');
+        exit;
+    }
+
     $obconn->beginTransaction();
  
     $insert = $obconn->prepare("
@@ -319,8 +325,13 @@ try {
         exit;
     }
  
-    $created_by = 1;
- 
+    $created_by = current_user_id($obconn);
+    if ($created_by === null || $created_by <= 0) {
+        $_SESSION['error_message'] = 'Unable to resolve logged-in user.';
+        header('Location: dse_lse_complaint_list.php');
+        exit;
+    }
+
     $obconn->beginTransaction();
  
     $insert = $obconn->prepare("

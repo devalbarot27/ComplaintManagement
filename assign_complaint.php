@@ -3,6 +3,7 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
+require_once 'includes/current_username_helpers.php';
 include 'includes/complaint_status.php';
  
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -34,7 +35,13 @@ if (($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $assign
     exit;
 }
  
-$assigned_by = 1;
+$assigned_by = current_user_id($obconn);
+if ($assigned_by === null || $assigned_by <= 0) {
+    $_SESSION['error_message'] = 'Unable to resolve logged-in user.';
+    header('Location: ' . $redirect);
+    exit;
+}
+
 $assigned_to = complaint_resolve_assignee_user_id($obconn, $assign_complaint);
 
 if ($assigned_to <= 0) {

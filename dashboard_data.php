@@ -79,13 +79,10 @@ $monthlyChartMax = max(4, (int) (ceil($monthlyChartMax / 4) * 4));
 
         <div class="action-group">
 
-            <button class="action-btn" type="button">
-
+            <!-- <button class="action-btn" type="button">
                 <i class="bi bi-download"></i>
-
                 Export
-
-            </button>
+            </button> -->
 
             <button class="action-btn" type="button" id="dashboardRefresh">
 

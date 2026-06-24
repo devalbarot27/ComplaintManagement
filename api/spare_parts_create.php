@@ -15,7 +15,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$result = spare_parts_create_record($obconn, $_POST, current_username(), 1);
+$createdBy = current_user_id($obconn);
+if ($createdBy === null || $createdBy <= 0) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unable to resolve logged-in user.']);
+    exit;
+}
+
+$result = spare_parts_create_record($obconn, $_POST, current_username(), $createdBy);
 
 if (!$result['success']) {
     http_response_code(422);

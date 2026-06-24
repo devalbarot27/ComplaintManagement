@@ -96,6 +96,7 @@ $dataStmt->execute();
 
 $data = [];
 $canAddServiceLog = rbac_user_can($obconn, 'service-log-capture', 'add');
+$canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
 
 foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $data[] = [
@@ -107,7 +108,7 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'machine_model' => htmlspecialchars(installed_base_machine_model_label($row), ENT_QUOTES, 'UTF-8'),
         'commissioning_date' => installed_base_format_date($row['commissioning_date']),
         'created_at' => date('d M Y H:i', strtotime($row['created_at'])),
-        'actions' => installed_base_entry_actions((int) $row['id'], $canAddServiceLog),
+        'actions' => installed_base_entry_actions((int) $row['id'], $canAddServiceLog, $canAddSpareParts),
     ];
 }
 

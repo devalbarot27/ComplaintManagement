@@ -51,13 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="css/auth_pages.css" rel="stylesheet" />
     <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', sans-serif; background: #f1f5f9; height: 100vh; overflow: hidden; }
     .login-page { width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
     .login-card { width: 100%; max-width: 980px; min-height: 620px; background: #fff; border-radius: 22px; overflow: hidden; display: flex; box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08); }
-    .left-panel { width: 45%; background: linear-gradient(135deg, #1d2735, #1d2735); padding: 50px; color: #fff; display: flex; flex-direction: column; justify-content: center; }
-    .brand-logo { width: 70px; height: 70px; border-radius: 18px; background: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 24px; }
+    .left-panel { width: 45%; padding: 50px; color: #fff; display: flex; flex-direction: column; justify-content: center; }
     .left-panel h2 { font-size: 34px; font-weight: 700; margin-bottom: 14px; line-height: 1.3; }
     .left-panel p { font-size: 15px; line-height: 1.8; opacity: .9; margin-bottom: 30px; }
     .right-panel { width: 55%; padding: 50px; display: flex; flex-direction: column; justify-content: center; }
@@ -69,9 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .custom-input:focus { border-color: #1565d8; box-shadow: 0 0 0 4px rgba(21, 101, 216, 0.08); }
     .custom-input.is-invalid { border-color: #dc3545; }
     .validation-msg { color: #dc3545; font-size: 13px; margin-top: 6px; }
-    .login-btn { width: 100%; height: 52px; border: none; border-radius: 14px; background: #1d2735; color: #fff; font-size: 15px; font-weight: 600; transition: .2s; }
-    .login-btn:hover { background: #0f4db3; }
-    .login-btn:disabled { opacity: 0.7; cursor: not-allowed; }
     .login-alert { border-radius: 12px; font-size: 14px; margin-bottom: 20px; }
     .form-options { margin-top: 20px; }
     .forgot-link { font-size: 14px; color: #1565d8; text-decoration: none; font-weight: 500; }
@@ -83,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-page">
         <div class="login-card">
             <div class="left-panel">
-                <div class="brand-logo"><i class="bi bi-grid"></i></div>
+                <?php include 'includes/auth_brand_logo.php'; ?>
                 <h2>Welcome to Dealer Portal</h2>
                 <p>Manage orders, dispatch, AR statements and dealer operations.</p>
             </div>

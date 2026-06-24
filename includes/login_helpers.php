@@ -23,6 +23,7 @@ function login_normalize_user_master_row(array $row): array
     return [
         'usr_name' => $username,
         'username' => $username,
+        'id' => (int) ($row['id'] ?? 0),
         'password' => (string) ($row['password'] ?? ''),
         'display_name' => $name !== '' ? $name : $username,
         'name' => $name,
@@ -35,7 +36,7 @@ function login_normalize_user_master_row(array $row): array
 function login_fetch_user_master(PDO $conn, string $username): ?array
 {
     $sql = "
-        SELECT username, name, email, password, mobile_number, role
+        SELECT id, username, name, email, password, mobile_number, role
         FROM user_master
         WHERE TRIM(username) = :username
           AND deleted_at IS NULL
@@ -59,7 +60,7 @@ function login_fetch_user_by_email(PDO $conn, string $email): ?array
     }
 
     $sql = "
-        SELECT username, name, email, password, mobile_number, role
+        SELECT id, username, name, email, password, mobile_number, role
         FROM user_master
         WHERE LOWER(TRIM(email)) = LOWER(TRIM(:email))
           AND deleted_at IS NULL
@@ -114,6 +115,7 @@ function login_start_session(array $user, bool $remember = false): void
     $_SESSION['usr_name'] = trim((string) $user['usr_name']);
     $_SESSION['display_name'] = login_display_name($user);
     $_SESSION['role'] = (int) ($user['role'] ?? 0);
+    $_SESSION['user_id'] = (int) ($user['id'] ?? 0);
     unset($_SESSION['rbac_permissions']);
 
     if ($remember) {

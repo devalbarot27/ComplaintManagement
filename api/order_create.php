@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
+require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/order_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -21,7 +22,14 @@ if ($error !== null) {
 }
 
 try {
-    $order = order_create($obconn, $data, 1);
+    $createdBy = current_user_id($obconn);
+    if ($createdBy === null || $createdBy <= 0) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Unable to resolve logged-in user.']);
+        exit;
+    }
+
+    $order = order_create($obconn, $data, $createdBy);
     echo json_encode([
         'success' => true,
         'message' => 'Order created successfully.',

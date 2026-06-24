@@ -3,6 +3,7 @@ session_start();
 
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
+require_once 'includes/current_username_helpers.php';
 include 'includes/service_log_helpers.php';
 require_once 'includes/spare_parts_helpers.php';
 
@@ -15,7 +16,7 @@ $feedbackOptions = service_log_customer_feedback_options($obconn);
 $canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
 $sparePartsWarrantyTypes = spare_parts_warranty_types($obconn);
 $sparePartsReasons = spare_parts_reasons($obconn);
-$createdBy = 1;
+$createdBy = current_user_id($obconn);
 $userName = current_username();
 
 
@@ -33,7 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
 
     $validationError = service_log_validate($obconn, $data);
 
-    if ($validationError !== null) {
+    if ($createdBy === null || $createdBy <= 0) {
+        $error_message = 'Unable to resolve logged-in user.';
+    } elseif ($validationError !== null) {
         $error_message = $validationError;
     } elseif (!$installedBase) {
         $error_message = 'Selected installed base record was not found or is not assigned to your account.';

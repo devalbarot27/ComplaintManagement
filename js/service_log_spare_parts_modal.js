@@ -1,3 +1,12 @@
+function showSparePartsPageAlert(type, message) {
+    if (typeof showInstalledBasePageAlert === 'function') {
+        showInstalledBasePageAlert(type, message);
+        return;
+    }
+
+    showServiceLogPageAlert(type, message);
+}
+
 function showServiceLogPageAlert(type, message) {
     const content = document.querySelector('.content');
     if (!content || !message) {
@@ -326,15 +335,19 @@ function initServiceLogSparePartsValidation() {
                     window.serviceLogTable.ajax.reload(null, false);
                 }
 
+                if (window.installedBaseTable) {
+                    window.installedBaseTable.ajax.reload(null, false);
+                }
+
                 if (response && response.message) {
-                    showServiceLogPageAlert('success', response.message);
+                    showSparePartsPageAlert('success', response.message);
                 }
             })
             .fail(function (xhr) {
                 const message = xhr.responseJSON && xhr.responseJSON.error
                     ? xhr.responseJSON.error
                     : 'Failed to save spare parts record.';
-                showServiceLogPageAlert('error', message);
+                showSparePartsPageAlert('error', message);
             })
             .always(function () {
                 isSubmitting = false;
@@ -360,11 +373,18 @@ function initServiceLogSparePartsModal() {
 
     $(document).on('click', '.add-spare-parts-btn', function () {
         const id = $(this).data('id');
+        const prefillSource = $(this).data('prefill') || 'service_log';
+        const prefillUrl = prefillSource === 'installed_base'
+            ? 'api/installed_base_spare_parts_prefill.php'
+            : 'api/service_log_spare_parts_prefill.php';
+        const loadError = prefillSource === 'installed_base'
+            ? 'Unable to load installed base details.'
+            : 'Unable to load service log details.';
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
 
         resetServiceLogSparePartsForm();
 
-        $.getJSON('api/service_log_spare_parts_prefill.php', { id: id })
+        $.getJSON(prefillUrl, { id: id })
             .done(function (data) {
                 fillServiceLogSparePartsForm(data);
                 modal.show();
@@ -372,8 +392,8 @@ function initServiceLogSparePartsModal() {
             .fail(function (xhr) {
                 const message = xhr.responseJSON && xhr.responseJSON.error
                     ? xhr.responseJSON.error
-                    : 'Unable to load service log details.';
-                showServiceLogPageAlert('error', message);
+                    : loadError;
+                showSparePartsPageAlert('error', message);
             });
     });
 }

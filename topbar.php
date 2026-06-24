@@ -20,12 +20,12 @@ $topbarUserInitial = $topbarUserName !== ''
 
 
 
-      <?php if (isset($_SESSION['success_message'])) { ?>
+      <?php /* if (isset($_SESSION['success_message'])) { ?>
       <div class="alert alert-success alert-dismissible fade show mb-0 mx-3 mt-3" role="alert">
           <?php echo htmlspecialchars((string) $_SESSION['success_message']); ?>
           <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
-      <?php unset($_SESSION['success_message']); } ?>
+      <?php unset($_SESSION['success_message']); } */ ?>
 
       <div class="topbar-right">
 
@@ -105,60 +105,22 @@ $topbarUserInitial = $topbarUserName !== ''
 
 
 
-                  <a href="#"
-
-                      class="profile-item">
-
-
-
+                  <!-- <a href="#" class="profile-item">
                       <i class="bi bi-person-circle"></i>
-
-
-
                       My Profile
-
-
-
                   </a>
 
-
-
-                  <a href="#"
-
-                      class="profile-item">
-
-
-
+                  <a href="#" class="profile-item">
                       <i class="bi bi-gear"></i>
-
-
-
                       Settings
+                  </a> -->
+                  
 
 
 
-                  </a>
-
-
-
-                  <a href="#"
-
-                      class="profile-item"
-
-                      data-bs-toggle="modal"
-
-                      data-bs-target="#changePasswordModal">
-
-
-
+                  <a href="#" class="profile-item" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
                       <i class="bi bi-shield-lock"></i>
-
-
-
                       Change Password
-
-
-
                   </a>
 
 

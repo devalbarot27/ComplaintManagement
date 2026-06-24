@@ -3,6 +3,7 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
+require_once 'includes/current_username_helpers.php';
 include 'includes/complaint_status.php';
  
 $redirect = 'new_complaint.php';
@@ -85,7 +86,13 @@ try {
         exit;
     }
  
-    $closed_by = 1;
+    $closed_by = current_user_id($obconn);
+    if ($closed_by === null || $closed_by <= 0) {
+        $_SESSION['error_message'] = 'Unable to resolve logged-in user.';
+        header('Location: ' . $redirect);
+        exit;
+    }
+
     $userName = current_username();
 
     $obconn->beginTransaction();
@@ -122,7 +129,7 @@ try {
     $newStatus = $call_closure === 'Yes' ? COMPLAINT_STATUS_RESOLVED : COMPLAINT_STATUS_REOPEN;
 
     if ($call_closure === 'No') {
-        $assigned_by = 1;
+        $assigned_by = $closed_by;
         $assigned_to = complaint_resolve_assignee_user_id($obconn, $reassign_assign_complaint);
 
         if ($assigned_to <= 0) {

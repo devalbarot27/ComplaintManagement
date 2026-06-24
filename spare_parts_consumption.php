@@ -3,13 +3,14 @@ session_start();
 
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
+require_once 'includes/current_username_helpers.php';
 include 'includes/spare_parts_helpers.php';
 
 $success_message = '';
 $error_message = '';
 $warrantyTypes = spare_parts_warranty_types($obconn);
 $reasons = spare_parts_reasons($obconn);
-$createdBy = 1;
+$createdBy = current_user_id($obconn);
 $userName = current_username();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])) {
@@ -25,7 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
         ? spare_parts_get_service_log($obconn, $serviceLogId)
         : null;
 
-    if ($validationError !== null) {
+    if ($createdBy === null || $createdBy <= 0) {
+        $error_message = 'Unable to resolve logged-in user.';
+    } elseif ($validationError !== null) {
         $error_message = $validationError;
     } elseif (!$installedBase) {
         $error_message = 'Selected machine was not found in installed base records.';

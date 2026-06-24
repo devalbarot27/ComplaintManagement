@@ -47,7 +47,11 @@ if(isset($_POST['submit_complaint']))
         try {
             $obconn->beginTransaction();
 
-            $assigned_by = 1;
+            $assigned_by = current_user_id($obconn);
+            if ($assigned_by === null || $assigned_by <= 0) {
+                throw new PDOException('Unable to resolve logged-in user.');
+            }
+
             $hasAssignee = $assign_complaint !== '';
             $complaintStatus = $hasAssignee ? COMPLAINT_STATUS_IN_PROGRESS : COMPLAINT_STATUS_OPEN;
             $assign_complaint_datetime = date('Y-m-d H:i:s');

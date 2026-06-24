@@ -32,6 +32,24 @@ function initInstalledBaseDatatable() {
     });
 }
 
+function getInstalledBaseDefaultDealerName() {
+    const form = document.getElementById('installedBaseForm');
+
+    return form ? (form.getAttribute('data-default-dealer-name') || '') : '';
+}
+
+function setInstalledBaseDealerName(value) {
+    const form = document.getElementById('installedBaseForm');
+    if (!form) {
+        return;
+    }
+
+    const input = form.querySelector('[name="dealer_name"]');
+    if (input) {
+        input.value = value || '';
+    }
+}
+
 function fillInstalledBaseForm(record) {
     const form = document.getElementById('installedBaseForm');
     if (!form || !record) {
@@ -58,7 +76,7 @@ function fillInstalledBaseForm(record) {
 
     const fields = [
         'customer_name', 'street_1', 'street_2', 'mobile', 'email',
-        'dealer_name', 'invoice_date', 'commissioning_date',
+        'invoice_date', 'commissioning_date',
         'running_hours', 'industry_segment', 'remarks'
     ];
 
@@ -68,6 +86,8 @@ function fillInstalledBaseForm(record) {
             input.value = record[field] ?? '';
         }
     });
+
+    setInstalledBaseDealerName(record.dealer_name || getInstalledBaseDefaultDealerName());
 
     setStaticSelect2Value('industrySegmentSelect', record.industry_segment || '');
     setMachineModelSelect2(record.machine_model_code || '', record.machine_model || '');
@@ -110,6 +130,8 @@ function resetInstalledBaseForm() {
     form.querySelectorAll('.validation-msg').forEach(function (el) {
         el.textContent = '';
     });
+
+    setInstalledBaseDealerName(getInstalledBaseDefaultDealerName());
 }
 
 function openInstalledBaseForm() {

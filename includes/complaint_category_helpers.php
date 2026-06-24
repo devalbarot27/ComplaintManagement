@@ -212,24 +212,3 @@ function complaint_category_created_by_label(array $record): string
 
     return (string) $userId;
 }
-
-function current_user_id(PDO $conn): ?int
-{
-    $username = current_username();
-    if ($username === '') {
-        return null;
-    }
-
-    $stmt = $conn->prepare('
-        SELECT id
-        FROM user_master
-        WHERE TRIM(username) = :username
-          AND deleted_at IS NULL
-        LIMIT 1
-    ');
-    $stmt->bindValue(':username', $username);
-    $stmt->execute();
-    $id = $stmt->fetchColumn();
-
-    return $id !== false ? (int) $id : null;
-}

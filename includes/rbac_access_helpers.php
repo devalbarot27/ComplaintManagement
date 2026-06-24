@@ -84,6 +84,7 @@ function rbac_api_access_rules(): array
         'spare_parts_get.php' => ['module' => 'spare-parts-consumption', 'permission' => 'view'],
         'spare_parts_create.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
         'service_log_spare_parts_prefill.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
+        'installed_base_spare_parts_prefill.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
         'complaints_datatable.php' => ['module' => 'complaint-entry', 'permission' => 'view'],
         'assigned_complaints_datatable.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
     ];

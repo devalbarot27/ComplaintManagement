@@ -4,22 +4,32 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/installed_base_helpers.php';
+require_once 'includes/current_username_helpers.php';
 require_once 'includes/service_log_helpers.php';
+require_once 'includes/spare_parts_helpers.php';
 
 $active_menu = 'installed_base';
 $success_message = '';
 $error_message = '';
 $industrySegments = installed_base_industry_segments($obconn);
 $canAddServiceLog = rbac_user_can($obconn, 'service-log-capture', 'add');
+$canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
 $serviceLogWarrantyTypes = service_log_warranty_types($obconn);
+$sparePartsWarrantyTypes = spare_parts_warranty_types($obconn);
+$sparePartsReasons = spare_parts_reasons($obconn);
 $partReplacedOptions = service_log_part_replaced_options($obconn);
 $feedbackOptions = service_log_customer_feedback_options($obconn);
-$createdBy = 1;
+$createdBy = current_user_id($obconn);
 $userName = current_username();
+$defaultDealerName = current_assignee_name();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = installed_base_from_post($_POST);
+
+    if ($recordId <= 0) {
+        $data['dealer_name'] = $defaultDealerName;
+    }
     $validationError = installed_base_validate($obconn, $data);
 
     if ($validationError !== null) {
@@ -43,6 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
         }
 
         if ($error_message === '') {
+            if ($createdBy === null || $createdBy <= 0) {
+                $error_message = 'Unable to resolve logged-in user.';
+            } else {
         try {
             if ($recordId > 0) {
                 $checkStmt = $obconn->prepare('
@@ -193,6 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
         } catch (PDOException $e) {
             $error_message = 'Failed to save installed base record.';
         }
+            }
         }
     }
 }
@@ -295,7 +309,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                     </div>
                 </div>
 
-                <form method="POST" id="installedBaseForm" novalidate>
+                <form method="POST" id="installedBaseForm" novalidate data-default-dealer-name="<?php echo htmlspecialchars($defaultDealerName, ENT_QUOTES, 'UTF-8'); ?>">
                     <input type="hidden" name="record_id" id="installedBaseId" value="">
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
@@ -398,7 +412,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                         Dealer Name <span class="text-danger">*</span>
                                     </label>
                                     <input type="text" class="form-control" name="dealer_name" maxlength="200"
-                                        placeholder="Enter dealer name">
+                                        value="<?php echo htmlspecialchars($defaultDealerName, ENT_QUOTES, 'UTF-8'); ?>"
+                                        placeholder="Auto-filled from logged-in user">
                                     <div class="text-danger validation-msg" data-field="dealer_name"></div>
                                 </div>
                                 <div class="col-md-6 form-group">
@@ -610,6 +625,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <?php include 'includes/installed_base_service_log_modal.php'; ?>
     <?php } ?>
 
+    <?php if ($canAddSpareParts) { ?>
+    <?php include 'includes/service_log_spare_parts_modal.php'; ?>
+    <?php } ?>
+
     <script src="js/static_select2.js"></script>
     <script src="js/pincode_select2.js"></script>
     <script src="js/fabno_select2.js"></script>
@@ -621,12 +640,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <?php if ($canAddServiceLog) { ?>
     <script src="js/installed_base_service_log_modal.js"></script>
     <?php } ?>
+    <?php if ($canAddSpareParts) { ?>
+    <script src="js/service_log_spare_parts_modal.js"></script>
+    <?php } ?>
     <script>
     $(document).ready(function () {
         initInstalledBasePage();
         initPincodeSelect2('installedBaseForm', 'installedBasePincodeSelect');
         <?php if ($canAddServiceLog) { ?>
         initInstalledBaseServiceLogModal();
+        <?php } ?>
+        <?php if ($canAddSpareParts) { ?>
+        initServiceLogSparePartsModal();
         <?php } ?>
 
         document.getElementById('cancelInstalledBaseForm').addEventListener('click', closeInstalledBaseFormPanel);

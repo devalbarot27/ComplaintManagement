@@ -108,7 +108,7 @@ if ($openChangePasswordModal) {
                 </div>
 
                 <div class="complaint-form-actions">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-light btn-outline-dark" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="submit-btn btn-complaint-primary">Change Password</button>
                 </div>
             </form>

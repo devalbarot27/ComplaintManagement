@@ -74,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- ICONS -->
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="css/auth_pages.css" rel="stylesheet" />
 
     <style>
     * {
@@ -115,25 +116,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     .left-panel {
         width: 45%;
-        background: linear-gradient(135deg, #1d2735, #1d2735);
         padding: 50px;
         color: #fff;
         display: flex;
         flex-direction: column;
         justify-content: center;
         position: relative;
-    }
-
-    .brand-logo {
-        width: 70px;
-        height: 70px;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 28px;
-        margin-bottom: 24px;
     }
 
     .left-panel h2 {
@@ -312,27 +300,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /* BUTTON */
 
-    .login-btn {
-        width: 100%;
-        height: 52px;
-        border: none;
-        border-radius: 14px;
-        background: #1d2735;
-        color: #fff;
-        font-size: 15px;
-        font-weight: 600;
-        transition: .2s;
-    }
-
-    .login-btn:hover {
-        background: #0f4db3;
-    }
-
-    .login-btn:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-    }
-
     .validation-msg {
         color: #dc3545;
         font-size: 13px;
@@ -419,11 +386,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="left-panel">
 
-                <div class="brand-logo">
-
-                    <i class="bi bi-grid"></i>
-
-                </div>
+                <?php include 'includes/auth_brand_logo.php'; ?>
 
                 <h2>
                     Welcome to Dealer Portal
