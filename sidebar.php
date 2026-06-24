@@ -78,6 +78,10 @@
         $pageName = "Reason";
     } else if ($currentPage == 'reason_details.php') {
         $pageName = "Reason Details";
+    } else if ($currentPage == 'complaint_categories.php') {
+        $pageName = "Complaint Category";
+    } else if ($currentPage == 'complaint_category_details.php') {
+        $pageName = "Complaint Category Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     }
@@ -363,6 +367,12 @@
               class="menu-item <?= in_array($currentPage, ['reasons.php', 'reason_details.php'], true) ? 'active' : '' ?>">
               <i class="bi bi-list-check"></i>
               Reason
+          </a>
+
+          <a href="complaint_categories.php"
+              class="menu-item <?= in_array($currentPage, ['complaint_categories.php', 'complaint_category_details.php'], true) ? 'active' : '' ?>">
+              <i class="bi bi-tags"></i>
+              Complaint Category
           </a>
 
       </div>

@@ -35,6 +35,10 @@ function rbac_admin_pages(): array
         'reasons.php',
         'reason_details.php',
         'delete_reason.php',
+        'complaint_categories.php',
+        'complaint_category_details.php',
+        'delete_complaint_category.php',
+        'restore_complaint_category.php',
     ];
 }
 
