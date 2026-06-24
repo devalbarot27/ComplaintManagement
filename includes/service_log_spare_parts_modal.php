@@ -30,41 +30,44 @@
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6 form-group">
-                                <label class="form-label"><i class="bi bi-clipboard-pulse"></i> Service Log</label>
+                                <label class="form-label"><i class="bi bi-clipboard-pulse"></i> Service Log <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="slSparePartsServiceLogLabel" readonly>
                                 <input type="hidden" name="service_log_id" id="slSparePartsServiceLogId">
+                                <div class="text-danger validation-msg" data-field="service_log_id"></div>
                             </div>
                             <div class="col-md-6 form-group">
-                                <label class="form-label"><i class="bi bi-hdd-stack"></i> Installed Base</label>
+                                <label class="form-label"><i class="bi bi-hdd-stack"></i> Installed Base <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="slSparePartsInstalledBaseLabel" readonly>
                                 <input type="hidden" name="installed_base_id" id="slSparePartsInstalledBaseId">
                                 <div class="text-danger validation-msg" data-field="installed_base_id"></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-person"></i> Customer Name</label>
-                                <input type="text" class="form-control" id="slSparePartsCustomerName" readonly>
+                                <label class="form-label"><i class="bi bi-person"></i> Customer Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="slSparePartsCustomerName" name="customer_name" readonly>
+                                <div class="text-danger validation-msg" data-field="customer_name"></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-receipt"></i> Order ID</label>
+                                <label class="form-label"><i class="bi bi-receipt"></i> Order ID <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="order_id" readonly>
                                 <div class="text-danger validation-msg" data-field="order_id"></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-upc-scan"></i> Fab Number</label>
+                                <label class="form-label"><i class="bi bi-upc-scan"></i> Fab Number <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="fab_number" readonly>
                                 <div class="text-danger validation-msg" data-field="fab_number"></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-upc"></i> Serial Number</label>
+                                <label class="form-label"><i class="bi bi-upc"></i> Serial Number <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="serial_number" maxlength="50" readonly>
                                 <div class="text-danger validation-msg" data-field="serial_number"></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-cpu"></i> Machine Model</label>
-                                <input type="text" class="form-control" id="slSparePartsMachineModel" readonly>
+                                <label class="form-label"><i class="bi bi-cpu"></i> Machine Model <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="slSparePartsMachineModel" name="machine_model" readonly>
+                                <div class="text-danger validation-msg" data-field="machine_model"></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-clock-history"></i> Running Hours</label>
+                                <label class="form-label"><i class="bi bi-clock-history"></i> Running Hours <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="running_hours" min="0" step="0.01" readonly>
                                 <div class="text-danger validation-msg" data-field="running_hours"></div>
                             </div>

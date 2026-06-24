@@ -30,18 +30,18 @@
                         </div>
                         <div class="row g-3">
                             <div class="col-md-6 form-group">
-                                <label class="form-label"><i class="bi bi-link-45deg"></i> Installed Base</label>
+                                <label class="form-label"><i class="bi bi-link-45deg"></i> Installed Base <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="ibServiceLogInstalledBaseLabel" readonly>
                                 <input type="hidden" name="installed_base_id" id="ibServiceLogInstalledBaseId">
                                 <div class="text-danger validation-msg" data-field="installed_base_id"></div>
                             </div>
                             <div class="col-md-3 form-group">
-                                <label class="form-label"><i class="bi bi-receipt"></i> Order ID</label>
+                                <label class="form-label"><i class="bi bi-receipt"></i> Order ID <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="order_id" readonly>
                                 <div class="text-danger validation-msg" data-field="order_id"></div>
                             </div>
                             <div class="col-md-3 form-group">
-                                <label class="form-label"><i class="bi bi-upc-scan"></i> Fab Number</label>
+                                <label class="form-label"><i class="bi bi-upc-scan"></i> Fab Number <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="fab_number" readonly>
                                 <div class="text-danger validation-msg" data-field="fab_number"></div>
                             </div>

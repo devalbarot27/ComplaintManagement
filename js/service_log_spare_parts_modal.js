@@ -158,10 +158,22 @@ function initServiceLogSparePartsValidation() {
     }
 
     const constraints = {
+        service_log_id: {
+            presence: {
+                allowEmpty: false,
+                message: '^Service Log is required'
+            }
+        },
         installed_base_id: {
             presence: {
                 allowEmpty: false,
-                message: '^Machine selection is required'
+                message: '^Installed Base is required'
+            }
+        },
+        customer_name: {
+            presence: {
+                allowEmpty: false,
+                message: '^Customer Name is required'
             }
         },
         order_id: {
@@ -180,6 +192,12 @@ function initServiceLogSparePartsValidation() {
             presence: {
                 allowEmpty: false,
                 message: '^Serial Number is required'
+            }
+        },
+        machine_model: {
+            presence: {
+                allowEmpty: false,
+                message: '^Machine Model is required'
             }
         },
         consumption_date: {

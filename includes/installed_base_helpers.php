@@ -179,7 +179,12 @@ function installed_base_machine_model_label(array $row): string
     return '-';
 }
 
-function installed_base_entry_actions(int $id, bool $canAddServiceLog = false, bool $canAddSpareParts = false): string
+function installed_base_entry_actions(
+    int $id,
+    bool $canAddServiceLog = false,
+    bool $canAddSpareParts = false,
+    bool $hasServiceLog = false
+): string
 {
     $encodedId = base64_encode((string) $id);
 
@@ -202,7 +207,7 @@ function installed_base_entry_actions(int $id, bool $canAddServiceLog = false, b
             </button>';
     }
 
-    if ($canAddSpareParts) {
+    if ($canAddSpareParts && $hasServiceLog) {
         $html .= '
             <button type="button" class="btn btn-sm btn-outline-dark add-spare-parts-btn"
                 data-id="' . $id . '" data-prefill="installed_base" title="Spare Parts Consumption">

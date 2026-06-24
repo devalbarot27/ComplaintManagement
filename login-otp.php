@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
                 <div class="form-options">
-                    <a href="login.php" class="forgot-link">Login with Username &amp; Password</a>
+                    <a href="login.php" class="forgot-link text-dark">Login with Username &amp; Password</a>
                 </div>
             </div>
         </div>

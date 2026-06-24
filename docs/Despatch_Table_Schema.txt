@@ -1,0 +1,71 @@
+DESPATCH TABLE - DATABASE SCHEMA
+=================================
+
+Database Name: dealerportal
+Table Name:    despatch
+Schema:        public
+Source:        PostgreSQL information_schema (live database)
+
+
+TABLE: despatch  (Invoice / Despatch line items)
+------------------------------------------------
+cuno            character varying(9)     -- Customer code
+invref          character varying(3)     -- Invoice reference / series
+invno           integer                  -- Invoice number
+invdate         date                     -- Invoice date
+ordno           character varying(9)     -- Order / AO number
+posno           smallint                 -- Line position number
+ord_date        date                     -- Order date
+item_desc       text                     -- Item description
+uom             text                     -- Unit of measure
+qty             numeric                  -- Quantity
+price           numeric                  -- Unit price
+area            character varying(3)     -- Area code
+indentno        text                     -- Indent number
+indentdate      date                     -- Indent date
+status          text                     -- Despatch / line status
+despdate        date                     -- Despatch date
+dpst            character varying(6)     -- Product group / depot code
+cuname          character varying(120)   -- Customer name
+areaname        character varying(30)    -- Area name
+division        integer                  -- Division code
+salestax        integer                  -- Sales tax code
+cmp             smallint                 -- Company code
+pono            character varying(30)    -- Purchase order number
+edamt           numeric                  -- Excise duty amount
+taxamt          numeric                  -- Tax amount
+gstamt          numeric                  -- GST amount
+comm_dt         date                     -- Commissioning date
+
+
+NOTES
+-----
+- One order/invoice can have multiple rows (one per line item via posno).
+- Application queries often use DISTINCT ON (invdate, cmp, ordno, invref, invno)
+  to show one row per invoice in list screens.
+- Common filters in the app:
+    cmp != 600
+    dpst NOT IN ('SLS500', 'SLS01', 'SO0600', 'SAL01')
+    cuno = logged-in dealer customer code
+- No primary key, unique constraint, or index is defined on this table in the
+  current database.
+
+
+RELATED TABLES (used in joins, not part of despatch)
+----------------------------------------------------
+lr_details   -- LR / transporter / packing details
+               Join: invref, invno, company = despatch.cmp
+
+dpst_master  -- Product group description
+               Join: dpst_code::text = despatch.dpst
+
+user_area_dpst_mapping
+               Join: trim(despatch.dpst) = ANY(user_area_dpst_mapping.dpst)
+               Used for dashboard despatch counts by logged-in user.
+
+
+APPLICATION REFERENCES
+----------------------
+- despatch_details.php        (Despatch Details grid)
+- orderClass.php              getDespatchDetails()
+- includes/dashboard_helpers.php   dashboard_fetch_dispatched_count()

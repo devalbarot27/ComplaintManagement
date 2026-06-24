@@ -79,7 +79,13 @@ $dataQuery = "
         machine_model_code,
         industry_segment,
         commissioning_date,
-        created_at
+        created_at,
+        (
+            SELECT COUNT(*)
+            FROM service_logs sl
+            WHERE sl.installed_base_id = installed_base.id
+              AND sl.deleted_at IS NULL
+        ) AS service_log_count
     FROM installed_base
     WHERE {$filterWhere}
     ORDER BY {$orderColumn} {$orderDir}
@@ -99,6 +105,7 @@ $canAddServiceLog = rbac_user_can($obconn, 'service-log-capture', 'add');
 $canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
 
 foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $hasServiceLog = (int) ($row['service_log_count'] ?? 0) > 0;
     $data[] = [
         'id' => '#' . (int) $row['id'],
         'order_id' => htmlspecialchars($row['order_id'], ENT_QUOTES, 'UTF-8'),
@@ -108,7 +115,7 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'machine_model' => htmlspecialchars(installed_base_machine_model_label($row), ENT_QUOTES, 'UTF-8'),
         'commissioning_date' => installed_base_format_date($row['commissioning_date']),
         'created_at' => date('d M Y H:i', strtotime($row['created_at'])),
-        'actions' => installed_base_entry_actions((int) $row['id'], $canAddServiceLog, $canAddSpareParts),
+        'actions' => installed_base_entry_actions((int) $row['id'], $canAddServiceLog, $canAddSpareParts, $hasServiceLog),
     ];
 }
 
