@@ -133,7 +133,7 @@
                             </div>
                             <div class="col-md-3 form-group">
                                 <label class="form-label"><i class="bi bi-clock-history"></i> Running Hours <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="running_hours" min="0" step="0.01" placeholder="Machine usage">
+                                <input type="number" class="form-control" name="running_hours" min="0.01" step="0.01" placeholder="Machine usage">
                                 <div class="text-danger validation-msg" data-field="running_hours"></div>
                             </div>
                             <div class="col-md-3 form-group">

@@ -3,6 +3,7 @@
 require_once __DIR__ . '/admin_access_helpers.php';
 require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/rbac_access_helpers.php';
+require_once __DIR__ . '/installed_base_helpers.php';
 
 /**
  * List scope for after-market modules (installed base, service log, spare parts).
@@ -58,14 +59,14 @@ function after_market_user_can_access_record(PDO $conn, string $table, int $id):
 
 function installed_base_action_permissions(PDO $conn): array
 {
-    return [
-        'view' => rbac_user_can($conn, 'installed-base-capture', 'view'),
-        'add' => rbac_user_can($conn, 'installed-base-capture', 'add'),
-        'edit' => rbac_user_can($conn, 'installed-base-capture', 'edit'),
-        'delete' => rbac_user_can($conn, 'installed-base-capture', 'delete'),
-        'service_log_add' => rbac_user_can($conn, 'service-log-capture', 'add'),
-        'spare_parts_add' => rbac_user_can($conn, 'spare-parts-consumption', 'add'),
-    ];
+    return installed_base_normalize_action_permissions([
+        'view' => rbac_role_has_permission($conn, 'installed-base-capture', 'view'),
+        'add' => rbac_role_has_permission($conn, 'installed-base-capture', 'add'),
+        'edit' => rbac_role_has_permission($conn, 'installed-base-capture', 'edit'),
+        'delete' => rbac_role_has_permission($conn, 'installed-base-capture', 'delete'),
+        'service_log_add' => rbac_role_has_permission($conn, 'installed-base-capture', 'add-service-log-capture'),
+        'spare_parts_add' => rbac_role_has_permission($conn, 'installed-base-capture', 'add-spare-parts-consumption'),
+    ]);
 }
 
 function service_log_action_permissions(PDO $conn): array

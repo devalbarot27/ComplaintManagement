@@ -2,6 +2,7 @@
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
@@ -98,6 +99,10 @@ foreach ($filterParams as $key => $value) {
 $dataStmt->bindValue(':limit', $req['length'], PDO::PARAM_INT);
 $dataStmt->bindValue(':offset', $req['start'], PDO::PARAM_INT);
 $dataStmt->execute();
+
+if (!isset($_SESSION['role'])) {
+    admin_refresh_session_role($obconn);
+}
 
 $data = [];
 $installedBasePermissions = installed_base_action_permissions($obconn);

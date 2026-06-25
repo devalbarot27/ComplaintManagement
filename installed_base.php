@@ -399,7 +399,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                         <i class="bi bi-clock-history"></i>
                                         Running Hours <span class="text-danger">*</span>
                                     </label>
-                                    <input type="number" class="form-control" name="running_hours" min="0" step="0.01"
+                                    <input type="number" class="form-control" name="running_hours" min="0.01" step="0.01"
                                         placeholder="Usage hours">
                                     <div class="text-danger validation-msg" data-field="running_hours"></div>
                                 </div>

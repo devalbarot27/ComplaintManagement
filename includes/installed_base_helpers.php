@@ -4,6 +4,7 @@ require_once __DIR__ . '/order_helpers.php';
 require_once __DIR__ . '/complaint_address_helpers.php';
 require_once __DIR__ . '/ln_invoice_helpers.php';
 require_once __DIR__ . '/system_config_master_helpers.php';
+require_once __DIR__ . '/rbac_access_helpers.php';
 
 function installed_base_industry_segments(PDO $conn): array
 {
@@ -108,8 +109,8 @@ function installed_base_validate(PDO $conn, array $data): ?string
         return 'Running Hours is required.';
     }
 
-    if (!is_numeric($data['running_hours']) || (float) $data['running_hours'] < 0) {
-        return 'Running Hours must be a valid non-negative number.';
+    if (!is_numeric($data['running_hours']) || (float) $data['running_hours'] <= 0) {
+        return 'Running Hours must be greater than 0.';
     }
 
     if ($data['industry_segment'] === '') {
@@ -179,18 +180,27 @@ function installed_base_machine_model_label(array $row): string
     return '-';
 }
 
+/**
+ * @return array{view: bool, add: bool, edit: bool, delete: bool, service_log_add: bool, spare_parts_add: bool}
+ */
+function installed_base_normalize_action_permissions(array $permissions): array
+{
+    return [
+        'view' => !empty($permissions['view']),
+        'add' => !empty($permissions['add']),
+        'edit' => !empty($permissions['edit']),
+        'delete' => !empty($permissions['delete']),
+        'service_log_add' => !empty($permissions['service_log_add']),
+        'spare_parts_add' => !empty($permissions['spare_parts_add']),
+    ];
+}
+
 function installed_base_entry_actions(
     int $id,
     array $permissions = [],
     bool $hasServiceLog = false
 ): string {
-    $permissions = array_merge([
-        'view' => false,
-        'edit' => false,
-        'delete' => false,
-        'service_log_add' => false,
-        'spare_parts_add' => false,
-    ], $permissions);
+    $permissions = installed_base_normalize_action_permissions($permissions);
     $encodedId = base64_encode((string) $id);
 
     $html = '<div class="d-flex gap-1">';

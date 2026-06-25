@@ -210,23 +210,63 @@ function rbac_load_user_permissions(PDO $conn, bool $enforceRoleAssignments = fa
     return $permissions;
 }
 
+function rbac_role_has_permission(PDO $conn, string $moduleSlug, string $permissionSlug): bool
+{
+    $moduleSlug = strtolower(trim($moduleSlug));
+    $permissionSlug = strtolower(trim($permissionSlug));
+
+    if ($moduleSlug === '' || $permissionSlug === '') {
+        return false;
+    }
+
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    $roleId = rbac_resolve_role_id($conn);
+    if ($roleId <= 0) {
+        return false;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT 1
+        FROM role_permissions rp
+        INNER JOIN permissions p
+            ON p.id = rp.permission_id
+           AND p.deleted_at IS NULL
+           AND p.status = 'active'
+           AND LOWER(TRIM(p.permission_slug)) = :permission_slug
+        INNER JOIN modules m
+            ON m.id = p.module_id
+           AND m.deleted_at IS NULL
+           AND m.status = 'active'
+           AND LOWER(TRIM(m.module_slug)) = :module_slug
+        WHERE rp.role_id = :role_id
+          AND rp.deleted_at IS NULL
+        LIMIT 1
+    ");
+    $stmt->bindValue(':role_id', $roleId, PDO::PARAM_INT);
+    $stmt->bindValue(':module_slug', $moduleSlug);
+    $stmt->bindValue(':permission_slug', $permissionSlug);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
 function rbac_has_permission(PDO $conn, string $moduleSlug, string $permissionSlug): bool
 {
     $moduleSlug = strtolower(trim($moduleSlug));
     $permissionSlug = strtolower(trim($permissionSlug));
-    $enforceRoleAssignments = rbac_module_enforces_role_permissions($moduleSlug);
 
-    if (is_system_admin() && !$enforceRoleAssignments) {
+    if (rbac_module_enforces_role_permissions($moduleSlug)) {
+        return rbac_role_has_permission($conn, $moduleSlug, $permissionSlug);
+    }
+
+    if (is_system_admin()) {
         return true;
     }
 
-    $permissions = rbac_load_user_permissions($conn, $enforceRoleAssignments);
-    if (!empty($permissions['__all__'])) {
-        return true;
-    }
-
-    return isset($permissions[$moduleSlug])
-        && in_array($permissionSlug, $permissions[$moduleSlug], true);
+    return rbac_role_has_permission($conn, $moduleSlug, $permissionSlug);
 }
 
 function rbac_can_view_module(PDO $conn, string $moduleSlug): bool

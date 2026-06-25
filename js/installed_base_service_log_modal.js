@@ -205,8 +205,8 @@ function initInstalledBaseServiceLogValidation() {
                 message: '^Running Hours is required'
             },
             numericality: {
-                greaterThanOrEqualTo: 0,
-                message: '^Running Hours must be a valid number'
+                greaterThan: 0,
+                message: '^Running Hours must be greater than 0'
             }
         },
         loaded_hours: {

@@ -137,8 +137,8 @@ function spare_parts_validate(PDO $conn, array $data): ?string
         return 'Running Hours is required.';
     }
 
-    if (!is_numeric($data['running_hours']) || (float) $data['running_hours'] < 0) {
-        return 'Running Hours must be a valid non-negative number.';
+    if (!is_numeric($data['running_hours']) || (float) $data['running_hours'] <= 0) {
+        return 'Running Hours must be greater than 0.';
     }
 
     if (strlen($data['remarks']) > 1000) {
