@@ -23,8 +23,9 @@ $allowedOrderColumns = [
  
 $req = dt_parse_request($allowedOrderColumns, 'ca.assign_complaint_datetime');
 
-$baseWhere = complaint_assigned_list_where_sql();
-$baseParams = complaint_assigned_list_params();
+$listScope = complaint_assigned_list_scope($obconn);
+$baseWhere = $listScope['where'];
+$baseParams = $listScope['params'];
 $fromJoin = '
     FROM complaints c
     ' . complaint_assigned_list_join_sql();
@@ -100,7 +101,8 @@ $dataStmt->execute();
  
 $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 $data = [];
- 
+$assignedComplaintPermissions = complaint_assigned_action_permissions($obconn);
+
 foreach ($rows as $row) {
     $status = (int) $row['status'];
     $hasServiceUpdate = (int) ($row['is_service_updated'] ?? 0) === 1;
@@ -117,7 +119,12 @@ foreach ($rows as $row) {
         'assign_complaint_datetime' => date('d M Y h:i A', strtotime($row['assign_complaint_datetime'])),
         'remarks' => htmlspecialchars(mb_strimwidth((string) ($row['remarks'] ?? ''), 0, 80, '...'), ENT_QUOTES, 'UTF-8'),
         'status' => complaint_status_badge($status),
-        'actions' => complaint_assigned_actions((int) $row['id'], $status, $hasServiceUpdate),
+        'actions' => complaint_assigned_actions(
+            (int) $row['id'],
+            $status,
+            $hasServiceUpdate,
+            $assignedComplaintPermissions
+        ),
     ];
 }
  

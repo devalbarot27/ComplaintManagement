@@ -3,8 +3,11 @@ session_start();
 
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
+require_once 'includes/complaint_datatable_helpers.php';
 
 $active_menu = 'complaint_list';
+$assignedComplaintPermissions = complaint_assigned_action_permissions($obconn);
+$canServiceUpdateAssignedComplaint = $assignedComplaintPermissions['service_update'];
 
 ?>
 
@@ -125,6 +128,7 @@ $active_menu = 'complaint_list';
 
 
 
+    <?php if ($canServiceUpdateAssignedComplaint) { ?>
     <div class="modal fade" id="serviceUpdateModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content complaint-form-modal">
@@ -220,6 +224,7 @@ $active_menu = 'complaint_list';
             </div>
         </div>
     </div>
+    <?php } ?>
 
 <script>
 
@@ -477,13 +482,16 @@ function resetServiceUpdateForm(complaintId) {
 
 $(document).ready(function() {
     initAssignedComplaintDatatable();
-  initServiceUpdateValidation();
+<?php if ($canServiceUpdateAssignedComplaint) { ?>
+    initServiceUpdateValidation();
+<?php } ?>
 
     setTimeout(function() {
         $('.alert-success, .alert-danger').fadeOut();
     }, 3000);
 });
 
+<?php if ($canServiceUpdateAssignedComplaint) { ?>
 $(document).on('click', '.service-update-btn', function() {
     resetServiceUpdateForm($(this).data('id'));
 });
@@ -491,6 +499,7 @@ $(document).on('click', '.service-update-btn', function() {
 $('#serviceUpdateModal').on('hidden.bs.modal', function() {
     resetServiceUpdateForm(document.getElementById('serviceComplaintId').value || '');
 });
+<?php } ?>
 
 function getCurrentDateLocal() {
     const now = new Date();

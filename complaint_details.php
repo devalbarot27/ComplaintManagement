@@ -39,6 +39,23 @@ $complaint = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$complaint) {
     die('Complaint not found');
 }
+
+$from = $_GET['from'] ?? 'entry';
+if ($from === 'list') {
+    require_once 'includes/complaint_assignment_helpers.php';
+    if (!complaint_user_can_access_assigned_complaint($obconn, $id)) {
+        $_SESSION['error_message'] = 'Access denied. You do not have permission to view this complaint.';
+        header('Location: dse_lse_complaint_list.php');
+        exit;
+    }
+    $active_menu = 'complaint_list';
+    $back_url = 'dse_lse_complaint_list.php';
+    $back_label = 'Back to Assigned List';
+} else {
+    $active_menu = 'complaint_entry';
+    $back_url = 'new_complaint.php';
+    $back_label = 'Back to Complaint Entry';
+}
  
 $statusMap = complaint_status_map();
 
@@ -49,17 +66,6 @@ $statusClass = [
     COMPLAINT_STATUS_REOPEN => 'border border-dark badge text-dark',
     COMPLAINT_STATUS_RESOLVED => 'border border-dark badge text-dark',
 ];
- 
-$from = $_GET['from'] ?? 'entry';
-if ($from === 'list') {
-    $active_menu = 'complaint_list';
-    $back_url = 'dse_lse_complaint_list.php';
-    $back_label = 'Back to Assigned List';
-} else {
-    $active_menu = 'complaint_entry';
-    $back_url = 'new_complaint.php';
-    $back_label = 'Back to Complaint Entry';
-}
  
 $assignmentStmt = $obconn->prepare("
     SELECT

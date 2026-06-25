@@ -2,6 +2,8 @@
 
 require_once __DIR__ . '/user_helpers.php';
 require_once __DIR__ . '/current_username_helpers.php';
+require_once __DIR__ . '/admin_access_helpers.php';
+require_once __DIR__ . '/complaint_status.php';
 
 function complaint_elgi_engineer_role_id(): int
 {
@@ -135,7 +137,8 @@ function complaint_assigned_list_join_sql(): string
                 ca_inner.assign_complaint_datetime,
                 ca_inner.remarks,
                 ca_inner.is_service_updated,
-                ca_inner.assigned_to
+                ca_inner.assigned_to,
+                ca_inner.assigned_by
             FROM complaint_assignments ca_inner
             WHERE ca_inner.complaint_id = c.id
             ORDER BY ca_inner.assign_complaint_datetime DESC, ca_inner.id DESC
@@ -144,19 +147,84 @@ function complaint_assigned_list_join_sql(): string
     ';
 }
 
-function complaint_assigned_list_where_sql(): string
+/**
+ * Assigned Complaint List visibility:
+ * System Administrator sees all; others see only complaints they assigned.
+ *
+ * @return array{where: string, params: array<string, mixed>}
+ */
+function complaint_assigned_list_scope(PDO $conn): array
 {
-    return 'c.deleted_at IS NULL
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    $where = 'c.deleted_at IS NULL
         AND ca.is_service_updated = 0
-        AND c.status IN (:status_in_progress, :status_reopen)
-        AND TRIM(ca.assign_complaint) = :assignee_name';
+        AND c.status IN (:status_in_progress, :status_reopen)';
+    $params = [
+        ':status_in_progress' => COMPLAINT_STATUS_IN_PROGRESS,
+        ':status_reopen' => COMPLAINT_STATUS_REOPEN,
+    ];
+
+    if (is_system_admin()) {
+        return [
+            'where' => $where,
+            'params' => $params,
+        ];
+    }
+
+    $userId = current_user_id($conn);
+    if ($userId !== null && $userId > 0) {
+        return [
+            'where' => $where . ' AND ca.assigned_by = :assigned_by',
+            'params' => array_merge($params, [
+                ':assigned_by' => $userId,
+            ]),
+        ];
+    }
+
+    return [
+        'where' => $where . ' AND 1 = 0',
+        'params' => $params,
+    ];
 }
 
-function complaint_assigned_list_params(): array
+function complaint_assigned_list_where_sql(PDO $conn): string
 {
-    return [
-        ':status_in_progress' => 2,
-        ':status_reopen' => 4,
-        ':assignee_name' => current_assignee_name(),
-    ];
+    return complaint_assigned_list_scope($conn)['where'];
+}
+
+function complaint_assigned_list_params(PDO $conn): array
+{
+    return complaint_assigned_list_scope($conn)['params'];
+}
+
+function complaint_user_can_access_assigned_complaint(PDO $conn, int $complaintId): bool
+{
+    if ($complaintId <= 0) {
+        return false;
+    }
+
+    $scope = complaint_assigned_list_scope($conn);
+    $stmt = $conn->prepare('
+        SELECT c.id
+        FROM complaints c
+        ' . complaint_assigned_list_join_sql() . "
+        WHERE c.id = :complaint_id
+          AND {$scope['where']}
+        LIMIT 1
+    ");
+
+    foreach ($scope['params'] as $key => $value) {
+        $stmt->bindValue(
+            $key,
+            $value,
+            is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR
+        );
+    }
+    $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
 }

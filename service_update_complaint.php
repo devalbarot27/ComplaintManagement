@@ -5,13 +5,17 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/complaint_activity_helpers.php';
 require_once 'includes/current_username_helpers.php';
+require_once 'includes/complaint_assignment_helpers.php';
+require_once 'includes/complaint_datatable_helpers.php';
 include 'includes/complaint_status.php';
 include 'includes/service_report_helpers.php';
- 
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: dse_lse_complaint_list.php');
     exit;
 }
+
+complaint_assigned_require_permission($obconn, 'service-update');
  
 $complaint_id = (int) ($_POST['complaint_id'] ?? 0);
 $customer_visit_date = trim($_POST['customer_visit_date'] ?? '');
@@ -61,6 +65,12 @@ try {
  
     if (!$complaint) {
         $_SESSION['error_message'] = 'Complaint not found.';
+        header('Location: dse_lse_complaint_list.php');
+        exit;
+    }
+
+    if (!complaint_user_can_access_assigned_complaint($obconn, $complaint_id)) {
+        $_SESSION['error_message'] = 'Access denied. You do not have permission to update this complaint.';
         header('Location: dse_lse_complaint_list.php');
         exit;
     }

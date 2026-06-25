@@ -151,7 +151,7 @@ function rbac_clear_permissions_cache(): void
  */
 function rbac_modules_enforcing_role_permissions(): array
 {
-    return ['complaint-entry'];
+    return ['complaint-entry', 'assigned-complaint-list'];
 }
 
 function rbac_module_enforces_role_permissions(string $moduleSlug): bool

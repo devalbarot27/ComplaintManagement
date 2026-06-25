@@ -176,6 +176,29 @@ function complaint_entry_require_permission(
     }
 }
 
+/**
+ * @return array{view: bool, service_update: bool}
+ */
+function complaint_assigned_action_permissions(PDO $conn): array
+{
+    return [
+        'view' => rbac_user_can($conn, 'assigned-complaint-list', 'view'),
+        'service_update' => rbac_user_can($conn, 'assigned-complaint-list', 'service-update'),
+    ];
+}
+
+function complaint_assigned_require_permission(
+    PDO $conn,
+    string $permissionSlug,
+    string $redirect = 'dse_lse_complaint_list.php'
+): void {
+    if (!rbac_user_can($conn, 'assigned-complaint-list', $permissionSlug)) {
+        $_SESSION['error_message'] = 'Access denied. You do not have permission for this action.';
+        header('Location: ' . $redirect);
+        exit;
+    }
+}
+
 function complaint_entry_actions(
     int $id,
     int $status,
@@ -222,16 +245,30 @@ function complaint_entry_actions(
     return $html;
 }
 
-function complaint_assigned_actions(int $id, int $status, bool $hasServiceUpdate = false): string
-{
+function complaint_assigned_actions(
+    int $id,
+    int $status,
+    bool $hasServiceUpdate = false,
+    array $permissions = []
+): string {
+    $permissions = array_merge([
+        'view' => false,
+        'service_update' => false,
+    ], $permissions);
     $encodedId = base64_encode((string) $id);
     $html = '<div class="complaint-action-cell">';
 
-    $html .= '<a href="complaint_details.php?id=' . $encodedId . '&from=list" '
-        . 'class="btn-complaint-action" title="View">'
-        . '<i class="bi bi-eye"></i></a>';
+    if ($permissions['view']) {
+        $html .= '<a href="complaint_details.php?id=' . $encodedId . '&from=list" '
+            . 'class="btn-complaint-action" title="View">'
+            . '<i class="bi bi-eye"></i></a>';
+    }
 
-    if (in_array($status, [COMPLAINT_STATUS_IN_PROGRESS, COMPLAINT_STATUS_REOPEN], true) && !$hasServiceUpdate) {
+    if (
+        $permissions['service_update']
+        && in_array($status, [COMPLAINT_STATUS_IN_PROGRESS, COMPLAINT_STATUS_REOPEN], true)
+        && !$hasServiceUpdate
+    ) {
         $html .= '<button type="button" class="btn-complaint-action service-update-btn" '
             . 'data-id="' . $id . '" title="Service Update" data-bs-toggle="modal" data-bs-target="#serviceUpdateModal">'
             . '<i class="bi bi-tools"></i></button>';

@@ -111,30 +111,15 @@ function complaint_status_counts(PDO $conn, bool $assignedOnly = false, string $
     if ($assignedOnly) {
         require_once __DIR__ . '/complaint_assignment_helpers.php';
 
-        if (is_system_admin()) {
-            $sql = "
-                SELECT c.status, COUNT(DISTINCT c.id) AS total
-                FROM complaints c
-                " . complaint_assigned_list_join_sql() . "
-                WHERE c.deleted_at IS NULL
-                  AND ca.is_service_updated = 0
-                  AND c.status IN (:status_in_progress, :status_reopen)
-                GROUP BY c.status
-            ";
-            $params = [
-                ':status_in_progress' => COMPLAINT_STATUS_IN_PROGRESS,
-                ':status_reopen' => COMPLAINT_STATUS_REOPEN,
-            ];
-        } else {
-            $sql = "
-                SELECT c.status, COUNT(DISTINCT c.id) AS total
-                FROM complaints c
-                " . complaint_assigned_list_join_sql() . "
-                WHERE " . complaint_assigned_list_where_sql() . "
-                GROUP BY c.status
-            ";
-            $params = complaint_assigned_list_params();
-        }
+        $scope = complaint_assigned_list_scope($conn);
+        $sql = "
+            SELECT c.status, COUNT(DISTINCT c.id) AS total
+            FROM complaints c
+            " . complaint_assigned_list_join_sql() . "
+            WHERE {$scope['where']}
+            GROUP BY c.status
+        ";
+        $params = $scope['params'];
     } else {
         $scope = complaint_entry_list_scope($conn);
         $sql = "
