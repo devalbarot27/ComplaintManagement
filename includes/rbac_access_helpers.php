@@ -145,9 +145,23 @@ function rbac_clear_permissions_cache(): void
     unset($_SESSION['rbac_permissions']);
 }
 
-function rbac_load_user_permissions(PDO $conn): array
+/**
+ * Modules where System Administrator must use assigned role_permissions
+ * instead of the global admin bypass.
+ */
+function rbac_modules_enforcing_role_permissions(): array
 {
-    if (is_system_admin()) {
+    return ['complaint-entry'];
+}
+
+function rbac_module_enforces_role_permissions(string $moduleSlug): bool
+{
+    return in_array(strtolower(trim($moduleSlug)), rbac_modules_enforcing_role_permissions(), true);
+}
+
+function rbac_load_user_permissions(PDO $conn, bool $enforceRoleAssignments = false): array
+{
+    if (is_system_admin() && !$enforceRoleAssignments) {
         return ['__all__' => true];
     }
 
@@ -192,17 +206,18 @@ function rbac_load_user_permissions(PDO $conn): array
 
 function rbac_has_permission(PDO $conn, string $moduleSlug, string $permissionSlug): bool
 {
-    if (is_system_admin()) {
+    $moduleSlug = strtolower(trim($moduleSlug));
+    $permissionSlug = strtolower(trim($permissionSlug));
+    $enforceRoleAssignments = rbac_module_enforces_role_permissions($moduleSlug);
+
+    if (is_system_admin() && !$enforceRoleAssignments) {
         return true;
     }
 
-    $permissions = rbac_load_user_permissions($conn);
+    $permissions = rbac_load_user_permissions($conn, $enforceRoleAssignments);
     if (!empty($permissions['__all__'])) {
         return true;
     }
-
-    $moduleSlug = strtolower(trim($moduleSlug));
-    $permissionSlug = strtolower(trim($permissionSlug));
 
     return isset($permissions[$moduleSlug])
         && in_array($permissionSlug, $permissions[$moduleSlug], true);
