@@ -39,8 +39,13 @@ if ($call_closure === 'Yes' && $closure_remarks === '') {
     exit;
 }
 
+if ($call_closure === 'Yes' && $customer_feedback === '') {
+    $_SESSION['error_message'] = 'Customer feedback is required when call closure is Yes.';
+    header('Location: ' . $redirect);
+    exit;
+}
+
 if ($call_closure === 'Yes'
-    && $customer_feedback !== ''
     && !scm_option_exists($obconn, 'customer_feedback', $customer_feedback)) {
     $_SESSION['error_message'] = 'Please select a valid customer feedback option.';
     header('Location: ' . $redirect);
@@ -115,9 +120,7 @@ try {
 
     $userName = current_username();
     $closure_datetime = $call_closure === 'Yes' ? date('Y-m-d H:i:s') : null;
-    $customer_feedback_value = $call_closure === 'Yes' && $customer_feedback !== ''
-        ? $customer_feedback
-        : null;
+    $customer_feedback_value = $call_closure === 'Yes' ? $customer_feedback : null;
 
     $obconn->beginTransaction();
 

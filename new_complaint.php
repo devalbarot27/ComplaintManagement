@@ -684,7 +684,7 @@ if(isset($_POST['submit_complaint']))
                             <div class="form-group">
                                 <label class="form-label" for="closureCustomerFeedbackSelect">
                                     <i class="bi bi-chat-quote"></i>
-                                    Customer Feedback
+                                    Customer Feedback <span class="text-danger">*</span>
                                 </label>
                                 <select class="form-control" name="customer_feedback" id="closureCustomerFeedbackSelect"
                                     data-placeholder="Select customer feedback">
@@ -1232,6 +1232,10 @@ function initClosureValidation() {
             $('#closureReassignToSelect').addClass('is-invalid');
         }
 
+        if (fieldName === 'customer_feedback') {
+            $('#closureCustomerFeedbackSelect').addClass('is-invalid');
+        }
+
         if (msg) {
             msg.textContent = message;
         }
@@ -1249,6 +1253,11 @@ function initClosureValidation() {
             const remarks = form.querySelector('[name="closure_remarks"]').value.trim();
             if (!remarks) {
                 errors.closure_remarks = ['Closure remarks are required'];
+            }
+
+            const customerFeedback = form.querySelector('[name="customer_feedback"]').value.trim();
+            if (!customerFeedback) {
+                errors.customer_feedback = ['Customer feedback is required'];
             }
         }
  
