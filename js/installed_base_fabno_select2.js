@@ -27,6 +27,7 @@ function resetFabNumberSelect2() {
     const form = document.getElementById('installedBaseForm');
     if (form) {
         setInstalledBaseInvoiceDate(form, '');
+        resetInstalledBaseFabAutoFields(form);
     }
 }
 
@@ -34,9 +35,11 @@ function initInstalledBaseFabnoSelect2() {
     initFabnoSelect2('installedBaseForm', 'fabNumberSelect', {
         onSelect: function (data, form) {
             setInstalledBaseInvoiceDate(form, data.invoice_date || '');
+            prefillInstalledBaseFromFab(form, data.id);
         },
         onClear: function (form) {
             setInstalledBaseInvoiceDate(form, '');
+            resetInstalledBaseFabAutoFields(form);
         }
     });
 }

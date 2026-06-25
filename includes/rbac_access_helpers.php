@@ -75,6 +75,7 @@ function rbac_api_access_rules(): array
         'installed_base_datatable.php' => ['module' => 'installed-base-capture', 'permission' => 'view'],
         'installed_base_get.php' => ['module' => 'installed-base-capture', 'permission' => 'view'],
         'installed_base_link_search.php' => ['module' => 'installed-base-capture', 'permission' => 'view'],
+        'installed_base_fab_prefill.php' => ['module' => 'installed-base-capture', 'permission' => 'view'],
         'service_log_datatable.php' => ['module' => 'service-log-capture', 'permission' => 'view'],
         'service_log_get.php' => ['module' => 'service-log-capture', 'permission' => 'view'],
         'service_log_link_search.php' => ['module' => 'service-log-capture', 'permission' => 'view'],

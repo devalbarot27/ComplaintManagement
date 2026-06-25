@@ -128,6 +128,38 @@ function installed_base_validate(PDO $conn, array $data): ?string
     return null;
 }
 
+function installed_base_fab_prefill_row(PDO $conn, string $fabNumber): ?array
+{
+    $fabNumber = trim($fabNumber);
+    if ($fabNumber === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT
+            customer_name,
+            street_1,
+            street_2,
+            pincode,
+            city,
+            district,
+            state,
+            mobile,
+            email
+        FROM installed_base
+        WHERE fab_number = :fab_number
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+    ');
+    $stmt->bindValue(':fab_number', $fabNumber);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
 function installed_base_get_order(PDO $conn, int $orderRefId): ?array
 {
     return order_get_by_id($conn, $orderRefId);

@@ -650,6 +650,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <script src="js/static_select2.js"></script>
     <script src="js/pincode_select2.js"></script>
     <script src="js/fabno_select2.js"></script>
+    <script src="js/installed_base_fab_prefill.js"></script>
     <script src="js/installed_base_fabno_select2.js"></script>
     <script src="js/installed_base_order_select2.js"></script>
     <script src="js/installed_base_machine_model_select2.js"></script>
