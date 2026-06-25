@@ -1,3 +1,24 @@
+function resetComplaintFabAutoFields(form) {
+    if (!form) {
+        return;
+    }
+
+    ['customer_name', 'street_1', 'street_2'].forEach(function (field) {
+        const input = form.querySelector('[name="' + field + '"]');
+        if (input) {
+            input.value = '';
+            input.classList.remove('is-invalid');
+        }
+
+        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
+        if (msg) {
+            msg.textContent = '';
+        }
+    });
+
+    resetPincodeSelect2(form, 'pincodeSelect');
+}
+
 function setComplaintCustomerFields(form, data) {
     if (!form || !data) {
         return;
@@ -25,6 +46,8 @@ function prefillComplaintFromFab(form, fabNumber) {
     }
 
     fabNumber = String(fabNumber || '').trim();
+    resetComplaintFabAutoFields(form);
+
     if (!fabNumber) {
         return;
     }
@@ -40,5 +63,7 @@ function prefillComplaintFromFab(form, fabNumber) {
 
         setComplaintCustomerFields(form, response);
         setPincodeSelect2(form, 'pincodeSelect', response);
+    }).fail(function () {
+        resetComplaintFabAutoFields(form);
     });
 }

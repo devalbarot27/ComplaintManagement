@@ -3,7 +3,6 @@
 require_once __DIR__ . '/admin_access_helpers.php';
 require_once __DIR__ . '/user_helpers.php';
 require_once __DIR__ . '/role_helpers.php';
-require_once __DIR__ . '/complaint_assignment_helpers.php';
 
 function rbac_admin_pages(): array
 {
@@ -242,10 +241,6 @@ function rbac_can_access_menu(PDO $conn, string $menuPage): bool
         return false;
     }
 
-    if ($menuPage === 'dse_lse_complaint_list.php' && !complaint_assigned_list_role_allowed($conn)) {
-        return false;
-    }
-
     return rbac_has_permission(
         $conn,
         $modules[$menuPage]['module'],
@@ -276,12 +271,6 @@ function rbac_resolve_api_rule(string $script): ?array
     return $rules[$script] ?? null;
 }
 
-function rbac_rule_is_assigned_complaint_list(?array $rule): bool
-{
-    return $rule !== null
-        && ($rule['module'] ?? '') === 'assigned-complaint-list';
-}
-
 function rbac_access_denied_redirect(): void
 {
     header('Location: access_denied.php');
@@ -306,11 +295,6 @@ function rbac_require_page_access(PDO $conn): void
     }
 
     if (!rbac_has_permission($conn, $rule['module'], $rule['permission'])) {
-        rbac_access_denied_redirect();
-    }
-
-    if (rbac_rule_is_assigned_complaint_list($rule) && !complaint_assigned_list_role_allowed($conn)) {
-        $_SESSION['error_message'] = 'Access denied. Assigned Complaint List is available only to CCS User role.';
         rbac_access_denied_redirect();
     }
 }
@@ -338,13 +322,6 @@ function rbac_require_api_access(PDO $conn): void
         http_response_code(403);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['error' => 'Access denied. You do not have permission for this action.']);
-        exit;
-    }
-
-    if (rbac_rule_is_assigned_complaint_list($rule) && !complaint_assigned_list_role_allowed($conn)) {
-        http_response_code(403);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['error' => 'Access denied. Assigned Complaint List is available only to CCS User role.']);
         exit;
     }
 }

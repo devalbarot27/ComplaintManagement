@@ -931,7 +931,7 @@ form.addEventListener('submit', function (e) {
  
     form.addEventListener('reset', function () {
         clearValidationState();
-        resetPincodeSelect2(form);
+        resetComplaintFabAutoFields(form);
         resetFabNumberSelect2ById('complaintFabNumberSelect');
         resetAssignToSelect2('complaintAssignToSelect');
         resetStaticSelect2('complaintCategorySelect');
@@ -1039,7 +1039,7 @@ function initAssignValidation() {
         assign_complaint: {
             presence: {
                 allowEmpty: false,
-                message: '^Please select a CCS Admin user'
+                message: '^Please select an ELGi Engineer'
             }
         },
         remarks: {
@@ -1374,6 +1374,9 @@ $(document).ready(function() {
     initFabnoSelect2('complaintForm', 'complaintFabNumberSelect', {
         onSelect: function (data, form) {
             prefillComplaintFromFab(form, data.id);
+        },
+        onClear: function (form) {
+            resetComplaintFabAutoFields(form);
         }
     });
     initComplaintCategorySelect2();
@@ -1478,7 +1481,7 @@ closeOrderForm.addEventListener('click', function() {
 
     if (complaintForm) {
         complaintForm.reset();
-        resetPincodeSelect2(complaintForm);
+        resetComplaintFabAutoFields(complaintForm);
         resetFabNumberSelect2ById('complaintFabNumberSelect');
         resetStaticSelect2('complaintCategorySelect');
         document.getElementById('complaintCategoryName').value = '';
