@@ -81,6 +81,29 @@ function role_get_all_active(PDO $conn): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/**
+ * Active roles for dropdowns: most recently added first (LIFO).
+ *
+ * @return array<int, string>
+ */
+function role_active_options_lifo(PDO $conn): array
+{
+    $stmt = $conn->query("
+        SELECT id, role_name
+        FROM roles
+        WHERE deleted_at IS NULL
+          AND status = 'active'
+        ORDER BY created_at DESC, id DESC
+    ");
+
+    $options = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $options[(int) $row['id']] = $row['role_name'];
+    }
+
+    return $options;
+}
+
 function role_entry_actions(int $id): string
 {
     $encodedId = base64_encode((string) $id);

@@ -33,6 +33,12 @@ function spare_parts_from_post(array $post): array
 
 function spare_parts_get_installed_base(PDO $conn, int $installedBaseId): ?array
 {
+    require_once __DIR__ . '/after_market_access_helpers.php';
+
+    if (!after_market_user_can_access_record($conn, 'installed_base', $installedBaseId)) {
+        return null;
+    }
+
     $stmt = $conn->prepare('
         SELECT id, order_ref_id, order_id, fab_number, customer_name, machine_model, running_hours
         FROM installed_base
@@ -49,6 +55,12 @@ function spare_parts_get_installed_base(PDO $conn, int $installedBaseId): ?array
 
 function spare_parts_get_service_log(PDO $conn, int $serviceLogId): ?array
 {
+    require_once __DIR__ . '/after_market_access_helpers.php';
+
+    if (!after_market_user_can_access_record($conn, 'service_logs', $serviceLogId)) {
+        return null;
+    }
+
     $stmt = $conn->prepare('
         SELECT id, installed_base_id, order_id, serial_number
         FROM service_logs
@@ -244,48 +256,48 @@ function spare_parts_create_record(PDO $conn, array $post, string $username, int
     }
 }
 
-function spare_parts_get_service_log_for_user(PDO $conn, int $serviceLogId, string $username): ?array
+function spare_parts_get_service_log_for_user(PDO $conn, int $serviceLogId, string $username = ''): ?array
 {
-    $username = trim($username);
-    if ($username === '') {
-        return null;
-    }
-
-    $stmt = $conn->prepare('
-        SELECT id, installed_base_id, order_id, serial_number
-        FROM service_logs
-        WHERE id = :id
-          AND deleted_at IS NULL
-          AND TRIM(username) = :username
-    ');
-    $stmt->bindValue(':id', $serviceLogId, PDO::PARAM_INT);
-    $stmt->bindValue(':username', $username);
-    $stmt->execute();
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return $row ?: null;
+    return spare_parts_get_service_log($conn, $serviceLogId);
 }
 
-function spare_parts_entry_actions(int $id): string
+function spare_parts_entry_actions(int $id, array $permissions = []): string
 {
+    $permissions = array_merge([
+        'view' => false,
+        'edit' => false,
+        'delete' => false,
+    ], $permissions);
     $encodedId = base64_encode((string) $id);
 
-    return '
-        <div class="d-flex gap-1">
+    $html = '<div class="d-flex gap-1">';
+
+    if ($permissions['view']) {
+        $html .= '
             <a href="spare_parts_consumption_details.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark" title="View">
                 <i class="bi bi-eye"></i>
-            </a>
+            </a>';
+    }
+
+    if ($permissions['edit']) {
+        $html .= '
             <button type="button" class="btn btn-sm btn-outline-dark edit-spare-parts-btn"
                 data-id="' . $id . '" title="Edit">
                 <i class="bi bi-pencil"></i>
-            </button>
+            </button>';
+    }
+
+    if ($permissions['delete']) {
+        $html .= '
             <a href="delete_spare_parts_consumption.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
                 onclick="return confirm(\'Delete this spare parts record?\');" title="Delete">
                 <i class="bi bi-trash"></i>
-            </a>
-        </div>
-    ';
+            </a>';
+    }
+
+    $html .= '</div>';
+
+    return $html;
 }

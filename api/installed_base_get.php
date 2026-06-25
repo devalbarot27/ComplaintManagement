@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/ln_invoice_helpers.php';
+require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -12,6 +13,12 @@ $id = (int) ($_GET['id'] ?? 0);
 if ($id <= 0) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid record.']);
+    exit;
+}
+
+if (!after_market_user_can_access_record($obconn, 'installed_base', $id)) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Record not found.']);
     exit;
 }
 

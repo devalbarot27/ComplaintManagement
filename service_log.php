@@ -6,14 +6,18 @@ require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 include 'includes/service_log_helpers.php';
 require_once 'includes/spare_parts_helpers.php';
+require_once 'includes/after_market_access_helpers.php';
 
 $active_menu = 'service_log';
 $success_message = '';
 $error_message = '';
+$serviceLogPermissions = service_log_action_permissions($obconn);
+$canAddServiceLog = $serviceLogPermissions['add'];
+$canEditServiceLog = $serviceLogPermissions['edit'];
+$canAddSpareParts = $serviceLogPermissions['spare_parts_add'];
 $warrantyTypes = service_log_warranty_types($obconn);
 $partReplacedOptions = service_log_part_replaced_options($obconn);
 $feedbackOptions = service_log_customer_feedback_options($obconn);
-$canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
 $sparePartsWarrantyTypes = spare_parts_warranty_types($obconn);
 $sparePartsReasons = spare_parts_reasons($obconn);
 $createdBy = current_user_id($obconn);
@@ -23,6 +27,18 @@ $userName = current_username();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = service_log_from_post($_POST);
+
+    if ($recordId > 0) {
+        if (!$canEditServiceLog) {
+            $error_message = 'Access denied. You do not have permission to edit service log records.';
+        } elseif (!after_market_user_can_access_record($obconn, 'service_logs', $recordId)) {
+            $error_message = 'Access denied. You do not have permission to edit this record.';
+        }
+    } elseif (!$canAddServiceLog) {
+        $error_message = 'Access denied. You do not have permission to add service log records.';
+    }
+
+    if ($error_message === '') {
     $installedBaseId = (int) $data['installed_base_id'];
     $installedBase = $installedBaseId > 0
         ? service_log_get_installed_base($obconn, $installedBaseId, $userName)
@@ -74,17 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
             };
 
             if ($recordId > 0) {
-                $checkStmt = $obconn->prepare('
-                    SELECT id FROM service_logs
-                    WHERE id = :id
-                      AND deleted_at IS NULL
-                      AND TRIM(username) = :username
-                ');
-                $checkStmt->bindValue(':id', $recordId, PDO::PARAM_INT);
-                $checkStmt->bindValue(':username', $userName);
-                $checkStmt->execute();
-
-                if (!$checkStmt->fetch(PDO::FETCH_ASSOC)) {
+                if (!after_market_user_can_access_record($obconn, 'service_logs', $recordId)) {
                     $error_message = 'Record not found or already deleted.';
                 } else {
                     $update = $obconn->prepare('
@@ -141,6 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
         } catch (PDOException $e) {
             $error_message = 'Failed to save service log.';
         }
+    }
     }
 }
 ?>
@@ -204,12 +211,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                     <div class="page-subtitle">Capture service visit and resolution details linked to installed base.</div>
                 </div>
                 <div class="header-btn-group">
+<?php if ($canAddServiceLog) { ?>
                     <button class="new-order-btn btn-complaint-primary" id="openServiceLogForm" type="button">
                         <i class="bi bi-plus-lg"></i> New Service Log
                     </button>
                     <button class="close-form-btn cancel-btn" id="closeServiceLogForm" type="button">
                         <i class="bi bi-x-lg"></i> Cancel
                     </button>
+<?php } ?>
                 </div>
             </div>
 

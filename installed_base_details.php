@@ -4,6 +4,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/installed_base_helpers.php';
+require_once 'includes/after_market_access_helpers.php';
 
 $active_menu = 'installed_base';
 
@@ -11,6 +12,10 @@ $id = (int) base64_decode($_GET['id'] ?? '', true);
 
 if ($id <= 0) {
     die('Invalid installed base record.');
+}
+
+if (!after_market_user_can_access_record($obconn, 'installed_base', $id)) {
+    die('Installed base record not found.');
 }
 
 $stmt = $obconn->prepare('

@@ -4,6 +4,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/service_log_helpers.php';
+require_once 'includes/after_market_access_helpers.php';
 
 $active_menu = 'service_log';
 
@@ -11,6 +12,10 @@ $id = (int) base64_decode($_GET['id'] ?? '', true);
 
 if ($id <= 0) {
     die('Invalid service log record.');
+}
+
+if (!after_market_user_can_access_record($obconn, 'service_logs', $id)) {
+    die('Service log record not found.');
 }
 
 $stmt = $obconn->prepare('

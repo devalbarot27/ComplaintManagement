@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/spare_parts_helpers.php';
+require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 
 $allowedOrderColumns = [
@@ -20,11 +21,9 @@ $allowedOrderColumns = [
 ];
 
 $req = dt_parse_request($allowedOrderColumns, 'id');
-$baseWhere = 'deleted_at IS NULL AND username = :username';
-
-$filterParams = [
-    ':username' => current_username(),
-];
+$listScope = after_market_list_scope($obconn);
+$baseWhere = $listScope['where'];
+$filterParams = $listScope['params'];
 
 $recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM spare_parts_consumption WHERE {$baseWhere}");
 foreach ($filterParams as $key => $value) {
@@ -85,6 +84,7 @@ $dataStmt->bindValue(':offset', $req['start'], PDO::PARAM_INT);
 $dataStmt->execute();
 
 $data = [];
+$sparePartsPermissions = spare_parts_action_permissions($obconn);
 
 foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $data[] = [
@@ -100,7 +100,7 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             ? '#' . (int) $row['service_log_id']
             : '-',
         'created_at' => date('d M Y H:i', strtotime($row['created_at'])),
-        'actions' => spare_parts_entry_actions((int) $row['id']),
+        'actions' => spare_parts_entry_actions((int) $row['id'], $sparePartsPermissions),
     ];
 }
 

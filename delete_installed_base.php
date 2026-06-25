@@ -2,6 +2,7 @@
 session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
+require_once 'includes/after_market_access_helpers.php';
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
@@ -11,22 +12,13 @@ if ($id <= 0) {
     exit;
 }
 
+if (!after_market_user_can_access_record($obconn, 'installed_base', $id)) {
+    $_SESSION['error_message'] = 'Record not found or already deleted.';
+    header('Location: installed_base.php');
+    exit;
+}
+
 try {
-    $checkStmt = $obconn->prepare('
-        SELECT id
-        FROM installed_base
-        WHERE id = :id
-          AND deleted_at IS NULL
-    ');
-    $checkStmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $checkStmt->execute();
-
-    if (!$checkStmt->fetch(PDO::FETCH_ASSOC)) {
-        $_SESSION['error_message'] = 'Record not found or already deleted.';
-        header('Location: installed_base.php');
-        exit;
-    }
-
     $stmt = $obconn->prepare('
         UPDATE installed_base
         SET deleted_at = CURRENT_TIMESTAMP,

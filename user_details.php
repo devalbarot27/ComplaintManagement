@@ -41,7 +41,7 @@ if (!$record) {
                 <div>
                     <h5 class="mb-1">User #<?php echo (int) $record['id']; ?></h5>
                     <span class="badge border border-dark text-dark">
-                        <?php echo htmlspecialchars(user_role_label($record['role'])); ?>
+                        <?php echo htmlspecialchars(user_role_label($obconn, $record['role'])); ?>
                     </span>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
@@ -54,7 +54,7 @@ if (!$record) {
                 <div class="card-body row g-3">
                     <div class="col-md-4">
                         <strong>Role:</strong>
-                        <?php echo htmlspecialchars(user_role_label($record['role'])); ?>
+                        <?php echo htmlspecialchars(user_role_label($obconn, $record['role'])); ?>
                     </div>
                     <div class="col-md-4">
                         <strong>Username:</strong>

@@ -5,9 +5,13 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 include 'includes/spare_parts_helpers.php';
+require_once 'includes/after_market_access_helpers.php';
 
 $success_message = '';
 $error_message = '';
+$sparePartsPermissions = spare_parts_action_permissions($obconn);
+$canAddSpareParts = $sparePartsPermissions['add'];
+$canEditSpareParts = $sparePartsPermissions['edit'];
 $warrantyTypes = spare_parts_warranty_types($obconn);
 $reasons = spare_parts_reasons($obconn);
 $createdBy = current_user_id($obconn);
@@ -16,6 +20,18 @@ $userName = current_username();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = spare_parts_from_post($_POST);
+
+    if ($recordId > 0) {
+        if (!$canEditSpareParts) {
+            $error_message = 'Access denied. You do not have permission to edit spare parts records.';
+        } elseif (!after_market_user_can_access_record($obconn, 'spare_parts_consumption', $recordId)) {
+            $error_message = 'Access denied. You do not have permission to edit this record.';
+        }
+    } elseif (!$canAddSpareParts) {
+        $error_message = 'Access denied. You do not have permission to add spare parts records.';
+    }
+
+    if ($error_message === '') {
     $validationError = spare_parts_validate($obconn, $data);
     $installedBaseId = (int) $data['installed_base_id'];
     $installedBase = $installedBaseId > 0
@@ -60,14 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
             };
 
             if ($recordId > 0) {
-                $checkStmt = $obconn->prepare('
-                    SELECT id FROM spare_parts_consumption
-                    WHERE id = :id AND deleted_at IS NULL
-                ');
-                $checkStmt->bindValue(':id', $recordId, PDO::PARAM_INT);
-                $checkStmt->execute();
-
-                if (!$checkStmt->fetch(PDO::FETCH_ASSOC)) {
+                if (!after_market_user_can_access_record($obconn, 'spare_parts_consumption', $recordId)) {
                     $error_message = 'Record not found or already deleted.';
                 } else {
                     $update = $obconn->prepare('
@@ -113,6 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
         } catch (PDOException $e) {
             $error_message = 'Failed to save spare parts record.';
         }
+    }
     }
 }
 ?>
@@ -176,12 +186,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
                     <div class="page-subtitle">Track spare parts usage linked to machines and service records.</div>
                 </div>
                 <div class="header-btn-group">
+<?php if ($canAddSpareParts) { ?>
                     <button class="new-order-btn btn-complaint-primary" id="openSparePartsForm" type="button">
                         <i class="bi bi-plus-lg"></i> New Record
                     </button>
                     <button class="close-form-btn cancel-btn" id="closeSparePartsForm" type="button">
                         <i class="bi bi-x-lg"></i> Cancel
                     </button>
+<?php } ?>
                 </div>
             </div>
 

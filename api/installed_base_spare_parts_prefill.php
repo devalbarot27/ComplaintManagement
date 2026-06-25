@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/service_log_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
+require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 
 rbac_require_api_access($obconn);
 
@@ -39,6 +40,9 @@ $installedBaseLabel = '#' . $installedBaseId
     . ' - ' . ($installedBase['fab_number'] ?? '')
     . ' - ' . ($installedBase['customer_name'] ?? '');
 
+$serviceLogScope = after_market_list_scope($obconn);
+$serviceLogWhere = str_replace(['deleted_at', 'username'], ['sl.deleted_at', 'sl.username'], $serviceLogScope['where']);
+
 $serviceLogStmt = $obconn->prepare('
     SELECT
         sl.id,
@@ -53,13 +57,14 @@ $serviceLogStmt = $obconn->prepare('
         sl.remarks
     FROM service_logs sl
     WHERE sl.installed_base_id = :installed_base_id
-      AND sl.deleted_at IS NULL
-      AND TRIM(sl.username) = :username
+      AND ' . $serviceLogWhere . '
     ORDER BY sl.id DESC
     LIMIT 1
 ');
 $serviceLogStmt->bindValue(':installed_base_id', $installedBaseId, PDO::PARAM_INT);
-$serviceLogStmt->bindValue(':username', $username);
+foreach ($serviceLogScope['params'] as $key => $value) {
+    $serviceLogStmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+}
 $serviceLogStmt->execute();
 $serviceLog = $serviceLogStmt->fetch(PDO::FETCH_ASSOC);
 

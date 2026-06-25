@@ -4,11 +4,16 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/spare_parts_helpers.php';
+require_once 'includes/after_market_access_helpers.php';
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
 if ($id <= 0) {
     die('Invalid spare parts record.');
+}
+
+if (!after_market_user_can_access_record($obconn, 'spare_parts_consumption', $id)) {
+    die('Spare parts record not found.');
 }
 
 $stmt = $obconn->prepare('

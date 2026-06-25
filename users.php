@@ -12,14 +12,14 @@ $success_message = '';
 $error_message = '';
 
 
-$roleOptions = user_role_options();
+$roleOptions = user_role_options($obconn);
 $createdBy = current_username();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = user_from_post($_POST);
     $isEdit = $recordId > 0;
-    $validationError = user_validate($data, $isEdit);
+    $validationError = user_validate($data, $isEdit, $obconn);
 
     if ($validationError !== null) {
         $error_message = $validationError;

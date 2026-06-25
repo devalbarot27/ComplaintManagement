@@ -116,7 +116,7 @@ function rbac_resolve_role_id(PDO $conn): int
         return 0;
     }
 
-    $roleName = user_role_label($userRole);
+    $roleName = user_role_label($conn, $userRole);
     if ($roleName !== 'Unknown') {
         $stmt = $conn->prepare('
             SELECT id
@@ -151,7 +151,13 @@ function rbac_clear_permissions_cache(): void
  */
 function rbac_modules_enforcing_role_permissions(): array
 {
-    return ['complaint-entry', 'assigned-complaint-list'];
+    return [
+        'complaint-entry',
+        'assigned-complaint-list',
+        'installed-base-capture',
+        'service-log-capture',
+        'spare-parts-consumption',
+    ];
 }
 
 function rbac_module_enforces_role_permissions(string $moduleSlug): bool

@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/role_helpers.php';
 
 $createdBy = 'system';
 
-foreach (user_role_options() as $roleId => $roleName) {
+foreach (user_legacy_role_seed_map() as $roleId => $roleName) {
     $roleId = (int) $roleId;
     $existing = role_get_by_id($obconn, $roleId);
 

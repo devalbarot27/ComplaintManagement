@@ -7,13 +7,17 @@ include 'includes/installed_base_helpers.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/service_log_helpers.php';
 require_once 'includes/spare_parts_helpers.php';
+require_once 'includes/after_market_access_helpers.php';
 
 $active_menu = 'installed_base';
 $success_message = '';
 $error_message = '';
+$installedBasePermissions = installed_base_action_permissions($obconn);
+$canAddInstalledBase = $installedBasePermissions['add'];
+$canEditInstalledBase = $installedBasePermissions['edit'];
+$canAddServiceLog = $installedBasePermissions['service_log_add'];
+$canAddSpareParts = $installedBasePermissions['spare_parts_add'];
 $industrySegments = installed_base_industry_segments($obconn);
-$canAddServiceLog = rbac_user_can($obconn, 'service-log-capture', 'add');
-$canAddSpareParts = rbac_user_can($obconn, 'spare-parts-consumption', 'add');
 $serviceLogWarrantyTypes = service_log_warranty_types($obconn);
 $sparePartsWarrantyTypes = spare_parts_warranty_types($obconn);
 $sparePartsReasons = spare_parts_reasons($obconn);
@@ -27,6 +31,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = installed_base_from_post($_POST);
 
+    if ($recordId > 0) {
+        if (!$canEditInstalledBase) {
+            $error_message = 'Access denied. You do not have permission to edit installed base records.';
+        } elseif (!after_market_user_can_access_record($obconn, 'installed_base', $recordId)) {
+            $error_message = 'Access denied. You do not have permission to edit this record.';
+        }
+    } elseif (!$canAddInstalledBase) {
+        $error_message = 'Access denied. You do not have permission to add installed base records.';
+    }
+
+    if ($error_message === '') {
     if ($recordId <= 0) {
         $data['dealer_name'] = $defaultDealerName;
     }
@@ -209,6 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
             }
         }
     }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -280,6 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                 </div>
 
                 <div class="header-btn-group">
+<?php if ($canAddInstalledBase) { ?>
                     <button class="new-order-btn btn-complaint-primary" id="openInstalledBaseForm" type="button">
                         <i class="bi bi-plus-lg"></i>
                         New Record
@@ -288,6 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                         <i class="bi bi-x-lg"></i>
                         Cancel
                     </button>
+<?php } ?>
                 </div>
             </div>
 

@@ -2,8 +2,14 @@
 
 require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/password_reset_helpers.php';
+require_once __DIR__ . '/role_helpers.php';
 
-function user_role_options(): array
+/**
+ * Legacy role map used only for seeding/syncing roles with user_master.role values.
+ *
+ * @return array<int, string>
+ */
+function user_legacy_role_seed_map(): array
 {
     return [
         1 => 'Dealer User',
@@ -15,32 +21,53 @@ function user_role_options(): array
     ];
 }
 
-function user_role_label($role): string
+/**
+ * Active roles from the roles table, most recently added first (LIFO).
+ *
+ * @return array<int, string>
+ */
+function user_role_options(PDO $conn): array
 {
-    $options = user_role_options();
-    $role = (int) $role;
-
-    return $options[$role] ?? 'Unknown';
+    return role_active_options_lifo($conn);
 }
 
-function user_role_search_ids(string $searchValue): array
+function user_role_label(PDO $conn, $role): string
+{
+    $roleId = (int) $role;
+    if ($roleId <= 0) {
+        return 'Unknown';
+    }
+
+    $row = role_get_by_id($conn, $roleId);
+
+    return $row ? (string) $row['role_name'] : 'Unknown';
+}
+
+function user_role_search_ids(PDO $conn, string $searchValue): array
 {
     $searchValue = strtolower(trim($searchValue));
     if ($searchValue === '') {
         return [];
     }
 
+    $stmt = $conn->prepare("
+        SELECT id
+        FROM roles
+        WHERE deleted_at IS NULL
+          AND role_name ILIKE :search
+    ");
+    $stmt->bindValue(':search', '%' . $searchValue . '%');
+    $stmt->execute();
+
     $matches = [];
-    foreach (user_role_options() as $roleId => $label) {
-        if (stripos($label, $searchValue) !== false) {
-            $matches[] = (int) $roleId;
-        }
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $matches[] = (int) $row['id'];
     }
 
     return $matches;
 }
 
-function user_search_filter(string $searchValue): array
+function user_search_filter(PDO $conn, string $searchValue): array
 {
     $parts = [];
     $params = [':search' => '%' . $searchValue . '%'];
@@ -49,7 +76,7 @@ function user_search_filter(string $searchValue): array
         $parts[] = "{$column} ILIKE :search";
     }
 
-    $roleIds = user_role_search_ids($searchValue);
+    $roleIds = user_role_search_ids($conn, $searchValue);
     if (!empty($roleIds)) {
         $rolePlaceholders = [];
         foreach ($roleIds as $index => $roleId) {
@@ -78,9 +105,9 @@ function user_from_post(array $post): array
     ];
 }
 
-function user_validate(array $data, bool $isEdit = false): ?string
+function user_validate(array $data, bool $isEdit, PDO $conn): ?string
 {
-    $roles = array_keys(user_role_options());
+    $roles = array_keys(user_role_options($conn));
 
     if ($data['role'] === '' || !in_array((int) $data['role'], $roles, true)) {
         return 'Role is required.';

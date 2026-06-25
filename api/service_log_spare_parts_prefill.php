@@ -5,13 +5,13 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/service_log_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
+require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 
 rbac_require_api_access($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 
 $id = (int) ($_GET['id'] ?? $_GET['service_log_id'] ?? 0);
-$username = current_username();
 
 if ($id <= 0) {
     http_response_code(400);
@@ -19,9 +19,9 @@ if ($id <= 0) {
     exit;
 }
 
-if ($username === '') {
-    http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized.']);
+if (!after_market_user_can_access_record($obconn, 'service_logs', $id)) {
+    http_response_code(404);
+    echo json_encode(['error' => 'Service log record not found.']);
     exit;
 }
 
@@ -50,10 +50,8 @@ $stmt = $obconn->prepare('
        AND ib.deleted_at IS NULL
     WHERE sl.id = :id
       AND sl.deleted_at IS NULL
-      AND TRIM(sl.username) = :username
 ');
 $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-$stmt->bindValue(':username', $username);
 $stmt->execute();
 
 $row = $stmt->fetch(PDO::FETCH_ASSOC);

@@ -30,7 +30,7 @@ $recordsTotal = (int) $recordsTotalStmt->fetch(PDO::FETCH_ASSOC)['total'];
 $filterWhere = $baseWhere;
 
 if ($req['searchValue'] !== '') {
-    $searchFilter = user_search_filter($req['searchValue']);
+    $searchFilter = user_search_filter($obconn, $req['searchValue']);
     $filterWhere .= ' AND ' . $searchFilter['sql'];
     $filterParams = array_merge($filterParams, $searchFilter['params']);
 }
@@ -71,7 +71,7 @@ $data = [];
 foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $data[] = [
         'id' => '#' . (int) $row['id'],
-        'role' => htmlspecialchars(user_role_label($row['role']), ENT_QUOTES, 'UTF-8'),
+        'role' => htmlspecialchars(user_role_label($obconn, $row['role']), ENT_QUOTES, 'UTF-8'),
         'username' => htmlspecialchars($row['username'], ENT_QUOTES, 'UTF-8'),
         'name' => htmlspecialchars($row['name'], ENT_QUOTES, 'UTF-8'),
         'email' => htmlspecialchars($row['email'], ENT_QUOTES, 'UTF-8'),

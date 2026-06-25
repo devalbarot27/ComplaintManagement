@@ -181,25 +181,37 @@ function installed_base_machine_model_label(array $row): string
 
 function installed_base_entry_actions(
     int $id,
-    bool $canAddServiceLog = false,
-    bool $canAddSpareParts = false,
+    array $permissions = [],
     bool $hasServiceLog = false
-): string
-{
+): string {
+    $permissions = array_merge([
+        'view' => false,
+        'edit' => false,
+        'delete' => false,
+        'service_log_add' => false,
+        'spare_parts_add' => false,
+    ], $permissions);
     $encodedId = base64_encode((string) $id);
 
-    $html = '
-        <div class="d-flex gap-1">
+    $html = '<div class="d-flex gap-1">';
+
+    if ($permissions['view']) {
+        $html .= '
             <a href="installed_base_details.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark" title="View">
                 <i class="bi bi-eye"></i>
-            </a>
+            </a>';
+    }
+
+    if ($permissions['edit']) {
+        $html .= '
             <button type="button" class="btn btn-sm btn-outline-dark edit-installed-base-btn"
                 data-id="' . $id . '" title="Edit">
                 <i class="bi bi-pencil"></i>
             </button>';
+    }
 
-    if ($canAddServiceLog) {
+    if ($permissions['service_log_add']) {
         $html .= '
             <button type="button" class="btn btn-sm btn-outline-dark add-service-log-btn"
                 data-id="' . $id . '" title="Add Service Log Capture">
@@ -207,22 +219,24 @@ function installed_base_entry_actions(
             </button>';
     }
 
-    if ($canAddSpareParts && $hasServiceLog) {
+    if ($permissions['spare_parts_add'] && $hasServiceLog) {
         $html .= '
             <button type="button" class="btn btn-sm btn-outline-dark add-spare-parts-btn"
-                data-id="' . $id . '" data-prefill="installed_base" title="Spare Parts Consumption">
+                data-id="' . $id . '" data-prefill="installed_base" title="Add Spare Parts Consumption">
                 <i class="bi bi-gear"></i>
             </button>';
     }
 
-    $html .= '
+    if ($permissions['delete']) {
+        $html .= '
             <a href="delete_installed_base.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
                 onclick="return confirm(\'Delete this installed base record?\');" title="Delete">
                 <i class="bi bi-trash"></i>
-            </a>
-        </div>
-    ';
+            </a>';
+    }
+
+    $html .= '</div>';
 
     return $html;
 }

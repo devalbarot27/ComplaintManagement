@@ -2,6 +2,7 @@
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 rbac_require_api_access($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
@@ -14,13 +15,21 @@ if ($installedBaseId <= 0) {
     exit;
 }
 
+if (!after_market_user_can_access_record($obconn, 'installed_base', $installedBaseId)) {
+    echo json_encode(['results' => []]);
+    exit;
+}
+
+$scope = after_market_list_scope($obconn);
+
 $sql = "
     SELECT id, order_id, serial_number, engineer_name, visit_date, closure_date
     FROM service_logs
-    WHERE deleted_at IS NULL
+    WHERE {$scope['where']}
       AND installed_base_id = :installed_base_id
 ";
-$params = [':installed_base_id' => $installedBaseId];
+$params = $scope['params'];
+$params[':installed_base_id'] = $installedBaseId;
 
 if ($term !== '') {
     $sql .= "
