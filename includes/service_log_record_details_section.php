@@ -37,6 +37,26 @@ $headerClass = $serviceLogEmbeddedInInstalledBase
 $bodyClass = $serviceLogEmbeddedInInstalledBase
     ? 'complaint-form-body px-0 pt-0 pb-0'
     : 'card-body complaint-form-body px-3 pt-3 pb-3';
+
+$renderServiceLogDetailField = static function (
+    string $label,
+    string $value,
+    string $colClass = 'col-md-3',
+    bool $multiline = false
+): void {
+    ?>
+    <div class="<?php echo htmlspecialchars($colClass, ENT_QUOTES, 'UTF-8'); ?>">
+        <strong><?php echo htmlspecialchars($label); ?>:</strong>
+        <?php
+        if ($multiline && $value !== '-') {
+            echo nl2br(htmlspecialchars($value));
+        } else {
+            echo htmlspecialchars($value);
+        }
+        ?>
+    </div>
+    <?php
+};
 ?>
 <div class="<?php echo $recordBlockClass; ?>">
     <?php if (!$serviceLogEmbeddedInInstalledBase) { ?>
@@ -69,34 +89,35 @@ $bodyClass = $serviceLogEmbeddedInInstalledBase
                 </div>
             </div>
             <div class="row g-3">
-                <div class="col-md-6">
-                    <strong><i class="bi bi-link-45deg"></i> Installed Base</strong><br>
-                    <?php echo htmlspecialchars($installedBaseLabel); ?>
-                </div>
-                <div class="col-md-3">
-                    <strong><i class="bi bi-receipt"></i> Order ID</strong><br>
-                    <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['order_id'] ?? null)); ?>
-                </div>
-                <div class="col-md-3">
-                    <strong><i class="bi bi-upc-scan"></i> Fab Number</strong><br>
-                    <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['fab_number'] ?? null)); ?>
-                </div>
-                <div class="col-md-3">
-                    <strong><i class="bi bi-cpu"></i> Machine Model</strong><br>
-                    <?php echo htmlspecialchars($machineModelLabel); ?>
-                </div>
-                <div class="col-md-3">
-                    <strong><i class="bi bi-upc"></i> Serial Number</strong><br>
-                    <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['serial_number'] ?? null)); ?>
-                </div>
-                <div class="col-md-3">
-                    <strong><i class="bi bi-shield-check"></i> Warranty / Chargeable</strong><br>
-                    <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['warranty_chargeable'] ?? null)); ?>
-                </div>
-                <div class="col-md-3">
-                    <strong><i class="bi bi-calendar-x"></i> Complaint Date</strong><br>
-                    <?php echo service_log_format_date($serviceLogRecord['complaint_date'] ?? null); ?>
-                </div>
+                <?php
+                $renderServiceLogDetailField('Installed Base', $installedBaseLabel, 'col-md-6');
+                $renderServiceLogDetailField(
+                    'Order ID',
+                    service_log_display_value($serviceLogRecord['order_id'] ?? null),
+                    'col-md-3'
+                );
+                $renderServiceLogDetailField(
+                    'Fab Number',
+                    service_log_display_value($serviceLogRecord['fab_number'] ?? null),
+                    'col-md-3'
+                );
+                $renderServiceLogDetailField('Machine Model', $machineModelLabel, 'col-md-3');
+                $renderServiceLogDetailField(
+                    'Serial Number',
+                    service_log_display_value($serviceLogRecord['serial_number'] ?? null),
+                    'col-md-3'
+                );
+                $renderServiceLogDetailField(
+                    'Warranty / Chargeable',
+                    service_log_display_value($serviceLogRecord['warranty_chargeable'] ?? null),
+                    'col-md-3'
+                );
+                $renderServiceLogDetailField(
+                    'Complaint Date',
+                    service_log_format_date($serviceLogRecord['complaint_date'] ?? null),
+                    'col-md-3'
+                );
+                ?>
             </div>
         </section>
 
@@ -109,26 +130,35 @@ $bodyClass = $serviceLogEmbeddedInInstalledBase
                 </div>
             </div>
             <div class="row g-3">
-                <div class="col-12">
-                    <strong><i class="bi bi-exclamation-circle"></i> Issue Description</strong><br>
-                    <?php echo nl2br(htmlspecialchars(service_log_display_value($serviceLogRecord['issue_description'] ?? null))); ?>
-                </div>
-                <div class="col-md-4">
-                    <strong><i class="bi bi-person-gear"></i> Engineer Name</strong><br>
-                    <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['engineer_name'] ?? null)); ?>
-                </div>
-                <div class="col-md-4">
-                    <strong><i class="bi bi-calendar-event"></i> Visit Date</strong><br>
-                    <?php echo service_log_format_date($serviceLogRecord['visit_date'] ?? null); ?>
-                </div>
-                <div class="col-md-4">
-                    <strong><i class="bi bi-calendar-check"></i> Closure Date</strong><br>
-                    <?php echo service_log_format_date($serviceLogRecord['closure_date'] ?? null); ?>
-                </div>
-                <div class="col-12">
-                    <strong><i class="bi bi-tools"></i> Action Taken</strong><br>
-                    <?php echo nl2br(htmlspecialchars(service_log_display_value($serviceLogRecord['action_taken'] ?? null))); ?>
-                </div>
+                <?php
+                $renderServiceLogDetailField(
+                    'Issue Description',
+                    service_log_display_value($serviceLogRecord['issue_description'] ?? null),
+                    'col-12',
+                    true
+                );
+                $renderServiceLogDetailField(
+                    'Engineer Name',
+                    service_log_display_value($serviceLogRecord['engineer_name'] ?? null),
+                    'col-md-4'
+                );
+                $renderServiceLogDetailField(
+                    'Visit Date',
+                    service_log_format_date($serviceLogRecord['visit_date'] ?? null),
+                    'col-md-4'
+                );
+                $renderServiceLogDetailField(
+                    'Closure Date',
+                    service_log_format_date($serviceLogRecord['closure_date'] ?? null),
+                    'col-md-4'
+                );
+                $renderServiceLogDetailField(
+                    'Action Taken',
+                    service_log_display_value($serviceLogRecord['action_taken'] ?? null),
+                    'col-12',
+                    true
+                );
+                ?>
             </div>
         </section>
 
@@ -141,10 +171,13 @@ $bodyClass = $serviceLogEmbeddedInInstalledBase
                 </div>
             </div>
             <div class="row g-3">
-                <div class="col-md-3">
-                    <strong><i class="bi bi-gear-wide"></i> Part Replaced</strong><br>
-                    <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['part_replaced'] ?? null)); ?>
-                </div>
+                <?php
+                $renderServiceLogDetailField(
+                    'Part Replaced',
+                    service_log_display_value($serviceLogRecord['part_replaced'] ?? null),
+                    'col-md-3'
+                );
+                ?>
             </div>
 
             <?php if ($partReplacedYes) { ?>
@@ -156,18 +189,23 @@ $bodyClass = $serviceLogEmbeddedInInstalledBase
                             <strong>Entry <?php echo $entryIndex + 1; ?></strong>
                         </div>
                         <div class="row g-3">
-                            <div class="col-md-4">
-                                <strong><i class="bi bi-cpu"></i> Machine Model / Part</strong><br>
-                                <?php echo htmlspecialchars(service_log_part_model_label($entry)); ?>
-                            </div>
-                            <div class="col-md-4">
-                                <strong><i class="bi bi-speedometer2"></i> Running Hours</strong><br>
-                                <?php echo htmlspecialchars(service_log_display_value($entry['running_hours'] ?? null)); ?>
-                            </div>
-                            <div class="col-md-4">
-                                <strong><i class="bi bi-hourglass-split"></i> Loaded Hours</strong><br>
-                                <?php echo htmlspecialchars(service_log_display_value($entry['loaded_hours'] ?? null)); ?>
-                            </div>
+                            <?php
+                            $renderServiceLogDetailField(
+                                'Machine Model / Part',
+                                service_log_part_model_label($entry),
+                                'col-md-4'
+                            );
+                            $renderServiceLogDetailField(
+                                'Running Hours',
+                                service_log_display_value($entry['running_hours'] ?? null),
+                                'col-md-4'
+                            );
+                            $renderServiceLogDetailField(
+                                'Loaded Hours',
+                                service_log_display_value($entry['loaded_hours'] ?? null),
+                                'col-md-4'
+                            );
+                            ?>
                         </div>
                     </div>
                     <?php } ?>
@@ -177,32 +215,36 @@ $bodyClass = $serviceLogEmbeddedInInstalledBase
                             <strong>Entry 1</strong>
                         </div>
                         <div class="row g-3">
-                            <div class="col-md-4">
-                                <strong><i class="bi bi-speedometer2"></i> Running Hours</strong><br>
-                                <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['running_hours'] ?? null)); ?>
-                            </div>
-                            <div class="col-md-4">
-                                <strong><i class="bi bi-hourglass-split"></i> Loaded Hours</strong><br>
-                                <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['loaded_hours'] ?? null)); ?>
-                            </div>
+                            <?php
+                            $renderServiceLogDetailField(
+                                'Running Hours',
+                                service_log_display_value($serviceLogRecord['running_hours'] ?? null),
+                                'col-md-4'
+                            );
+                            $renderServiceLogDetailField(
+                                'Loaded Hours',
+                                service_log_display_value($serviceLogRecord['loaded_hours'] ?? null),
+                                'col-md-4'
+                            );
+                            ?>
                         </div>
                     </div>
                 <?php } ?>
 
                 <div class="row g-3">
-                    <div class="col-md-4">
-                        <strong><i class="bi bi-chat-quote"></i> Customer Feedback</strong><br>
-                        <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord['customer_feedback'] ?? null)); ?>
-                    </div>
-                    <div class="col-12">
-                        <strong><i class="bi bi-card-text"></i> Remarks</strong><br>
-                        <?php
-                        $serviceLogRemarks = service_log_display_value($serviceLogRecord['remarks'] ?? null);
-                        echo $serviceLogRemarks === '-'
-                            ? '-'
-                            : nl2br(htmlspecialchars($serviceLogRemarks));
-                        ?>
-                    </div>
+                    <?php
+                    $renderServiceLogDetailField(
+                        'Customer Feedback',
+                        service_log_display_value($serviceLogRecord['customer_feedback'] ?? null),
+                        'col-md-4'
+                    );
+                    $renderServiceLogDetailField(
+                        'Remarks',
+                        service_log_display_value($serviceLogRecord['remarks'] ?? null),
+                        'col-12',
+                        true
+                    );
+                    ?>
                 </div>
             </div>
             <?php } ?>
@@ -220,16 +262,17 @@ $bodyClass = $serviceLogEmbeddedInInstalledBase
                 <?php foreach (service_log_remaining_consumable_fields() as $consumable) {
                     $dateField = $consumable['key'] . '_remaining_date';
                     $hoursField = $consumable['key'] . '_remaining_hours';
-                    ?>
-                <div class="col-md-6">
-                    <strong><i class="bi bi-calendar-event"></i> <?php echo htmlspecialchars($consumable['label']); ?> Remaining Date</strong><br>
-                    <?php echo service_log_format_date($serviceLogRecord[$dateField] ?? null); ?>
-                </div>
-                <div class="col-md-6">
-                    <strong><i class="bi bi-clock-history"></i> <?php echo htmlspecialchars($consumable['label']); ?> Remaining Hours</strong><br>
-                    <?php echo htmlspecialchars(service_log_display_value($serviceLogRecord[$hoursField] ?? null)); ?>
-                </div>
-                <?php } ?>
+                    $renderServiceLogDetailField(
+                        $consumable['label'] . ' Remaining Date',
+                        service_log_format_date($serviceLogRecord[$dateField] ?? null),
+                        'col-md-6'
+                    );
+                    $renderServiceLogDetailField(
+                        $consumable['label'] . ' Remaining Hours',
+                        service_log_display_value($serviceLogRecord[$hoursField] ?? null),
+                        'col-md-6'
+                    );
+                } ?>
             </div>
         </section>
     </div>
