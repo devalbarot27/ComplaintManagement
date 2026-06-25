@@ -1039,7 +1039,7 @@ function initAssignValidation() {
         assign_complaint: {
             presence: {
                 allowEmpty: false,
-                message: '^Please select an ELGi Engineer'
+                message: '^Please select a CCS Admin user'
             }
         },
         remarks: {

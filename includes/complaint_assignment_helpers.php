@@ -5,13 +5,70 @@ require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/admin_access_helpers.php';
 require_once __DIR__ . '/complaint_status.php';
 
-function complaint_elgi_engineer_role_id(): int
+function complaint_ccs_admin_role_name(): string
 {
-    return 3;
+    return 'CCS Admin';
+}
+
+function complaint_ccs_admin_role_id(PDO $conn): int
+{
+    $stmt = $conn->prepare("
+        SELECT id
+        FROM roles
+        WHERE LOWER(TRIM(role_name)) = LOWER(TRIM(:role_name))
+          AND deleted_at IS NULL
+          AND status = 'active'
+        LIMIT 1
+    ");
+    $stmt->bindValue(':role_name', complaint_ccs_admin_role_name());
+    $stmt->execute();
+
+    $roleId = $stmt->fetchColumn();
+
+    return $roleId !== false ? (int) $roleId : 0;
+}
+
+function complaint_ccs_user_role_name(): string
+{
+    return 'CCS User';
+}
+
+function complaint_is_ccs_user(PDO $conn): bool
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    $roleName = user_role_label($conn, current_user_role());
+
+    return strcasecmp(trim($roleName), complaint_ccs_user_role_name()) === 0;
+}
+
+function complaint_assigned_list_role_allowed(PDO $conn): bool
+{
+    return complaint_is_ccs_user($conn);
+}
+
+function complaint_assigned_list_require_ccs_user(
+    PDO $conn,
+    string $redirect = 'access_denied.php'
+): void {
+    if (complaint_assigned_list_role_allowed($conn)) {
+        return;
+    }
+
+    $_SESSION['error_message'] = 'Access denied. Assigned Complaint List is available only to CCS User role.';
+    header('Location: ' . $redirect);
+    exit;
 }
 
 function complaint_fetch_elgi_engineer_assignees(PDO $conn): array
 {
+    $roleId = complaint_ccs_admin_role_id($conn);
+    if ($roleId <= 0) {
+        return [];
+    }
+
     $stmt = $conn->prepare('
         SELECT id, username, name, email, mobile_number
         FROM user_master
@@ -19,7 +76,7 @@ function complaint_fetch_elgi_engineer_assignees(PDO $conn): array
           AND deleted_at IS NULL
         ORDER BY name ASC, username ASC
     ');
-    $stmt->bindValue(':role', complaint_elgi_engineer_role_id(), PDO::PARAM_INT);
+    $stmt->bindValue(':role', $roleId, PDO::PARAM_INT);
     $stmt->execute();
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -54,7 +111,7 @@ function complaint_is_valid_elgi_engineer_assignee(PDO $conn, string $assignTo):
 function complaint_validate_elgi_engineer_assignee(PDO $conn, string $assignTo): ?string
 {
     if (!complaint_is_valid_elgi_engineer_assignee($conn, $assignTo)) {
-        return 'Selected assignee must be an active ELGi Engineer.';
+        return 'Selected assignee must be an active CCS Admin user.';
     }
 
     return null;

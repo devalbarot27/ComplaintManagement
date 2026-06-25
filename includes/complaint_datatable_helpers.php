@@ -181,6 +181,13 @@ function complaint_entry_require_permission(
  */
 function complaint_assigned_action_permissions(PDO $conn): array
 {
+    if (!complaint_assigned_list_role_allowed($conn)) {
+        return [
+            'view' => false,
+            'service_update' => false,
+        ];
+    }
+
     return [
         'view' => rbac_user_can($conn, 'assigned-complaint-list', 'view'),
         'service_update' => rbac_user_can($conn, 'assigned-complaint-list', 'service-update'),
@@ -192,6 +199,12 @@ function complaint_assigned_require_permission(
     string $permissionSlug,
     string $redirect = 'dse_lse_complaint_list.php'
 ): void {
+    if (!complaint_assigned_list_role_allowed($conn)) {
+        $_SESSION['error_message'] = 'Access denied. Assigned Complaint List is available only to CCS User role.';
+        header('Location: access_denied.php');
+        exit;
+    }
+
     if (!rbac_user_can($conn, 'assigned-complaint-list', $permissionSlug)) {
         $_SESSION['error_message'] = 'Access denied. You do not have permission for this action.';
         header('Location: ' . $redirect);

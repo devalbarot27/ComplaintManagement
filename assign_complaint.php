@@ -47,7 +47,7 @@ if ($assigned_by === null || $assigned_by <= 0) {
 $assigned_to = complaint_resolve_assignee_user_id($obconn, $assign_complaint);
 
 if ($assigned_to <= 0) {
-    $_SESSION['error_message'] = 'Selected assignee must be an active ELGi Engineer.';
+    $_SESSION['error_message'] = 'Selected assignee must be an active CCS Admin user.';
     header('Location: ' . $redirect);
     exit;
 }
