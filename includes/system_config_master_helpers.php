@@ -163,7 +163,7 @@ function scm_get_active_names(PDO $conn, string $type): array
         FROM {$table}
         WHERE deleted_at IS NULL
           AND status = 'active'
-        ORDER BY name ASC
+        ORDER BY created_at ASC, id ASC
     ");
 
     return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'name');
