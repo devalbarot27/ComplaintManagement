@@ -149,7 +149,7 @@ function complaint_assigned_list_join_sql(): string
 
 /**
  * Assigned Complaint List visibility:
- * System Administrator sees all; others see only complaints they assigned.
+ * System Administrator sees all; others see complaints assigned to them.
  *
  * @return array{where: string, params: array<string, mixed>}
  */
@@ -175,11 +175,35 @@ function complaint_assigned_list_scope(PDO $conn): array
     }
 
     $userId = current_user_id($conn);
+    $assigneeName = current_assignee_name();
+
+    if ($userId !== null && $userId > 0 && $assigneeName !== '') {
+        return [
+            'where' => $where . ' AND (
+                ca.assigned_to = :assigned_to
+                OR TRIM(ca.assign_complaint) = :assignee_name
+            )',
+            'params' => array_merge($params, [
+                ':assigned_to' => $userId,
+                ':assignee_name' => $assigneeName,
+            ]),
+        ];
+    }
+
     if ($userId !== null && $userId > 0) {
         return [
-            'where' => $where . ' AND ca.assigned_by = :assigned_by',
+            'where' => $where . ' AND ca.assigned_to = :assigned_to',
             'params' => array_merge($params, [
-                ':assigned_by' => $userId,
+                ':assigned_to' => $userId,
+            ]),
+        ];
+    }
+
+    if ($assigneeName !== '') {
+        return [
+            'where' => $where . ' AND TRIM(ca.assign_complaint) = :assignee_name',
+            'params' => array_merge($params, [
+                ':assignee_name' => $assigneeName,
             ]),
         ];
     }

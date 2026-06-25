@@ -5,7 +5,6 @@ include 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/complaint_datatable_helpers.php';
-include 'includes/complaint_status.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: new_complaint.php');

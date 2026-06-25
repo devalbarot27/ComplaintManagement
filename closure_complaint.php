@@ -5,6 +5,7 @@ include 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/complaint_datatable_helpers.php';
+require_once 'includes/system_config_master_helpers.php';
 
 $redirect = 'new_complaint.php';
 
@@ -24,6 +25,7 @@ $call_closure = trim($_POST['call_closure'] ?? '');
 $closure_remarks = trim($_POST['closure_remarks'] ?? '');
 $reassign_assign_complaint = trim($_POST['reassign_complaint'] ?? '');
 $reassign_remarks = trim($_POST['reassign_remarks'] ?? '');
+$customer_feedback = trim($_POST['customer_feedback'] ?? '');
  
 if ($complaint_id <= 0 || !in_array($call_closure, ['Yes', 'No'], true)) {
     $_SESSION['error_message'] = 'Please select call closure Yes or No.';
@@ -33,6 +35,14 @@ if ($complaint_id <= 0 || !in_array($call_closure, ['Yes', 'No'], true)) {
  
 if ($call_closure === 'Yes' && $closure_remarks === '') {
     $_SESSION['error_message'] = 'Closure remarks are required when call closure is Yes.';
+    header('Location: ' . $redirect);
+    exit;
+}
+
+if ($call_closure === 'Yes'
+    && $customer_feedback !== ''
+    && !scm_option_exists($obconn, 'customer_feedback', $customer_feedback)) {
+    $_SESSION['error_message'] = 'Please select a valid customer feedback option.';
     header('Location: ' . $redirect);
     exit;
 }
@@ -104,6 +114,10 @@ try {
     }
 
     $userName = current_username();
+    $closure_datetime = $call_closure === 'Yes' ? date('Y-m-d H:i:s') : null;
+    $customer_feedback_value = $call_closure === 'Yes' && $customer_feedback !== ''
+        ? $customer_feedback
+        : null;
 
     $obconn->beginTransaction();
 
@@ -114,6 +128,8 @@ try {
             call_closure,
             closure_remarks,
             reassignment_details,
+            closure_datetime,
+            customer_feedback,
             closed_by,
             username
         )
@@ -123,6 +139,8 @@ try {
             :call_closure,
             :closure_remarks,
             :reassignment_details,
+            :closure_datetime,
+            :customer_feedback,
             :closed_by,
             :username
         )
@@ -132,6 +150,16 @@ try {
     $insert->bindValue(':call_closure', $call_closure);
     $insert->bindValue(':closure_remarks', $call_closure === 'Yes' ? $closure_remarks : null);
     $insert->bindValue(':reassignment_details', $call_closure === 'No' ? $reassign_remarks : null);
+    if ($closure_datetime === null) {
+        $insert->bindValue(':closure_datetime', null, PDO::PARAM_NULL);
+    } else {
+        $insert->bindValue(':closure_datetime', $closure_datetime);
+    }
+    if ($customer_feedback_value === null) {
+        $insert->bindValue(':customer_feedback', null, PDO::PARAM_NULL);
+    } else {
+        $insert->bindValue(':customer_feedback', $customer_feedback_value);
+    }
     $insert->bindValue(':closed_by', $closed_by, PDO::PARAM_INT);
     $insert->bindValue(':username', $userName);
     $insert->execute();
@@ -211,6 +239,9 @@ try {
         $activityDescription = 'Call closure marked Yes. Complaint resolved.';
         if ($closure_remarks !== '') {
             $activityDescription .= ' Remarks: ' . $closure_remarks;
+        }
+        if ($customer_feedback_value !== null) {
+            $activityDescription .= ' Customer feedback: ' . $customer_feedback_value . '.';
         }
         $activityDescription .= ' Status changed to Resolved.';
     } else {

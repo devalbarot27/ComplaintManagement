@@ -8,6 +8,7 @@ require_once 'includes/complaint_assignment_mail_helpers.php';
 include('includes/complaint_address_helpers.php');
 include('includes/complaint_category_helpers.php');
 require_once 'includes/complaint_datatable_helpers.php';
+require_once 'includes/system_config_master_helpers.php';
 include('includes/ln_invoice_helpers.php');
  
 $success_message = '';
@@ -22,6 +23,7 @@ $canAddComplaint = $complaintEntryPermissions['add'];
 $canAssignComplaint = $complaintEntryPermissions['assign'];
 $canReassignComplaint = $complaintEntryPermissions['reassign'];
 $canShowComplaintClosure = $complaintEntryPermissions['closure'];
+$closureCustomerFeedbackOptions = scm_get_active_names($obconn, 'customer_feedback');
 
 if(isset($_POST['submit_complaint']))
 {
@@ -679,6 +681,22 @@ if(isset($_POST['submit_complaint']))
                                 <textarea class="form-control" name="closure_remarks" rows="3" placeholder="Enter closure remarks"></textarea>
                                 <div class="text-danger validation-msg" data-field="closure_remarks"></div>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label" for="closureCustomerFeedbackSelect">
+                                    <i class="bi bi-chat-quote"></i>
+                                    Customer Feedback
+                                </label>
+                                <select class="form-control" name="customer_feedback" id="closureCustomerFeedbackSelect"
+                                    data-placeholder="Select customer feedback">
+                                    <option value=""></option>
+                                    <?php foreach ($closureCustomerFeedbackOptions as $feedbackOption) { ?>
+                                    <option value="<?php echo htmlspecialchars($feedbackOption, ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php echo htmlspecialchars($feedbackOption); ?>
+                                    </option>
+                                    <?php } ?>
+                                </select>
+                                <div class="text-danger validation-msg" data-field="customer_feedback"></div>
+                            </div>
                         </section>
                         <?php if ($canReassignComplaint) { ?>
                         <section class="complaint-form-section d-none" id="reassignmentDetailsWrap">
@@ -1172,11 +1190,16 @@ function initClosureValidation() {
         }
  
         const remarksField = form.querySelector('[name="closure_remarks"]');
+        const feedbackField = form.querySelector('[name="customer_feedback"]');
         const assignToField = form.querySelector('[name="reassign_complaint"]');
         const reassignRemarksField = form.querySelector('[name="reassign_remarks"]');
  
         if (remarksField) {
             remarksField.value = isYes ? remarksField.value : '';
+        }
+
+        if (!isYes && typeof resetStaticSelect2 === 'function') {
+            resetStaticSelect2('closureCustomerFeedbackSelect');
         }
  
         if (assignToField && !isNo) {
@@ -1318,6 +1341,9 @@ function resetClosureForm(complaintId) {
     form.reset();
     document.getElementById('closureComplaintId').value = complaintId;
     resetAssignToSelect2('closureReassignToSelect');
+    if (typeof resetStaticSelect2 === 'function') {
+        resetStaticSelect2('closureCustomerFeedbackSelect');
+    }
 
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
@@ -1350,13 +1376,16 @@ $(document).ready(function() {
     initAssignValidation();
 <?php } ?>
 <?php if ($canShowComplaintClosure) { ?>
+    initClosureValidation();
+    initStaticSelect2('closureForm', 'closureCustomerFeedbackSelect', {
+        dropdownParent: $('#closureModal')
+    });
 <?php if ($canReassignComplaint) { ?>
     initAssignToSelect2('closureForm', 'closureReassignToSelect', {
         dropdownParent: $('#closureModal'),
         validationField: 'reassign_complaint'
     });
 <?php } ?>
-    initClosureValidation();
 <?php } ?>
  
     setTimeout(function() {

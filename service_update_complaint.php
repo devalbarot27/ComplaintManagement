@@ -7,7 +7,6 @@ include 'includes/complaint_activity_helpers.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/complaint_assignment_helpers.php';
 require_once 'includes/complaint_datatable_helpers.php';
-include 'includes/complaint_status.php';
 include 'includes/service_report_helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

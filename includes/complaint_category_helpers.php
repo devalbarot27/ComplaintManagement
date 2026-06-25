@@ -148,7 +148,7 @@ function complaint_category_get_active_options(PDO $conn): array
         FROM complaint_categories
         WHERE deleted_at IS NULL
           AND status = 'active'
-        ORDER BY name ASC
+        ORDER BY created_at DESC, id DESC
     ");
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);

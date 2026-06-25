@@ -3,7 +3,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/complaint_activity_helpers.php';
-include 'includes/complaint_status.php';
+require_once 'includes/complaint_status.php';
 include 'includes/service_report_helpers.php';
 include 'includes/complaint_address_helpers.php';
 include 'includes/complaint_category_helpers.php';
@@ -110,6 +110,8 @@ $closureStmt = $obconn->prepare("
         call_closure,
         closure_remarks,
         reassignment_details,
+        closure_datetime,
+        customer_feedback,
         closed_by,
         created_at
     FROM complaint_closures
@@ -418,9 +420,10 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                             <tr>
                                 <th>Call Closure</th>
                                 <th>Closure Remarks</th>
+                                <th>Customer Feedback</th>
                                 <th>Remarks</th>
                                 <th>Closed By</th>
-                                <th>Date</th>
+                                <th>Closure Date</th>
                             </tr>
                         </thead>
  
@@ -435,13 +438,20 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                                 <td><?php echo htmlspecialchars($closure['call_closure']); ?></td>
  
                                 <td><?php echo nl2br(htmlspecialchars($closure['closure_remarks'] ?? '-')); ?></td>
+
+                                <td><?php echo htmlspecialchars($closure['customer_feedback'] ?? '-'); ?></td>
  
                                 <td><?php echo nl2br(htmlspecialchars($closure['reassignment_details'] ?? '-')); ?></td>
  
                                 <td>User <?php echo htmlspecialchars($closure['closed_by']); ?></td>
  
                                 <td>
-                                    <?php echo date('d M Y h:i A', strtotime($closure['created_at'])); ?>
+                                    <?php
+                                    $closureDate = $closure['closure_datetime'] ?? $closure['created_at'] ?? null;
+                                    echo $closureDate
+                                        ? date('d M Y h:i A', strtotime($closureDate))
+                                        : '-';
+                                    ?>
                                 </td>
  
                             </tr>
@@ -451,7 +461,7 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                             <?php } else { ?>
  
                             <tr>
-                                <td colspan="5" class="text-center">No closure history found.</td>
+                                <td colspan="6" class="text-center">No closure history found.</td>
                             </tr>
  
                             <?php } ?>
