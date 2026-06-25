@@ -78,7 +78,125 @@ function service_log_from_post(array $post): array
         $data[$field] = trim((string) ($post[$field] ?? ''));
     }
 
+    if (!empty($post['part_replacement_multi'])) {
+        $data['part_replacement_multi'] = true;
+        $data['part_replacement_entries'] = service_log_part_replacements_from_post($post);
+    }
+
     return $data;
+}
+
+function service_log_part_replaced_is_yes(string $value): bool
+{
+    return strcasecmp(trim($value), 'Yes') === 0;
+}
+
+function service_log_part_replacements_from_post(array $post): array
+{
+    $raw = $post['part_replacement_entries'] ?? [];
+    if (!is_array($raw)) {
+        return [];
+    }
+
+    $entries = [];
+    foreach ($raw as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+
+        $entries[] = [
+            'machine_model_code' => trim((string) ($row['machine_model_code'] ?? '')),
+            'machine_model' => trim((string) ($row['machine_model'] ?? '')),
+            'running_hours' => trim((string) ($row['running_hours'] ?? '')),
+            'loaded_hours' => trim((string) ($row['loaded_hours'] ?? '')),
+        ];
+    }
+
+    return $entries;
+}
+
+function service_log_validate_part_replacement_entries(array $entries): ?string
+{
+    if ($entries === []) {
+        return 'At least one Machine Model / Part entry is required when Part Replaced is Yes.';
+    }
+
+    foreach ($entries as $index => $entry) {
+        $label = 'Part replacement entry ' . ($index + 1);
+
+        if ($entry['machine_model_code'] === '' || $entry['machine_model'] === '') {
+            return $label . ': Machine Model / Part is required.';
+        }
+
+        if ($entry['running_hours'] === '') {
+            return $label . ': Running Hours is required.';
+        }
+
+        if (!is_numeric($entry['running_hours']) || (float) $entry['running_hours'] <= 0) {
+            return $label . ': Running Hours must be greater than 0.';
+        }
+
+        if ($entry['loaded_hours'] === '') {
+            return $label . ': Loaded Hours is required.';
+        }
+
+        if (!is_numeric($entry['loaded_hours']) || (float) $entry['loaded_hours'] < 0) {
+            return $label . ': Loaded Hours must be a valid non-negative number.';
+        }
+    }
+
+    return null;
+}
+
+function service_log_apply_part_replacement_fields_for_save(array &$data): void
+{
+    if (empty($data['part_replacement_multi'])) {
+        return;
+    }
+
+    if (!service_log_part_replaced_is_yes($data['part_replaced'])) {
+        $data['part_replacement_entries'] = [];
+        $data['running_hours'] = '';
+        $data['loaded_hours'] = '';
+        $data['customer_feedback'] = '';
+        $data['remarks'] = '';
+        return;
+    }
+
+    $first = $data['part_replacement_entries'][0] ?? null;
+    if (!$first) {
+        $data['running_hours'] = '';
+        $data['loaded_hours'] = '';
+        return;
+    }
+
+    $data['running_hours'] = $first['running_hours'];
+    $data['loaded_hours'] = $first['loaded_hours'];
+}
+
+function service_log_insert_part_replacements(PDO $conn, int $serviceLogId, array $entries): void
+{
+    if ($serviceLogId <= 0 || $entries === []) {
+        return;
+    }
+
+    $stmt = $conn->prepare('
+        INSERT INTO service_log_part_replacements (
+            service_log_id, machine_model_code, machine_model, running_hours, loaded_hours, sort_order
+        ) VALUES (
+            :service_log_id, :machine_model_code, :machine_model, :running_hours, :loaded_hours, :sort_order
+        )
+    ');
+
+    foreach ($entries as $sortOrder => $entry) {
+        $stmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+        $stmt->bindValue(':machine_model_code', $entry['machine_model_code']);
+        $stmt->bindValue(':machine_model', $entry['machine_model']);
+        $stmt->bindValue(':running_hours', $entry['running_hours']);
+        $stmt->bindValue(':loaded_hours', $entry['loaded_hours']);
+        $stmt->bindValue(':sort_order', (int) $sortOrder, PDO::PARAM_INT);
+        $stmt->execute();
+    }
 }
 
 function service_log_get_installed_base(PDO $conn, int $installedBaseId, string $username = ''): ?array
@@ -176,25 +294,50 @@ function service_log_validate(PDO $conn, array $data): ?string
         return 'Invalid Part Replaced selection.';
     }
 
-    if ($data['running_hours'] === '') {
-        return 'Running Hours is required.';
-    }
+    if (!empty($data['part_replacement_multi'])) {
+        if (service_log_part_replaced_is_yes($data['part_replaced'])) {
+            $entryError = service_log_validate_part_replacement_entries($data['part_replacement_entries'] ?? []);
+            if ($entryError !== null) {
+                return $entryError;
+            }
 
-    if (!is_numeric($data['running_hours']) || (float) $data['running_hours'] <= 0) {
-        return 'Running Hours must be greater than 0.';
-    }
+            if ($data['customer_feedback'] === '') {
+                return 'Customer Feedback is required.';
+            }
 
-    if ($data['loaded_hours'] === '') {
-        return 'Loaded Hours is required.';
-    }
+            if (!scm_option_exists($conn, 'customer_feedback', $data['customer_feedback'])) {
+                return 'Invalid Customer Feedback selection.';
+            }
 
-    if (!is_numeric($data['loaded_hours']) || (float) $data['loaded_hours'] < 0) {
-        return 'Loaded Hours must be a valid non-negative number.';
-    }
+            if (strlen($data['remarks']) > 1000) {
+                return 'Remarks cannot exceed 1000 characters.';
+            }
+        }
+    } else {
+        if ($data['running_hours'] === '') {
+            return 'Running Hours is required.';
+        }
 
-    if ($data['customer_feedback'] !== ''
-        && !scm_option_exists($conn, 'customer_feedback', $data['customer_feedback'])) {
-        return 'Invalid Customer Feedback selection.';
+        if (!is_numeric($data['running_hours']) || (float) $data['running_hours'] <= 0) {
+            return 'Running Hours must be greater than 0.';
+        }
+
+        if ($data['loaded_hours'] === '') {
+            return 'Loaded Hours is required.';
+        }
+
+        if (!is_numeric($data['loaded_hours']) || (float) $data['loaded_hours'] < 0) {
+            return 'Loaded Hours must be a valid non-negative number.';
+        }
+
+        if ($data['customer_feedback'] !== ''
+            && !scm_option_exists($conn, 'customer_feedback', $data['customer_feedback'])) {
+            return 'Invalid Customer Feedback selection.';
+        }
+
+        if (strlen($data['remarks']) > 1000) {
+            return 'Remarks cannot exceed 1000 characters.';
+        }
     }
 
     if (strtotime($data['visit_date']) < strtotime($data['complaint_date'])) {
@@ -205,7 +348,7 @@ function service_log_validate(PDO $conn, array $data): ?string
         return 'Closure Date cannot be earlier than Visit Date.';
     }
 
-    if (strlen($data['remarks']) > 1000) {
+    if (empty($data['part_replacement_multi']) && strlen($data['remarks']) > 1000) {
         return 'Remarks cannot exceed 1000 characters.';
     }
 
@@ -299,22 +442,39 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
 {
     $data = service_log_from_post($post);
     $installedBaseId = (int) $data['installed_base_id'];
-    $installedBase = $installedBaseId > 0
-        ? service_log_get_installed_base($conn, $installedBaseId, $username)
-        : null;
 
-    if ($installedBase) {
-        $data['machine_model'] = service_log_machine_model_from_installed_base($installedBase);
+    if ($installedBaseId <= 0) {
+        return ['success' => false, 'message' => 'Installed base record is required.'];
     }
+
+    $installedBase = service_log_get_installed_base($conn, $installedBaseId, $username);
+
+    if (!$installedBase) {
+        return ['success' => false, 'message' => 'Selected installed base record was not found or is not assigned to your account.'];
+    }
+
+    $existsStmt = $conn->prepare('
+        SELECT id
+        FROM installed_base
+        WHERE id = :id
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $existsStmt->bindValue(':id', $installedBaseId, PDO::PARAM_INT);
+    $existsStmt->execute();
+
+    if (!$existsStmt->fetch(PDO::FETCH_ASSOC)) {
+        return ['success' => false, 'message' => 'Installed base record does not exist. Service log cannot be created without an existing installed base.'];
+    }
+
+    $data['machine_model'] = service_log_machine_model_from_installed_base($installedBase);
+
+    service_log_apply_part_replacement_fields_for_save($data);
 
     $validationError = service_log_validate($conn, $data);
 
     if ($validationError !== null) {
         return ['success' => false, 'message' => $validationError];
-    }
-
-    if (!$installedBase) {
-        return ['success' => false, 'message' => 'Selected installed base record was not found or is not assigned to your account.'];
     }
 
     if ($installedBase['order_id'] !== $data['order_id']) {
@@ -361,8 +521,8 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
         $insert->bindValue(':action_taken', $data['action_taken']);
         $insert->bindValue(':closure_date', $data['closure_date']);
         $insert->bindValue(':part_replaced', $data['part_replaced']);
-        $insert->bindValue(':running_hours', $data['running_hours']);
-        $insert->bindValue(':loaded_hours', $data['loaded_hours']);
+        $insert->bindValue(':running_hours', $data['running_hours'] !== '' ? $data['running_hours'] : null);
+        $insert->bindValue(':loaded_hours', $data['loaded_hours'] !== '' ? $data['loaded_hours'] : null);
         $insert->bindValue(':customer_feedback', $data['customer_feedback'] !== '' ? $data['customer_feedback'] : null);
         $insert->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
         service_log_bind_remaining_consumables($insert, $data);
@@ -370,10 +530,91 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
         $insert->bindValue(':username', $username);
         $insert->execute();
 
-        return ['success' => true, 'message' => 'Service log saved successfully.'];
+        $serviceLogId = (int) $conn->lastInsertId();
+        if (!empty($data['part_replacement_multi'])
+            && service_log_part_replaced_is_yes($data['part_replaced'])
+            && !empty($data['part_replacement_entries'])) {
+            service_log_insert_part_replacements($conn, $serviceLogId, $data['part_replacement_entries']);
+        }
+
+        return [
+            'success' => true,
+            'message' => !empty($post['from_installed_base_modal'])
+                ? 'Service Log Capture added successfully.'
+                : 'Service log saved successfully.',
+        ];
     } catch (PDOException $e) {
         return ['success' => false, 'message' => 'Failed to save service log.'];
     }
+}
+
+function service_log_list_for_installed_base(PDO $conn, int $installedBaseId): array
+{
+    if ($installedBaseId <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare('
+        SELECT *
+        FROM service_logs
+        WHERE installed_base_id = :installed_base_id
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC, id DESC
+    ');
+    $stmt->bindValue(':installed_base_id', $installedBaseId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $unique = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $unique[(int) $row['id']] = $row;
+    }
+
+    return array_values($unique);
+}
+
+function service_log_part_replacements_for_service_log(PDO $conn, int $serviceLogId): array
+{
+    if ($serviceLogId <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id, machine_model_code, machine_model, running_hours, loaded_hours, sort_order
+        FROM service_log_part_replacements
+        WHERE service_log_id = :service_log_id
+          AND deleted_at IS NULL
+        ORDER BY sort_order ASC, id ASC
+    ');
+    $stmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $unique = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $rowKey = (int) ($row['id'] ?? 0);
+        if ($rowKey > 0) {
+            $unique[$rowKey] = $row;
+        } else {
+            $unique[] = $row;
+        }
+    }
+
+    return array_values($unique);
+}
+
+function service_log_part_model_label(array $row): string
+{
+    $code = trim((string) ($row['machine_model_code'] ?? ''));
+    $description = trim((string) ($row['machine_model'] ?? ''));
+
+    if ($code === '' && $description === '') {
+        return '-';
+    }
+
+    if ($code !== '' && $description !== '') {
+        return $code . ' - ' . $description;
+    }
+
+    return $code !== '' ? $code : $description;
 }
 
 function service_log_entry_actions(int $id, array $permissions = []): string

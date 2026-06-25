@@ -37,5 +37,7 @@ echo json_encode([
     'order_id' => $row['order_id'] ?? '',
     'fab_number' => $row['fab_number'] ?? '',
     'machine_model' => service_log_machine_model_from_installed_base($row),
+    'machine_model_code' => (string) ($row['machine_model_code'] ?? ''),
+    'machine_model_desc' => trim((string) ($row['machine_model'] ?? '')),
     'running_hours' => $row['running_hours'] ?? '',
 ]);

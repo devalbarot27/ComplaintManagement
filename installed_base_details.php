@@ -4,6 +4,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/installed_base_helpers.php';
+require_once 'includes/service_log_helpers.php';
 require_once 'includes/after_market_access_helpers.php';
 
 $active_menu = 'installed_base';
@@ -32,6 +33,10 @@ $record = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$record) {
     die('Installed base record not found.');
 }
+
+$serviceLogs = service_log_list_for_installed_base($obconn, $id);
+$serviceLogPermissions = service_log_action_permissions($obconn);
+$canViewServiceLogDetails = $serviceLogPermissions['view'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -44,6 +49,7 @@ if (!$record) {
     <?php include 'header_css.php'; ?>
 
     <link href="css/orderbook_style.css" rel="stylesheet" />
+    <link href="css/complaint_form.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
@@ -182,6 +188,29 @@ if (!$record) {
                             : nl2br(htmlspecialchars($remarks));
                         ?>
                     </div>
+                </div>
+            </div>
+
+            <div class="card border-1 shadow-sm mb-3">
+                <div class="card-header bg-white">
+                    <strong>Service Log Capture Records</strong>
+                </div>
+                <div class="card-body p-0">
+                    <?php if ($serviceLogs === []) { ?>
+                    <p class="text-muted mb-0 p-3">No Service Log Capture records linked to this installed base yet.</p>
+                    <?php } else { ?>
+                        <div class="p-3">
+                        <?php foreach ($serviceLogs as $serviceLogRecord) {
+                            $partReplacements = service_log_part_replacements_for_service_log(
+                                $obconn,
+                                (int) $serviceLogRecord['id']
+                            );
+                            $serviceLogEmbeddedInInstalledBase = true;
+                            $installedBaseRecord = $record;
+                            include __DIR__ . '/includes/service_log_record_details_section.php';
+                        } ?>
+                        </div>
+                    <?php } ?>
                 </div>
             </div>
 

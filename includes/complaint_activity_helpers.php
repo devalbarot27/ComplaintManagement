@@ -95,6 +95,67 @@ function complaint_resolve_activity_meta(string $activityType, string $descripti
     return complaint_activity_type_meta($activityType);
 }
 
+/**
+ * @param int[] $userIds
+ * @return array<int, string>
+ */
+function complaint_activity_user_names_by_ids(PDO $conn, array $userIds): array
+{
+    $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds), static function ($id) {
+        return $id > 0;
+    })));
+
+    if ($userIds === []) {
+        return [];
+    }
+
+    $placeholders = [];
+    $params = [];
+    foreach ($userIds as $index => $userId) {
+        $paramKey = ':activity_user_' . $index;
+        $placeholders[] = $paramKey;
+        $params[$paramKey] = $userId;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT
+            id,
+            COALESCE(
+                NULLIF(TRIM(name), ''),
+                NULLIF(TRIM(username), ''),
+                NULL
+            ) AS display_name
+        FROM user_master
+        WHERE id IN (" . implode(', ', $placeholders) . ")
+    ");
+    foreach ($params as $paramKey => $userId) {
+        $stmt->bindValue($paramKey, $userId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+
+    $names = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $displayName = trim((string) ($row['display_name'] ?? ''));
+        if ($displayName !== '') {
+            $names[(int) $row['id']] = $displayName;
+        }
+    }
+
+    return $names;
+}
+
+function complaint_activity_resolve_user_name(array $activity, array $userNamesById): string
+{
+    $userId = (int) ($activity['user_id'] ?? 0);
+    if ($userId > 0 && !empty($userNamesById[$userId])) {
+        return $userNamesById[$userId];
+    }
+
+    $loggedUsername = trim((string) ($activity['username'] ?? ''));
+
+    return $loggedUsername;
+}
+
 function complaint_fetch_activity_timeline(PDO $conn, int $complaintId, array $complaint): array
 {
     $stmt = $conn->prepare("
@@ -102,6 +163,7 @@ function complaint_fetch_activity_timeline(PDO $conn, int $complaintId, array $c
             activity_type,
             activity_description,
             user_id,
+            username,
             created_at
         FROM complaint_activity_logs
         WHERE complaint_id = :complaint_id
@@ -128,9 +190,19 @@ function complaint_fetch_activity_timeline(PDO $conn, int $complaintId, array $c
                 . ' � '
                 . ($complaint['customer_name'] ?? ''),
             'user_id' => $complaint['added_by'] ?? 1,
+            'username' => $complaint['username'] ?? '',
             'created_at' => $complaint['created_at'],
         ]);
     }
+
+    $userIds = [];
+    foreach ($activities as $activity) {
+        $userId = (int) ($activity['user_id'] ?? 0);
+        if ($userId > 0) {
+            $userIds[] = $userId;
+        }
+    }
+    $userNamesById = complaint_activity_user_names_by_ids($conn, $userIds);
  
     $timeline = [];
     foreach ($activities as $activity) {
@@ -138,6 +210,7 @@ function complaint_fetch_activity_timeline(PDO $conn, int $complaintId, array $c
             (string) $activity['activity_type'],
             (string) ($activity['activity_description'] ?? '')
         );
+        $userName = complaint_activity_resolve_user_name($activity, $userNamesById);
         $timeline[] = [
             'type' => $activity['activity_type'],
             'type_label' => $meta['label'],
@@ -145,6 +218,7 @@ function complaint_fetch_activity_timeline(PDO $conn, int $complaintId, array $c
             'modifier' => $meta['modifier'],
             'description' => $activity['activity_description'],
             'user_id' => $activity['user_id'] ?? null,
+            'user_name' => $userName,
             'created_at' => $activity['created_at'],
         ];
     }

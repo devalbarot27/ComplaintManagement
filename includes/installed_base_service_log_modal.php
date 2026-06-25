@@ -19,6 +19,8 @@
             </div>
 
             <form id="installedBaseServiceLogForm" novalidate>
+                <input type="hidden" name="part_replacement_multi" value="1">
+                <input type="hidden" name="from_installed_base_modal" value="1">
                 <div class="complaint-form-body p-4">
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
@@ -131,31 +133,34 @@
                                 </select>
                                 <div class="text-danger validation-msg" data-field="part_replaced"></div>
                             </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label"><i class="bi bi-clock-history"></i> Running Hours <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="running_hours" min="0.01" step="0.01" placeholder="Machine usage">
-                                <div class="text-danger validation-msg" data-field="running_hours"></div>
+                        </div>
+
+                        <div id="ibServiceLogPartReplacementWrapper" class="d-none mt-3">
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-sm btn-outline-dark" id="ibServiceLogAddPartReplacementBtn">
+                                    <i class="bi bi-plus-lg"></i> Add More
+                                </button>
                             </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label"><i class="bi bi-speedometer2"></i> Loaded Hours <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="loaded_hours" min="0" step="0.01" placeholder="Operational load">
-                                <div class="text-danger validation-msg" data-field="loaded_hours"></div>
-                            </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label"><i class="bi bi-chat-quote"></i> Customer Feedback</label>
-                                <select class="form-control" name="customer_feedback" id="ibServiceLogFeedbackSelect"
-                                    data-placeholder="Search customer feedback">
-                                    <option value=""></option>
-                                    <?php foreach ($feedbackOptions as $feedback) { ?>
-                                    <option value="<?php echo htmlspecialchars($feedback); ?>"><?php echo htmlspecialchars($feedback); ?></option>
-                                    <?php } ?>
-                                </select>
-                                <div class="text-danger validation-msg" data-field="customer_feedback"></div>
-                            </div>
-                            <div class="col-12 form-group">
-                                <label class="form-label"><i class="bi bi-card-text"></i> Remarks</label>
-                                <textarea class="form-control" name="remarks" rows="2" placeholder="Additional notes (optional)"></textarea>
-                                <div class="text-danger validation-msg" data-field="remarks"></div>
+                            <div id="ibServiceLogPartReplacementEntries"></div>
+                            <div class="text-danger validation-msg mb-2" data-field="part_replacement_entries"></div>
+
+                            <div class="row g-3">
+                                <div class="col-md-4 form-group">
+                                    <label class="form-label"><i class="bi bi-chat-quote"></i> Customer Feedback <span class="text-danger">*</span></label>
+                                    <select class="form-control" name="customer_feedback" id="ibServiceLogFeedbackSelect"
+                                        data-placeholder="Search customer feedback">
+                                        <option value=""></option>
+                                        <?php foreach ($feedbackOptions as $feedback) { ?>
+                                        <option value="<?php echo htmlspecialchars($feedback); ?>"><?php echo htmlspecialchars($feedback); ?></option>
+                                        <?php } ?>
+                                    </select>
+                                    <div class="text-danger validation-msg" data-field="customer_feedback"></div>
+                                </div>
+                                <div class="col-12 form-group">
+                                    <label class="form-label"><i class="bi bi-card-text"></i> Remarks</label>
+                                    <textarea class="form-control" name="remarks" rows="2" placeholder="Additional notes (optional)"></textarea>
+                                    <div class="text-danger validation-msg" data-field="remarks"></div>
+                                </div>
                             </div>
                         </div>
                     </section>

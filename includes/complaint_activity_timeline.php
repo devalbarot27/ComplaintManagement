@@ -36,9 +36,9 @@ if (empty($timelineActivities)) {
                         <?php echo nl2br(htmlspecialchars($event['description'])); ?>
                     </p>
  
-                    <?php if (!empty($event['user_id'])) { ?>
+                    <?php if (!empty($event['user_name'])) { ?>
                     <div class="complaint-timeline-user text-muted small">
-                        By User <?php echo (int) $event['user_id']; ?>
+                        By <?php echo htmlspecialchars($event['user_name']); ?>
                     </div>
                     <?php } ?>
                 </div>

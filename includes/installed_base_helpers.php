@@ -261,7 +261,7 @@ function installed_base_entry_actions(
             </button>';
     }
 
-    if ($permissions['spare_parts_add'] && $hasServiceLog) {
+    if ($permissions['spare_parts_add']) {
         $html .= '
             <button type="button" class="btn btn-sm btn-outline-dark add-spare-parts-btn"
                 data-id="' . $id . '" data-prefill="installed_base" title="Add Spare Parts Consumption">

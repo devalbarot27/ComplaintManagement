@@ -12,6 +12,11 @@ require_once 'includes/after_market_access_helpers.php';
 $active_menu = 'installed_base';
 $success_message = '';
 $error_message = '';
+
+if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] === '1') {
+    $success_message = 'Service Log Capture added successfully.';
+}
+
 $installedBasePermissions = installed_base_action_permissions($obconn);
 $canAddInstalledBase = $installedBasePermissions['add'];
 $canEditInstalledBase = $installedBasePermissions['edit'];
