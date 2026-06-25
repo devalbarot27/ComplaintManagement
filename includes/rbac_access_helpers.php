@@ -86,6 +86,7 @@ function rbac_api_access_rules(): array
         'service_log_spare_parts_prefill.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
         'installed_base_spare_parts_prefill.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
         'complaints_datatable.php' => ['module' => 'complaint-entry', 'permission' => 'view'],
+        'complaint_fab_prefill.php' => ['module' => 'complaint-entry', 'permission' => 'add'],
         'assigned_complaints_datatable.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
     ];
 }

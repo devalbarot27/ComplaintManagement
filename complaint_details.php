@@ -15,10 +15,20 @@ if ($id <= 0) {
 }
  
 $stmt = $obconn->prepare("
-    SELECT *
-    FROM complaints
-    WHERE id = :id
-    AND deleted_at IS NULL
+    SELECT
+        c.*,
+        COALESCE(
+            NULLIF(TRIM(um.name), ''),
+            NULLIF(TRIM(um.username), ''),
+            NULLIF(TRIM(c.username), ''),
+            '-'
+        ) AS added_by_name
+    FROM complaints c
+    LEFT JOIN user_master um
+        ON um.id = c.added_by
+       AND um.deleted_at IS NULL
+    WHERE c.id = :id
+      AND c.deleted_at IS NULL
 ");
  
 $stmt->bindValue(':id', $id, PDO::PARAM_INT);
@@ -180,12 +190,12 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                         <?php echo $statusMap[$complaint['status']] ?? 'Unknown'; ?>
                     </div>
  
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         <strong>Street 1:</strong>
                         <?php echo nl2br(htmlspecialchars(complaint_address_display_value($complaint, 'street_1'))); ?>
                     </div>
 
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         <strong>Street 2:</strong>
                         <?php echo htmlspecialchars(complaint_address_display_value($complaint, 'street_2')); ?>
                     </div>
@@ -215,6 +225,11 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
                         <?php echo nl2br(htmlspecialchars($complaint['complaint_description'])); ?>
                     </div>
  
+                    <div class="col-md-4">
+                        <strong>Complaint Created By:</strong>
+                        <?php echo htmlspecialchars((string) ($complaint['added_by_name'] ?? '-')); ?>
+                    </div>
+
                     <div class="col-md-4">
                         <strong>Created At:</strong>
                         <?php echo date('d M Y h:i A', strtotime($complaint['created_at'])); ?>

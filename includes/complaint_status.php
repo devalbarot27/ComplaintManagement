@@ -1,5 +1,8 @@
 <?php
 
+require_once __DIR__ . '/admin_access_helpers.php';
+require_once __DIR__ . '/current_username_helpers.php';
+
 /** Complaint status IDs */
 const COMPLAINT_STATUS_OPEN = 1;
 const COMPLAINT_STATUS_IN_PROGRESS = 2;
@@ -44,6 +47,53 @@ function complaint_status_badge(int $status): string
     return '<span class="status-badge ' . $class . '">' . $label . '</span>';
 }
 
+/**
+ * Complaint Entry visibility: System Admin sees all; others see own or assigned records.
+ *
+ * @return array{where: string, params: array<string, mixed>}
+ */
+function complaint_entry_list_scope(PDO $conn): array
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (is_system_admin()) {
+        return [
+            'where' => 'deleted_at IS NULL',
+            'params' => [],
+        ];
+    }
+
+    $username = current_username();
+    $userId = current_user_id($conn);
+
+    if ($userId !== null && $userId > 0) {
+        return [
+            'where' => 'deleted_at IS NULL AND (
+                username = :username
+                OR EXISTS (
+                    SELECT 1
+                    FROM complaint_assignments ca
+                    WHERE ca.complaint_id = complaints.id
+                      AND ca.assigned_to = :user_id
+                )
+            )',
+            'params' => [
+                ':username' => $username,
+                ':user_id' => $userId,
+            ],
+        ];
+    }
+
+    return [
+        'where' => 'deleted_at IS NULL AND username = :username',
+        'params' => [
+            ':username' => $username,
+        ],
+    ];
+}
+
 function complaint_status_counts(PDO $conn, bool $assignedOnly = false, string $username = ''): array
 {
     $counts = [
@@ -54,35 +104,51 @@ function complaint_status_counts(PDO $conn, bool $assignedOnly = false, string $
         'resolved' => 0,
     ];
 
-    $username = trim($username);
-    $usernameFilter = $username !== '' ? ' AND username = :username' : '';
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
 
     if ($assignedOnly) {
         require_once __DIR__ . '/complaint_assignment_helpers.php';
 
-        $sql = "
-            SELECT c.status, COUNT(DISTINCT c.id) AS total
-            FROM complaints c
-            " . complaint_assigned_list_join_sql() . "
-            WHERE " . complaint_assigned_list_where_sql() . "
-            GROUP BY c.status
-        ";
+        if (is_system_admin()) {
+            $sql = "
+                SELECT c.status, COUNT(DISTINCT c.id) AS total
+                FROM complaints c
+                " . complaint_assigned_list_join_sql() . "
+                WHERE c.deleted_at IS NULL
+                  AND ca.is_service_updated = 0
+                  AND c.status IN (:status_in_progress, :status_reopen)
+                GROUP BY c.status
+            ";
+            $params = [
+                ':status_in_progress' => COMPLAINT_STATUS_IN_PROGRESS,
+                ':status_reopen' => COMPLAINT_STATUS_REOPEN,
+            ];
+        } else {
+            $sql = "
+                SELECT c.status, COUNT(DISTINCT c.id) AS total
+                FROM complaints c
+                " . complaint_assigned_list_join_sql() . "
+                WHERE " . complaint_assigned_list_where_sql() . "
+                GROUP BY c.status
+            ";
+            $params = complaint_assigned_list_params();
+        }
     } else {
+        $scope = complaint_entry_list_scope($conn);
         $sql = "
             SELECT status, COUNT(*) AS total
             FROM complaints
-            WHERE deleted_at IS NULL{$usernameFilter}
+            WHERE {$scope['where']}
             GROUP BY status
         ";
+        $params = $scope['params'];
     }
 
     $stmt = $conn->prepare($sql);
-    if ($assignedOnly) {
-        foreach (complaint_assigned_list_params() as $key => $value) {
-            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
-        }
-    } elseif ($username !== '') {
-        $stmt->bindValue(':username', $username);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
     }
     $stmt->execute();
 

@@ -1,6 +1,7 @@
 <?php
 
 const SYSTEM_ADMIN_ROLE = 6;
+const DEALER_USER_ROLE = 1;
 
 function admin_refresh_session_role(PDO $conn): void
 {
@@ -32,6 +33,11 @@ function current_user_role(): int
 function is_system_admin(): bool
 {
     return current_user_role() === SYSTEM_ADMIN_ROLE;
+}
+
+function is_dealer_user(): bool
+{
+    return current_user_role() === DEALER_USER_ROLE;
 }
 
 function require_system_admin(?PDO $conn = null): void

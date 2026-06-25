@@ -4,11 +4,17 @@ include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
 require_once 'includes/current_username_helpers.php';
-include 'includes/complaint_status.php';
- 
+require_once 'includes/complaint_datatable_helpers.php';
+
 $redirect = 'new_complaint.php';
- 
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ' . $redirect);
+    exit;
+}
+
+if (!complaint_user_can_closure($obconn)) {
+    $_SESSION['error_message'] = 'Access denied. Complaint closure is available to Dealer Users only.';
     header('Location: ' . $redirect);
     exit;
 }
@@ -37,6 +43,10 @@ if ($call_closure === 'No' && $reassign_assign_complaint === '') {
     exit;
 }
 
+if ($call_closure === 'No') {
+    complaint_entry_require_permission($obconn, 'reassign-complaint');
+}
+ 
 if ($call_closure === 'No' && strlen($reassign_remarks) > 500) {
     $_SESSION['error_message'] = 'Remarks cannot exceed 500 characters.';
     header('Location: ' . $redirect);

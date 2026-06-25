@@ -47,6 +47,39 @@ function resetPincodeSelect2(form, pincodeSelectId) {
     clearAddressAutoFields(form);
 }
 
+function setPincodeSelect2(form, pincodeSelectId, data) {
+    pincodeSelectId = pincodeSelectId || 'pincodeSelect';
+    const $pincode = $('#' + pincodeSelectId);
+
+    if (!$pincode.length) {
+        return;
+    }
+
+    const postcode = data && data.pincode != null ? String(data.pincode).trim() : '';
+
+    $pincode.val(null).trigger('change');
+
+    if (postcode !== '') {
+        const city = data.city != null ? String(data.city).trim() : '';
+        const state = data.state != null ? String(data.state).trim() : '';
+        const text = city !== '' || state !== ''
+            ? postcode + ' - ' + city + ', ' + state
+            : postcode;
+        const option = new Option(text, postcode, true, true);
+        $pincode.append(option).trigger('change');
+    }
+
+    setAddressAutoFields(form, data || {});
+    $pincode.removeClass('is-invalid');
+
+    if (form) {
+        const msg = form.querySelector('.validation-msg[data-field="pincode"]');
+        if (msg) {
+            msg.textContent = '';
+        }
+    }
+}
+
 function initPincodeSelect2(formId, pincodeSelectId) {
     formId = formId || 'complaintForm';
     pincodeSelectId = pincodeSelectId || 'pincodeSelect';

@@ -7,7 +7,7 @@ include 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
 include('includes/complaint_address_helpers.php');
 include('includes/complaint_category_helpers.php');
-include('includes/complaint_status.php');
+require_once 'includes/complaint_datatable_helpers.php';
 include('includes/ln_invoice_helpers.php');
  
 $success_message = '';
@@ -17,15 +17,26 @@ $complaintAssignees = complaint_fetch_elgi_engineer_assignees($obconn);
 $complaintAssigneeOptionsHtml = complaint_render_assignee_options($complaintAssignees);
 $complaintCategoryOptions = complaint_category_get_active_options($obconn);
 $complaintCategoryOptionsHtml = complaint_category_render_options($complaintCategoryOptions);
+$complaintEntryPermissions = complaint_entry_action_permissions($obconn);
+$canAddComplaint = $complaintEntryPermissions['add'];
+$canAssignComplaint = $complaintEntryPermissions['assign'];
+$canReassignComplaint = $complaintEntryPermissions['reassign'];
+$canShowComplaintClosure = $complaintEntryPermissions['closure'];
 
 if(isset($_POST['submit_complaint']))
 {
+    $assign_complaint = trim($_POST['assign_complaint'] ?? '');
+
+    if (!$canAddComplaint) {
+        $error_message = 'Access denied. You do not have permission to add complaints.';
+    } elseif ($assign_complaint !== '' && !$canAssignComplaint) {
+        $error_message = 'Access denied. You do not have permission to assign complaints.';
+    } else {
     $fab_number = trim($_POST['fab_number']);
     $customer_name = trim($_POST['customer_name']);
     $address = complaint_address_from_post($_POST);
     $complaint_description = trim($_POST['complaint_description']);
     $complaint_category_id = (int) ($_POST['complaint_category_id'] ?? 0);
-    $assign_complaint = trim($_POST['assign_complaint'] ?? '');
     $remarks = trim($_POST['remarks'] ?? '');
 
     $addressError = complaint_validate_address_fields($address);
@@ -198,6 +209,7 @@ if(isset($_POST['submit_complaint']))
             $error_message = 'Failed to submit complaint.';
         }
     }
+    }
 }
 ?>
  
@@ -238,6 +250,7 @@ if(isset($_POST['submit_complaint']))
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="js/pincode_select2.js"></script>
 <script src="js/fabno_select2.js"></script>
+<script src="js/complaint_fab_prefill.js"></script>
 <script src="js/assign_to_select2.js"></script>
 <script src="js/static_select2.js"></script>
 
@@ -299,20 +312,25 @@ if(isset($_POST['submit_complaint']))
                 <!-- RIGHT BUTTONS -->
 <div class="header-btn-group">
 <!-- NEW -->
+<?php if ($canAddComplaint) { ?>
 <button class="new-order-btn btn-complaint-primary" id="openOrderForm">
 <i class="bi bi-plus-lg"></i>
                         New Complaint
 </button>
+<?php } ?>
  
                     <!-- CLOSE -->
+<?php if ($canAddComplaint) { ?>
 <button class="close-form-btn cancel-btn" id="closeOrderForm">
 <i class="bi bi-x-lg"></i>
                         Cancel
 </button>
+<?php } ?>
 </div>
 </div>
  
             <!-- NEW COMPLAINT FORM -->
+            <?php if ($canAddComplaint) { ?>
             <div class="complaint-form-card" id="orderFormCard">
                 <div class="complaint-form-header">
                     <div class="complaint-form-header__main">
@@ -449,6 +467,7 @@ if(isset($_POST['submit_complaint']))
                             </div>
                         </section>
 
+                        <?php if ($canAssignComplaint) { ?>
                         <section class="complaint-form-section">
                             <div class="complaint-form-section__head">
                                 <span class="complaint-form-section__badge">3</span>
@@ -480,6 +499,7 @@ if(isset($_POST['submit_complaint']))
                                 </div>
                             </div>
                         </section>
+                        <?php } ?>
                     </div>
 
                     <div class="complaint-form-actions">
@@ -491,6 +511,7 @@ if(isset($_POST['submit_complaint']))
                     </div>
                 </form>
             </div>
+            <?php } ?>
  
 
 <?php include 'includes/complaint_status_cards.php'; ?>
@@ -533,6 +554,7 @@ if(isset($_POST['submit_complaint']))
  
  
  
+<?php if ($canAssignComplaint) { ?>
 <div class="modal fade" id="assignModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content complaint-form-modal">
@@ -593,7 +615,9 @@ if(isset($_POST['submit_complaint']))
             </div>
         </div>
     </div>
+<?php } ?>
 
+<?php if ($canShowComplaintClosure) { ?>
 <div class="modal fade" id="closureModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content complaint-form-modal">
@@ -631,7 +655,8 @@ if(isset($_POST['submit_complaint']))
                                         <label class="form-check-label" for="closureYes">Yes</label>
                                     </div>
                                     <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="call_closure" id="closureNo" value="No">
+                                        <input class="form-check-input" type="radio" name="call_closure" id="closureNo" value="No"
+                                            <?php echo $canReassignComplaint ? '' : 'disabled'; ?>>
                                         <label class="form-check-label" for="closureNo">No</label>
                                     </div>
                                 </div>
@@ -655,6 +680,7 @@ if(isset($_POST['submit_complaint']))
                                 <div class="text-danger validation-msg" data-field="closure_remarks"></div>
                             </div>
                         </section>
+                        <?php if ($canReassignComplaint) { ?>
                         <section class="complaint-form-section d-none" id="reassignmentDetailsWrap">
                             <div class="complaint-form-section__head">
                                 <span class="complaint-form-section__badge">2</span>
@@ -685,6 +711,7 @@ if(isset($_POST['submit_complaint']))
                                 </div>
                             </div>
                         </section>
+                        <?php } ?>
                     </div>
                     <div class="complaint-form-actions">
                         <button type="button" class="cancel-btn" data-bs-dismiss="modal">Cancel</button>
@@ -697,8 +724,9 @@ if(isset($_POST['submit_complaint']))
             </div>
         </div>
     </div>
- 
- 
+<?php } ?>
+
+
 </body>
  
  
@@ -1308,18 +1336,28 @@ $(document).ready(function() {
     initComplaintEntryDatatable();
     initComplaintFormValidation();
     initPincodeSelect2();
-    initFabnoSelect2('complaintForm', 'complaintFabNumberSelect');
+    initFabnoSelect2('complaintForm', 'complaintFabNumberSelect', {
+        onSelect: function (data, form) {
+            prefillComplaintFromFab(form, data.id);
+        }
+    });
     initComplaintCategorySelect2();
+<?php if ($canAssignComplaint) { ?>
     initAssignToSelect2('complaintForm', 'complaintAssignToSelect');
     initAssignToSelect2('assignComplaintForm', 'assignModalAssignToSelect', {
         dropdownParent: $('#assignModal')
     });
+    initAssignValidation();
+<?php } ?>
+<?php if ($canShowComplaintClosure) { ?>
+<?php if ($canReassignComplaint) { ?>
     initAssignToSelect2('closureForm', 'closureReassignToSelect', {
         dropdownParent: $('#closureModal'),
         validationField: 'reassign_complaint'
     });
-    initAssignValidation();
+<?php } ?>
     initClosureValidation();
+<?php } ?>
  
     setTimeout(function() {
         $('.alert-success').fadeOut();
@@ -1327,13 +1365,17 @@ $(document).ready(function() {
  
 });
  
+<?php if ($canAssignComplaint) { ?>
 $(document).on('click', '.manual-assign-btn', function() {
     resetAssignForm($(this).data('id'));
 });
+<?php } ?>
 
+<?php if ($canShowComplaintClosure) { ?>
 $(document).on('click', '.closure-btn', function() {
     resetClosureForm($(this).data('id'));
 });
+<?php } ?>
 
 
 function getCurrentDateLocal() {
@@ -1363,6 +1405,7 @@ function setCurrentDateTimeInput(input) {
 </script>
  
 <script>
+<?php if ($canAddComplaint) { ?>
 // OPEN FORM
  
 const openOrderForm = document.getElementById('openOrderForm');
@@ -1401,7 +1444,9 @@ closeOrderForm.addEventListener('click', function() {
         resetFabNumberSelect2ById('complaintFabNumberSelect');
         resetStaticSelect2('complaintCategorySelect');
         document.getElementById('complaintCategoryName').value = '';
+<?php if ($canAssignComplaint) { ?>
         resetAssignToSelect2('complaintAssignToSelect');
+<?php } ?>
         complaintForm.querySelectorAll('.is-invalid').forEach(function (el) {
             el.classList.remove('is-invalid');
         });
@@ -1415,6 +1460,7 @@ closeOrderForm.addEventListener('click', function() {
     }
 
 });
+<?php } ?>
 </script>
 </body>
  

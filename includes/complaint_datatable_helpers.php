@@ -1,6 +1,8 @@
 <?php
 
 require_once __DIR__ . '/complaint_status.php';
+require_once __DIR__ . '/admin_access_helpers.php';
+require_once __DIR__ . '/rbac_access_helpers.php';
 
 function dt_parse_request(array $allowedOrderColumns, string $defaultOrderColumn = 'id'): array
 {
@@ -141,32 +143,74 @@ function dt_parse_closure_row_flags(array $row): array
     ];
 }
 
+function complaint_user_can_closure(PDO $conn): bool
+{
+    return is_dealer_user()
+        && rbac_has_permission($conn, 'complaint-entry', 'complaint-closure');
+}
+
+/**
+ * @return array{view: bool, add: bool, delete: bool, assign: bool, reassign: bool, closure: bool}
+ */
+function complaint_entry_action_permissions(PDO $conn): array
+{
+    return [
+        'view' => rbac_user_can($conn, 'complaint-entry', 'view'),
+        'add' => rbac_user_can($conn, 'complaint-entry', 'add'),
+        'delete' => rbac_user_can($conn, 'complaint-entry', 'delete'),
+        'assign' => rbac_user_can($conn, 'complaint-entry', 'assign-complaint'),
+        'reassign' => rbac_user_can($conn, 'complaint-entry', 'reassign-complaint'),
+        'closure' => complaint_user_can_closure($conn),
+    ];
+}
+
+function complaint_entry_require_permission(
+    PDO $conn,
+    string $permissionSlug,
+    string $redirect = 'new_complaint.php'
+): void {
+    if (!rbac_user_can($conn, 'complaint-entry', $permissionSlug)) {
+        $_SESSION['error_message'] = 'Access denied. You do not have permission for this action.';
+        header('Location: ' . $redirect);
+        exit;
+    }
+}
+
 function complaint_entry_actions(
     int $id,
     int $status,
     bool $needsReassign = false,
-    bool $canClose = false
+    bool $canClose = false,
+    array $permissions = []
 ): string {
+    $permissions = array_merge([
+        'view' => false,
+        'assign' => false,
+        'delete' => false,
+        'closure' => false,
+    ], $permissions);
     $encodedId = base64_encode((string) $id);
     $html = '<div class="complaint-action-cell">';
 
-    if ($status === COMPLAINT_STATUS_OPEN) {
+    if ($permissions['assign'] && $status === COMPLAINT_STATUS_OPEN) {
         $html .= '<button type="button" class="btn-complaint-action manual-assign-btn" '
             . 'data-id="' . $id . '" title="Assign Complaint" data-bs-toggle="modal" data-bs-target="#assignModal">'
             . '<i class="bi bi-person-plus"></i></button>';
     }
 
-    if ($canClose) {
+    if ($canClose && $permissions['closure']) {
         $html .= '<button type="button" class="btn-complaint-action closure-btn" '
             . 'data-id="' . $id . '" title="Complaint Closure" data-bs-toggle="modal" data-bs-target="#closureModal">'
             . '<i class="bi bi-check2-square"></i></button>';
     }
 
-    $html .= '<a href="complaint_details.php?id=' . $encodedId . '&from=entry" '
-        . 'class="btn-complaint-action" title="View">'
-        . '<i class="bi bi-eye"></i></a>';
+    if ($permissions['view']) {
+        $html .= '<a href="complaint_details.php?id=' . $encodedId . '&from=entry" '
+            . 'class="btn-complaint-action" title="View">'
+            . '<i class="bi bi-eye"></i></a>';
+    }
 
-    if ($status !== COMPLAINT_STATUS_RESOLVED) {
+    if ($permissions['delete'] && $status !== COMPLAINT_STATUS_RESOLVED) {
         $html .= '<a href="delete_complaint.php?id=' . $encodedId . '" '
             . 'class="btn-complaint-action" title="Delete" '
             . 'onclick="return confirm(\'Delete this complaint?\')">'

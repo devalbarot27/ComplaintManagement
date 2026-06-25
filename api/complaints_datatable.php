@@ -20,16 +20,18 @@ $allowedOrderColumns = [
 ];
  
 $req = dt_parse_request($allowedOrderColumns, 'id');
- 
-$baseWhere = 'deleted_at IS NULL AND username = :username';
 
-$filterParams = [
-    ':username' => current_username(),
-];
+$listScope = complaint_entry_list_scope($obconn);
+$baseWhere = $listScope['where'];
+$filterParams = $listScope['params'];
  
 $recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM complaints WHERE {$baseWhere}");
 foreach ($filterParams as $key => $value) {
-    $recordsTotalStmt->bindValue($key, $value);
+    $recordsTotalStmt->bindValue(
+        $key,
+        $value,
+        is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR
+    );
 }
 $recordsTotalStmt->execute();
 $recordsTotal = (int) $recordsTotalStmt->fetch(PDO::FETCH_ASSOC)['total'];
@@ -48,7 +50,11 @@ if ($req['searchValue'] !== '') {
  
 $countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM complaints WHERE {$filterWhere}");
 foreach ($filterParams as $key => $value) {
-    $countFilteredStmt->bindValue($key, $value);
+    $countFilteredStmt->bindValue(
+        $key,
+        $value,
+        is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR
+    );
 }
 $countFilteredStmt->execute();
 $recordsFiltered = (int) $countFilteredStmt->fetch(PDO::FETCH_ASSOC)['total'];
@@ -119,7 +125,11 @@ $dataQuery = "
  
 $dataStmt = $obconn->prepare($dataQuery);
 foreach ($filterParams as $key => $value) {
-    $dataStmt->bindValue($key, $value);
+    $dataStmt->bindValue(
+        $key,
+        $value,
+        is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR
+    );
 }
 $dataStmt->bindValue(':limit', $req['length'], PDO::PARAM_INT);
 $dataStmt->bindValue(':offset', $req['start'], PDO::PARAM_INT);
@@ -127,7 +137,8 @@ $dataStmt->execute();
  
 $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 $data = [];
- 
+$complaintEntryPermissions = complaint_entry_action_permissions($obconn);
+
 foreach ($rows as $row) {
     $status = (int) $row['status'];
     $flags = dt_parse_closure_row_flags($row);
@@ -145,7 +156,8 @@ foreach ($rows as $row) {
             (int) $row['id'],
             $status,
             $flags['needs_reassign'],
-            $flags['can_close']
+            $flags['can_close'],
+            $complaintEntryPermissions
         ),
     ];
 }
@@ -231,6 +243,7 @@ $dataStmt->execute();
 
 $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 $data = [];
+$canShowComplaintClosure = complaint_user_can_closure($obconn);
 
 foreach ($rows as $row) {
     $status = (int) $row['status'];

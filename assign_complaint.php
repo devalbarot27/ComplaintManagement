@@ -4,12 +4,15 @@ include 'pdo_obconn.php';
 include 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
 require_once 'includes/current_username_helpers.php';
+require_once 'includes/complaint_datatable_helpers.php';
 include 'includes/complaint_status.php';
- 
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: new_complaint.php');
     exit;
 }
+
+complaint_entry_require_permission($obconn, 'assign-complaint');
  
 $complaint_id = (int)($_POST['complaint_id'] ?? 0);
 $assign_complaint = trim($_POST['assign_complaint'] ?? '');
