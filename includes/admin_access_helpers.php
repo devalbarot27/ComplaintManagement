@@ -2,6 +2,7 @@
 
 const SYSTEM_ADMIN_ROLE = 6;
 const DEALER_USER_ROLE = 1;
+const DEALER_ENGINEER_USER_ROLE = 2;
 
 function admin_refresh_session_role(PDO $conn): void
 {
@@ -38,6 +39,10 @@ function is_system_admin(): bool
 function is_dealer_user(): bool
 {
     return current_user_role() === DEALER_USER_ROLE;
+}
+function is_dealer_engineer_user(): bool
+{
+    return current_user_role() === DEALER_ENGINEER_USER_ROLE;
 }
 
 function require_system_admin(?PDO $conn = null): void
