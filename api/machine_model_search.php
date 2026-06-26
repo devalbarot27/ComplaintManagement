@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
+require_once dirname(__DIR__) . '/includes/machine_model_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -12,25 +13,7 @@ if ($term === '') {
 }
 
 try {
-    $dpst = '90092';
-    $stmt = $obconn->prepare("
-        SELECT tplcode, tpldesc
-        FROM product_master
-        WHERE 
-         dpst = :dpst
-        and UPPER(TRIM(status)) = 'YES'
-          AND UPPER(TRIM(valid)) = 'Y'
-          AND (
-                tplcode ILIKE :term
-             OR tpldesc ILIKE :term
-          )
-        ORDER BY tplcode    
-         LIMIT 25    
-    "); 
-    $stmt->bindValue(':term', '%' . $term . '%');
-    $stmt->bindValue(':dpst', $dpst);
-    $stmt->execute();
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = machine_model_search($obconn, $term);
 } catch (Throwable $e) {
     echo json_encode(['results' => []]);
     exit;
@@ -39,16 +22,7 @@ try {
 $results = [];
 
 foreach ($rows as $row) {
-    $code = trim((string) $row['tplcode']);
-    $description = trim((string) $row['tpldesc']);
-    $label = $code . ' - ' . $description;
-
-    $results[] = [
-        'id' => $code,
-        'text' => $label,
-        'tplcode' => $code,
-        'tpldesc' => $description,
-    ];
+    $results[] = machine_model_to_select2_result($row);
 }
 
 echo json_encode(['results' => $results]);
