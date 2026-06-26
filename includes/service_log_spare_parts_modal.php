@@ -12,7 +12,7 @@
                     <div class="complaint-form-header__icon"><i class="bi bi-gear"></i></div>
                     <div>
                         <h2 class="complaint-form-header__title">Spare Parts Consumption</h2>
-                        <p class="complaint-form-header__subtitle">Add consumed spare parts linked to the selected service log.</p>
+                        <p class="complaint-form-header__subtitle">Add one or more consumed spare parts linked to the selected machine or service log.</p>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -74,7 +74,7 @@
                         </div>
                     </section>
 
-                    <section class="complaint-form-section">
+                    <section class="complaint-form-section" id="slSparePartsServiceDetailsSection">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">2</span>
                             <div>
@@ -115,9 +115,10 @@
                             <span class="complaint-form-section__badge">3</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Spare Parts Details</h3>
-                                <p class="complaint-form-section__hint">Enter consumed spare parts information</p>
+                                <p class="complaint-form-section__hint">Add one or more consumed spare parts before saving</p>
                             </div>
                         </div>
+                        <input type="hidden" name="spare_parts_multi" value="1">
                         <div class="row g-3">
                             <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-calendar-event"></i> Consumption Date <span class="text-danger">*</span></label>
@@ -135,32 +136,18 @@
                                 </select>
                                 <div class="text-danger validation-msg" data-field="warranty_chargeable"></div>
                             </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-box-seam"></i> Spare Kit Number <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="spare_kit_number" maxlength="100" placeholder="Kit reference">
-                                <div class="text-danger validation-msg" data-field="spare_kit_number"></div>
-                            </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-signpost-split"></i> Reason <span class="text-danger">*</span></label>
-                                <select class="form-control" name="reason" id="slSparePartsReasonSelect"
-                                    data-placeholder="Search reason">
-                                    <option value=""></option>
-                                    <?php foreach ($sparePartsReasons as $reason) { ?>
-                                    <option value="<?php echo htmlspecialchars($reason); ?>"><?php echo htmlspecialchars($reason); ?></option>
-                                    <?php } ?>
-                                </select>
-                                <div class="text-danger validation-msg" data-field="reason"></div>
-                            </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-123"></i> Quantity <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="quantity" min="0.01" step="0.01" placeholder="Quantity used">
-                                <div class="text-danger validation-msg" data-field="quantity"></div>
-                            </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-currency-rupee"></i> Order Value <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="order_value" min="0" step="0.01" placeholder="Cost">
-                                <div class="text-danger validation-msg" data-field="order_value"></div>
-                            </div>
+                        </div>
+
+                        <div class="mt-3 mb-3" id="slSparePartsAddItemWrapper">
+                            <button type="button" class="btn btn-sm btn-outline-dark" id="slSparePartsAddItemBtn">
+                                <i class="bi bi-plus-lg"></i> Add Spare Part
+                            </button>
+                        </div>
+
+                        <div id="slSparePartsItemEntries"></div>
+                        <div class="text-danger validation-msg mb-3" data-field="spare_parts_items"></div>
+
+                        <div class="row g-3">
                             <div class="col-12 form-group">
                                 <label class="form-label"><i class="bi bi-card-text"></i> Remarks</label>
                                 <textarea class="form-control" name="remarks" rows="2" placeholder="Additional notes (optional)"></textarea>
@@ -180,3 +167,4 @@
         </div>
     </div>
 </div>
+<script type="application/json" id="slSparePartsReasonOptionsJson"><?php echo json_encode(array_values($sparePartsReasons), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?></script>

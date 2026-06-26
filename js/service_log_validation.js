@@ -5,6 +5,16 @@ function initServiceLogFormValidation() {
         return;
     }
 
+    function consumableHoursConstraint(label) {
+        return {
+            numericality: {
+                greaterThanOrEqualTo: 0,
+                allowEmpty: true,
+                message: '^' + label + ' Remaining Hours must be a valid number'
+            }
+        };
+    }
+
     const constraints = {
         installed_base_id: {
             presence: {
@@ -84,32 +94,6 @@ function initServiceLogFormValidation() {
                 message: '^Part Replaced is required'
             }
         },
-        running_hours: {
-            presence: {
-                allowEmpty: false,
-                message: '^Running Hours is required'
-            },
-            numericality: {
-                greaterThan: 0,
-                message: '^Running Hours must be greater than 0'
-            }
-        },
-        loaded_hours: {
-            presence: {
-                allowEmpty: false,
-                message: '^Loaded Hours is required'
-            },
-            numericality: {
-                greaterThanOrEqualTo: 0,
-                message: '^Loaded Hours must be a valid number'
-            }
-        },
-        remarks: {
-            length: {
-                maximum: 1000,
-                message: '^Remarks cannot exceed 1000 characters'
-            }
-        },
         separator_remaining_hours: consumableHoursConstraint('Separator'),
         air_filter_remaining_hours: consumableHoursConstraint('Air Filter'),
         oil_filter_remaining_hours: consumableHoursConstraint('Oil Filter'),
@@ -118,22 +102,15 @@ function initServiceLogFormValidation() {
         grease_remaining_hours: consumableHoursConstraint('Grease')
     };
 
-    function consumableHoursConstraint(label) {
-        return {
-            numericality: {
-                greaterThanOrEqualTo: 0,
-                allowEmpty: true,
-                message: '^' + label + ' Remaining Hours must be a valid number'
-            }
-        };
-    }
-
     function clearValidationState() {
         form.querySelectorAll('.is-invalid').forEach(function (el) {
             el.classList.remove('is-invalid');
         });
         form.querySelectorAll('.validation-msg').forEach(function (el) {
             el.textContent = '';
+        });
+        form.querySelectorAll('.select2-selection.is-invalid').forEach(function (el) {
+            el.classList.remove('is-invalid');
         });
     }
 
@@ -145,6 +122,12 @@ function initServiceLogFormValidation() {
         }
 
         Object.keys(errors).forEach(function (field) {
+            if (field.indexOf('part_replacement_entries') === 0
+                || field === 'remarks'
+                || field === 'customer_feedback') {
+                return;
+            }
+
             const input = form.querySelector('[name="' + field + '"]');
             const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
 
@@ -156,6 +139,10 @@ function initServiceLogFormValidation() {
                 msg.textContent = errors[field][0];
             }
         });
+
+        if (window.slPartReplacementModule) {
+            window.slPartReplacementModule.showErrors(form, errors);
+        }
     }
 
     form.querySelectorAll('input, textarea, select').forEach(function (input) {
@@ -185,10 +172,15 @@ function initServiceLogFormValidation() {
             return;
         }
 
-        const errors = validate(form, constraints);
-        showErrors(errors);
+        const baseErrors = validate(form, constraints) || {};
+        const partErrors = window.slPartReplacementModule
+            ? (window.slPartReplacementModule.validate(form) || {})
+            : {};
+        const errors = Object.assign({}, baseErrors, partErrors);
 
-        if (errors) {
+        showErrors(Object.keys(errors).length ? errors : null);
+
+        if (Object.keys(errors).length) {
             e.preventDefault();
             return;
         }

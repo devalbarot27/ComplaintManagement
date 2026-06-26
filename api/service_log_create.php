@@ -33,4 +33,6 @@ if (!$result['success']) {
 echo json_encode([
     'success' => true,
     'message' => $result['message'],
+    'service_log_id' => (int) ($result['service_log_id'] ?? 0),
+    'installed_base_id' => (int) ($result['installed_base_id'] ?? 0),
 ]);

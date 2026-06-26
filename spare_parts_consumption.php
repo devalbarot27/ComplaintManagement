@@ -56,67 +56,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
         $error_message = 'Fab Number does not match the selected machine.';
     } else {
         try {
-            $bindData = function ($stmt) use ($data, $installedBaseId, $serviceLogId) {
-                $stmt->bindValue(':installed_base_id', $installedBaseId, PDO::PARAM_INT);
-                if ($serviceLogId > 0) {
-                    $stmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
-                } else {
-                    $stmt->bindValue(':service_log_id', null, PDO::PARAM_NULL);
-                }
-                $stmt->bindValue(':serial_number', $data['serial_number']);
-                $stmt->bindValue(':fab_number', $data['fab_number']);
-                $stmt->bindValue(':consumption_date', $data['consumption_date']);
-                $stmt->bindValue(':warranty_chargeable', $data['warranty_chargeable']);
-                $stmt->bindValue(':spare_kit_number', $data['spare_kit_number']);
-                $stmt->bindValue(':quantity', $data['quantity']);
-                $stmt->bindValue(':order_value', $data['order_value']);
-                $stmt->bindValue(':reason', $data['reason']);
-                $stmt->bindValue(':running_hours', $data['running_hours']);
-                $stmt->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
-            };
+            $serviceLogId = $data['service_log_id'] !== '' ? (int) $data['service_log_id'] : 0;
 
             if ($recordId > 0) {
                 if (!after_market_user_can_access_record($obconn, 'spare_parts_consumption', $recordId)) {
                     $error_message = 'Record not found or already deleted.';
+                } elseif (!spare_parts_update_consumption(
+                    $obconn,
+                    $recordId,
+                    $data,
+                    $installedBaseId,
+                    $serviceLogId
+                )) {
+                    $error_message = 'Record not found or already deleted.';
                 } else {
-                    $update = $obconn->prepare('
-                        UPDATE spare_parts_consumption SET
-                            installed_base_id = :installed_base_id,
-                            service_log_id = :service_log_id,
-                            serial_number = :serial_number,
-                            fab_number = :fab_number,
-                            consumption_date = :consumption_date,
-                            warranty_chargeable = :warranty_chargeable,
-                            spare_kit_number = :spare_kit_number,
-                            quantity = :quantity,
-                            order_value = :order_value,
-                            reason = :reason,
-                            running_hours = :running_hours,
-                            remarks = :remarks,
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE id = :id AND deleted_at IS NULL
-                    ');
-                    $bindData($update);
-                    $update->bindValue(':id', $recordId, PDO::PARAM_INT);
-                    $update->execute();
                     $success_message = 'Spare parts record updated successfully.';
                 }
             } else {
-                $insert = $obconn->prepare('
-                    INSERT INTO spare_parts_consumption (
-                        installed_base_id, service_log_id, serial_number, fab_number, consumption_date,
-                        warranty_chargeable, spare_kit_number, quantity, order_value,
-                        reason, running_hours, remarks, created_by, username
-                    ) VALUES (
-                        :installed_base_id, :service_log_id, :serial_number, :fab_number, :consumption_date,
-                        :warranty_chargeable, :spare_kit_number, :quantity, :order_value,
-                        :reason, :running_hours, :remarks, :created_by, :username
-                    )
-                ');
-                $bindData($insert);
-                $insert->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
-                $insert->bindValue(':username', $userName);
-                $insert->execute();
+                spare_parts_save_consumption(
+                    $obconn,
+                    $data,
+                    $installedBaseId,
+                    $serviceLogId,
+                    $createdBy,
+                    $userName
+                );
                 $success_message = 'Spare parts record saved successfully.';
             }
         } catch (PDOException $e) {
@@ -210,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
 
                 <form method="POST" id="sparePartsForm" novalidate>
                     <input type="hidden" name="record_id" id="sparePartsId" value="">
+                    <input type="hidden" name="spare_parts_multi" value="1">
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
                             <div class="complaint-form-section__head">
@@ -257,11 +222,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
                                     <div class="text-danger validation-msg" data-field="serial_number"></div>
                                 </div>
                                 <div class="col-md-4 form-group">
-                                    <label class="form-label"><i class="bi bi-calendar-event"></i> Consumption Date <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control" name="consumption_date">
-                                    <div class="text-danger validation-msg" data-field="consumption_date"></div>
-                                </div>
-                                <div class="col-md-4 form-group">
                                     <label class="form-label"><i class="bi bi-clock-history"></i> Running Hours <span class="text-danger">*</span></label>
                                     <input type="number" class="form-control" name="running_hours" min="0.01" step="0.01" placeholder="Machine usage">
                                     <div class="text-danger validation-msg" data-field="running_hours"></div>
@@ -279,6 +239,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
                             </div>
                             <div class="row g-3">
                                 <div class="col-md-4 form-group">
+                                    <label class="form-label"><i class="bi bi-calendar-event"></i> Consumption Date <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" name="consumption_date">
+                                    <div class="text-danger validation-msg" data-field="consumption_date"></div>
+                                </div>
+                                <div class="col-md-4 form-group">
                                     <label class="form-label"><i class="bi bi-shield-check"></i> Warranty / Chargeable <span class="text-danger">*</span></label>
                                     <select class="form-control" name="warranty_chargeable" id="sparePartsWarrantySelect"
                                         data-placeholder="Search warranty type">
@@ -289,32 +254,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
                                     </select>
                                     <div class="text-danger validation-msg" data-field="warranty_chargeable"></div>
                                 </div>
-                                <div class="col-md-4 form-group">
-                                    <label class="form-label"><i class="bi bi-box-seam"></i> Spare Kit Number <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="spare_kit_number" maxlength="100" placeholder="Kit reference">
-                                    <div class="text-danger validation-msg" data-field="spare_kit_number"></div>
-                                </div>
-                                <div class="col-md-4 form-group">
-                                    <label class="form-label"><i class="bi bi-signpost-split"></i> Reason <span class="text-danger">*</span></label>
-                                    <select class="form-control" name="reason" id="sparePartsReasonSelect"
-                                        data-placeholder="Search reason">
-                                        <option value=""></option>
-                                        <?php foreach ($reasons as $reason) { ?>
-                                        <option value="<?php echo htmlspecialchars($reason); ?>"><?php echo htmlspecialchars($reason); ?></option>
-                                        <?php } ?>
-                                    </select>
-                                    <div class="text-danger validation-msg" data-field="reason"></div>
-                                </div>
-                                <div class="col-md-4 form-group">
-                                    <label class="form-label"><i class="bi bi-123"></i> Quantity <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" name="quantity" min="0.01" step="0.01" placeholder="Quantity used">
-                                    <div class="text-danger validation-msg" data-field="quantity"></div>
-                                </div>
-                                <div class="col-md-4 form-group">
-                                    <label class="form-label"><i class="bi bi-currency-rupee"></i> Order Value <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" name="order_value" min="0" step="0.01" placeholder="Cost">
-                                    <div class="text-danger validation-msg" data-field="order_value"></div>
-                                </div>
+                            </div>
+
+                            <div class="mt-3 mb-3" id="sparePartsAddItemWrapper">
+                                <button type="button" class="btn btn-sm btn-outline-dark" id="sparePartsAddItemBtn">
+                                    <i class="bi bi-plus-lg"></i> Add Spare Part
+                                </button>
+                            </div>
+
+                            <div id="sparePartsItemEntries"></div>
+                            <div class="text-danger validation-msg mb-3" data-field="spare_parts_items"></div>
+
+                            <div class="row g-3">
                                 <div class="col-12 form-group">
                                     <label class="form-label"><i class="bi bi-card-text"></i> Remarks</label>
                                     <textarea class="form-control" name="remarks" rows="2" placeholder="Additional notes (optional)"></textarea>
@@ -346,7 +297,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
                                 <th width="10%">Type</th>
                                 <th width="12%">Kit Number</th>
                                 <th width="8%">Qty</th>
-                                <th width="10%">Order Value</th>
+                                <th width="10%">Order Value (₹)</th>
                                 <th width="8%">Reason</th>
                                 <th width="10%">Service Log</th>
                                 <th width="10%">Created At</th>
@@ -360,7 +311,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
         </div>
     </div>
 
+    <script type="application/json" id="sparePartsReasonOptionsJson"><?php echo json_encode(array_values($reasons), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?></script>
     <script src="js/static_select2.js"></script>
+    <script src="js/spare_parts_items.js"></script>
     <script src="js/spare_parts_select2.js"></script>
     <script src="js/spare_parts_validation.js"></script>
     <script src="js/spare_parts.js"></script>

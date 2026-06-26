@@ -90,6 +90,17 @@ function initServiceLogInstalledBaseSelect2() {
 
     $select.on('select2:select', function (e) {
         setServiceLogInstalledBaseFields(form, e.params.data);
+
+        if (window.slPartReplacementModule) {
+            window.slPartReplacementModule.setPrefillData({
+                running_hours: e.params.data.running_hours != null ? String(e.params.data.running_hours) : '',
+                machine_model_code: e.params.data.machine_model_code != null ? String(e.params.data.machine_model_code) : '',
+                machine_model_desc: e.params.data.machine_model_desc != null
+                    ? String(e.params.data.machine_model_desc)
+                    : (e.params.data.machine_model != null ? String(e.params.data.machine_model) : '')
+            });
+        }
+
         $select.removeClass('is-invalid');
 
         const msg = form.querySelector('.validation-msg[data-field="installed_base_id"]');

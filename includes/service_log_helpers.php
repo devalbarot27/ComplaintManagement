@@ -105,6 +105,7 @@ function service_log_part_replacements_from_post(array $post): array
         }
 
         $entries[] = [
+            'id' => trim((string) ($row['id'] ?? '')),
             'machine_model_code' => trim((string) ($row['machine_model_code'] ?? '')),
             'machine_model' => trim((string) ($row['machine_model'] ?? '')),
             'running_hours' => trim((string) ($row['running_hours'] ?? '')),
@@ -197,6 +198,122 @@ function service_log_insert_part_replacements(PDO $conn, int $serviceLogId, arra
         $stmt->bindValue(':sort_order', (int) $sortOrder, PDO::PARAM_INT);
         $stmt->execute();
     }
+}
+
+function service_log_soft_delete_part_replacements(PDO $conn, int $serviceLogId): void
+{
+    if ($serviceLogId <= 0) {
+        return;
+    }
+
+    $stmt = $conn->prepare('
+        UPDATE service_log_part_replacements
+        SET deleted_at = CURRENT_TIMESTAMP
+        WHERE service_log_id = :service_log_id
+          AND deleted_at IS NULL
+    ');
+    $stmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+function service_log_sync_part_replacements(PDO $conn, int $serviceLogId, array $data): void
+{
+    if ($serviceLogId <= 0 || empty($data['part_replacement_multi'])) {
+        return;
+    }
+
+    if (!service_log_part_replaced_is_yes($data['part_replaced'])) {
+        service_log_soft_delete_part_replacements($conn, $serviceLogId);
+        return;
+    }
+
+    $entries = $data['part_replacement_entries'] ?? [];
+    if ($entries === []) {
+        service_log_soft_delete_part_replacements($conn, $serviceLogId);
+        return;
+    }
+
+    $keptIds = [];
+
+    $updateStmt = $conn->prepare('
+        UPDATE service_log_part_replacements
+        SET
+            machine_model_code = :machine_model_code,
+            machine_model = :machine_model,
+            running_hours = :running_hours,
+            loaded_hours = :loaded_hours,
+            sort_order = :sort_order,
+            deleted_at = NULL
+        WHERE id = :id
+          AND service_log_id = :service_log_id
+          AND deleted_at IS NULL
+    ');
+
+    $insertStmt = $conn->prepare('
+        INSERT INTO service_log_part_replacements (
+            service_log_id, machine_model_code, machine_model, running_hours, loaded_hours, sort_order
+        ) VALUES (
+            :service_log_id, :machine_model_code, :machine_model, :running_hours, :loaded_hours, :sort_order
+        )
+    ');
+
+    foreach ($entries as $sortOrder => $entry) {
+        $entryId = (int) ($entry['id'] ?? 0);
+
+        if ($entryId > 0) {
+            $updateStmt->bindValue(':machine_model_code', $entry['machine_model_code']);
+            $updateStmt->bindValue(':machine_model', $entry['machine_model']);
+            $updateStmt->bindValue(':running_hours', $entry['running_hours']);
+            $updateStmt->bindValue(':loaded_hours', $entry['loaded_hours']);
+            $updateStmt->bindValue(':sort_order', (int) $sortOrder, PDO::PARAM_INT);
+            $updateStmt->bindValue(':id', $entryId, PDO::PARAM_INT);
+            $updateStmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+            $updateStmt->execute();
+
+            if ($updateStmt->rowCount() > 0) {
+                $keptIds[] = $entryId;
+                continue;
+            }
+        }
+
+        $insertStmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+        $insertStmt->bindValue(':machine_model_code', $entry['machine_model_code']);
+        $insertStmt->bindValue(':machine_model', $entry['machine_model']);
+        $insertStmt->bindValue(':running_hours', $entry['running_hours']);
+        $insertStmt->bindValue(':loaded_hours', $entry['loaded_hours']);
+        $insertStmt->bindValue(':sort_order', (int) $sortOrder, PDO::PARAM_INT);
+        $insertStmt->execute();
+        $keptIds[] = (int) $conn->lastInsertId();
+    }
+
+    if ($keptIds === []) {
+        service_log_soft_delete_part_replacements($conn, $serviceLogId);
+        return;
+    }
+
+    $placeholders = [];
+    $params = [':service_log_id' => $serviceLogId];
+    foreach ($keptIds as $index => $keptId) {
+        $paramKey = ':kept_id_' . $index;
+        $placeholders[] = $paramKey;
+        $params[$paramKey] = $keptId;
+    }
+
+    $deleteStmt = $conn->prepare('
+        UPDATE service_log_part_replacements
+        SET deleted_at = CURRENT_TIMESTAMP
+        WHERE service_log_id = :service_log_id
+          AND deleted_at IS NULL
+          AND id NOT IN (' . implode(', ', $placeholders) . ')
+    ');
+    foreach ($params as $paramKey => $value) {
+        $deleteStmt->bindValue(
+            $paramKey,
+            $value,
+            $paramKey === ':service_log_id' ? PDO::PARAM_INT : PDO::PARAM_INT
+        );
+    }
+    $deleteStmt->execute();
 }
 
 function service_log_get_installed_base(PDO $conn, int $installedBaseId, string $username = ''): ?array
@@ -440,6 +557,16 @@ function service_log_remaining_consumable_insert_placeholders(): string
 
 function service_log_create_record(PDO $conn, array $post, string $username, int $createdBy = 1): array
 {
+    if (!empty($post['from_installed_base_modal'])) {
+        $existingServiceLogId = (int) ($post['record_id'] ?? 0);
+        if ($existingServiceLogId > 0) {
+            return [
+                'success' => false,
+                'message' => 'Service Log Capture from Installed Base must create a new record.',
+            ];
+        }
+    }
+
     $data = service_log_from_post($post);
     $installedBaseId = (int) $data['installed_base_id'];
 
@@ -542,6 +669,8 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
             'message' => !empty($post['from_installed_base_modal'])
                 ? 'Service Log Capture added successfully.'
                 : 'Service log saved successfully.',
+            'service_log_id' => $serviceLogId,
+            'installed_base_id' => $installedBaseId,
         ];
     } catch (PDOException $e) {
         return ['success' => false, 'message' => 'Failed to save service log.'];
@@ -551,6 +680,20 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
 function service_log_list_for_installed_base(PDO $conn, int $installedBaseId): array
 {
     if ($installedBaseId <= 0) {
+        return [];
+    }
+
+    $parentExistsStmt = $conn->prepare('
+        SELECT id
+        FROM installed_base
+        WHERE id = :installed_base_id
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $parentExistsStmt->bindValue(':installed_base_id', $installedBaseId, PDO::PARAM_INT);
+    $parentExistsStmt->execute();
+
+    if (!$parentExistsStmt->fetch(PDO::FETCH_ASSOC)) {
         return [];
     }
 
@@ -570,6 +713,36 @@ function service_log_list_for_installed_base(PDO $conn, int $installedBaseId): a
     }
 
     return array_values($unique);
+}
+
+function service_log_linked_installed_base_display_fields(?array $installedBaseRecord, array $serviceLogRecord): array
+{
+    if (!empty($installedBaseRecord) && is_array($installedBaseRecord)) {
+        $machineModelLabel = installed_base_machine_model_label($installedBaseRecord);
+        if ($machineModelLabel === '-') {
+            $machineModelLabel = installed_base_display_value($installedBaseRecord['machine_model'] ?? null);
+        }
+
+        return [
+            'order_id' => installed_base_display_value($installedBaseRecord['order_id'] ?? null),
+            'fab_number' => installed_base_display_value($installedBaseRecord['fab_number'] ?? null),
+            'machine_model' => $machineModelLabel,
+        ];
+    }
+
+    $machineModelLabel = installed_base_machine_model_label([
+        'machine_model_code' => $serviceLogRecord['machine_model_code'] ?? '',
+        'machine_model' => $serviceLogRecord['machine_model'] ?? '',
+    ]);
+    if ($machineModelLabel === '-') {
+        $machineModelLabel = service_log_display_value($serviceLogRecord['machine_model'] ?? null);
+    }
+
+    return [
+        'order_id' => service_log_display_value($serviceLogRecord['order_id'] ?? null),
+        'fab_number' => service_log_display_value($serviceLogRecord['fab_number'] ?? null),
+        'machine_model' => $machineModelLabel,
+    ];
 }
 
 function service_log_part_replacements_for_service_log(PDO $conn, int $serviceLogId): array

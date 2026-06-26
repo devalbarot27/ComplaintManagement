@@ -72,4 +72,6 @@ foreach (service_log_remaining_consumable_column_names() as $field) {
     $response[$field] = $row[$field] ?? '';
 }
 
+$response['part_replacement_entries'] = service_log_part_replacements_for_service_log($obconn, (int) $row['id']);
+
 echo json_encode($response);

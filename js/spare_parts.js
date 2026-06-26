@@ -1,3 +1,34 @@
+let sparePartsItemsModule = null;
+
+function getSparePartsReasonOptions() {
+    const jsonEl = document.getElementById('sparePartsReasonOptionsJson');
+    if (!jsonEl) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(jsonEl.textContent || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function initSparePartsItemsModule() {
+    sparePartsItemsModule = createSparePartsItemsModule({
+        formId: 'sparePartsForm',
+        entriesContainerId: 'sparePartsItemEntries',
+        addBtnId: 'sparePartsAddItemBtn',
+        addButtonWrapperId: 'sparePartsAddItemWrapper',
+        entryClass: 'spare-parts-item-entry',
+        dropdownParent: '#sparePartsFormCard',
+        reasonOptions: getSparePartsReasonOptions()
+    });
+
+    sparePartsItemsModule.initControls();
+    window.sparePartsItemsModule = sparePartsItemsModule;
+}
+
 function initSparePartsDatatable() {
     const $table = $('#sparePartsTable');
     if (!$table.length) {
@@ -40,11 +71,13 @@ function fillSparePartsForm(record) {
         return;
     }
 
+    const isEdit = !!record.id;
+
     document.getElementById('sparePartsId').value = record.id || '';
-    document.getElementById('formModeLabel').textContent = record.id
+    document.getElementById('formModeLabel').textContent = isEdit
         ? 'Edit Spare Parts Consumption'
         : 'New Spare Parts Consumption';
-    document.getElementById('submitSparePartsBtn').innerHTML = record.id
+    document.getElementById('submitSparePartsBtn').innerHTML = isEdit
         ? '<i class="bi bi-check-lg"></i> Update Record'
         : '<i class="bi bi-check-lg"></i> Save Record';
 
@@ -65,8 +98,8 @@ function fillSparePartsForm(record) {
     }
 
     const fields = [
-        'order_id', 'fab_number', 'serial_number', 'consumption_date', 'warranty_chargeable', 'spare_kit_number',
-        'quantity', 'order_value', 'reason', 'running_hours', 'remarks'
+        'order_id', 'fab_number', 'serial_number', 'consumption_date',
+        'running_hours', 'remarks'
     ];
 
     fields.forEach(function (field) {
@@ -77,7 +110,19 @@ function fillSparePartsForm(record) {
     });
 
     setStaticSelect2Value('sparePartsWarrantySelect', record.warranty_chargeable || '');
-    setStaticSelect2Value('sparePartsReasonSelect', record.reason || '');
+
+    if (sparePartsItemsModule) {
+        sparePartsItemsModule.setAddEnabled(true);
+        const items = Array.isArray(record.spare_parts_items) && record.spare_parts_items.length
+            ? record.spare_parts_items
+            : [{
+                spare_kit_number: record.spare_kit_number || '',
+                reason: record.reason || '',
+                quantity: record.quantity != null ? String(record.quantity) : '',
+                order_value: record.order_value != null ? String(record.order_value) : ''
+            }];
+        sparePartsItemsModule.loadEntries(items);
+    }
 }
 
 function resetSparePartsForm() {
@@ -92,16 +137,21 @@ function resetSparePartsForm() {
     document.getElementById('submitSparePartsBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save Record';
 
     resetSparePartsMachineSelect2(form);
-    resetStaticSelect2Fields([
-        'sparePartsWarrantySelect',
-        'sparePartsReasonSelect'
-    ]);
+    resetStaticSelect2Fields(['sparePartsWarrantySelect']);
+
+    if (sparePartsItemsModule) {
+        sparePartsItemsModule.reset();
+        sparePartsItemsModule.ensureEntry();
+    }
 
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
     });
     form.querySelectorAll('.validation-msg').forEach(function (el) {
         el.textContent = '';
+    });
+    form.querySelectorAll('.select2-selection.is-invalid').forEach(function (el) {
+        el.classList.remove('is-invalid');
     });
 }
 
@@ -146,21 +196,20 @@ function initSparePartsStaticSelect2() {
             validationField: 'warranty_chargeable',
             allowClear: false,
             noResultsText: 'No warranty type found'
-        },
-        {
-            selectId: 'sparePartsReasonSelect',
-            validationField: 'reason',
-            allowClear: false,
-            noResultsText: 'No reason found'
         }
     ]);
 }
 
 function initSparePartsPage() {
+    initSparePartsItemsModule();
     const table = initSparePartsDatatable();
     initSparePartsMachineSelect2();
     initSparePartsStaticSelect2();
     initSparePartsFormValidation();
+
+    if (sparePartsItemsModule) {
+        sparePartsItemsModule.ensureEntry();
+    }
 
     const openBtn = document.getElementById('openSparePartsForm');
     const closeBtn = document.getElementById('closeSparePartsForm');

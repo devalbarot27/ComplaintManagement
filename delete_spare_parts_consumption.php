@@ -3,6 +3,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/after_market_access_helpers.php';
+require_once 'includes/spare_parts_helpers.php';
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
@@ -27,6 +28,8 @@ try {
     ');
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
+
+    spare_parts_soft_delete_items_for_consumption($obconn, $id);
 
     $_SESSION['success_message'] = 'Spare parts record deleted successfully.';
 } catch (PDOException $e) {

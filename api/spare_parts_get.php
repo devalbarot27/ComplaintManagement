@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/spare_parts_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -41,9 +42,22 @@ if (!$row) {
     exit;
 }
 
+$items = spare_parts_items_for_consumption($obconn, $id);
+$firstItem = $items[0] ?? null;
+
 $consumption_date = $row['consumption_date'];
 $date = new DateTime($consumption_date);
 $formatted_consumption_date = $date->format('Y-m-d');
+
+$sparePartsItems = array_map(static function (array $item): array {
+    return [
+        'id' => (int) $item['id'],
+        'spare_kit_number' => $item['spare_kit_number'],
+        'reason' => $item['reason'],
+        'quantity' => $item['quantity'],
+        'order_value' => $item['order_value'],
+    ];
+}, $items);
 
 echo json_encode([
     'id' => (int) $row['id'],
@@ -54,10 +68,11 @@ echo json_encode([
     'serial_number' => $row['serial_number'],
     'consumption_date' => $formatted_consumption_date,
     'warranty_chargeable' => $row['warranty_chargeable'],
-    'spare_kit_number' => $row['spare_kit_number'],
-    'quantity' => $row['quantity'],
-    'order_value' => $row['order_value'],
-    'reason' => $row['reason'],
+    'spare_kit_number' => $firstItem['spare_kit_number'] ?? '',
+    'quantity' => $firstItem['quantity'] ?? '',
+    'order_value' => $firstItem['order_value'] ?? '',
+    'reason' => $firstItem['reason'] ?? '',
     'running_hours' => $row['running_hours'],
     'remarks' => $row['remarks'],
+    'spare_parts_items' => $sparePartsItems,
 ]);

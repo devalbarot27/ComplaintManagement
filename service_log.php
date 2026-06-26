@@ -48,6 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
         $data['machine_model'] = service_log_machine_model_from_installed_base($installedBase);
     }
 
+    service_log_apply_part_replacement_fields_for_save($data);
+
     $validationError = service_log_validate($obconn, $data);
 
     if ($createdBy === null || $createdBy <= 0) {
@@ -82,8 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                 $stmt->bindValue(':action_taken', $data['action_taken']);
                 $stmt->bindValue(':closure_date', $data['closure_date']);
                 $stmt->bindValue(':part_replaced', $data['part_replaced']);
-                $stmt->bindValue(':running_hours', $data['running_hours']);
-                $stmt->bindValue(':loaded_hours', $data['loaded_hours']);
+                $stmt->bindValue(':running_hours', $data['running_hours'] !== '' ? $data['running_hours'] : null);
+                $stmt->bindValue(':loaded_hours', $data['loaded_hours'] !== '' ? $data['loaded_hours'] : null);
                 $stmt->bindValue(':customer_feedback', $data['customer_feedback'] !== '' ? $data['customer_feedback'] : null);
                 $stmt->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
                 service_log_bind_remaining_consumables($stmt, $data);
@@ -120,6 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                     $bindData($update);
                     $update->bindValue(':id', $recordId, PDO::PARAM_INT);
                     $update->execute();
+                    service_log_sync_part_replacements($obconn, $recordId, $data);
                     $success_message = 'Service log updated successfully.';
                 }
             } else {
@@ -142,6 +145,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                 $insert->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
                 $insert->bindValue(':username', $userName);
                 $insert->execute();
+                $newServiceLogId = (int) $obconn->lastInsertId();
+                if (!empty($data['part_replacement_multi'])
+                    && service_log_part_replaced_is_yes($data['part_replaced'])
+                    && !empty($data['part_replacement_entries'])) {
+                    service_log_insert_part_replacements($obconn, $newServiceLogId, $data['part_replacement_entries']);
+                }
                 $success_message = 'Service log saved successfully.';
             }
         } catch (PDOException $e) {
@@ -235,6 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
 
                 <form method="POST" id="serviceLogForm" novalidate>
                     <input type="hidden" name="record_id" id="serviceLogId" value="">
+                    <input type="hidden" name="part_replacement_multi" value="1">
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
                             <div class="complaint-form-section__head">
@@ -355,31 +365,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                     </select>
                                     <div class="text-danger validation-msg" data-field="part_replaced"></div>
                                 </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label"><i class="bi bi-clock-history"></i> Running Hours <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" name="running_hours" min="0.01" step="0.01" placeholder="Machine usage">
-                                    <div class="text-danger validation-msg" data-field="running_hours"></div>
+                            </div>
+
+                            <div id="serviceLogPartReplacementWrapper" class="d-none mt-3">
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-sm btn-outline-dark" id="serviceLogAddPartReplacementBtn">
+                                        <i class="bi bi-plus-lg"></i> Add More
+                                    </button>
                                 </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label"><i class="bi bi-speedometer2"></i> Loaded Hours <span class="text-danger">*</span></label>
-                                    <input type="number" class="form-control" name="loaded_hours" min="0" step="0.01" placeholder="Operational load">
-                                    <div class="text-danger validation-msg" data-field="loaded_hours"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label"><i class="bi bi-chat-quote"></i> Customer Feedback</label>
-                                    <select class="form-control" name="customer_feedback" id="serviceLogFeedbackSelect"
-                                        data-placeholder="Search customer feedback">
-                                        <option value=""></option>
-                                        <?php foreach ($feedbackOptions as $feedback) { ?>
-                                        <option value="<?php echo htmlspecialchars($feedback); ?>"><?php echo htmlspecialchars($feedback); ?></option>
-                                        <?php } ?>
-                                    </select>
-                                    <div class="text-danger validation-msg" data-field="customer_feedback"></div>
-                                </div>
-                                <div class="col-12 form-group">
-                                    <label class="form-label"><i class="bi bi-card-text"></i> Remarks</label>
-                                    <textarea class="form-control" name="remarks" rows="2" placeholder="Additional notes (optional)"></textarea>
-                                    <div class="text-danger validation-msg" data-field="remarks"></div>
+                                <div id="serviceLogPartReplacementEntries"></div>
+                                <div class="text-danger validation-msg mb-2" data-field="part_replacement_entries"></div>
+
+                                <div class="row g-3">
+                                    <div class="col-md-4 form-group">
+                                        <label class="form-label"><i class="bi bi-chat-quote"></i> Customer Feedback <span class="text-danger">*</span></label>
+                                        <select class="form-control" name="customer_feedback" id="serviceLogFeedbackSelect"
+                                            data-placeholder="Search customer feedback">
+                                            <option value=""></option>
+                                            <?php foreach ($feedbackOptions as $feedback) { ?>
+                                            <option value="<?php echo htmlspecialchars($feedback); ?>"><?php echo htmlspecialchars($feedback); ?></option>
+                                            <?php } ?>
+                                        </select>
+                                        <div class="text-danger validation-msg" data-field="customer_feedback"></div>
+                                    </div>
+                                    <div class="col-12 form-group">
+                                        <label class="form-label"><i class="bi bi-card-text"></i> Remarks</label>
+                                        <textarea class="form-control" name="remarks" rows="2" placeholder="Additional notes (optional)"></textarea>
+                                        <div class="text-danger validation-msg" data-field="remarks"></div>
+                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -459,10 +472,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
     <?php } ?>
 
     <script src="js/static_select2.js"></script>
+    <script src="js/service_log_part_replacement.js"></script>
     <script src="js/service_log_installed_base_select2.js"></script>
     <script src="js/service_log_validation.js"></script>
     <script src="js/service_log.js"></script>
     <?php if ($canAddSpareParts) { ?>
+    <script src="js/spare_parts_items.js"></script>
     <script src="js/service_log_spare_parts_modal.js"></script>
     <?php } ?>
     <script>

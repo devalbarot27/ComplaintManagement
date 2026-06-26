@@ -1,3 +1,38 @@
+function getSlSparePartsReasonOptions() {
+    const jsonEl = document.getElementById('slSparePartsReasonOptionsJson');
+    if (!jsonEl) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(jsonEl.textContent || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+let slSparePartsItemsModule = null;
+
+function initSlSparePartsItemsModule() {
+    if (typeof createSparePartsItemsModule !== 'function') {
+        return;
+    }
+
+    slSparePartsItemsModule = createSparePartsItemsModule({
+        formId: 'serviceLogSparePartsForm',
+        entriesContainerId: 'slSparePartsItemEntries',
+        addBtnId: 'slSparePartsAddItemBtn',
+        addButtonWrapperId: 'slSparePartsAddItemWrapper',
+        entryClass: 'sl-spare-parts-item-entry',
+        dropdownParent: '#serviceLogSparePartsModal',
+        reasonOptions: getSlSparePartsReasonOptions()
+    });
+
+    slSparePartsItemsModule.initControls();
+    window.slSparePartsItemsModule = slSparePartsItemsModule;
+}
+
 function showSparePartsPageAlert(type, message) {
     if (typeof showInstalledBasePageAlert === 'function') {
         showInstalledBasePageAlert(type, message);
@@ -86,9 +121,13 @@ function resetServiceLogSparePartsForm() {
     document.getElementById('slSparePartsActionTaken').value = '';
 
     resetStaticSelect2Fields([
-        'slSparePartsWarrantySelect',
-        'slSparePartsReasonSelect'
+        'slSparePartsWarrantySelect'
     ]);
+
+    if (slSparePartsItemsModule) {
+        slSparePartsItemsModule.reset();
+        slSparePartsItemsModule.ensureEntry();
+    }
 
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
@@ -127,6 +166,11 @@ function fillServiceLogSparePartsForm(data) {
     if (data.warranty_chargeable) {
         setStaticSelect2Value('slSparePartsWarrantySelect', data.warranty_chargeable);
     }
+
+    const serviceSection = document.getElementById('slSparePartsServiceDetailsSection');
+    if (serviceSection) {
+        serviceSection.classList.toggle('d-none', !data.service_log_id);
+    }
 }
 
 function initServiceLogSparePartsSelect2() {
@@ -140,12 +184,6 @@ function initServiceLogSparePartsSelect2() {
             validationField: 'warranty_chargeable',
             allowClear: false,
             noResultsText: 'No warranty type found'
-        }, select2Options),
-        Object.assign({
-            selectId: 'slSparePartsReasonSelect',
-            validationField: 'reason',
-            allowClear: false,
-            noResultsText: 'No reason found'
         }, select2Options)
     ]);
 }
@@ -158,12 +196,6 @@ function initServiceLogSparePartsValidation() {
     }
 
     const constraints = {
-        service_log_id: {
-            presence: {
-                allowEmpty: false,
-                message: '^Service Log is required'
-            }
-        },
         installed_base_id: {
             presence: {
                 allowEmpty: false,
@@ -212,38 +244,6 @@ function initServiceLogSparePartsValidation() {
                 message: '^Warranty / Chargeable is required'
             }
         },
-        spare_kit_number: {
-            presence: {
-                allowEmpty: false,
-                message: '^Spare Kit Number is required'
-            }
-        },
-        quantity: {
-            presence: {
-                allowEmpty: false,
-                message: '^Quantity is required'
-            },
-            numericality: {
-                greaterThan: 0,
-                message: '^Quantity must be greater than zero'
-            }
-        },
-        order_value: {
-            presence: {
-                allowEmpty: false,
-                message: '^Order Value is required'
-            },
-            numericality: {
-                greaterThanOrEqualTo: 0,
-                message: '^Order Value must be a valid number'
-            }
-        },
-        reason: {
-            presence: {
-                allowEmpty: false,
-                message: '^Reason is required'
-            }
-        },
         running_hours: {
             presence: {
                 allowEmpty: false,
@@ -279,6 +279,10 @@ function initServiceLogSparePartsValidation() {
         }
 
         Object.keys(errors).forEach(function (field) {
+            if (field.indexOf('spare_parts_items') === 0) {
+                return;
+            }
+
             const input = form.querySelector('[name="' + field + '"]');
             const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
 
@@ -290,6 +294,10 @@ function initServiceLogSparePartsValidation() {
                 msg.textContent = errors[field][0];
             }
         });
+
+        if (slSparePartsItemsModule) {
+            slSparePartsItemsModule.showErrors(form, errors);
+        }
     }
 
     form.querySelectorAll('input, textarea, select').forEach(function (input) {
@@ -320,10 +328,14 @@ function initServiceLogSparePartsValidation() {
             return;
         }
 
-        const errors = validate(form, constraints);
-        showErrors(errors);
+        const baseErrors = validate(form, constraints) || {};
+        const itemErrors = slSparePartsItemsModule
+            ? (slSparePartsItemsModule.validate(form) || {})
+            : {};
+        const errors = Object.assign({}, baseErrors, itemErrors);
+        showErrors(Object.keys(errors).length ? errors : null);
 
-        if (errors) {
+        if (Object.keys(errors).length) {
             return;
         }
 
@@ -383,8 +395,13 @@ function initServiceLogSparePartsModal() {
         return;
     }
 
+    initSlSparePartsItemsModule();
     initServiceLogSparePartsSelect2();
     initServiceLogSparePartsValidation();
+
+    if (slSparePartsItemsModule) {
+        slSparePartsItemsModule.ensureEntry();
+    }
 
     modalEl.addEventListener('hidden.bs.modal', function () {
         resetServiceLogSparePartsForm();

@@ -1,3 +1,22 @@
+let slPartReplacementModule = null;
+
+function initServiceLogPartReplacementModule() {
+    slPartReplacementModule = createServiceLogPartReplacementModule({
+        formId: 'serviceLogForm',
+        partReplacedSelectId: 'serviceLogPartReplacedSelect',
+        wrapperId: 'serviceLogPartReplacementWrapper',
+        entriesContainerId: 'serviceLogPartReplacementEntries',
+        addBtnId: 'serviceLogAddPartReplacementBtn',
+        feedbackSelectId: 'serviceLogFeedbackSelect',
+        partModelSelectPrefix: 'serviceLogPartModelSelect',
+        entryClass: 'sl-part-replacement-entry',
+        dropdownParent: '#serviceLogFormCard'
+    });
+
+    slPartReplacementModule.initControls();
+    window.slPartReplacementModule = slPartReplacementModule;
+}
+
 function initServiceLogDatatable() {
     const $table = $('#serviceLogTable');
     if (!$table.length) {
@@ -55,8 +74,7 @@ function fillServiceLogForm(record) {
     const fields = [
         'order_id', 'fab_number', 'serial_number', 'machine_model', 'warranty_chargeable',
         'complaint_date', 'issue_description', 'engineer_name', 'visit_date',
-        'action_taken', 'closure_date', 'part_replaced', 'running_hours',
-        'loaded_hours', 'customer_feedback', 'remarks',
+        'action_taken', 'closure_date',
         'separator_remaining_date', 'separator_remaining_hours',
         'air_filter_remaining_date', 'air_filter_remaining_hours',
         'oil_filter_remaining_date', 'oil_filter_remaining_hours',
@@ -74,7 +92,32 @@ function fillServiceLogForm(record) {
 
     setStaticSelect2Value('serviceLogWarrantySelect', record.warranty_chargeable || '');
     setStaticSelect2Value('serviceLogPartReplacedSelect', record.part_replaced || '');
+
+    if (slPartReplacementModule) {
+        slPartReplacementModule.setPrefillData({
+            running_hours: record.running_hours != null ? String(record.running_hours) : '',
+            machine_model_code: '',
+            machine_model_desc: ''
+        });
+        slPartReplacementModule.toggle(record.part_replaced || '');
+
+        const entries = Array.isArray(record.part_replacement_entries) ? record.part_replacement_entries : [];
+        if (entries.length) {
+            slPartReplacementModule.loadEntries(entries);
+        } else if (String(record.part_replaced || '').trim().toLowerCase() === 'yes') {
+            slPartReplacementModule.loadEntries([], {
+                running_hours: record.running_hours != null ? String(record.running_hours) : '',
+                loaded_hours: record.loaded_hours != null ? String(record.loaded_hours) : ''
+            });
+        }
+    }
+
     setStaticSelect2Value('serviceLogFeedbackSelect', record.customer_feedback || '');
+
+    const remarksInput = form.querySelector('[name="remarks"]');
+    if (remarksInput) {
+        remarksInput.value = record.remarks ?? '';
+    }
 }
 
 function resetServiceLogForm() {
@@ -95,11 +138,18 @@ function resetServiceLogForm() {
         'serviceLogFeedbackSelect'
     ]);
 
+    if (slPartReplacementModule) {
+        slPartReplacementModule.reset();
+    }
+
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
     });
     form.querySelectorAll('.validation-msg').forEach(function (el) {
         el.textContent = '';
+    });
+    form.querySelectorAll('.select2-selection.is-invalid').forEach(function (el) {
+        el.classList.remove('is-invalid');
     });
 }
 
@@ -154,13 +204,14 @@ function initServiceLogStaticSelect2() {
         {
             selectId: 'serviceLogFeedbackSelect',
             validationField: 'customer_feedback',
-            allowClear: true,
+            allowClear: false,
             noResultsText: 'No feedback option found'
         }
     ]);
 }
 
 function initServiceLogPage() {
+    initServiceLogPartReplacementModule();
     const table = initServiceLogDatatable();
     initServiceLogInstalledBaseSelect2();
     initServiceLogStaticSelect2();

@@ -17,6 +17,14 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
     $success_message = 'Service Log Capture added successfully.';
 }
 
+if (isset($_GET['ib_saved']) && (string) $_GET['ib_saved'] === '1') {
+    $success_message = 'Installed base record saved successfully.';
+}
+
+if (isset($_GET['ib_updated']) && (string) $_GET['ib_updated'] === '1') {
+    $success_message = 'Installed base record updated successfully.';
+}
+
 $installedBasePermissions = installed_base_action_permissions($obconn);
 $canAddInstalledBase = $installedBasePermissions['add'];
 $canEditInstalledBase = $installedBasePermissions['edit'];
@@ -141,7 +149,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                     $update->bindValue(':id', $recordId, PDO::PARAM_INT);
                     $update->execute();
 
-                    $success_message = 'Installed base record updated successfully.';
+                    header('Location: installed_base.php?ib_updated=1');
+                    exit;
                 }
             } else {
                 $insert = $obconn->prepare('
@@ -221,7 +230,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                 $insert->bindValue(':username', $userName);
                 $insert->execute();
 
-                $success_message = 'Installed base record saved successfully.';
+                header('Location: installed_base.php?ib_saved=1');
+                exit;
             }
         } catch (PDOException $e) {
             $error_message = 'Failed to save installed base record.';
@@ -665,6 +675,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <script src="js/installed_base_service_log_modal.js"></script>
     <?php } ?>
     <?php if ($canAddSpareParts) { ?>
+    <script src="js/spare_parts_items.js"></script>
     <script src="js/service_log_spare_parts_modal.js"></script>
     <?php } ?>
     <script>

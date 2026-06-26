@@ -54,6 +54,7 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'fab_number' => $row['fab_number'],
         'machine_model' => $machineModelLabel,
         'machine_model_code' => $row['machine_model_code'],
+        'machine_model_desc' => trim((string) ($row['machine_model'] ?? '')),
         'running_hours' => $row['running_hours'],
     ];
 }

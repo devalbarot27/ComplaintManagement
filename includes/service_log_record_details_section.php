@@ -7,14 +7,11 @@
 $serviceLogEmbeddedInInstalledBase = !empty($serviceLogEmbeddedInInstalledBase);
 $serviceLogId = (int) ($serviceLogRecord['id'] ?? 0);
 $serviceLogLink = base64_encode((string) $serviceLogId);
-$machineModelLabel = installed_base_machine_model_label([
-    'machine_model_code' => $serviceLogRecord['machine_model_code'] ?? '',
-    'machine_model' => $serviceLogRecord['machine_model'] ?? '',
-]);
-
-if ($machineModelLabel === '-') {
-    $machineModelLabel = service_log_display_value($serviceLogRecord['machine_model'] ?? null);
-}
+$linkedInstalledBaseFields = service_log_linked_installed_base_display_fields(
+    !empty($installedBaseRecord) && is_array($installedBaseRecord) ? $installedBaseRecord : null,
+    $serviceLogRecord
+);
+$machineModelLabel = $linkedInstalledBaseFields['machine_model'];
 
 $installedBaseLabel = '-';
 if (!empty($installedBaseRecord) && is_array($installedBaseRecord)) {
@@ -28,8 +25,10 @@ if (!empty($installedBaseRecord) && is_array($installedBaseRecord)) {
 }
 
 $partReplacedYes = service_log_part_replaced_is_yes((string) ($serviceLogRecord['part_replaced'] ?? ''));
+$serviceLogHideRecordHeader = !empty($serviceLogHideRecordHeader);
+$isLastServiceLogRecord = !empty($isLastServiceLogRecord);
 $recordBlockClass = $serviceLogEmbeddedInInstalledBase
-    ? 'service-log-record-details mb-4 pb-4 border-bottom'
+    ? 'service-log-record-details mb-4 pb-4' . ($isLastServiceLogRecord ? '' : ' border-bottom')
     : 'card border-1 shadow-sm mb-3';
 $headerClass = $serviceLogEmbeddedInInstalledBase
     ? 'd-flex justify-content-between align-items-center flex-wrap gap-2 mb-3'
@@ -59,7 +58,7 @@ $renderServiceLogDetailField = static function (
 };
 ?>
 <div class="<?php echo $recordBlockClass; ?>">
-    <?php if (!$serviceLogEmbeddedInInstalledBase) { ?>
+    <?php if (!$serviceLogEmbeddedInInstalledBase && !$serviceLogHideRecordHeader) { ?>
     <div class="<?php echo $headerClass; ?>">
         <strong>Service Log Capture #<?php echo $serviceLogId; ?></strong>
         <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -80,6 +79,13 @@ $renderServiceLogDetailField = static function (
     <?php } ?>
 
     <div class="<?php echo $bodyClass; ?>">
+        <?php if ($serviceLogEmbeddedInInstalledBase && !empty($serviceLogRecordNumber) && !empty($serviceLogRecordTotal) && (int) $serviceLogRecordTotal > 1) { ?>
+        <p class="text-muted small mb-3">
+            Service Log Capture <?php echo (int) $serviceLogRecordNumber; ?>
+            of <?php echo (int) $serviceLogRecordTotal; ?>
+        </p>
+        <?php } ?>
+
         <section class="complaint-form-section">
             <div class="complaint-form-section__head">
                 <span class="complaint-form-section__badge">1</span>
@@ -90,17 +96,24 @@ $renderServiceLogDetailField = static function (
             </div>
             <div class="row g-3">
                 <?php
-                $renderServiceLogDetailField('Installed Base', $installedBaseLabel, 'col-md-6');
-                $renderServiceLogDetailField(
-                    'Order ID',
-                    service_log_display_value($serviceLogRecord['order_id'] ?? null),
-                    'col-md-3'
-                );
-                $renderServiceLogDetailField(
-                    'Fab Number',
-                    service_log_display_value($serviceLogRecord['fab_number'] ?? null),
-                    'col-md-3'
-                );
+                if (!empty($installedBaseRecord) && is_array($installedBaseRecord)) {
+                    $installedBaseLink = base64_encode((string) ($installedBaseRecord['id'] ?? 0));
+                    $installedBaseLabelHtml = '<a href="installed_base_details.php?id='
+                        . htmlspecialchars($installedBaseLink, ENT_QUOTES, 'UTF-8')
+                        . '">'
+                        . htmlspecialchars($installedBaseLabel)
+                        . '</a>';
+                } else {
+                    $installedBaseLabelHtml = htmlspecialchars($installedBaseLabel);
+                }
+                ?>
+                <div class="col-md-6">
+                    <strong>Installed Base:</strong>
+                    <?php echo $installedBaseLabelHtml; ?>
+                </div>
+                <?php
+                $renderServiceLogDetailField('Order ID', $linkedInstalledBaseFields['order_id'], 'col-md-3');
+                $renderServiceLogDetailField('Fab Number', $linkedInstalledBaseFields['fab_number'], 'col-md-3');
                 $renderServiceLogDetailField('Machine Model', $machineModelLabel, 'col-md-3');
                 $renderServiceLogDetailField(
                     'Serial Number',
@@ -117,6 +130,18 @@ $renderServiceLogDetailField = static function (
                     service_log_format_date($serviceLogRecord['complaint_date'] ?? null),
                     'col-md-3'
                 );
+                if (!$serviceLogEmbeddedInInstalledBase && !empty($installedBaseRecord) && is_array($installedBaseRecord)) {
+                    $renderServiceLogDetailField(
+                        'Customer Name',
+                        installed_base_display_value($installedBaseRecord['customer_name'] ?? null),
+                        'col-md-3'
+                    );
+                    $renderServiceLogDetailField(
+                        'Dealer Name',
+                        installed_base_display_value($installedBaseRecord['dealer_name'] ?? null),
+                        'col-md-3'
+                    );
+                }
                 ?>
             </div>
         </section>

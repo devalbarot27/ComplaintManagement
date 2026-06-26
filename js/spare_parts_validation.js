@@ -42,38 +42,6 @@ function initSparePartsFormValidation() {
                 message: '^Warranty / Chargeable is required'
             }
         },
-        spare_kit_number: {
-            presence: {
-                allowEmpty: false,
-                message: '^Spare Kit Number is required'
-            }
-        },
-        quantity: {
-            presence: {
-                allowEmpty: false,
-                message: '^Quantity is required'
-            },
-            numericality: {
-                greaterThan: 0,
-                message: '^Quantity must be greater than zero'
-            }
-        },
-        order_value: {
-            presence: {
-                allowEmpty: false,
-                message: '^Order Value is required'
-            },
-            numericality: {
-                greaterThanOrEqualTo: 0,
-                message: '^Order Value must be a valid number'
-            }
-        },
-        reason: {
-            presence: {
-                allowEmpty: false,
-                message: '^Reason is required'
-            }
-        },
         running_hours: {
             presence: {
                 allowEmpty: false,
@@ -99,6 +67,9 @@ function initSparePartsFormValidation() {
         form.querySelectorAll('.validation-msg').forEach(function (el) {
             el.textContent = '';
         });
+        form.querySelectorAll('.select2-selection.is-invalid').forEach(function (el) {
+            el.classList.remove('is-invalid');
+        });
     }
 
     function showErrors(errors) {
@@ -109,6 +80,10 @@ function initSparePartsFormValidation() {
         }
 
         Object.keys(errors).forEach(function (field) {
+            if (field.indexOf('spare_parts_items') === 0) {
+                return;
+            }
+
             const input = form.querySelector('[name="' + field + '"]');
             const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
 
@@ -120,6 +95,10 @@ function initSparePartsFormValidation() {
                 msg.textContent = errors[field][0];
             }
         });
+
+        if (window.sparePartsItemsModule) {
+            window.sparePartsItemsModule.showErrors(form, errors);
+        }
     }
 
     form.querySelectorAll('input, textarea, select').forEach(function (input) {
@@ -149,10 +128,15 @@ function initSparePartsFormValidation() {
             return;
         }
 
-        const errors = validate(form, constraints);
-        showErrors(errors);
+        const baseErrors = validate(form, constraints) || {};
+        const itemErrors = window.sparePartsItemsModule
+            ? (window.sparePartsItemsModule.validate(form) || {})
+            : {};
+        const errors = Object.assign({}, baseErrors, itemErrors);
 
-        if (errors) {
+        showErrors(Object.keys(errors).length ? errors : null);
+
+        if (Object.keys(errors).length) {
             e.preventDefault();
             return;
         }
@@ -167,9 +151,6 @@ function initSparePartsFormValidation() {
     form.addEventListener('reset', function () {
         clearValidationState();
         resetSparePartsMachineSelect2(form);
-        resetStaticSelect2Fields([
-            'sparePartsWarrantySelect',
-            'sparePartsReasonSelect'
-        ]);
+        resetStaticSelect2Fields(['sparePartsWarrantySelect']);
     });
 }
