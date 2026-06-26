@@ -179,6 +179,11 @@ $renderInstalledBaseDetailField = static function (
                     'col-md-6'
                 );
                 $renderInstalledBaseDetailField(
+                    'Added By',
+                    installed_base_added_by_label($installedBaseRecord),
+                    'col-md-6'
+                );
+                $renderInstalledBaseDetailField(
                     'Remarks',
                     installed_base_display_value($installedBaseRecord['remarks'] ?? null),
                     'col-12',

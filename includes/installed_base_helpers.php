@@ -192,6 +192,16 @@ function installed_base_display_value($value): string
     return trim((string) $value);
 }
 
+function installed_base_added_by_label(array $row): string
+{
+    $name = trim((string) ($row['added_by_name'] ?? ''));
+    if ($name !== '') {
+        return $name;
+    }
+
+    return installed_base_display_value($row['username'] ?? null);
+}
+
 function installed_base_machine_model_label(array $row): string
 {
     $code = trim((string) ($row['machine_model_code'] ?? ''));

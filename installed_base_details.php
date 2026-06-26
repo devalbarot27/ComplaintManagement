@@ -21,10 +21,20 @@ if (!after_market_user_can_access_record($obconn, 'installed_base', $id)) {
 }
 
 $stmt = $obconn->prepare('
-    SELECT *
-    FROM installed_base
-    WHERE id = :id
-      AND deleted_at IS NULL
+    SELECT
+        ib.*,
+        COALESCE(
+            NULLIF(TRIM(um.name), \'\'),
+            NULLIF(TRIM(um.username), \'\'),
+            NULLIF(TRIM(ib.username), \'\'),
+            \'-\'
+        ) AS added_by_name
+    FROM installed_base ib
+    LEFT JOIN user_master um
+        ON um.id = ib.created_by
+       AND um.deleted_at IS NULL
+    WHERE ib.id = :id
+      AND ib.deleted_at IS NULL
 ');
 $stmt->bindValue(':id', $id, PDO::PARAM_INT);
 $stmt->execute();
