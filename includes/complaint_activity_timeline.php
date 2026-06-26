@@ -5,15 +5,18 @@ if (empty($timelineActivities)) {
 }
 
 ?>
-<div class="card border-1 shadow-sm mb-3">
-    <div class="card-header bg-white d-flex align-items-center justify-content-between">
-        <strong>Activity Timeline</strong>
-        <span class="badge text-bg-light border">
-            <?php echo count($timelineActivities); ?> events
+<div class="card border-1 shadow-sm mb-3 complaint-details-history-card">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-clock-history text-secondary"></i>
+            <strong>Activity Timeline</strong>
+        </div>
+        <span class="badge border border-secondary text-secondary">
+            <?php echo count($timelineActivities); ?> event<?php echo count($timelineActivities) === 1 ? '' : 's'; ?>
         </span>
     </div>
- 
-    <div class="card-body">
+
+    <div class="card-body complaint-form-body px-3 pt-3 pb-3">
         <?php if (!empty($timelineActivities)) { ?>
         <div class="complaint-timeline">
             <?php foreach ($timelineActivities as $index => $event) { ?>
@@ -46,7 +49,10 @@ if (empty($timelineActivities)) {
             <?php } ?>
         </div>
         <?php } else { ?>
-        <p class="text-muted mb-0">No activity recorded yet.</p>
+        <div class="complaint-details-empty">
+            <i class="bi bi-hourglass"></i>
+            No activity recorded yet.
+        </div>
         <?php } ?>
     </div>
 </div>
