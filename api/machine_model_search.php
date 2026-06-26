@@ -12,18 +12,21 @@ if ($term === '') {
 }
 
 try {
+    $dpst = '90092';
     $stmt = $obconn->prepare("
         SELECT tplcode, tpldesc
         FROM product_master
-        WHERE UPPER(TRIM(status)) = 'YES'
+        WHERE 
+         dpst = :dpst
+        and UPPER(TRIM(status)) = 'YES'
           AND UPPER(TRIM(valid)) = 'Y'
           AND (
                 tplcode ILIKE :term
              OR tpldesc ILIKE :term
           )
-        ORDER BY tplcode
-        LIMIT 25
-    ");
+        ORDER BY tplcode    
+         LIMIT 25    
+    "); 
     $stmt->bindValue(':term', '%' . $term . '%');
     $stmt->execute();
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
