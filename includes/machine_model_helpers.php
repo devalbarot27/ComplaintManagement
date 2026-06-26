@@ -28,8 +28,7 @@ function machine_model_search_plexecom_customer_units(PDO $conn, string $term, s
             TRIM(tplcode) AS tplcode,
             TRIM(tpldesc) AS tpldesc
         FROM plexecom_customer_units
-        WHERE TRIM(dpst) = TRIM(:dpst)
-          AND TRIM(COALESCE(tplcode, '')) <> ''
+        WHERE  TRIM(COALESCE(tplcode, '')) <> ''
           AND (
                 tplcode ILIKE :term
              OR tpldesc ILIKE :term
@@ -38,7 +37,6 @@ function machine_model_search_plexecom_customer_units(PDO $conn, string $term, s
         LIMIT :limit
     ");
     $stmt->bindValue(':term', '%' . $term . '%');
-    $stmt->bindValue(':dpst', $dpst);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
 
