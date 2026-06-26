@@ -28,6 +28,7 @@ try {
          LIMIT 25    
     "); 
     $stmt->bindValue(':term', '%' . $term . '%');
+    $stmt->bindValue(':dpst', $dpst);
     $stmt->execute();
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
