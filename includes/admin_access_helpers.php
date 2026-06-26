@@ -1,8 +1,11 @@
 <?php
-
-const SYSTEM_ADMIN_ROLE = 6;
 const DEALER_USER_ROLE = 1;
 const DEALER_ENGINEER_USER_ROLE = 2;
+const ELGI_ENGINEER_USER_ROLE = 3;
+const SALES_COORDINATOR_USER_ROLE = 4;
+const MANAGEMENT_USER_ROLE = 5;
+const SYSTEM_ADMIN_ROLE = 6;    
+const CCS_ADMIN_ROLE = 7;       // CCS Admin
 
 function admin_refresh_session_role(PDO $conn): void
 {
@@ -43,6 +46,10 @@ function is_dealer_user(): bool
 function is_dealer_engineer_user(): bool
 {
     return current_user_role() === DEALER_ENGINEER_USER_ROLE;
+}
+function is_elgi_engineer_user(): bool
+{
+    return current_user_role() === ELGI_ENGINEER_USER_ROLE;
 }
 
 function require_system_admin(?PDO $conn = null): void
