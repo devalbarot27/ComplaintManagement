@@ -1,6 +1,5 @@
 <?php
 
-require_once __DIR__ . '/order_helpers.php';
 require_once __DIR__ . '/complaint_address_helpers.php';
 require_once __DIR__ . '/ln_invoice_helpers.php';
 require_once __DIR__ . '/system_config_master_helpers.php';
@@ -52,7 +51,7 @@ function installed_base_from_post(array $post): array
 
 function installed_base_validate(PDO $conn, array $data): ?string
 {
-    if ($data['order_ref_id'] === '' || (int) $data['order_ref_id'] <= 0) {
+    if (trim((string) $data['order_ref_id']) === '') {
         return 'Order ID is required.';
     }
 
@@ -160,9 +159,119 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber): ?array
     return $row ?: null;
 }
 
-function installed_base_get_order(PDO $conn, int $orderRefId): ?array
+function installed_base_pending_order_normalize_row(array $row): array
 {
-    return order_get_by_id($conn, $orderRefId);
+    $ordno = trim((string) ($row['ordno'] ?? ''));
+    $row['ordno'] = $ordno;
+    $row['order_id'] = $ordno;
+
+    return $row;
+}
+
+function installed_base_pending_order_search(PDO $conn, string $term, int $limit = 25): array
+{
+    $term = trim($term);
+
+    if ($term === '') {
+        return [];
+    }
+
+    $stmt = $conn->prepare("
+        SELECT DISTINCT ON (TRIM(p.ordno))
+            TRIM(p.ordno) AS ordno,
+            TRIM(p.cuname) AS cuname,
+            p.orddt,
+            TRIM(COALESCE(p.indentno, '')) AS indentno
+        FROM pendingordersnew p
+        WHERE TRIM(p.ordno) ILIKE :term
+           OR TRIM(p.cuname) ILIKE :term
+           OR TRIM(COALESCE(p.indentno, '')) ILIKE :term
+        ORDER BY TRIM(p.ordno), p.orddt DESC NULLS LAST
+        LIMIT :limit
+    ");
+    $stmt->bindValue(':term', '%' . $term . '%');
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $rows = [];
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $rows[] = installed_base_pending_order_normalize_row($row);
+    }
+
+    return $rows;
+}
+
+function installed_base_pending_order_get_by_ordno(PDO $conn, string $ordno): ?array
+{
+    $ordno = trim($ordno);
+
+    if ($ordno === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT DISTINCT ON (TRIM(p.ordno))
+            TRIM(p.ordno) AS ordno,
+            TRIM(p.cuname) AS cuname,
+            p.orddt,
+            TRIM(COALESCE(p.indentno, '')) AS indentno
+        FROM pendingordersnew p
+        WHERE TRIM(p.ordno) = :ordno
+        ORDER BY TRIM(p.ordno), p.orddt DESC NULLS LAST
+        LIMIT 1
+    ");
+    $stmt->bindValue(':ordno', $ordno);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ? installed_base_pending_order_normalize_row($row) : null;
+}
+
+function installed_base_pending_order_to_select2_result(array $row): array
+{
+    $row = installed_base_pending_order_normalize_row($row);
+    $ordno = $row['order_id'];
+    $customerName = trim((string) ($row['cuname'] ?? ''));
+    //$text = $customerName !== '' ? $ordno . ' — ' . $customerName : $ordno;
+    $text = $ordno;
+
+    return [
+        'id' => $ordno,
+        'text' => $text,
+        'order_id' => $ordno,
+        'order_ref_id' => $ordno,
+    ];
+}
+
+function installed_base_resolve_order_ref_id(string $ordno): ?int
+{
+    $ordno = trim($ordno);
+
+    if ($ordno === '' || !ctype_digit($ordno)) {
+        return null;
+    }
+
+    return (int) $ordno;
+}
+
+function installed_base_bind_order_ref_id(PDOStatement $stmt, string $param, string $ordno): void
+{
+    $orderRefId = installed_base_resolve_order_ref_id($ordno);
+
+    if ($orderRefId !== null) {
+        $stmt->bindValue($param, $orderRefId, PDO::PARAM_INT);
+
+        return;
+    }
+
+    $stmt->bindValue($param, null, PDO::PARAM_NULL);
+}
+
+function installed_base_get_order(PDO $conn, string $ordno): ?array
+{
+    return installed_base_pending_order_get_by_ordno($conn, $ordno);
 }
 
 function installed_base_format_date(?string $value): string

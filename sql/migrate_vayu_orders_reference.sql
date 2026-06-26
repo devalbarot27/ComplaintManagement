@@ -1,6 +1,6 @@
--- Order references now use tbl_vayu_orders_header:
---   order_ref_id -> tbl_vayu_orders_header.id
---   order_id     -> tbl_vayu_orders_header.order_no
+-- Installed Base order references use pendingordersnew (dealerportal):
+--   order_ref_id -> pendingordersnew.ordno (numeric ordno stored when possible)
+--   order_id     -> pendingordersnew.ordno
 --
 -- If existing installed_base / service_logs rows were linked to the legacy
 -- orders table, re-select the correct Vayu order or update order_ref_id manually.

@@ -63,12 +63,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     if ($validationError !== null) {
         $error_message = $validationError;
     } else {
-        $orderRefId = (int) $data['order_ref_id'];
-        $order = installed_base_get_order($obconn, $orderRefId);
+        $ordno = trim((string) $data['order_ref_id']);
+        $order = installed_base_get_order($dpconn, $ordno);
 
         if (!$order) {
             $error_message = 'Selected Order ID was not found in the system.';
-        } elseif ($order['order_id'] !== $data['order_id']) {
+        } elseif (trim((string) $order['order_id']) !== trim((string) $data['order_id'])) {
             $error_message = 'Order details do not match the selected order.';
         } else {
             $invoiceDateFromFab = ln_invoice_resolve_invoice_date_for_fab($dpconn, $data['fab_number']);
@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                           AND deleted_at IS NULL
                     ');
 
-                    $update->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
+                    installed_base_bind_order_ref_id($update, ':order_ref_id', $ordno);
                     $update->bindValue(':order_id', $order['order_id']);
                     $update->bindValue(':fab_number', $data['fab_number']);
                     $update->bindValue(':customer_name', $data['customer_name']);
@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                     )
                 ');
 
-                $insert->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
+                installed_base_bind_order_ref_id($insert, ':order_ref_id', $ordno);
                 $insert->bindValue(':order_id', $order['order_id']);
                 $insert->bindValue(':fab_number', $data['fab_number']);
                 $insert->bindValue(':customer_name', $data['customer_name']);
