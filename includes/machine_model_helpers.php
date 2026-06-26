@@ -6,8 +6,6 @@ function machine_model_search_product_master(PDO $conn, string $term, string $dp
         SELECT tplcode, tpldesc
         FROM product_master
         WHERE dpst = :dpst
-          AND UPPER(TRIM(status)) = 'YES'
-          AND UPPER(TRIM(valid)) = 'Y'
           AND (
                 tplcode ILIKE :term
              OR tpldesc ILIKE :term
