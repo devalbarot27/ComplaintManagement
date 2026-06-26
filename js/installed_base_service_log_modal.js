@@ -264,15 +264,7 @@ function ibServiceLogTogglePartReplacementSection(partReplacedValue) {
     });
 }
 
-function ibServiceLogRedirectAfterSave(installedBaseId) {
-    const parsedId = parseInt(installedBaseId, 10);
-    if (parsedId > 0) {
-        window.location.replace(
-            'installed_base_details.php?id=' + btoa(String(parsedId)) + '&service_log_added=1'
-        );
-        return;
-    }
-
+function ibServiceLogRedirectAfterSave() {
     window.location.replace('installed_base.php?service_log_added=1');
 }
 
@@ -715,11 +707,8 @@ function initInstalledBaseServiceLogValidation() {
             data: $(form).serialize(),
             dataType: 'json'
         })
-            .done(function (response) {
-                const redirectInstalledBaseId = response && response.installed_base_id
-                    ? response.installed_base_id
-                    : installedBaseId;
-                ibServiceLogRedirectAfterSave(redirectInstalledBaseId);
+            .done(function () {
+                ibServiceLogRedirectAfterSave();
             })
             .fail(function (xhr) {
                 const message = xhr.responseJSON && xhr.responseJSON.error

@@ -107,28 +107,25 @@ $renderServiceLogDetailField = static function (
                     $installedBaseLabelHtml = htmlspecialchars($installedBaseLabel);
                 }
                 ?>
-                <div class="col-md-6">
-                    <strong>Installed Base:</strong>
-                    <?php echo $installedBaseLabelHtml; ?>
-                </div>
+                
                 <?php
-                $renderServiceLogDetailField('Order ID', $linkedInstalledBaseFields['order_id'], 'col-md-3');
-                $renderServiceLogDetailField('Fab Number', $linkedInstalledBaseFields['fab_number'], 'col-md-3');
-                $renderServiceLogDetailField('Machine Model', $machineModelLabel, 'col-md-3');
+               // $renderServiceLogDetailField('Order ID', $linkedInstalledBaseFields['order_id'], 'col-md-3');
+               // $renderServiceLogDetailField('Fab Number', $linkedInstalledBaseFields['fab_number'], 'col-md-3');
+               // $renderServiceLogDetailField('Machine Model', $machineModelLabel, 'col-md-3');
                 $renderServiceLogDetailField(
                     'Serial Number',
                     service_log_display_value($serviceLogRecord['serial_number'] ?? null),
-                    'col-md-3'
+                    'col-md-4'
                 );
                 $renderServiceLogDetailField(
                     'Warranty / Chargeable',
                     service_log_display_value($serviceLogRecord['warranty_chargeable'] ?? null),
-                    'col-md-3'
+                    'col-md-4'
                 );
                 $renderServiceLogDetailField(
                     'Complaint Date',
                     service_log_format_date($serviceLogRecord['complaint_date'] ?? null),
-                    'col-md-3'
+                    'col-md-4'
                 );
                 if (!$serviceLogEmbeddedInInstalledBase && !empty($installedBaseRecord) && is_array($installedBaseRecord)) {
                     $renderServiceLogDetailField(

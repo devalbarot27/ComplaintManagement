@@ -136,7 +136,7 @@ $renderSparePartsDetailField = static function (
                 . '">#'
                 . $serviceLogId
                 . '</a>';
-            $renderSparePartsDetailField('Service Record', $serviceLogHtml, 'col-md-4', false, true);
+            //$renderSparePartsDetailField('Service Record', $serviceLogHtml, 'col-md-4', false, true);
             $renderSparePartsDetailField(
                 'Serial Number',
                 spare_parts_display_value($sparePartsRecord['serial_number'] ?? null),
@@ -164,17 +164,17 @@ $renderSparePartsDetailField = static function (
                 $renderSparePartsDetailField(
                     'Consumption Date',
                     spare_parts_format_date($sparePartsRecord['consumption_date'] ?? null),
-                    'col-md-3'
+                    'col-md-4'
                 );
                 $renderSparePartsDetailField(
                     'Warranty / Chargeable',
                     spare_parts_display_value($sparePartsRecord['warranty_chargeable'] ?? null),
-                    'col-md-3'
+                    'col-md-4'
                 );
                 $renderSparePartsDetailField(
                     'Running Hours',
                     spare_parts_display_value($sparePartsRecord['running_hours'] ?? null),
-                    'col-md-3'
+                    'col-md-4'
                 );
                 if (!$sparePartsEmbeddedInInstalledBase || $serviceLogLink === '') {
                     $renderSparePartsDetailField(
