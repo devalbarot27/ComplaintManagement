@@ -351,7 +351,7 @@ function spare_parts_list_for_installed_base(PDO $conn, int $installedBaseId): a
     }
 
     $scope = after_market_list_scope($conn);
-    $scopeWhere = preg_replace('/\b(deleted_at|username)\b/', 'sp.$1', $scope['where']);
+    $scopeWhere = after_market_scope_where_for_alias($scope['where'], 'sp');
 
     $stmt = $conn->prepare("
         SELECT

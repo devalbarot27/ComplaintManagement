@@ -414,7 +414,7 @@ function initServiceLogSparePartsModal() {
             ? 'api/installed_base_spare_parts_prefill.php'
             : 'api/service_log_spare_parts_prefill.php';
         const loadError = prefillSource === 'installed_base'
-            ? 'Unable to load installed base details.'
+            ? 'Unable to load installed base details...'
             : 'Unable to load service log details.';
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
 

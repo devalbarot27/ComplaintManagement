@@ -4,8 +4,9 @@ require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/spare_parts_helpers.php';
+require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 
-rbac_require_api_access($obconn);
+after_market_require_spare_parts_add_api_access($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 

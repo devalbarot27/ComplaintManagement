@@ -34,7 +34,7 @@ $orderColumnMap = [
 
 $req = dt_parse_request($allowedOrderColumns, 'id');
 $listScope = after_market_list_scope($obconn);
-$baseWhere = preg_replace('/\b(deleted_at|username)\b/', 'sp.$1', $listScope['where']);
+$baseWhere = after_market_scope_where_for_alias($listScope['where'], 'sp');
 $filterParams = $listScope['params'];
 
 $recordsTotalStmt = $obconn->prepare("

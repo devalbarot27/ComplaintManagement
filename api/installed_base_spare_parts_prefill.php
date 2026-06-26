@@ -7,7 +7,7 @@ require_once dirname(__DIR__) . '/includes/service_log_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 
-rbac_require_api_access($obconn);
+after_market_require_installed_base_spare_parts_add_api_access($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -41,7 +41,7 @@ $installedBaseLabel = '#' . $installedBaseId
     . ' - ' . ($installedBase['customer_name'] ?? '');
 
 $serviceLogScope = after_market_list_scope($obconn);
-$serviceLogWhere = str_replace(['deleted_at', 'username'], ['sl.deleted_at', 'sl.username'], $serviceLogScope['where']);
+$serviceLogWhere = after_market_scope_where_for_alias($serviceLogScope['where'], 'sl');
 
 $serviceLogStmt = $obconn->prepare('
     SELECT
@@ -66,7 +66,7 @@ foreach ($serviceLogScope['params'] as $key => $value) {
     $serviceLogStmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
 }
 $serviceLogStmt->execute();
-$serviceLog = $serviceLogStmt->fetch(PDO::FETCH_ASSOC);
+$serviceLog = $serviceLogStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
 $dealerStmt = $obconn->prepare('
     SELECT dealer_name
@@ -76,16 +76,16 @@ $dealerStmt = $obconn->prepare('
 ');
 $dealerStmt->bindValue(':id', $installedBaseId, PDO::PARAM_INT);
 $dealerStmt->execute();
-$dealerRow = $dealerStmt->fetch(PDO::FETCH_ASSOC);
+$dealerRow = $dealerStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
-$serviceLogId = $serviceLog ? (int) $serviceLog['id'] : 0;
+$serviceLogId = !empty($serviceLog['id']) ? (int) $serviceLog['id'] : 0;
 $serviceLogLabel = $serviceLogId > 0
     ? '#' . $serviceLogId
         . ' - ' . ($installedBase['order_id'] ?? '')
         . ' - ' . ($serviceLog['serial_number'] ?? '')
     : '';
 
-$serialNumber = $serviceLog
+$serialNumber = $serviceLogId > 0
     ? trim((string) ($serviceLog['serial_number'] ?? ''))
     : trim((string) ($installedBase['fab_number'] ?? ''));
 

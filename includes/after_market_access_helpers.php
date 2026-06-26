@@ -32,6 +32,17 @@ function after_market_list_scope(PDO $conn): array
     ];
 }
 
+/**
+ * Prefix scope column names with a table alias without altering bind placeholders (e.g. :username).
+ */
+function after_market_scope_where_for_alias(string $where, string $tableAlias): string
+{
+    $where = str_replace('deleted_at', $tableAlias . '.deleted_at', $where);
+    $where = str_replace('username =', $tableAlias . '.username =', $where);
+
+    return $where;
+}
+
 function after_market_user_can_access_record(PDO $conn, string $table, int $id): bool
 {
     $allowedTables = ['installed_base', 'service_logs', 'spare_parts_consumption'];
@@ -57,6 +68,16 @@ function after_market_user_can_access_record(PDO $conn, string $table, int $id):
     return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
+function installed_base_user_can_add_service_log(PDO $conn): bool
+{
+    return rbac_role_has_permission($conn, 'installed-base-capture', 'add-service-log-capture');
+}
+
+function installed_base_user_can_add_spare_parts(PDO $conn): bool
+{
+    return rbac_role_has_permission($conn, 'installed-base-capture', 'add-spare-parts-consumption');
+}
+
 function installed_base_action_permissions(PDO $conn): array
 {
     return installed_base_normalize_action_permissions([
@@ -64,8 +85,8 @@ function installed_base_action_permissions(PDO $conn): array
         'add' => rbac_role_has_permission($conn, 'installed-base-capture', 'add'),
         'edit' => rbac_role_has_permission($conn, 'installed-base-capture', 'edit'),
         'delete' => rbac_role_has_permission($conn, 'installed-base-capture', 'delete'),
-        'service_log_add' => rbac_role_has_permission($conn, 'installed-base-capture', 'add-service-log-capture'),
-        'spare_parts_add' => rbac_role_has_permission($conn, 'installed-base-capture', 'add-spare-parts-consumption'),
+        'service_log_add' => installed_base_user_can_add_service_log($conn),
+        'spare_parts_add' => installed_base_user_can_add_spare_parts($conn),
     ]);
 }
 
@@ -76,7 +97,7 @@ function service_log_action_permissions(PDO $conn): array
         'add' => rbac_user_can($conn, 'service-log-capture', 'add'),
         'edit' => rbac_user_can($conn, 'service-log-capture', 'edit'),
         'delete' => rbac_user_can($conn, 'service-log-capture', 'delete'),
-        'spare_parts_add' => rbac_user_can($conn, 'spare-parts-consumption', 'add'),
+        'spare_parts_add' => after_market_user_can_add_spare_parts($conn),
     ];
 }
 
@@ -84,10 +105,85 @@ function spare_parts_action_permissions(PDO $conn): array
 {
     return [
         'view' => rbac_user_can($conn, 'spare-parts-consumption', 'view'),
-        'add' => rbac_user_can($conn, 'spare-parts-consumption', 'add'),
+        'add' => after_market_user_can_add_spare_parts($conn),
         'edit' => rbac_user_can($conn, 'spare-parts-consumption', 'edit'),
         'delete' => rbac_user_can($conn, 'spare-parts-consumption', 'delete'),
     ];
+}
+
+function after_market_user_can_add_service_log(PDO $conn): bool
+{
+    return installed_base_user_can_add_service_log($conn)
+        || rbac_user_can($conn, 'service-log-capture', 'add');
+}
+
+function after_market_user_can_add_spare_parts(PDO $conn): bool
+{
+    return installed_base_user_can_add_spare_parts($conn)
+        || rbac_user_can($conn, 'spare-parts-consumption', 'add');
+}
+
+function after_market_require_service_log_add_api_access(PDO $conn): void
+{
+    if (empty($_SESSION['usr_name'])) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Unauthorized.']);
+        exit;
+    }
+
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (!after_market_user_can_add_service_log($conn)) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Access denied. You do not have permission for this action.']);
+        exit;
+    }
+}
+
+function after_market_require_installed_base_spare_parts_add_api_access(PDO $conn): void
+{
+    if (empty($_SESSION['usr_name'])) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Unauthorized.']);
+        exit;
+    }
+
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (!installed_base_user_can_add_spare_parts($conn)) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Access denied. You do not have permission for this action.']);
+        exit;
+    }
+}
+
+function after_market_require_spare_parts_add_api_access(PDO $conn): void
+{
+    if (empty($_SESSION['usr_name'])) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Unauthorized.']);
+        exit;
+    }
+
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (!after_market_user_can_add_spare_parts($conn)) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Access denied. You do not have permission for this action.']);
+        exit;
+    }
 }
 
 function installed_base_require_permission(
