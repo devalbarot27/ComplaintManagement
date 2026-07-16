@@ -285,30 +285,30 @@ function dashboard_fetch_monthly_acknowledgement_counts(PDO $conn, array $scope,
 function dashboard_fetch_monthly_pending_counts(PDO $conn, array $scope, string $startDate): array
 {
     $counts = [];
-    $cunoFilter = dashboard_scope_pendingorders_cuno_sql($scope, 'p.cuno');
+    $customerCode = dashboard_resolve_customer_code();
 
-    $sql = '
-        SELECT to_char(date_trunc(\'month\', p.orddt), \'YYYY-MM\') AS month_key, COUNT(*) AS cnt
-        FROM pendingordersnew p
-        LEFT OUTER JOIN dpst_master dm ON TRIM(p.dpst) = dm.dpst_code::text
-        LEFT JOIN tbl_commitment tc ON p.ordno = tc.orderno AND p.posno = tc.posno
-        WHERE p.company != 600
-          AND p.orddt >= :start_date
-          AND p.orddt <= CURRENT_DATE
-    ';
-
-    if ($cunoFilter !== '') {
-        $sql .= "\n              {$cunoFilter}";
+    if ($customerCode === '') {
+        return [];
     }
 
-    $sql .= '
+    $sql = "
+        SELECT to_char(date_trunc('month', x.order_date), 'YYYY-MM') AS month_key, COUNT(*) AS cnt
+        FROM (
+            SELECT p.ordno, MAX(p.orddt) AS order_date
+            FROM pendingordersnew p
+            WHERE p.company != 600
+              AND p.cuno = :uname
+            GROUP BY p.ordno
+        ) x
+        WHERE x.order_date >= :start_date
+          AND x.order_date <= CURRENT_DATE
         GROUP BY month_key
         ORDER BY month_key
-    ';
+    ";
 
     try {
         $stmt = $conn->prepare($sql);
-        dashboard_bind_pendingorders_scope_params($stmt, $scope);
+        $stmt->bindValue(':uname', $customerCode, PDO::PARAM_STR);
         $stmt->bindValue(':start_date', $startDate);
         $stmt->execute();
 

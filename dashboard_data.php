@@ -110,6 +110,7 @@ if ($canViewAcknowledgedOrders) {
         'barPercentage' => 0.88,
     ];
 }
+
 if ($canViewPendingOrders) {
     $monthlyChartDatasets[] = [
         'label' => 'Pending',
