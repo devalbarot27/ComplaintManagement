@@ -83,27 +83,28 @@ function dashboard_fetch_stats(PDO $dpconn, PDO $obconn, ?string $period = null)
     ];
 }
 
-// orders pending for more than 10 days
+// orders pending for more than 10 days — mirrors getPendingOrderListNew() with date filter
 function dashboard_fetch_pending_over_10_days_count(PDO $dpconn, array $scope, PDO $obconn): int
 {
-    $cunoFilter = dashboard_scope_pendingorders_cuno_sql($scope, 'p.cuno');
+    $customerCode = dashboard_resolve_customer_code();
 
-    $sql = '
-        SELECT COUNT(*) AS cnt
-        FROM pendingordersnew p
-        LEFT OUTER JOIN dpst_master dm ON TRIM(p.dpst) = dm.dpst_code::text
-        LEFT JOIN tbl_commitment tc ON p.ordno = tc.orderno AND p.posno = tc.posno
-        WHERE p.company != 600
-          AND p.orddt < (CURRENT_DATE - INTERVAL \'10 days\')::date
-    ';
-
-    if ($cunoFilter !== '') {
-        $sql .= "\n              {$cunoFilter}";
+    if ($customerCode === '') {
+        return 0;
     }
+
+    $sql = "
+        SELECT COUNT(*) FROM (
+            SELECT p.ordno
+            FROM pendingordersnew p
+            WHERE p.company != 600 AND p.cuno = :uname
+            GROUP BY p.ordno
+            HAVING MAX(p.orddt) < (CURRENT_DATE - INTERVAL '10 days')::date
+        ) x
+    ";
 
     try {
         $stmt = $dpconn->prepare($sql);
-        dashboard_bind_pendingorders_scope_params($stmt, $scope);
+        $stmt->bindValue(':uname', $customerCode, PDO::PARAM_STR);
         $stmt->execute();
 
         return (int) $stmt->fetchColumn();
@@ -119,33 +120,27 @@ function dashboard_format_pending_over_10_days_alert(int $count): string
     return $count . ' ' . $orderLabel . ' pending for more than 10 days';
 }
 
-// Pending Orders
+// Pending Orders — mirrors getPendingOrderListNew() recordsTotal logic
 function dashboard_fetch_pending_orders_count(PDO $conn, array $scope, string $period): int
 {
-    $cunoFilter = dashboard_scope_pendingorders_cuno_sql($scope, 'p.cuno');
-    $dateFilter = trim($period) !== ''
-        ? dashboard_period_date_sql('p.orddt', dashboard_resolve_period($period))
-        : '';
+    $customerCode = dashboard_resolve_customer_code();
 
-    $sql = '
-        SELECT COUNT(*) AS cnt
-        FROM pendingordersnew p
-        LEFT OUTER JOIN dpst_master dm ON TRIM(p.dpst) = dm.dpst_code::text
-        LEFT JOIN tbl_commitment tc ON p.ordno = tc.orderno AND p.posno = tc.posno
-        WHERE p.company != 600
-    ';
-
-    if ($cunoFilter !== '') {
-        $sql .= "\n              {$cunoFilter}";
+    if ($customerCode === '') {
+        return 0;
     }
 
-    if ($dateFilter !== '') {
-        $sql .= "\n              AND {$dateFilter}";
-    }
+    $sql = "
+        SELECT COUNT(*) FROM (
+            SELECT p.ordno
+            FROM pendingordersnew p
+            WHERE p.company != 600 AND p.cuno = :uname
+            GROUP BY p.ordno
+        ) x
+    ";
 
     try {
         $stmt = $conn->prepare($sql);
-        dashboard_bind_pendingorders_scope_params($stmt, $scope);
+        $stmt->bindValue(':uname', $customerCode, PDO::PARAM_STR);
         $stmt->execute();
 
         return (int) $stmt->fetchColumn();

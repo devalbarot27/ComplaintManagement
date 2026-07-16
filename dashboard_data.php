@@ -122,7 +122,7 @@ if ($canViewPendingOrders) {
     ];
 }
 
-$showPendingOver10DaysAlert = $canViewPendingOrders && $pendingOver10DaysCount > 0;
+$showPendingOver10DaysAlert = $canViewPendingOrders;
 $showDispatchesDeliveredAlert = $canViewDispatchedOrders;
 $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
 
