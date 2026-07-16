@@ -1,0 +1,59 @@
+/* Authentication pages — primary buttons match Admin Panel .btn-complaint-primary */
+.left-panel {
+    background: #000 !important;
+}
+
+.brand-logo {
+    width: auto;
+    height: auto;
+    max-width: 180px;
+    margin-bottom: 10px;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    display: block;
+}
+
+.brand-logo__image {
+    display: block;
+    width: 100%;
+    max-width: 180px;
+    height: auto;
+    object-fit: contain;
+}
+
+.login-btn {
+    width: 100%;
+    height: 52px;
+    border: none;
+    border-radius: 14px;
+    background-color: #F44611;
+    border-color: #F44611;
+    color: #fff;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.login-btn:hover,
+.login-btn:focus {
+    background-color: #d93d0f;
+    border-color: #d93d0f;
+    color: #fff;
+}
+
+.login-btn:active {
+    background-color: #c4350e;
+    border-color: #c4350e;
+    color: #fff;
+}
+
+.login-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
