@@ -646,6 +646,21 @@ $(document).ready(function () {
     initInstalledBaseServiceLogModal();
     initComplaintServiceLogDraftSave();
 <?php } ?>
+
+    const returnParams = new URLSearchParams(window.location.search);
+    const openServiceUpdate = returnParams.get('open_service_update') === '1';
+    const returnComplaintIdRaw = String(returnParams.get('complaint_id') || '').trim();
+    const returnComplaintId = returnComplaintIdRaw !== '' && /^\d+$/.test(returnComplaintIdRaw)
+        ? String(parseInt(returnComplaintIdRaw, 10))
+        : '';
+
+    if (openServiceUpdate && returnComplaintId !== '') {
+        resetServiceUpdateForm(returnComplaintId);
+        const serviceUpdateModalEl = document.getElementById('serviceUpdateModal');
+        if (serviceUpdateModalEl) {
+            bootstrap.Modal.getOrCreateInstance(serviceUpdateModalEl).show();
+        }
+    }
 });
 </script>
 <?php } ?>

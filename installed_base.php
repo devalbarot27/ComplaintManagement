@@ -224,6 +224,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                 $insert->bindValue(':username', $userName);
                 $insert->execute();
 
+                $returnComplaintId = (int) ($_POST['return_complaint_id'] ?? 0);
+                if ($returnComplaintId > 0) {
+                    $_SESSION['success_message'] = 'Installed base record saved successfully.';
+                    header(
+                        'Location: dse_lse_complaint_list.php?complaint_id='
+                        . rawurlencode((string) $returnComplaintId)
+                        . '&open_service_update=1'
+                    );
+                    exit;
+                }
+
                 header('Location: installed_base.php?ib_saved=1');
                 exit;
             }
@@ -338,6 +349,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
 
                 <form method="POST" id="installedBaseForm" novalidate data-default-dealer-name="<?php echo htmlspecialchars($defaultDealerName, ENT_QUOTES, 'UTF-8'); ?>">
                     <input type="hidden" name="record_id" id="installedBaseId" value="">
+                    <input type="hidden" name="return_complaint_id" id="returnComplaintId" value="">
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
                             <div class="complaint-form-section__head">

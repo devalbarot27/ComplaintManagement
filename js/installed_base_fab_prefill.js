@@ -3,7 +3,7 @@ function resetInstalledBaseFabAutoFields(form) {
         return;
     }
 
-    ['customer_name', 'street_1', 'street_2', 'mobile', 'email'].forEach(function (field) {
+    ['customer_name', 'street_1', 'street_2', 'mobile', 'email', 'remarks'].forEach(function (field) {
         const input = form.querySelector('[name="' + field + '"]');
         if (input) {
             input.value = '';
@@ -24,7 +24,7 @@ function setInstalledBaseFabAutoFields(form, data) {
         return;
     }
 
-    ['customer_name', 'street_1', 'street_2', 'mobile', 'email'].forEach(function (field) {
+    ['customer_name', 'street_1', 'street_2', 'mobile', 'email', 'remarks'].forEach(function (field) {
         const input = form.querySelector('[name="' + field + '"]');
         if (!input) {
             return;
@@ -42,21 +42,30 @@ function setInstalledBaseFabAutoFields(form, data) {
     setPincodeSelect2(form, 'installedBasePincodeSelect', data);
 }
 
-function prefillInstalledBaseFromFab(form, fabNumber) {
+function prefillInstalledBaseFromFab(form, fabNumber, complaintId) {
     if (!form) {
         return;
     }
 
     fabNumber = String(fabNumber || '').trim();
+    complaintId = parseInt(complaintId || 0, 10) || 0;
     resetInstalledBaseFabAutoFields(form);
 
-    if (!fabNumber) {
+    if (!fabNumber && complaintId <= 0) {
         return;
+    }
+
+    const requestData = {};
+    if (fabNumber) {
+        requestData.fab_number = fabNumber;
+    }
+    if (complaintId > 0) {
+        requestData.complaint_id = complaintId;
     }
 
     $.ajax({
         url: 'api/installed_base_fab_prefill.php',
-        data: { fab_number: fabNumber },
+        data: requestData,
         dataType: 'json'
     }).done(function (response) {
         if (!response || !response.found) {

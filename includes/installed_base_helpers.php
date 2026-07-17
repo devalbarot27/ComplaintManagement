@@ -119,9 +119,39 @@ function installed_base_validate(PDO $conn, array $data): ?string
     return null;
 }
 
-function installed_base_fab_prefill_row(PDO $conn, string $fabNumber): ?array
+function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $complaintId = null): ?array
 {
     $fabNumber = trim($fabNumber);
+    if ($fabNumber === '' && ($complaintId === null || $complaintId <= 0)) {
+        return null;
+    }
+
+    if ($complaintId !== null && $complaintId > 0) {
+        $complaintStmt = $conn->prepare('
+            SELECT
+                customer_name,
+                street_1,
+                street_2,
+                pincode,
+                city,
+                district,
+                state,
+                complaint_description AS remarks
+            FROM complaints
+            WHERE id = :id
+              AND deleted_at IS NULL
+            LIMIT 1
+        ');
+        $complaintStmt->bindValue(':id', $complaintId, PDO::PARAM_INT);
+        $complaintStmt->execute();
+        $complaintRow = $complaintStmt->fetch(PDO::FETCH_ASSOC);
+        if ($complaintRow) {
+            $complaintRow['mobile'] = '';
+            $complaintRow['email'] = '';
+            return $complaintRow;
+        }
+    }
+
     if ($fabNumber === '') {
         return null;
     }
@@ -136,7 +166,8 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber): ?array
             district,
             state,
             mobile,
-            email
+            email,
+            remarks
         FROM installed_base
         WHERE fab_number = :fab_number
           AND deleted_at IS NULL
@@ -147,8 +178,38 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber): ?array
     $stmt->execute();
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        return $row;
+    }
 
-    return $row ?: null;
+    $complaintByFabStmt = $conn->prepare('
+        SELECT
+            customer_name,
+            street_1,
+            street_2,
+            pincode,
+            city,
+            district,
+            state,
+            complaint_description AS remarks
+        FROM complaints
+        WHERE fab_number = :fab_number
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+    ');
+    $complaintByFabStmt->bindValue(':fab_number', $fabNumber);
+    $complaintByFabStmt->execute();
+    $complaintByFab = $complaintByFabStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$complaintByFab) {
+        return null;
+    }
+
+    $complaintByFab['mobile'] = '';
+    $complaintByFab['email'] = '';
+
+    return $complaintByFab;
 }
 
 function installed_base_pending_order_normalize_row(array $row): array

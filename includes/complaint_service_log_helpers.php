@@ -664,7 +664,10 @@ function complaint_service_log_summary_payload(PDO $conn, int $complaintId, stri
     if (!$installedBase) {
         $fabNumber = trim((string) ($complaint['fab_number'] ?? ''));
         $canAddInstalledBase = !empty(installed_base_action_permissions($conn)['add']);
-        $addUrlParams = ['open_form' => '1'];
+        $addUrlParams = [
+            'open_form' => '1',
+            'complaint_id' => $complaintId,
+        ];
         if ($fabNumber !== '') {
             $addUrlParams['fab_number'] = $fabNumber;
         }

@@ -115,6 +115,10 @@ function resetInstalledBaseForm() {
 
     form.reset();
     document.getElementById('installedBaseId').value = '';
+    const returnComplaintIdField = document.getElementById('returnComplaintId');
+    if (returnComplaintIdField) {
+        returnComplaintIdField.value = '';
+    }
     document.getElementById('formModeLabel').textContent = 'New Installed Base';
     document.getElementById('submitInstalledBaseBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save Record';
 
@@ -202,9 +206,21 @@ function initInstalledBasePage() {
     if (params.get('open_form') === '1' && openBtn) {
         resetInstalledBaseForm();
         const fabNumber = (params.get('fab_number') || '').trim();
+        const complaintId = (params.get('complaint_id') || '').trim();
         if (fabNumber) {
             setInstalledBaseFabSelect2(fabNumber);
         }
+
+        const form = document.getElementById('installedBaseForm');
+        const returnComplaintIdField = document.getElementById('returnComplaintId');
+        if (returnComplaintIdField && complaintId) {
+            returnComplaintIdField.value = complaintId;
+        }
+
+        if (form && (fabNumber || complaintId)) {
+            prefillInstalledBaseFromFab(form, fabNumber, complaintId);
+        }
+
         openInstalledBaseForm();
 
         const card = document.getElementById('installedBaseFormCard');
