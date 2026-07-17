@@ -1026,6 +1026,7 @@ function complaint_service_log_latest_assigned_engineer(PDO $conn, int $complain
  *     assigned_engineer: string,
  *     machine_model: string,
  *     customer_number: string,
+ *     closure_datetime: string,
  *     complaint_view_url: ?string
  * }
  */
@@ -1038,6 +1039,7 @@ function complaint_service_log_linked_complaint_context(PDO $conn, int $serviceL
         'assigned_engineer' => '',
         'machine_model' => '',
         'customer_number' => '',
+        'closure_datetime' => '',
         'complaint_view_url' => null,
     ];
 
@@ -1094,6 +1096,19 @@ function complaint_service_log_linked_complaint_context(PDO $conn, int $serviceL
         }
     }
 
+    $closureDatetime = '';
+    $closureStmt = $conn->prepare('
+        SELECT COALESCE(cc.closure_datetime, cc.created_at) AS closure_datetime
+        FROM complaint_closures cc
+        WHERE cc.complaint_id = :complaint_id
+          AND cc.call_closure::text = \'Yes\'
+        ORDER BY cc.created_at DESC, cc.id DESC
+        LIMIT 1
+    ');
+    $closureStmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+    $closureStmt->execute();
+    $closureDatetime = trim((string) ($closureStmt->fetchColumn() ?: ''));
+
     return [
         'associated' => true,
         'mapping' => $mapping,
@@ -1101,6 +1116,7 @@ function complaint_service_log_linked_complaint_context(PDO $conn, int $serviceL
         'assigned_engineer' => complaint_service_log_latest_assigned_engineer($conn, $complaintId),
         'machine_model' => $machineModel,
         'customer_number' => $customerNumber,
+        'closure_datetime' => $closureDatetime,
         'complaint_view_url' => 'complaint_details.php?id='
             . rawurlencode(base64_encode((string) $complaintId))
             . '&from=entry',

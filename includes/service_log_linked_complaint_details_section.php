@@ -110,13 +110,15 @@ $wrapperClass = $serviceLogLinkedComplaintEmbedded
                     'col-md-4'
                 );
                 $renderLinkedComplaintField(
-                    'Customer Number',
-                    (string) ($serviceLogLinkedComplaint['customer_number'] ?? ''),
+                    'Assigned Engineer',
+                    (string) ($serviceLogLinkedComplaint['assigned_engineer'] ?? ''),
                     'col-md-4'
                 );
                 $renderLinkedComplaintField(
-                    'Assigned Engineer',
-                    (string) ($serviceLogLinkedComplaint['assigned_engineer'] ?? ''),
+                    'Complaint Closure Date',
+                    !empty($serviceLogLinkedComplaint['closure_datetime'])
+                        ? date('d M Y h:i A', strtotime((string) $serviceLogLinkedComplaint['closure_datetime']))
+                        : '',
                     'col-md-4'
                 );
                 $renderLinkedComplaintField(
