@@ -109,7 +109,6 @@ $renderSparePartsDetailField = static function (
                 }
 
                 $renderSparePartsDetailField('Installed Base', $installedBaseHtml, 'col-md-6', false, true);
-                $renderSparePartsDetailField('Order ID', spare_parts_display_value($sparePartsRecord['order_id'] ?? null), 'col-md-3');
                 $renderSparePartsDetailField('Fab Number', spare_parts_display_value($sparePartsRecord['fab_number'] ?? null), 'col-md-3');
                 $renderSparePartsDetailField('Serial Number', spare_parts_display_value($sparePartsRecord['serial_number'] ?? null), 'col-md-3');
                 $renderSparePartsDetailField('Machine Model', spare_parts_display_value($sparePartsRecord['machine_model'] ?? null), 'col-md-3');

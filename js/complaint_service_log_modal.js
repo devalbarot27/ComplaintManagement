@@ -726,7 +726,7 @@ function initInstalledBaseServiceLogModal() {
         }
         complaintServiceLogSyncCustomerFeedbackInput();
         ibServiceLogClearErrors(form);
-        const required = ['installed_base_id', 'order_id', 'fab_number', 'machine_model', 'serial_number', 'warranty_chargeable', 'complaint_date', 'issue_description', 'engineer_name', 'visit_date', 'action_taken', 'closure_date', 'part_replaced'];
+        const required = ['installed_base_id', 'fab_number', 'machine_model', 'serial_number', 'warranty_chargeable', 'complaint_date', 'issue_description', 'engineer_name', 'visit_date', 'action_taken', 'closure_date', 'part_replaced'];
         let hasError = false;
         required.forEach(function (field) {
             const input = form.querySelector('[name="' + field + '"]');

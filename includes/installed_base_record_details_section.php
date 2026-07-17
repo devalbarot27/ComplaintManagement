@@ -35,9 +35,14 @@ $renderInstalledBaseDetailField = static function (
             <strong>Installed Base #<?php echo $recordId; ?></strong>
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
+            <?php
+            $orderIdBadge = installed_base_display_value($installedBaseRecord['order_id'] ?? null);
+            if ($orderIdBadge !== '-') {
+            ?>
             <span class="badge border border-dark text-dark">
-                <?php echo htmlspecialchars(installed_base_display_value($installedBaseRecord['order_id'] ?? null)); ?>
+                <?php echo htmlspecialchars($orderIdBadge); ?>
             </span>
+            <?php } ?>
             <span class="badge border border-secondary text-secondary">
                 <?php echo htmlspecialchars(installed_base_display_value($installedBaseRecord['fab_number'] ?? null)); ?>
             </span>
@@ -64,11 +69,6 @@ $renderInstalledBaseDetailField = static function (
             </div>
             <div class="row g-3">
                 <?php
-                $renderInstalledBaseDetailField(
-                    'Order ID',
-                    installed_base_display_value($installedBaseRecord['order_id'] ?? null),
-                    'col-md-4'
-                );
                 $renderInstalledBaseDetailField(
                     'Fab Number',
                     installed_base_display_value($installedBaseRecord['fab_number'] ?? null),

@@ -16,7 +16,6 @@ function initInstalledBaseDatatable() {
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         columns: [
             { data: 'id' },
-            { data: 'order_id' },
             { data: 'fab_number' },
             { data: 'customer_name' },
             { data: 'dealer_name' },

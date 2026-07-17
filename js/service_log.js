@@ -55,7 +55,6 @@ function initServiceLogDatatable() {
                     return data;
                 }
             },
-            { data: 'order_id' },
             { data: 'serial_number' },
             { data: 'machine_model' },
             { data: 'warranty_chargeable' },
@@ -117,7 +116,8 @@ function fillServiceLogForm(record, options) {
 
     const $select = $('#installedBaseLinkSelect');
     if ($select.length && record.installed_base_id) {
-        const label = '#' + record.installed_base_id + ' - ' + record.order_id;
+        const label = '#' + record.installed_base_id
+            + (record.fab_number ? ' - ' + record.fab_number : '');
         const option = new Option(label, record.installed_base_id, true, true);
         $select.append(option).trigger('change');
     }

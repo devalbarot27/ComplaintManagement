@@ -36,7 +36,6 @@ if (!$installedBase) {
 
 $installedBaseId = (int) $installedBase['id'];
 $installedBaseLabel = '#' . $installedBaseId
-    . ' - ' . ($installedBase['order_id'] ?? '')
     . ' - ' . ($installedBase['fab_number'] ?? '')
     . ' - ' . ($installedBase['customer_name'] ?? '');
 
@@ -96,7 +95,7 @@ echo json_encode([
     'installed_base_label' => $installedBaseLabel,
     'customer_name' => $installedBase['customer_name'] ?? '',
     'dealer_name' => $dealerRow['dealer_name'] ?? '',
-    'order_id' => $installedBase['order_id'] ?? '',
+    'order_id' => '',
     'fab_number' => $installedBase['fab_number'] ?? '',
     'serial_number' => $serialNumber,
     'machine_model' => service_log_machine_model_from_installed_base($installedBase),

@@ -51,14 +51,6 @@ function installed_base_from_post(array $post): array
 
 function installed_base_validate(PDO $conn, array $data): ?string
 {
-    if (trim((string) $data['order_ref_id']) === '') {
-        return 'Order ID is required.';
-    }
-
-    if ($data['order_id'] === '') {
-        return 'Order ID is required.';
-    }
-
     if ($data['fab_number'] === '') {
         return 'Fab Number is required.';
     }
@@ -234,7 +226,7 @@ function installed_base_pending_order_to_select2_result(array $row): array
     $row = installed_base_pending_order_normalize_row($row);
     $ordno = $row['order_id'];
     $customerName = trim((string) ($row['cuname'] ?? ''));
-    //$text = $customerName !== '' ? $ordno . ' — ' . $customerName : $ordno;
+    //$text = $customerName !== '' ? $ordno . ' ï¿½ ' . $customerName : $ordno;
     $text = $ordno;
 
     return [

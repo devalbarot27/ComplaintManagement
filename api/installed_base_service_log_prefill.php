@@ -28,14 +28,13 @@ if (!$row) {
 
 $installedBaseId = (int) $row['id'];
 $label = '#' . $installedBaseId
-    . ' - ' . ($row['order_id'] ?? '')
     . ' - ' . ($row['fab_number'] ?? '')
     . ' - ' . ($row['customer_name'] ?? '');
 
 echo json_encode([
     'installed_base_id' => $installedBaseId,
     'installed_base_label' => $label,
-    'order_id' => $row['order_id'] ?? '',
+    'order_id' => '',
     'fab_number' => $row['fab_number'] ?? '',
     'machine_model' => service_log_machine_model_from_installed_base($row),
     'machine_model_code' => (string) ($row['machine_model_code'] ?? ''),

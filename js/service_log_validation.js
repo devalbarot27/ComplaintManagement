@@ -34,12 +34,6 @@ function initServiceLogFormValidation() {
                 message: '^Installed base record is required'
             }
         },
-        order_id: {
-            presence: {
-                allowEmpty: false,
-                message: '^Order ID is required'
-            }
-        },
         fab_number: {
             presence: {
                 allowEmpty: false,

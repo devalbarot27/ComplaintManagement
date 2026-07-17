@@ -593,9 +593,6 @@ function initInstalledBaseServiceLogValidation() {
         installed_base_id: {
             presence: { allowEmpty: false, message: '^Installed base record is required' }
         },
-        order_id: {
-            presence: { allowEmpty: false, message: '^Order ID is required' }
-        },
         fab_number: {
             presence: { allowEmpty: false, message: '^Fab Number is required' }
         },

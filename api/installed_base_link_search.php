@@ -42,14 +42,14 @@ $stmt->execute();
 $results = [];
 
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-    $label = '#' . (int) $row['id'] . ' - ' . $row['order_id'] . ' - ' . $row['fab_number']. ' - ' . $row['customer_name'];
+    $label = '#' . (int) $row['id'] . ' - ' . $row['fab_number'] . ' - ' . $row['customer_name'];
     $machineModelLabel = installed_base_machine_model_label($row);
 
     $results[] = [
         'id' => (int) $row['id'],
         'text' => $label,
         'installed_base_id' => (int) $row['id'],
-        'order_id' => $row['order_id'],
+        'order_id' => '',
         'order_ref_id' => (int) ($row['order_ref_id'] ?? 0),
         'fab_number' => $row['fab_number'],
         'machine_model' => $machineModelLabel,

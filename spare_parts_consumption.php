@@ -50,8 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
         $error_message = 'Selected machine was not found in installed base records.';
     } elseif ($serviceLogId > 0 && (!$serviceLog || (int) $serviceLog['installed_base_id'] !== $installedBaseId)) {
         $error_message = 'Selected service record does not belong to the selected machine.';
-    } elseif ($installedBase['order_id'] !== $data['order_id']) {
-        $error_message = 'Order ID does not match the selected machine.';
     } elseif (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {
         $error_message = 'Fab Number does not match the selected machine.';
     } else {
@@ -205,9 +203,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
                                     </select>
                                     <div class="text-danger validation-msg" data-field="service_log_id"></div>
                                 </div>
-                                <div class="col-md-4 form-group">
-                                    <label class="form-label"><i class="bi bi-receipt"></i> Order ID <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control address-auto-field" name="order_id" readonly>
+                                <div class="col-md-4 form-group d-none">
+                                    <label class="form-label"><i class="bi bi-receipt"></i> Order ID</label>
+                                    <input type="hidden" class="form-control address-auto-field" name="order_id" value="">
                                     <div class="text-danger validation-msg" data-field="order_id"></div>
                                 </div>
                                 <div class="col-md-4 form-group">

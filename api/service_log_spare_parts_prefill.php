@@ -65,11 +65,9 @@ if (!$row) {
 $serviceLogId = (int) $row['id'];
 $installedBaseId = (int) $row['installed_base_id'];
 $installedBaseLabel = '#' . $installedBaseId
-    . ' - ' . ($row['order_id'] ?? '')
     . ' - ' . ($row['fab_number'] ?? '')
     . ' - ' . ($row['customer_name'] ?? '');
 $serviceLogLabel = '#' . $serviceLogId
-    . ' - ' . ($row['order_id'] ?? '')
     . ' - ' . ($row['serial_number'] ?? '');
 
 echo json_encode([
@@ -79,7 +77,7 @@ echo json_encode([
     'installed_base_label' => $installedBaseLabel,
     'customer_name' => $row['customer_name'] ?? '',
     'dealer_name' => $row['dealer_name'] ?? '',
-    'order_id' => $row['order_id'] ?? '',
+    'order_id' => '',
     'fab_number' => $row['fab_number'] ?? '',
     'serial_number' => $row['serial_number'] ?? '',
     'machine_model' => $row['machine_model'] ?? '',

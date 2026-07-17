@@ -88,21 +88,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
         $error_message = $validationError;
     } elseif (!$installedBase) {
         $error_message = 'Selected installed base record was not found or is not assigned to your account.';
-    } elseif ($installedBase['order_id'] !== $data['order_id']) {
-        $error_message = 'Order ID does not match the selected installed base record.';
     } elseif (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {
         $error_message = 'Fab Number does not match the selected installed base record.';
     } else {
         try {
             $bindData = function ($stmt) use ($data, $installedBase) {
-                $orderRefId = (int) ($installedBase['order_ref_id'] ?? 0);
                 $stmt->bindValue(':installed_base_id', (int) $data['installed_base_id'], PDO::PARAM_INT);
-                if ($orderRefId > 0) {
-                    $stmt->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
-                } else {
-                    $stmt->bindValue(':order_ref_id', null, PDO::PARAM_NULL);
-                }
-                $stmt->bindValue(':order_id', $installedBase['order_id']);
+                $stmt->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
+                $stmt->bindValue(':order_id', '0', PDO::PARAM_INT);
                 $stmt->bindValue(':fab_number', $data['fab_number']);
                 $stmt->bindValue(':serial_number', $data['serial_number']);
                 $stmt->bindValue(':machine_model', $data['machine_model']);
@@ -299,7 +292,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                 </div>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-6 form-group">
+                                <div class="col-md-4 form-group">
                                     <label class="form-label" for="installedBaseLinkSelect">
                                         <i class="bi bi-link-45deg"></i> Installed Base <span class="text-danger">*</span>
                                     </label>
@@ -309,30 +302,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                     </select>
                                     <div class="text-danger validation-msg" data-field="installed_base_id"></div>
                                 </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label"><i class="bi bi-receipt"></i> Order ID <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control address-auto-field" name="order_id" readonly>
+                                <div class="col-md-4 form-group d-none">
+                                    <label class="form-label"><i class="bi bi-receipt"></i> Order ID</label>
+                                    <input type="hidden" class="form-control address-auto-field" name="order_id" value="">
                                     <div class="text-danger validation-msg" data-field="order_id"></div>
                                 </div>
-                                <div class="col-md-3 form-group">
+                                <div class="col-md-4 form-group">
                                     <label class="form-label"><i class="bi bi-upc-scan"></i> Fab Number <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control address-auto-field" name="fab_number" readonly>
                                     <div class="text-danger validation-msg" data-field="fab_number"></div>
                                 </div>
-                                  <div class="col-md-3 form-group">
+                                  <div class="col-md-4 form-group">
                                     <label class="form-label"><i class="bi bi-cpu"></i> Machine Model <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control address-auto-field" name="machine_model" maxlength="150"
                                         placeholder="Auto-filled from installed base" readonly>
                                     <div class="text-danger validation-msg" data-field="machine_model"></div>
                                 </div>
-                                <div class="col-md-3 form-group">
+                                <div class="col-md-4 form-group">
                                     <label class="form-label"><i class="bi bi-upc"></i> Serial Number <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="serial_number" id="serviceLogSerialNumber" maxlength="5"
                                         placeholder="Auto-generated" readonly>
                                     <div class="text-danger validation-msg" data-field="serial_number"></div>
                                 </div>
                               
-                                <div class="col-md-3 form-group">
+                                <div class="col-md-4 form-group">
                                     <label class="form-label"><i class="bi bi-shield-check"></i> Warranty / Chargeable <span class="text-danger">*</span></label>
                                     <select class="form-control" name="warranty_chargeable" id="serviceLogWarrantySelect"
                                         data-placeholder="Search service type">
@@ -343,7 +336,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                     </select>
                                     <div class="text-danger validation-msg" data-field="warranty_chargeable"></div>
                                 </div>
-                                <div class="col-md-3 form-group">
+                                <div class="col-md-4 form-group">
                                     <label class="form-label"><i class="bi bi-calendar-x"></i> Log Date <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control" name="complaint_date">
                                     <div class="text-danger validation-msg" data-field="complaint_date"></div>
@@ -503,7 +496,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                         <thead>
                             <tr>
                                 <th width="5%">ID</th>
-                                <th width="10%">Order ID</th>
                                 <th width="10%">Serial No.</th>
                                 <th width="12%">Machine Model</th>
                                 <th width="10%">Service Type</th>

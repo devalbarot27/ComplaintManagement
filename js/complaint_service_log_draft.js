@@ -20,7 +20,6 @@ function validateComplaintServiceLogDraftForm(form) {
         addError('installed_base_id', 'Installed base record is required');
     }
 
-    requireField('order_id', 'Order ID is required');
     requireField('fab_number', 'Fab Number is required');
     requireField('serial_number', 'Serial Number is required');
     requireField('machine_model', 'Machine Model is required');

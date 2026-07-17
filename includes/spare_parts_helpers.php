@@ -167,10 +167,6 @@ function spare_parts_validate(PDO $conn, array $data): ?string
         return 'Machine (installed base) is required.';
     }
 
-    if ($data['order_id'] === '') {
-        return 'Order ID is required.';
-    }
-
     if ($data['fab_number'] === '') {
         return 'Fab Number is required.';
     }
@@ -619,10 +615,6 @@ function spare_parts_create_record(PDO $conn, array $post, string $username, int
 
     if ($serviceLogId > 0 && (!$serviceLog || (int) $serviceLog['installed_base_id'] !== $installedBaseId)) {
         return ['success' => false, 'message' => 'Selected service record does not belong to the selected machine.'];
-    }
-
-    if ($installedBase['order_id'] !== $data['order_id']) {
-        return ['success' => false, 'message' => 'Order ID does not match the selected machine.'];
     }
 
     if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {

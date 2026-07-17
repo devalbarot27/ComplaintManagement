@@ -486,10 +486,6 @@ function service_log_validate(PDO $conn, array $data, int $recordId = 0): ?strin
         return 'Installed base record is required.';
     }
 
-    if ($data['order_id'] === '') {
-        return 'Order ID is required.';
-    }
-
     if ($data['fab_number'] === '') {
         return 'Fab Number is required.';
     }
@@ -758,10 +754,6 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
         return ['success' => false, 'message' => $validationError];
     }
 
-    if ($installedBase['order_id'] !== $data['order_id']) {
-        return ['success' => false, 'message' => 'Order ID does not match the selected installed base record.'];
-    }
-
     if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {
         return ['success' => false, 'message' => 'Fab Number does not match the selected installed base record.'];
     }
@@ -789,14 +781,9 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
             )
         ');
 
-        $orderRefId = (int) ($installedBase['order_ref_id'] ?? 0);
         $insert->bindValue(':installed_base_id', $installedBaseId, PDO::PARAM_INT);
-        if ($orderRefId > 0) {
-            $insert->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
-        } else {
-            $insert->bindValue(':order_ref_id', null, PDO::PARAM_NULL);
-        }
-        $insert->bindValue(':order_id', $installedBase['order_id']);
+        $insert->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
+        $insert->bindValue(':order_id', '0', PDO::PARAM_INT);
         $insert->bindValue(':fab_number', $data['fab_number']);
         $insert->bindValue(':serial_number', $data['serial_number']);
         $insert->bindValue(':machine_model', $data['machine_model']);
@@ -865,14 +852,9 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
 
 function service_log_bind_installed_base_values(PDOStatement $stmt, array $data, array $installedBase): void
 {
-    $orderRefId = (int) ($installedBase['order_ref_id'] ?? 0);
     $stmt->bindValue(':installed_base_id', (int) $data['installed_base_id'], PDO::PARAM_INT);
-    if ($orderRefId > 0) {
-        $stmt->bindValue(':order_ref_id', $orderRefId, PDO::PARAM_INT);
-    } else {
-        $stmt->bindValue(':order_ref_id', null, PDO::PARAM_NULL);
-    }
-    $stmt->bindValue(':order_id', $installedBase['order_id']);
+    $stmt->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
+    $stmt->bindValue(':order_id', '0', PDO::PARAM_INT);
     $stmt->bindValue(':fab_number', $data['fab_number']);
     $stmt->bindValue(':serial_number', $data['serial_number']);
     $stmt->bindValue(':machine_model', $data['machine_model']);
@@ -942,10 +924,6 @@ function service_log_update_record(PDO $conn, array $post, string $username): ar
     $validationError = service_log_validate($conn, $data, $recordId);
     if ($validationError !== null) {
         return ['success' => false, 'message' => $validationError];
-    }
-
-    if ($installedBase['order_id'] !== $data['order_id']) {
-        return ['success' => false, 'message' => 'Order ID does not match the selected installed base record.'];
     }
 
     if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {

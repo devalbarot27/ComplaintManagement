@@ -11,10 +11,6 @@ function complaint_service_log_validate_draft(PDO $conn, array $data, int $recor
         return 'Installed base record is required.';
     }
 
-    if ($data['order_id'] === '') {
-        return 'Order ID is required.';
-    }
-
     if ($data['fab_number'] === '') {
         return 'Fab Number is required.';
     }
@@ -156,10 +152,6 @@ function complaint_service_log_save_draft_record(
     $validationError = complaint_service_log_validate_draft($conn, $data, $recordId);
     if ($validationError !== null) {
         return ['success' => false, 'message' => $validationError];
-    }
-
-    if ($installedBase['order_id'] !== $data['order_id']) {
-        return ['success' => false, 'message' => 'Order ID does not match the selected installed base record.'];
     }
 
     if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {

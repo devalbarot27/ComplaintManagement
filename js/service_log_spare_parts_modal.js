@@ -208,12 +208,6 @@ function initServiceLogSparePartsValidation() {
                 message: '^Customer Name is required'
             }
         },
-        order_id: {
-            presence: {
-                allowEmpty: false,
-                message: '^Order ID is required'
-            }
-        },
         fab_number: {
             presence: {
                 allowEmpty: false,
