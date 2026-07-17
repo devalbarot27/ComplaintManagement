@@ -53,7 +53,9 @@ $stmt->execute();
 $results = [];
 
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-    $label = '#' . (int) $row['id'] . ' - ' . $row['order_id'] . ' - Visit: ' . $row['visit_date'];
+    $label = '#' . (int) $row['id']
+        . ' - ' . ($row['serial_number'] ?? '')
+        . ' - Visit: ' . ($row['visit_date'] ?? '');
 
     $results[] = [
         'id' => (int) $row['id'],

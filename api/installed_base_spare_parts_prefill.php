@@ -80,7 +80,6 @@ $dealerRow = $dealerStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 $serviceLogId = !empty($serviceLog['id']) ? (int) $serviceLog['id'] : 0;
 $serviceLogLabel = $serviceLogId > 0
     ? '#' . $serviceLogId
-        . ' - ' . ($installedBase['order_id'] ?? '')
         . ' - ' . ($serviceLog['serial_number'] ?? '')
     : '';
 
