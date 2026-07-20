@@ -15,7 +15,7 @@
 
 declare(strict_types=1);
 
-const COMPLAINT_OPEN_NUDGE_CRON_SECRET = 'AsDfGhJkL';
+const COMPLAINT_OPEN_NUDGE_CRON_SECRET = 'BjNX718biT6cF5RE';
 
 $isCli = (PHP_SAPI === 'cli' || PHP_SAPI === 'cli-server');
 
