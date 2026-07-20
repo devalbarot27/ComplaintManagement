@@ -228,7 +228,7 @@ $freightPercentage = 4;
                     <div id="endCustomerAddressDiv">
                         <div class="form-group">
                             <label>End Customer Name <span class="text-danger">*</span></label>
-                            <input type="email" class="form-control" id="endCustomerName" name="end_customer_name"
+                            <input type="text" class="form-control" id="endCustomerName" name="end_customer_name"
                                 placeholder="Name" autocomplete="email">
                         </div>
                         <div class="form-group">
@@ -462,7 +462,8 @@ $freightPercentage = 4;
 
     $(document).ready(function() {
         $("#dDate").datepicker({
-            dateFormat: "dd.mm.yy"
+            dateFormat: "dd.mm.yy",
+            minDate:0
         });
         setTimeout(function() {
             $(".alert-info").hide();

@@ -3964,9 +3964,12 @@ class orderClass
                     a.pono,
                     a.indent_date,
                     a.order_date,
+                    a.delivery_date,
                     a.currency,
                     a.invaddr,
                     a.deladdr,
+                    a.delivery_code,
+                    a.areacode,
                     a.email,
                     a.pincode,
                     a.district,
@@ -3977,7 +3980,8 @@ class orderClass
                     d.order_category,
                     c.delivery_term,
                     e.pay_desc,
-                    f.trans_name AS transporter
+                    f.trans_name AS transporter,
+                    g.area_desc
                 FROM plexecom_customer_units AS a
                 LEFT JOIN tbl_vayu_delivery_term AS c
                     ON a.delterms_code = c.delivery_code::varchar
@@ -3987,6 +3991,8 @@ class orderClass
                     ON a.paycode = e.pay_code::varchar
                 LEFT JOIN transporter_master AS f
                     ON a.transporter = f.trans_code
+                LEFT JOIN area AS g
+                    ON a.areacode = g.area_code
                 WHERE a.refno = :refno
                   AND {$userWhere}
                 ORDER BY a.oid ASC
@@ -4104,12 +4110,61 @@ class orderClass
                 'transporter' => trim((string) ($headerRow['transporter'] ?? '')) !== ''
                     ? trim((string) $headerRow['transporter'])
                     : '-',
+                'area' => trim((string) ($headerRow['area_desc'] ?? '')) !== ''
+                    ? trim((string) $headerRow['area_desc'])
+                    : (trim((string) ($headerRow['areacode'] ?? '')) !== '' ? trim((string) $headerRow['areacode']) : '-'),
+                'delivery_date' => !empty($headerRow['delivery_date'])
+                    ? date('d-m-Y', strtotime((string) $headerRow['delivery_date']))
+                    : '-',
                 'email' => trim((string) ($headerRow['email'] ?? '')),
                 'invoice_address' => $this->formatRecentOrderAddressText($headerRow['invaddr'] ?? ''),
                 'delivery_address' => $this->formatRecentOrderAddressText($headerRow['deladdr'] ?? ''),
+                'delivery_address_type' => (trim((string) ($headerRow['delivery_code'] ?? '')) !== '') ? 'dealer' : 'end_customer',
+                'delivery_code' => trim((string) ($headerRow['delivery_code'] ?? '')),
+                'end_customer_name' => trim((string) ($headerRow['cuname'] ?? '')),
+                'end_customer_email' => trim((string) ($headerRow['email'] ?? '')),
+                'end_customer_pincode' => trim((string) ($headerRow['pincode'] ?? '')),
+                'end_customer_district' => trim((string) ($headerRow['district'] ?? '')),
+                'end_customer_state' => trim((string) ($headerRow['state'] ?? '')),
                 'order_status' => $this->resolveRecentOrderStatusLabel($orderNumber, $cuno),
                 'remarks' => trim((string) ($headerRow['remarks'] ?? '')),
             ];
+
+            // Parse end customer street/city from invaddr when delivery_address_type is end_customer
+            if ($header['delivery_address_type'] === 'end_customer') {
+                $rawInv = trim((string) ($headerRow['invaddr'] ?? ''));
+                if ($rawInv !== '') {
+                    $addrParts = array_map('trim', preg_split('/<br>\s*-\s*<br>/i', $rawInv));
+                    $header['end_customer_street1'] = $addrParts[0] ?? '';
+                    $header['end_customer_street2'] = $addrParts[1] ?? '';
+                    $header['end_customer_city'] = $addrParts[2] ?? '';
+                }
+            }
+
+            // Resolve dealer delivery address from customer_address table
+            if ($header['delivery_address_type'] === 'dealer' && $header['delivery_code'] !== '') {
+                try {
+                    $addrStmt = $this->dpconn->prepare(
+                        "SELECT cuname, st1, st2, city, pin, state, country FROM customer_address WHERE adr_code = :code LIMIT 1"
+                    );
+                    $addrStmt->execute([':code' => $header['delivery_code']]);
+                    $addrRow = $addrStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($addrRow) {
+                        $parts = array_filter([
+                            trim((string) ($addrRow['cuname'] ?? '')),
+                            trim((string) ($addrRow['st1'] ?? '')),
+                            trim((string) ($addrRow['st2'] ?? '')),
+                            trim((string) ($addrRow['city'] ?? '')),
+                            trim((string) ($addrRow['state'] ?? '')),
+                            trim((string) ($addrRow['pin'] ?? '')),
+                            trim((string) ($addrRow['country'] ?? '')),
+                        ], fn($v) => $v !== '' && $v !== '-');
+                        $header['dealer_delivery_address'] = implode(', ', $parts);
+                    }
+                } catch (Throwable $e) {
+                    // Silently ignore; dealer_delivery_address stays empty
+                }
+            }
 
             return [
                 'success' => true,

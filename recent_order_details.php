@@ -148,15 +148,23 @@ if ($customerLabel !== '' && $cuno !== '') {
                                     <div class="oad-meta-value"><?php echo $h($header['po_number'] ?? '-'); ?></div>
                                 </div>
                                 <div class="oad-meta-card">
-                                    <span class="oad-meta-label">Category</span>
+                                    <span class="oad-meta-label">Order Category</span>
                                     <div class="oad-meta-value"><?php echo $h($header['category'] ?? '-'); ?></div>
                                 </div>
                                 <div class="oad-meta-card">
-                                    <span class="oad-meta-label">Payment Terms</span>
+                                    <span class="oad-meta-label">Area</span>
+                                    <div class="oad-meta-value"><?php echo $h($header['area'] ?? '-'); ?></div>
+                                </div>
+                                <div class="oad-meta-card">
+                                    <span class="oad-meta-label">Delivery Date</span>
+                                    <div class="oad-meta-value"><?php echo $h($header['delivery_date'] ?? '-'); ?></div>
+                                </div>
+                                <div class="oad-meta-card">
+                                    <span class="oad-meta-label">Payment Term</span>
                                     <div class="oad-meta-value"><span class="oad-chip"><?php echo $h($header['payment_term'] ?? '-'); ?></span></div>
                                 </div>
                                 <div class="oad-meta-card">
-                                    <span class="oad-meta-label">Delivery Terms</span>
+                                    <span class="oad-meta-label">Delivery Term</span>
                                     <div class="oad-meta-value"><span class="oad-chip"><?php echo $h($header['delivery_term'] ?? '-'); ?></span></div>
                                 </div>
                                 <div class="oad-meta-card">
@@ -199,9 +207,49 @@ if ($customerLabel !== '' && $cuno !== '') {
                                 <div class="oad-address-card">
                                     <div class="oad-address-card__head">
                                         <div class="oad-address-card__icon" aria-hidden="true"><i class="bi bi-geo-alt"></i></div>
-                                        <h3 class="oad-address-card__title">Delivery Address</h3>
+                                        <h3 class="oad-address-card__title">
+                                            Delivery Address
+                                            <small class="text-muted">(<?php echo ($header['delivery_address_type'] ?? '') === 'dealer' ? 'Dealer' : 'End Customer'; ?>)</small>
+                                        </h3>
                                     </div>
-                                    <div class="oad-address-card__body"><?php echo $h($header['delivery_address'] ?? '-'); ?></div>
+                                    <div class="oad-address-card__body">
+                                        <?php if (($header['delivery_address_type'] ?? '') === 'dealer') { ?>
+                                            <?php echo $h($header['dealer_delivery_address'] ?? $header['delivery_address'] ?? '-'); ?>
+                                        <?php } else { ?>
+                                            <table class="table table-sm table-borderless mb-0" style="font-size: 0.92rem;">
+                                                <?php if (!empty($header['end_customer_name'])) { ?>
+                                                <tr><td class="text-muted" style="width:120px;">Name</td><td><?php echo $h($header['end_customer_name']); ?></td></tr>
+                                                <?php } ?>
+                                                <?php if (!empty($header['end_customer_email'])) { ?>
+                                                <tr><td class="text-muted">Email</td><td><?php echo $h($header['end_customer_email']); ?></td></tr>
+                                                <?php } ?>
+                                                <?php if (!empty($header['end_customer_street1'])) { ?>
+                                                <tr><td class="text-muted">Street 1</td><td><?php echo $h($header['end_customer_street1']); ?></td></tr>
+                                                <?php } ?>
+                                                <?php if (!empty($header['end_customer_street2'])) { ?>
+                                                <tr><td class="text-muted">Street 2</td><td><?php echo $h($header['end_customer_street2']); ?></td></tr>
+                                                <?php } ?>
+                                                <?php if (!empty($header['end_customer_pincode'])) { ?>
+                                                <tr><td class="text-muted">Pincode</td><td><?php echo $h($header['end_customer_pincode']); ?></td></tr>
+                                                <?php } ?>
+                                                <?php if (!empty($header['end_customer_city'])) { ?>
+                                                <tr><td class="text-muted">City</td><td><?php echo $h($header['end_customer_city']); ?></td></tr>
+                                                <?php } ?>
+                                                <?php if (!empty($header['end_customer_district'])) { ?>
+                                                <tr><td class="text-muted">District</td><td><?php echo $h($header['end_customer_district']); ?></td></tr>
+                                                <?php } ?>
+                                                <?php if (!empty($header['end_customer_state'])) { ?>
+                                                <tr><td class="text-muted">State</td><td><?php echo $h($header['end_customer_state']); ?></td></tr>
+                                                <?php } ?>
+                                            </table>
+                                            <?php
+                                            $hasAnyField = !empty($header['end_customer_name']) || !empty($header['end_customer_email'])
+                                                || !empty($header['end_customer_street1']) || !empty($header['end_customer_pincode'])
+                                                || !empty($header['end_customer_district']) || !empty($header['end_customer_state']);
+                                            if (!$hasAnyField) { echo '<span class="text-muted">-</span>'; }
+                                            ?>
+                                        <?php } ?>
+                                    </div>
                                 </div>
                             </div>
                         </section>
