@@ -4134,7 +4134,10 @@ class orderClass
             if ($header['delivery_address_type'] === 'end_customer') {
                 $rawInv = trim((string) ($headerRow['invaddr'] ?? ''));
                 if ($rawInv !== '') {
-                    $addrParts = array_map('trim', preg_split('/<br>\s*-\s*<br>/i', $rawInv));
+                    $normalized = preg_replace('/<br\s*\/?>\s*-\s*<br\s*\/?>/i', '||', $rawInv);
+                    $normalized = preg_replace('/<br\s*\/?>/i', "\n", (string) $normalized);
+                    $normalized = html_entity_decode(strip_tags((string) $normalized), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $addrParts = array_map(static fn($part) => trim((string) $part, " \t\n\r\0\x0B-"), explode('||', (string) $normalized));
                     $header['end_customer_street1'] = $addrParts[0] ?? '';
                     $header['end_customer_street2'] = $addrParts[1] ?? '';
                     $header['end_customer_city'] = $addrParts[2] ?? '';
