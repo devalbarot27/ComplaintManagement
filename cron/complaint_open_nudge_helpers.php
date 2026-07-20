@@ -2,14 +2,18 @@
 
 /**
  * Complaint Open Status Nudge helpers.
- * Sends 24h / 48h / 72h in-app + email reminders while status remains Open.
- * If age is already past 72h when evaluated, only the 72h reminder is sent
- * (24h / 48h are skipped). Each milestone is logged once per complaint.
+ *
+ * Recipients: Complaint Created User + CCS Admin users.
+ * Channels: In-App Notification + Email.
+ *
+ * Only the highest applicable milestone is sent based on current age:
+ * - > 24h and ≤ 48h → 24h only
+ * - > 48h and ≤ 72h → 48h only
+ * - > 72h → 72h only
+ * Logged once per complaint + user + nudge type + hours.
  */
 
 require_once dirname(__DIR__) . '/includes/complaint_status.php';
-require_once dirname(__DIR__) . '/includes/complaint_assignment_mail_helpers.php';
-require_once dirname(__DIR__) . '/includes/notification_helpers.php';
 require_once dirname(__DIR__) . '/includes/user_helpers.php';
 require_once __DIR__ . '/complaint_nudge_log_helpers.php';
 
@@ -73,9 +77,30 @@ function complaint_open_nudge_resolve_creator(PDO $conn, array $complaint): ?arr
     return $row ?: null;
 }
 
+/**
+ * Creator + CCS Admins (unique by user id).
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function complaint_open_nudge_resolve_recipients(PDO $conn, array $complaint): array
+{
+    $recipients = [];
+
+    $creator = complaint_open_nudge_resolve_creator($conn, $complaint);
+    if ($creator !== null) {
+        $recipients[] = $creator;
+    }
+
+    foreach (complaint_nudge_fetch_ccs_admins($conn) as $admin) {
+        $recipients[] = $admin;
+    }
+
+    return complaint_nudge_unique_users($recipients);
+}
+
 function complaint_open_nudge_in_app_message(int $complaintId, int $hours): string
 {
-    return 'Your complaint #' . $complaintId
+    return 'Complaint #' . $complaintId
         . ' is still in Open status and has not received any action for '
         . $hours . ' hours.';
 }
@@ -87,7 +112,7 @@ function complaint_open_nudge_email_body(string $userName, int $complaintId, int
     return implode("\r\n", [
         'Dear ' . $name . ',',
         '',
-        'Your complaint #' . $complaintId
+        'Complaint #' . $complaintId
             . ' is still in Open status and has not received any action for '
             . $hours . ' hours.',
         '',
@@ -99,17 +124,25 @@ function complaint_open_nudge_email_body(string $userName, int $complaintId, int
 }
 
 /**
- * @return array{sent: bool, notification_id: ?int, email_sent: bool, skipped: bool, reason: string}
+ * @return array{
+ *   sent: bool,
+ *   notifications_created: int,
+ *   emails_sent: int,
+ *   skipped: bool,
+ *   reason: string,
+ *   recipients: array<int, array<string, mixed>>
+ * }
  */
 function complaint_open_nudge_send_reminder(PDO $conn, array $complaint, int $hours): array
 {
     $complaintId = (int) ($complaint['id'] ?? 0);
     $result = [
         'sent' => false,
-        'notification_id' => null,
-        'email_sent' => false,
+        'notifications_created' => 0,
+        'emails_sent' => 0,
         'skipped' => true,
         'reason' => '',
+        'recipients' => [],
     ];
 
     if ($complaintId <= 0) {
@@ -133,76 +166,59 @@ function complaint_open_nudge_send_reminder(PDO $conn, array $complaint, int $ho
         return $result;
     }
 
-    $creator = complaint_open_nudge_resolve_creator($conn, $complaint);
-    if ($creator === null) {
-        $result['reason'] = 'no_creator';
+    $recipients = complaint_open_nudge_resolve_recipients($conn, $complaint);
+    if ($recipients === []) {
+        $result['reason'] = 'no_recipients';
         return $result;
     }
-
-    $userId = (int) ($creator['id'] ?? 0);
-    if ($userId <= 0) {
-        $result['reason'] = 'no_creator';
-        return $result;
-    }
-
-    if (complaint_nudge_log_already_sent(
-        $conn,
-        $complaintId,
-        COMPLAINT_NUDGE_TYPE_OPEN_STATUS,
-        $userId,
-        $hours
-    )) {
-        $result['reason'] = 'already_sent';
-        return $result;
-    }
-
-    $userName = trim((string) ($creator['name'] ?? ''));
-    if ($userName === '') {
-        $userName = trim((string) ($creator['username'] ?? ''));
-    }
-    $email = trim((string) ($creator['email'] ?? ''));
 
     $title = 'Complaint Pending';
     $message = complaint_open_nudge_in_app_message($complaintId, $hours);
+    $anySent = false;
 
-    $notificationId = notification_create(
-        $conn,
-        $userId,
-        $title,
-        $message,
-        'complaint-open',
-        $complaintId
-    );
-
-    $emailSent = false;
-    if ($email !== '') {
-        $emailSent = complaint_mail_send(
-            $email,
+    foreach ($recipients as $user) {
+        $send = complaint_nudge_notify_user(
+            $conn,
+            $complaintId,
+            COMPLAINT_NUDGE_TYPE_OPEN_STATUS,
+            $user,
+            $hours,
+            $title,
+            $message,
             'Reminder: Complaint Still Open',
-            complaint_open_nudge_email_body($userName, $complaintId, $hours)
+            complaint_open_nudge_email_body(
+                complaint_nudge_user_display_name($user),
+                $complaintId,
+                $hours
+            ),
+            'complaint-open'
         );
+
+        $result['recipients'][] = [
+            'user_id' => (int) ($user['id'] ?? 0),
+            'result' => $send,
+        ];
+
+        if (!$send['sent']) {
+            continue;
+        }
+
+        $anySent = true;
+        if (!empty($send['notification_id'])) {
+            $result['notifications_created']++;
+        }
+        if (!empty($send['email_sent'])) {
+            $result['emails_sent']++;
+        }
     }
 
-    $recorded = complaint_nudge_log_record(
-        $conn,
-        $complaintId,
-        COMPLAINT_NUDGE_TYPE_OPEN_STATUS,
-        $userId,
-        $hours,
-        null,
-        $notificationId,
-        $emailSent
-    );
-
-    if (!$recorded) {
-        $result['reason'] = 'duplicate_race';
+    if (!$anySent) {
+        $result['reason'] = 'already_sent';
         return $result;
     }
 
     $result['sent'] = true;
     $result['skipped'] = false;
-    $result['notification_id'] = $notificationId;
-    $result['email_sent'] = $emailSent;
     $result['reason'] = 'ok';
 
     return $result;
@@ -230,57 +246,30 @@ function complaint_open_nudge_run(PDO $conn): array
     ];
 
     $complaints = complaint_open_nudge_fetch_eligible($conn);
-    $milestones = complaint_open_nudge_hours();
 
     foreach ($complaints as $complaint) {
         $summary['processed']++;
         $complaintId = (int) $complaint['id'];
         $ageHours = (float) ($complaint['age_hours'] ?? 0);
+        $hours = complaint_nudge_applicable_hours($ageHours);
 
-        $creator = complaint_open_nudge_resolve_creator($conn, $complaint);
-        $recipientUserId = (int) ($creator['id'] ?? 0);
-        $sentMap = $recipientUserId > 0
-            ? complaint_nudge_log_sent_map(
-                $conn,
-                $complaintId,
-                COMPLAINT_NUDGE_TYPE_OPEN_STATUS,
-                $recipientUserId
-            )
-            : [];
+        if ($hours === null) {
+            continue;
+        }
 
-        foreach ($milestones as $hours) {
-            if ($ageHours < $hours) {
-                continue;
-            }
+        $sendResult = complaint_open_nudge_send_reminder($conn, $complaint, $hours);
 
-            // Past 72h: send only the 72h reminder (skip missed 24h / 48h).
-            if ($ageHours >= 72 && $hours < 72) {
-                continue;
-            }
+        $summary['details'][] = [
+            'complaint_id' => $complaintId,
+            'hours' => $hours,
+            'age_hours' => round($ageHours, 2),
+            'result' => $sendResult,
+        ];
 
-            if (!empty($sentMap[$hours])) {
-                continue;
-            }
-
-            $sendResult = complaint_open_nudge_send_reminder($conn, $complaint, $hours);
-
-            $summary['details'][] = [
-                'complaint_id' => $complaintId,
-                'hours' => $hours,
-                'age_hours' => round($ageHours, 2),
-                'result' => $sendResult,
-            ];
-
-            if ($sendResult['sent']) {
-                $summary['reminders_sent']++;
-                if ($sendResult['email_sent']) {
-                    $summary['emails_sent']++;
-                }
-                if (!empty($sendResult['notification_id'])) {
-                    $summary['notifications_created']++;
-                }
-                $sentMap[$hours] = true;
-            }
+        if ($sendResult['sent']) {
+            $summary['reminders_sent']++;
+            $summary['emails_sent'] += (int) $sendResult['emails_sent'];
+            $summary['notifications_created'] += (int) $sendResult['notifications_created'];
         }
     }
 

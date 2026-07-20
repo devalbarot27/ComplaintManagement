@@ -3,17 +3,17 @@
 /**
  * CCS Admin Call Closure Nudge helpers.
  *
- * Sends 24h / 48h / 72h in-app + email reminders to CCS Admins
- * while a complaint remains in Pending With HO ("Call Closure")
- * without a closure action (Yes/No).
- * If age is already past 72h when evaluated, only the 72h reminder is sent
- * (24h / 48h are skipped). Each milestone is logged once per complaint.
+ * Recipients: Complaint Assigned User + CCS Admin users.
+ * Channels: In-App Notification + Email.
+ *
+ * Only the highest applicable milestone is sent based on current age:
+ * - > 24h and ≤ 48h → 24h only
+ * - > 48h and ≤ 72h → 48h only
+ * - > 72h → 72h only
+ * Logged once per complaint + user + nudge type + hours.
  */
 
 require_once dirname(__DIR__) . '/includes/complaint_status.php';
-require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
-require_once dirname(__DIR__) . '/includes/complaint_assignment_mail_helpers.php';
-require_once dirname(__DIR__) . '/includes/notification_helpers.php';
 require_once dirname(__DIR__) . '/includes/user_helpers.php';
 require_once __DIR__ . '/complaint_nudge_log_helpers.php';
 
@@ -35,6 +35,7 @@ function complaint_ccs_closure_nudge_fetch_eligible(PDO $conn): array
             c.status,
             su.id AS service_update_id,
             su.created_at AS pending_ho_since,
+            ca.assigned_to,
             EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - su.created_at)) / 3600.0 AS age_hours
         FROM complaints c
         INNER JOIN LATERAL (
@@ -46,6 +47,13 @@ function complaint_ccs_closure_nudge_fetch_eligible(PDO $conn): array
             ORDER BY csu.created_at DESC, csu.id DESC
             LIMIT 1
         ) su ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT ca_inner.assigned_to
+            FROM complaint_assignments ca_inner
+            WHERE ca_inner.complaint_id = c.id
+            ORDER BY ca_inner.assign_complaint_datetime DESC, ca_inner.id DESC
+            LIMIT 1
+        ) ca ON TRUE
         WHERE c.deleted_at IS NULL
           AND c.status = :pending_ho_status
           AND NOT EXISTS (
@@ -63,21 +71,12 @@ function complaint_ccs_closure_nudge_fetch_eligible(PDO $conn): array
 }
 
 /**
+ * @deprecated Use complaint_nudge_fetch_ccs_admins()
  * @return array<int, array<string, mixed>>
  */
 function complaint_ccs_closure_nudge_fetch_ccs_admins(PDO $conn): array
 {
-    $stmt = $conn->prepare('
-        SELECT id, name, username, email, role
-        FROM user_master
-        WHERE role = :role
-          AND deleted_at IS NULL
-        ORDER BY id ASC
-    ');
-    $stmt->bindValue(':role', CCS_ADMIN_ROLE, PDO::PARAM_INT);
-    $stmt->execute();
-
-    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    return complaint_nudge_fetch_ccs_admins($conn);
 }
 
 function complaint_ccs_closure_nudge_still_eligible(
@@ -108,6 +107,29 @@ function complaint_ccs_closure_nudge_still_eligible(
     $stmt->execute();
 
     return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * Assigned user + CCS Admins (unique by user id).
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function complaint_ccs_closure_nudge_resolve_recipients(PDO $conn, int $assignedTo): array
+{
+    $recipients = [];
+
+    if ($assignedTo > 0) {
+        $assignee = user_get_by_id($conn, $assignedTo);
+        if ($assignee !== null) {
+            $recipients[] = $assignee;
+        }
+    }
+
+    foreach (complaint_nudge_fetch_ccs_admins($conn) as $admin) {
+        $recipients[] = $admin;
+    }
+
+    return complaint_nudge_unique_users($recipients);
 }
 
 function complaint_ccs_closure_nudge_in_app_message(int $complaintId, int $hours): string
@@ -142,13 +164,15 @@ function complaint_ccs_closure_nudge_email_body(string $userName, int $complaint
  *   notifications_created: int,
  *   emails_sent: int,
  *   skipped: bool,
- *   reason: string
+ *   reason: string,
+ *   recipients: array<int, array<string, mixed>>
  * }
  */
 function complaint_ccs_closure_nudge_send_reminder(PDO $conn, array $row, int $hours): array
 {
     $complaintId = (int) ($row['complaint_id'] ?? 0);
     $serviceUpdateId = (int) ($row['service_update_id'] ?? 0);
+    $assignedTo = (int) ($row['assigned_to'] ?? 0);
 
     $result = [
         'sent' => false,
@@ -156,6 +180,7 @@ function complaint_ccs_closure_nudge_send_reminder(PDO $conn, array $row, int $h
         'emails_sent' => 0,
         'skipped' => true,
         'reason' => '',
+        'recipients' => [],
     ];
 
     if ($complaintId <= 0 || $serviceUpdateId <= 0) {
@@ -168,82 +193,55 @@ function complaint_ccs_closure_nudge_send_reminder(PDO $conn, array $row, int $h
         return $result;
     }
 
-    $admins = complaint_ccs_closure_nudge_fetch_ccs_admins($conn);
-    if ($admins === []) {
-        $result['reason'] = 'no_ccs_admin';
+    $recipients = complaint_ccs_closure_nudge_resolve_recipients($conn, $assignedTo);
+    if ($recipients === []) {
+        $result['reason'] = 'no_recipients';
         return $result;
     }
 
     $title = 'Call Closure Pending';
     $message = complaint_ccs_closure_nudge_in_app_message($complaintId, $hours);
-    $notificationsCreated = 0;
-    $emailsSent = 0;
     $anySent = false;
 
-    foreach ($admins as $admin) {
+    foreach ($recipients as $user) {
         if (!complaint_ccs_closure_nudge_still_eligible($conn, $complaintId, $serviceUpdateId)) {
             $result['reason'] = 'not_eligible_mid_send';
             break;
         }
 
-        $userId = (int) ($admin['id'] ?? 0);
-        if ($userId <= 0) {
-            continue;
-        }
-
-        if (complaint_nudge_log_already_sent(
+        $send = complaint_nudge_notify_user(
             $conn,
             $complaintId,
             COMPLAINT_NUDGE_TYPE_CCS_CLOSURE,
-            $userId,
-            $hours
-        )) {
-            continue;
-        }
-
-        $userName = trim((string) ($admin['name'] ?? ''));
-        if ($userName === '') {
-            $userName = trim((string) ($admin['username'] ?? ''));
-        }
-        $email = trim((string) ($admin['email'] ?? ''));
-
-        $notificationId = notification_create(
-            $conn,
-            $userId,
+            $user,
+            $hours,
             $title,
             $message,
+            'Reminder: Call Closure Pending',
+            complaint_ccs_closure_nudge_email_body(
+                complaint_nudge_user_display_name($user),
+                $complaintId,
+                $hours
+            ),
             'complaint-closure',
-            $complaintId
-        );
-        if ($notificationId !== null) {
-            $notificationsCreated++;
-        }
-
-        $emailSent = false;
-        if ($email !== '') {
-            $emailSent = complaint_mail_send(
-                $email,
-                'Reminder: Call Closure Pending',
-                complaint_ccs_closure_nudge_email_body($userName, $complaintId, $hours)
-            );
-            if ($emailSent) {
-                $emailsSent++;
-            }
-        }
-
-        $recorded = complaint_nudge_log_record(
-            $conn,
-            $complaintId,
-            COMPLAINT_NUDGE_TYPE_CCS_CLOSURE,
-            $userId,
-            $hours,
-            $serviceUpdateId,
-            $notificationId,
-            $emailSent
+            $serviceUpdateId
         );
 
-        if ($recorded) {
-            $anySent = true;
+        $result['recipients'][] = [
+            'user_id' => (int) ($user['id'] ?? 0),
+            'result' => $send,
+        ];
+
+        if (!$send['sent']) {
+            continue;
+        }
+
+        $anySent = true;
+        if (!empty($send['notification_id'])) {
+            $result['notifications_created']++;
+        }
+        if (!empty($send['email_sent'])) {
+            $result['emails_sent']++;
         }
     }
 
@@ -254,8 +252,6 @@ function complaint_ccs_closure_nudge_send_reminder(PDO $conn, array $row, int $h
 
     $result['sent'] = true;
     $result['skipped'] = false;
-    $result['notifications_created'] = $notificationsCreated;
-    $result['emails_sent'] = $emailsSent;
     $result['reason'] = 'ok';
 
     return $result;
@@ -283,39 +279,32 @@ function complaint_ccs_closure_nudge_run(PDO $conn): array
     ];
 
     $rows = complaint_ccs_closure_nudge_fetch_eligible($conn);
-    $milestones = complaint_ccs_closure_nudge_hours();
 
     foreach ($rows as $row) {
         $summary['processed']++;
         $complaintId = (int) $row['complaint_id'];
         $serviceUpdateId = (int) $row['service_update_id'];
         $ageHours = (float) ($row['age_hours'] ?? 0);
+        $hours = complaint_nudge_applicable_hours($ageHours);
 
-        foreach ($milestones as $hours) {
-            if ($ageHours < $hours) {
-                continue;
-            }
+        if ($hours === null) {
+            continue;
+        }
 
-            // Past 72h: send only the 72h reminder (skip missed 24h / 48h).
-            if ($ageHours >= 72 && $hours < 72) {
-                continue;
-            }
+        $sendResult = complaint_ccs_closure_nudge_send_reminder($conn, $row, $hours);
 
-            $sendResult = complaint_ccs_closure_nudge_send_reminder($conn, $row, $hours);
+        $summary['details'][] = [
+            'complaint_id' => $complaintId,
+            'service_update_id' => $serviceUpdateId,
+            'hours' => $hours,
+            'age_hours' => round($ageHours, 2),
+            'result' => $sendResult,
+        ];
 
-            $summary['details'][] = [
-                'complaint_id' => $complaintId,
-                'service_update_id' => $serviceUpdateId,
-                'hours' => $hours,
-                'age_hours' => round($ageHours, 2),
-                'result' => $sendResult,
-            ];
-
-            if ($sendResult['sent']) {
-                $summary['reminders_sent']++;
-                $summary['emails_sent'] += (int) $sendResult['emails_sent'];
-                $summary['notifications_created'] += (int) $sendResult['notifications_created'];
-            }
+        if ($sendResult['sent']) {
+            $summary['reminders_sent']++;
+            $summary['emails_sent'] += (int) $sendResult['emails_sent'];
+            $summary['notifications_created'] += (int) $sendResult['notifications_created'];
         }
     }
 

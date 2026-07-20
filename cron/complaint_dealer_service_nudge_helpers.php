@@ -3,16 +3,18 @@
 /**
  * Dealer User Service Update Nudge helpers.
  *
- * Sends 24h / 48h / 72h in-app + email reminders to the assigned Dealer User
- * while a complaint remains In Progress or Re-Open without a service update.
- * If age is already past 72h when evaluated, only the 72h reminder is sent
- * (24h / 48h are skipped). Each milestone is logged once per complaint.
+ * Recipients: Complaint Assigned User + CCS Admin users.
+ * Channels: In-App Notification + Email.
+ *
+ * Only the highest applicable milestone is sent based on current age:
+ * - > 24h and ≤ 48h → 24h only
+ * - > 48h and ≤ 72h → 48h only
+ * - > 72h → 72h only
+ * Logged once per complaint + user + nudge type + hours.
  */
 
 require_once dirname(__DIR__) . '/includes/complaint_status.php';
 require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
-require_once dirname(__DIR__) . '/includes/complaint_assignment_mail_helpers.php';
-require_once dirname(__DIR__) . '/includes/notification_helpers.php';
 require_once dirname(__DIR__) . '/includes/user_helpers.php';
 require_once __DIR__ . '/complaint_nudge_log_helpers.php';
 
@@ -103,9 +105,32 @@ function complaint_dealer_service_nudge_status_label(int $status): string
     return 'In Progress';
 }
 
+/**
+ * Assigned user + CCS Admins (unique by user id).
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function complaint_dealer_service_nudge_resolve_recipients(PDO $conn, int $assignedTo): array
+{
+    $recipients = [];
+
+    if ($assignedTo > 0) {
+        $assignee = user_get_by_id($conn, $assignedTo);
+        if ($assignee !== null) {
+            $recipients[] = $assignee;
+        }
+    }
+
+    foreach (complaint_nudge_fetch_ccs_admins($conn) as $admin) {
+        $recipients[] = $admin;
+    }
+
+    return complaint_nudge_unique_users($recipients);
+}
+
 function complaint_dealer_service_nudge_in_app_message(int $complaintId, string $statusLabel, int $hours): string
 {
-    return 'Your assigned complaint #' . $complaintId
+    return 'Complaint #' . $complaintId
         . ' is still in ' . $statusLabel
         . ' status and has not received a service update for '
         . $hours . ' hours.';
@@ -122,7 +147,7 @@ function complaint_dealer_service_nudge_email_body(
     return implode("\r\n", [
         'Dear ' . $name . ',',
         '',
-        'Your assigned complaint #' . $complaintId
+        'Complaint #' . $complaintId
             . ' is still in ' . $statusLabel
             . ' status and has not received a service update for '
             . $hours . ' hours.',
@@ -136,7 +161,14 @@ function complaint_dealer_service_nudge_email_body(
 
 /**
  * @param array<string, mixed> $row
- * @return array{sent: bool, notification_id: ?int, email_sent: bool, skipped: bool, reason: string}
+ * @return array{
+ *   sent: bool,
+ *   notifications_created: int,
+ *   emails_sent: int,
+ *   skipped: bool,
+ *   reason: string,
+ *   recipients: array<int, array<string, mixed>>
+ * }
  */
 function complaint_dealer_service_nudge_send_reminder(PDO $conn, array $row, int $hours): array
 {
@@ -147,10 +179,11 @@ function complaint_dealer_service_nudge_send_reminder(PDO $conn, array $row, int
 
     $result = [
         'sent' => false,
-        'notification_id' => null,
-        'email_sent' => false,
+        'notifications_created' => 0,
+        'emails_sent' => 0,
         'skipped' => true,
         'reason' => '',
+        'recipients' => [],
     ];
 
     if ($complaintId <= 0 || $assignmentId <= 0) {
@@ -163,82 +196,67 @@ function complaint_dealer_service_nudge_send_reminder(PDO $conn, array $row, int
         return $result;
     }
 
-    $assignee = $assignedTo > 0 ? user_get_by_id($conn, $assignedTo) : null;
-    if ($assignee === null) {
-        $result['reason'] = 'no_assignee';
+    $recipients = complaint_dealer_service_nudge_resolve_recipients($conn, $assignedTo);
+    if ($recipients === []) {
+        $result['reason'] = 'no_recipients';
         return $result;
     }
-
-    if ((int) ($assignee['role'] ?? 0) !== DEALER_USER_ROLE) {
-        $result['reason'] = 'not_dealer_user';
-        return $result;
-    }
-
-    $userId = (int) ($assignee['id'] ?? 0);
-    if ($userId <= 0) {
-        $result['reason'] = 'no_assignee';
-        return $result;
-    }
-
-    if (complaint_nudge_log_already_sent(
-        $conn,
-        $complaintId,
-        COMPLAINT_NUDGE_TYPE_DEALER_SERVICE,
-        $userId,
-        $hours
-    )) {
-        $result['reason'] = 'already_sent';
-        return $result;
-    }
-
-    $userName = trim((string) ($assignee['name'] ?? ''));
-    if ($userName === '') {
-        $userName = trim((string) ($assignee['username'] ?? ''));
-    }
-    $email = trim((string) ($assignee['email'] ?? ''));
 
     $statusLabel = complaint_dealer_service_nudge_status_label($status);
     $title = 'Service Update Pending';
     $message = complaint_dealer_service_nudge_in_app_message($complaintId, $statusLabel, $hours);
+    $anySent = false;
 
-    $notificationId = notification_create(
-        $conn,
-        $userId,
-        $title,
-        $message,
-        'assigned-complaint',
-        $complaintId
-    );
+    foreach ($recipients as $user) {
+        if (!complaint_dealer_service_nudge_still_eligible($conn, $complaintId, $assignmentId)) {
+            $result['reason'] = 'not_eligible_mid_send';
+            break;
+        }
 
-    $emailSent = false;
-    if ($email !== '') {
-        $emailSent = complaint_mail_send(
-            $email,
+        $send = complaint_nudge_notify_user(
+            $conn,
+            $complaintId,
+            COMPLAINT_NUDGE_TYPE_DEALER_SERVICE,
+            $user,
+            $hours,
+            $title,
+            $message,
             'Reminder: Service Update Pending',
-            complaint_dealer_service_nudge_email_body($userName, $complaintId, $statusLabel, $hours)
+            complaint_dealer_service_nudge_email_body(
+                complaint_nudge_user_display_name($user),
+                $complaintId,
+                $statusLabel,
+                $hours
+            ),
+            'assigned-complaint',
+            $assignmentId
         );
+
+        $result['recipients'][] = [
+            'user_id' => (int) ($user['id'] ?? 0),
+            'result' => $send,
+        ];
+
+        if (!$send['sent']) {
+            continue;
+        }
+
+        $anySent = true;
+        if (!empty($send['notification_id'])) {
+            $result['notifications_created']++;
+        }
+        if (!empty($send['email_sent'])) {
+            $result['emails_sent']++;
+        }
     }
 
-    $recorded = complaint_nudge_log_record(
-        $conn,
-        $complaintId,
-        COMPLAINT_NUDGE_TYPE_DEALER_SERVICE,
-        $userId,
-        $hours,
-        $assignmentId,
-        $notificationId,
-        $emailSent
-    );
-
-    if (!$recorded) {
-        $result['reason'] = 'duplicate_race';
+    if (!$anySent) {
+        $result['reason'] = $result['reason'] !== '' ? $result['reason'] : 'already_sent';
         return $result;
     }
 
     $result['sent'] = true;
     $result['skipped'] = false;
-    $result['notification_id'] = $notificationId;
-    $result['email_sent'] = $emailSent;
     $result['reason'] = 'ok';
 
     return $result;
@@ -266,55 +284,32 @@ function complaint_dealer_service_nudge_run(PDO $conn): array
     ];
 
     $rows = complaint_dealer_service_nudge_fetch_eligible($conn);
-    $milestones = complaint_dealer_service_nudge_hours();
 
     foreach ($rows as $row) {
         $summary['processed']++;
         $complaintId = (int) $row['complaint_id'];
         $assignmentId = (int) $row['assignment_id'];
-        $recipientUserId = (int) $row['assigned_to'];
         $ageHours = (float) ($row['age_hours'] ?? 0);
-        $sentMap = complaint_nudge_log_sent_map(
-            $conn,
-            $complaintId,
-            COMPLAINT_NUDGE_TYPE_DEALER_SERVICE,
-            $recipientUserId
-        );
+        $hours = complaint_nudge_applicable_hours($ageHours);
 
-        foreach ($milestones as $hours) {
-            if ($ageHours < $hours) {
-                continue;
-            }
+        if ($hours === null) {
+            continue;
+        }
 
-            // Past 72h: send only the 72h reminder (skip missed 24h / 48h).
-            if ($ageHours >= 72 && $hours < 72) {
-                continue;
-            }
+        $sendResult = complaint_dealer_service_nudge_send_reminder($conn, $row, $hours);
 
-            if (!empty($sentMap[$hours])) {
-                continue;
-            }
+        $summary['details'][] = [
+            'complaint_id' => $complaintId,
+            'assignment_id' => $assignmentId,
+            'hours' => $hours,
+            'age_hours' => round($ageHours, 2),
+            'result' => $sendResult,
+        ];
 
-            $sendResult = complaint_dealer_service_nudge_send_reminder($conn, $row, $hours);
-
-            $summary['details'][] = [
-                'complaint_id' => $complaintId,
-                'assignment_id' => $assignmentId,
-                'hours' => $hours,
-                'age_hours' => round($ageHours, 2),
-                'result' => $sendResult,
-            ];
-
-            if ($sendResult['sent']) {
-                $summary['reminders_sent']++;
-                if ($sendResult['email_sent']) {
-                    $summary['emails_sent']++;
-                }
-                if (!empty($sendResult['notification_id'])) {
-                    $summary['notifications_created']++;
-                }
-                $sentMap[$hours] = true;
-            }
+        if ($sendResult['sent']) {
+            $summary['reminders_sent']++;
+            $summary['emails_sent'] += (int) $sendResult['emails_sent'];
+            $summary['notifications_created'] += (int) $sendResult['notifications_created'];
         }
     }
 

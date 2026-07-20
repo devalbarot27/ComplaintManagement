@@ -6,6 +6,8 @@
  */
 
 require_once dirname(__DIR__) . '/includes/notification_helpers.php';
+require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/complaint_assignment_mail_helpers.php';
 
 const COMPLAINT_NUDGE_TYPE_OPEN_STATUS = 'open_status';
 const COMPLAINT_NUDGE_TYPE_DEALER_SERVICE = 'dealer_service';
@@ -14,6 +16,151 @@ const COMPLAINT_NUDGE_TYPE_CCS_CLOSURE = 'ccs_closure';
 function complaint_nudge_log_table(): string
 {
     return 'complaint_nudge_logs';
+}
+
+/**
+ * Highest applicable milestone for current pending age.
+ * >24h & ≤48h → 24 | >48h & ≤72h → 48 | >72h → 72
+ */
+function complaint_nudge_applicable_hours(float $ageHours): ?int
+{
+    if ($ageHours > 72) {
+        return 72;
+    }
+    if ($ageHours > 48) {
+        return 48;
+    }
+    if ($ageHours > 24) {
+        return 24;
+    }
+
+    return null;
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function complaint_nudge_fetch_ccs_admins(PDO $conn): array
+{
+    $stmt = $conn->prepare('
+        SELECT id, name, username, email, role
+        FROM user_master
+        WHERE role = :role
+          AND deleted_at IS NULL
+        ORDER BY id ASC
+    ');
+    $stmt->bindValue(':role', CCS_ADMIN_ROLE, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Deduplicate user rows by id (keeps first occurrence).
+ *
+ * @param array<int, array<string, mixed>> $users
+ * @return array<int, array<string, mixed>>
+ */
+function complaint_nudge_unique_users(array $users): array
+{
+    $unique = [];
+    foreach ($users as $user) {
+        $userId = (int) ($user['id'] ?? 0);
+        if ($userId <= 0 || isset($unique[$userId])) {
+            continue;
+        }
+        $unique[$userId] = $user;
+    }
+
+    return array_values($unique);
+}
+
+function complaint_nudge_user_display_name(array $user): string
+{
+    $name = trim((string) ($user['name'] ?? ''));
+    if ($name !== '') {
+        return $name;
+    }
+
+    $username = trim((string) ($user['username'] ?? ''));
+
+    return $username !== '' ? $username : 'User';
+}
+
+/**
+ * Send in-app + email to one recipient and log it.
+ * Skips if already sent for this complaint / type / user / hours.
+ *
+ * @return array{sent: bool, notification_id: ?int, email_sent: bool, reason: string}
+ */
+function complaint_nudge_notify_user(
+    PDO $conn,
+    int $complaintId,
+    string $nudgeType,
+    array $user,
+    int $hours,
+    string $title,
+    string $message,
+    string $emailSubject,
+    string $emailBody,
+    string $notificationModule,
+    ?int $referenceId = null
+): array {
+    $result = [
+        'sent' => false,
+        'notification_id' => null,
+        'email_sent' => false,
+        'reason' => '',
+    ];
+
+    $userId = (int) ($user['id'] ?? 0);
+    if ($complaintId <= 0 || $userId <= 0 || $hours <= 0) {
+        $result['reason'] = 'invalid_recipient';
+        return $result;
+    }
+
+    if (complaint_nudge_log_already_sent($conn, $complaintId, $nudgeType, $userId, $hours)) {
+        $result['reason'] = 'already_sent';
+        return $result;
+    }
+
+    $notificationId = notification_create(
+        $conn,
+        $userId,
+        $title,
+        $message,
+        $notificationModule,
+        $complaintId
+    );
+
+    $email = trim((string) ($user['email'] ?? ''));
+    $emailSent = false;
+    if ($email !== '') {
+        $emailSent = complaint_mail_send($email, $emailSubject, $emailBody);
+    }
+
+    $recorded = complaint_nudge_log_record(
+        $conn,
+        $complaintId,
+        $nudgeType,
+        $userId,
+        $hours,
+        $referenceId,
+        $notificationId,
+        $emailSent
+    );
+
+    if (!$recorded) {
+        $result['reason'] = 'duplicate_race';
+        return $result;
+    }
+
+    $result['sent'] = true;
+    $result['notification_id'] = $notificationId;
+    $result['email_sent'] = $emailSent;
+    $result['reason'] = 'ok';
+
+    return $result;
 }
 
 function complaint_nudge_log_ensure_schema(PDO $conn): void
