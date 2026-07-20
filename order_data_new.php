@@ -633,7 +633,11 @@ if ($row) {
                         </div>
                         <div>
                             <span class="oad-hero__eyebrow">ELGI Equipments Ltd</span>
-                            <h1 class="oad-hero__title">Pending Order View</h1>
+                            <?php if ($ordno == 'PENDING') { ?> 
+                                <h1 class="oad-hero__title">Pending Order View</h1>
+                            <?php } else { ?>
+                                <h1 class="oad-hero__title">Order View</h1>
+                            <?php } ?>
                         </div>
                     </div>
                     <div class="oad-hero__badges">
