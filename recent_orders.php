@@ -167,7 +167,6 @@ $refNo = trim((string) ($_GET['order_no'] ?? ''));
             drawCallback: function() {
                 if (!canViewRecentOrders) {
                     $('#orderTable tbody button[onclick*="openLineItems"]').remove();
-                    $('#orderTable tbody a[href*="order_data_new.php"]').remove();
                 }
             }
         });

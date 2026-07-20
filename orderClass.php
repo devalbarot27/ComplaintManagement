@@ -3396,15 +3396,9 @@ class orderClass
                     'date'             => !empty($row['indent_date'])
                         ? date('d-m-Y', strtotime($row['indent_date']))
                         : '-',
-                    'lines'            => $orderNumber !== ''
-                        ? '<!-- <button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
-                            . htmlspecialchars($refno, ENT_QUOTES, 'UTF-8')
-                            . '\')"><i class="fa fa-eye"></i></button> -->'
-                            . '<a href="order_data_new.php?order=' . urlencode($orderNumber)
-                            . '&cuno=' . urlencode($orderCuno)
-                            . '&reference=recent_orders" target="_blank" class="btn btn-sm btn-outline-dark" title="View">'
-                            . '<i class="fa fa-eye"></i></a>'
-                        : '-',
+                    'lines'            => '<button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
+                        . htmlspecialchars($refno, ENT_QUOTES, 'UTF-8')
+                        . '\')"><i class="fa fa-eye"></i></button>',
                 ];
            }
             return json_encode([
