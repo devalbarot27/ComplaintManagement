@@ -33,6 +33,7 @@ $periodOptions = $dashboardStats['period_options'];
 
 
 $totalRecentOrdersCount = $dashboardStats['total_recent_orders_count'];
+$createdOrdersCount = $dashboardStats['created_orders_count'] ?? $totalRecentOrdersCount;
 $pendingOrdersCount = $dashboardStats['pending_orders_count'];
 $acknowledgementCount = $dashboardStats['acknowledgement_count'];
 $pendingOver10DaysCount = $dashboardStats['pending_over_10_days_count'];
@@ -55,19 +56,8 @@ $canViewAnyOrderCards = $canViewCreatedOrders
     || $canViewPendingOrders
     || $canViewDispatchedOrders;
 
-$totalOrdersCount = 0;
-if ($canViewRecentOrders) {
-    $totalOrdersCount += $totalRecentOrdersCount;
-}
-if ($canViewAcknowledgedOrders) {
-    $totalOrdersCount += $acknowledgementCount;
-}
-if ($canViewPendingOrders) {
-    $totalOrdersCount += $pendingOrdersCount;
-}
-if ($canViewDispatchedOrders) {
-    $totalOrdersCount += $dispatched_orders_count;
-}
+// Total Orders comes from Recent Orders (same base as Created).
+$totalOrdersCount = $canViewRecentOrders ? (int) $totalRecentOrdersCount : 0;
 
 $monthlyChartData = $dashboardStats['monthly_chart'];
 $monthlyChartMaxValues = [];
@@ -82,7 +72,7 @@ $monthlyChartMax = max(4, (int) (ceil((max($monthlyChartMaxValues ?: [0]) / 4)) 
 $statusChartData = [];
 $statusChartColors = [];
 if ($canViewRecentOrders) {
-    $statusChartData[] = (int) $totalRecentOrdersCount;
+    $statusChartData[] = (int) $createdOrdersCount;
     $statusChartColors[] = '#2563eb';
 }
 if ($canViewAcknowledgedOrders) {
@@ -356,7 +346,7 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
 
             <?php if ($canViewRecentOrders): ?>
             <div class="pipeline-step">
-                <div class="pipeline-count blue"><?php echo htmlspecialchars((string) $totalRecentOrdersCount); ?></div>
+                <div class="pipeline-count blue"><?php echo htmlspecialchars((string) $createdOrdersCount); ?></div>
                 <div class="pipeline-label">Created</div>
             </div>
             <?php endif; ?>
@@ -431,7 +421,7 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
                 <div class="legend-item">
                     <div class="legend-dot"
                         style="background:#2563eb"></div>
-                    Created: <?php echo htmlspecialchars((string) $totalRecentOrdersCount); ?>
+                    Created: <?php echo htmlspecialchars((string) $createdOrdersCount); ?>
                 </div>
                 <?php endif; ?>
 

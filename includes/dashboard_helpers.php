@@ -67,20 +67,168 @@ function dashboard_fetch_stats(PDO $dpconn, PDO $obconn, ?string $period = null)
     $selectedPeriod = dashboard_resolve_period($period);
     $periodOptions = dashboard_period_options();
     $scope = dashboard_resolve_view_scope($obconn);
+    $recentOrderStats = dashboard_fetch_recent_order_pipeline_stats($obconn, $dpconn, $selectedPeriod);
 
     return [
         'selected_period' => $selectedPeriod,
         'selected_period_label' => $periodOptions[$selectedPeriod],
         'period_options' => $periodOptions,
         'view_scope' => $scope,
-        'pending_orders_count' => dashboard_fetch_pending_orders_count($dpconn, $scope, $selectedPeriod),
-        'acknowledgement_count' => dashboard_fetch_acknowledgement_count($dpconn, $scope, $selectedPeriod),
-        'total_recent_orders_count' => dashboard_fetch_total_recent_orders_count($obconn, $scope, $selectedPeriod),
+        'total_recent_orders_count' => $recentOrderStats['total'],
+        'created_orders_count' => $recentOrderStats['created'],
+        'acknowledgement_count' => $recentOrderStats['acknowledged'],
+        'pending_orders_count' => $recentOrderStats['pending'],
+        'dispatched_orders_count' => $recentOrderStats['dispatched'],
         'pending_over_10_days_count' => dashboard_fetch_pending_over_10_days_count($dpconn, $scope, $obconn),
-        'dispatched_orders_count' => dashboard_fetch_dispatched_count($dpconn, $scope, $selectedPeriod),
         'dispatches_delivered_this_week_count' => dashboard_fetch_dispatched_count($dpconn, $scope, 'this_week'),
         'monthly_chart' => dashboard_fetch_monthly_chart_data($dpconn, $scope),
     ];
+}
+
+/**
+ * Dashboard pipeline stats derived from the Recent Orders query (plexecom_customer_units).
+ *
+ * Total/Created = distinct Recent Orders
+ * Acknowledged  = orders with AO Number (order_number)
+ * Pending       = orders without AO Number
+ * Dispatched    = orders with invoice details in despatch
+ *
+ * @return array{total:int,created:int,acknowledged:int,pending:int,dispatched:int}
+ */
+function dashboard_fetch_recent_order_pipeline_stats(PDO $obconn, PDO $dpconn, string $period): array
+{
+    $empty = [
+        'total' => 0,
+        'created' => 0,
+        'acknowledged' => 0,
+        'pending' => 0,
+        'dispatched' => 0,
+    ];
+
+    try {
+        admin_ensure_session_role($obconn);
+
+        // Match getRecentOrders() visibility rules.
+        $seeAll = is_system_admin() || is_management_user();
+        $customerCode = dashboard_resolve_customer_code();
+        if (!$seeAll && $customerCode === '') {
+            return $empty;
+        }
+
+        $userWhere = $seeAll ? '1=1' : 'a.cuno = :customer_code';
+        $dateFilter = dashboard_period_date_sql('a.indent_date', $period);
+
+        $sql = "
+            SELECT
+                a.refno,
+                a.cuno,
+                TRIM(COALESCE(a.order_number, '')) AS order_number
+            FROM (
+                SELECT DISTINCT ON (a.refno)
+                    a.refno,
+                    a.cuno,
+                    a.order_number,
+                    a.indent_date
+                FROM plexecom_customer_units AS a
+                WHERE {$userWhere}
+                  AND {$dateFilter}
+                ORDER BY a.refno DESC, a.indent_date DESC
+            ) AS a
+        ";
+
+        $stmt = $obconn->prepare($sql);
+        if (!$seeAll) {
+            $stmt->bindValue(':customer_code', $customerCode, PDO::PARAM_STR);
+        }
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $total = count($rows);
+        $acknowledged = 0;
+        $pending = 0;
+        $aoByCuno = [];
+
+        foreach ($rows as $row) {
+            $orderNumber = trim((string) ($row['order_number'] ?? ''));
+            $cuno = trim((string) ($row['cuno'] ?? ''));
+
+            if ($orderNumber === '') {
+                $pending++;
+                continue;
+            }
+
+            $acknowledged++;
+            if ($cuno !== '') {
+                $aoByCuno[$cuno][$orderNumber] = true;
+            }
+        }
+
+        $dispatched = dashboard_count_recent_orders_with_invoice($dpconn, $aoByCuno);
+
+        return [
+            'total' => $total,
+            'created' => $total,
+            'acknowledged' => $acknowledged,
+            'pending' => $pending,
+            'dispatched' => $dispatched,
+        ];
+    } catch (Throwable $e) {
+        return $empty;
+    }
+}
+
+/**
+ * Count Recent Orders that have invoice/despatch details.
+ *
+ * @param array<string, array<string, bool>> $aoByCuno
+ */
+function dashboard_count_recent_orders_with_invoice(PDO $dpconn, array $aoByCuno): int
+{
+    if ($aoByCuno === []) {
+        return 0;
+    }
+
+    $dispatched = 0;
+
+    try {
+        foreach ($aoByCuno as $cuno => $orderMap) {
+            $orderNumbers = array_keys($orderMap);
+            if ($orderNumbers === []) {
+                continue;
+            }
+
+            // Chunk large IN lists to keep query size manageable.
+            foreach (array_chunk($orderNumbers, 500) as $chunk) {
+                $placeholders = [];
+                $params = [':cuno' => $cuno];
+
+                foreach ($chunk as $i => $ordno) {
+                    $key = ':ord' . $i;
+                    $placeholders[] = $key;
+                    $params[$key] = $ordno;
+                }
+
+                $sql = '
+                    SELECT COUNT(DISTINCT TRIM(ordno)) AS cnt
+                    FROM despatch
+                    WHERE cuno = :cuno
+                      AND cmp != 600
+                      AND TRIM(ordno) IN (' . implode(', ', $placeholders) . ')
+                ';
+
+                $stmt = $dpconn->prepare($sql);
+                foreach ($params as $key => $value) {
+                    $stmt->bindValue($key, $value, PDO::PARAM_STR);
+                }
+                $stmt->execute();
+                $dispatched += (int) $stmt->fetchColumn();
+            }
+        }
+    } catch (Throwable $e) {
+        return 0;
+    }
+
+    return $dispatched;
 }
 
 // orders pending for more than 10 days — mirrors getPendingOrderListNew() with date filter
