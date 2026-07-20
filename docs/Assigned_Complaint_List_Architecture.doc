@@ -1,0 +1,48 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Arial;}}
+\f0\fs24
+
+\b Assigned Complaint List - Architecture\b0\par
+Complaint Management System\par
+\par
+
+\b 1. Purpose\b0\par
+Assigned Complaint List shows complaints assigned to the logged-in user (Dealer / Engineer). From this list, the user can open Service Update to add Installed Base and Service Log for the complaint.\par
+\par
+
+\b 2. Main Files\b0\par
+\bullet  dse_lse_complaint_list.php - assigned complaint list and actions\par
+\bullet  service_update_complaint.php - service update save handler\par
+\bullet  includes/complaint_datatable_helpers.php - grid helpers and permissions\par
+\bullet  includes/complaint_service_log_helpers.php - service update and service log link\par
+\bullet  includes/complaint_service_log_modal.php - Service Update popup\par
+\bullet  api/assigned_complaints_datatable.php - grid data\par
+\bullet  api/complaint_service_log_prefill.php - prefill for service log from complaint\par
+\bullet  api/complaint_service_log_summary.php - service log summary in popup\par
+\par
+
+\b 3. Shared Components\b0\par
+\bullet  complaint_status_cards.php - status filter cards\par
+\bullet  complaint_service_update_save_helpers.php - service update save logic\par
+\bullet  complaint_service_log_draft_helpers.php - draft service log from complaint\par
+\bullet  complaint_service_update_service_log.js - Service Update UI\par
+\bullet  rbac_access_helpers.php - permissions\par
+\par
+
+\b 4. Basic Flow\b0\par
+\bullet  User opens Assigned Complaint List\par
+\bullet  Grid loads assigned records from complaints and complaint_assignments\par
+\bullet  User opens Service Update for a complaint\par
+\bullet  User can add Installed Base if needed, then add Service Log\par
+\bullet  After Installed Base save, user returns to Service Update on same complaint\par
+\bullet  Service Log draft can be saved and later completed\par
+\par
+
+\b 5. Database\b0\par
+Main tables: complaints, complaint_assignments\par
+Related tables: service_logs, installed_base, complaint_closures\par
+\par
+
+\b 6. Permissions\b0\par
+RBAC module: assigned-complaint-list (view, service-update)\par
+}

@@ -3,6 +3,8 @@
 /**
  * Complaint Open Status Nudge helpers.
  * Sends 24h / 48h / 72h in-app + email reminders while status remains Open.
+ * If age is already past 72h when evaluated, only the 72h reminder is sent
+ * (24h / 48h are skipped). Each milestone is logged once per complaint.
  */
 
 require_once dirname(__DIR__) . '/includes/complaint_status.php';
@@ -248,6 +250,11 @@ function complaint_open_nudge_run(PDO $conn): array
 
         foreach ($milestones as $hours) {
             if ($ageHours < $hours) {
+                continue;
+            }
+
+            // Past 72h: send only the 72h reminder (skip missed 24h / 48h).
+            if ($ageHours >= 72 && $hours < 72) {
                 continue;
             }
 

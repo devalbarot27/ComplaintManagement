@@ -12,10 +12,15 @@ function installed_base_industry_segments(PDO $conn): array
 
 function installed_base_address_search_columns(): array
 {
-    return array_merge(
-        complaint_address_search_columns(),
-        ['address']
-    );
+    return [
+        'street_1',
+        'street_2',
+        'pincode',
+        'city',
+        'district',
+        'state',
+        'address',
+    ];
 }
 
 function installed_base_address_display_value(array $row, string $field): string

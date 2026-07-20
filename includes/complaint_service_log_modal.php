@@ -31,36 +31,31 @@
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
                             <div>
-                                <h3 class="complaint-form-section__title">Machine & Order</h3>
+                                <h3 class="complaint-form-section__title">Machine Details</h3>
                                 <p class="complaint-form-section__hint">Linked installed base details</p>
                             </div>
                         </div>
                         <div class="row g-3">
-                            <div class="col-md-6 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-link-45deg"></i> Installed Base <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="ibServiceLogInstalledBaseLabel" readonly>
                                 <input type="hidden" name="installed_base_id" id="ibServiceLogInstalledBaseId">
                                 <div class="text-danger validation-msg" data-field="installed_base_id"></div>
                             </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label"><i class="bi bi-receipt"></i> Order ID <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="order_id" readonly>
-                                <div class="text-danger validation-msg" data-field="order_id"></div>
-                            </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-upc-scan"></i> Fab Number <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="fab_number" readonly>
                                 <div class="text-danger validation-msg" data-field="fab_number"></div>
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-cpu"></i> Machine Model <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="machine_model" maxlength="150" readonly>
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-upc"></i> Serial Number <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="serial_number" id="ibServiceLogSerialNumber" readonly>
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-shield-check"></i> Warranty / Chargeable <span class="text-danger">*</span></label>
                                 <select class="form-control" name="warranty_chargeable" id="ibServiceLogWarrantySelect" data-placeholder="Search service type">
                                     <option value=""></option>
@@ -70,7 +65,7 @@
                                 </select>
                                 <div class="text-danger validation-msg" data-field="warranty_chargeable"></div>
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-calendar-x"></i> Log Date <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control" name="complaint_date">
                                 <div class="text-danger validation-msg" data-field="complaint_date"></div>

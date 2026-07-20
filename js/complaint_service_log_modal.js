@@ -254,7 +254,7 @@ function fillInstalledBaseServiceLogForm(data) {
     document.getElementById('ibServiceLogComplaintId').value = data.complaint_id || '';
     document.getElementById('ibServiceLogInstalledBaseId').value = data.installed_base_id || '';
     document.getElementById('ibServiceLogInstalledBaseLabel').value = data.installed_base_label || '';
-    ['order_id', 'fab_number', 'machine_model', 'serial_number'].forEach(function (field) {
+    ['fab_number', 'machine_model', 'serial_number'].forEach(function (field) {
         const input = form.querySelector('[name="' + field + '"]');
         if (input) {
             input.value = data[field] || '';

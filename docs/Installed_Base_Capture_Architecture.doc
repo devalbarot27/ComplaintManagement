@@ -1,0 +1,48 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0 Arial;}}
+\f0\fs24
+
+\b Installed Base Capture - Architecture\b0\par
+Complaint Management System\par
+\par
+
+\b 1. Purpose\b0\par
+Installed Base Capture stores machine installation details at customer sites. It links Fab Number, customer, address, machine, and commissioning data. Service Log and Spare Parts records are linked to Installed Base.\par
+\par
+
+\b 2. Main Files\b0\par
+\bullet  installed_base.php - list, add/edit form, grid actions\par
+\bullet  installed_base_details.php - view one record\par
+\bullet  delete_installed_base.php - delete record\par
+\bullet  includes/installed_base_helpers.php - validation and save logic\par
+\bullet  api/installed_base_datatable.php - grid data\par
+\bullet  api/installed_base_get.php - edit data\par
+\bullet  api/installed_base_fab_prefill.php - customer prefill by Fab Number\par
+\par
+
+\b 3. Shared Components\b0\par
+\bullet  complaint_address_helpers.php - address fields\par
+\bullet  ln_invoice_helpers.php - Fab Number and invoice date\par
+\bullet  fabno_select2.js / pincode_select2.js - search and auto-fill\par
+\bullet  rbac_access_helpers.php - permissions\par
+\bullet  after_market_access_helpers.php - user record access\par
+\par
+
+\b 4. Basic Flow\b0\par
+\bullet  User opens Installed Base Capture page\par
+\bullet  Grid loads records from installed_base table\par
+\bullet  User adds or edits a record from the form\par
+\bullet  Fab Number is validated from ln_invoice_details\par
+\bullet  Record is saved to installed_base\par
+\bullet  From grid, user can add Service Log or Spare Parts for a record\par
+\bullet  From Assign Complaint, user can open form with Fab Number and return after save\par
+\par
+
+\b 5. Database\b0\par
+Main table: installed_base\par
+Related tables: ln_invoice_details, complaints, service_logs, spare_parts_consumption\par
+\par
+
+\b 6. Permissions\b0\par
+RBAC module: installed-base-capture (view, add, edit, delete)\par
+}

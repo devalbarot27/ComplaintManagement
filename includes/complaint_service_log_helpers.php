@@ -689,7 +689,6 @@ function complaint_service_log_summary_payload(PDO $conn, int $complaintId, stri
 
     $installedBaseId = (int) $installedBase['id'];
     $installedBaseLabel = '#' . $installedBaseId
-        . ' - ' . ($installedBase['order_id'] ?? '')
         . ' - ' . ($installedBase['fab_number'] ?? '')
         . ' - ' . ($installedBase['customer_name'] ?? '');
 
@@ -771,7 +770,6 @@ function complaint_service_log_prefill_payload(PDO $conn, int $complaintId, stri
 
     $installedBaseId = (int) $installedBase['id'];
     $label = '#' . $installedBaseId
-        . ' - ' . ($installedBase['order_id'] ?? '')
         . ' - ' . ($installedBase['fab_number'] ?? '')
         . ' - ' . ($installedBase['customer_name'] ?? '');
 
@@ -783,7 +781,7 @@ function complaint_service_log_prefill_payload(PDO $conn, int $complaintId, stri
         'current_cycle' => $context['cycle'],
         'installed_base_id' => $installedBaseId,
         'installed_base_label' => $label,
-        'order_id' => $installedBase['order_id'] ?? '',
+        'order_id' => '',
         'fab_number' => $installedBase['fab_number'] ?? '',
         'machine_model' => service_log_machine_model_from_installed_base($installedBase),
         'serial_number' => service_log_peek_next_serial_number_safe($conn),
