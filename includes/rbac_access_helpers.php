@@ -51,6 +51,7 @@ function rbac_page_access_rules(): array
         'order_acknowledgement.php' => ['module' => 'order-acknowledgement', 'permission' => 'list'],
         'pending_order.php' => ['module' => 'pending-order', 'permission' => 'list'],
         'recent_orders.php' => ['module' => 'recent-orders', 'permission' => 'list'],
+        'recent_order_details.php' => ['module' => 'recent-orders', 'permission' => 'view'],
         'despatch_details.php' => ['module' => 'despatch-details', 'permission' => 'list'],
         'lr_details.php' => ['module' => 'lr-details', 'permission' => 'list'],
         'installed_base.php' => ['module' => 'installed-base-capture', 'permission' => 'view'],

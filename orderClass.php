@@ -3396,9 +3396,10 @@ class orderClass
                     'date'             => !empty($row['indent_date'])
                         ? date('d-m-Y', strtotime($row['indent_date']))
                         : '-',
-                    'lines'            => '<button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
-                        . htmlspecialchars($refno, ENT_QUOTES, 'UTF-8')
-                        . '\')"><i class="fa fa-eye"></i></button>',
+                    'lines'            => '<a href="recent_order_details.php?refno='
+                        . urlencode($refno)
+                        . '" class="btn btn-sm btn-outline-dark" title="View">'
+                        . '<i class="fa fa-eye"></i></a>',
                 ];
            }
             return json_encode([
@@ -3926,6 +3927,272 @@ class orderClass
         } catch (Exception $e) {
         }
     }
+    /**
+     * Fetch Recent Order header, line items, and totals by refno.
+     *
+     * @return array{
+     *   success: bool,
+     *   error?: string,
+     *   header?: array<string, mixed>,
+     *   lines?: array<int, array<string, mixed>>,
+     *   totals?: array<string, float>
+     * }
+     */
+    public function getRecentOrderDetails(?string $refno = null): array
+    {
+        $refno = trim((string) ($refno ?? ''));
+        if ($refno === '') {
+            return [
+                'success' => false,
+                'error' => 'Order reference is required.',
+            ];
+        }
+
+        try {
+            admin_refresh_session_role($this->obconn);
+            $seeAll = is_system_admin() || is_management_user();
+            $userWhere = $seeAll ? '1=1' : 'a.cuno = :cuno';
+
+            $headerSql = "
+                SELECT
+                    a.refno,
+                    a.cuno,
+                    a.cuname,
+                    a.order_number,
+                    a.pono,
+                    a.indent_date,
+                    a.order_date,
+                    a.currency,
+                    a.invaddr,
+                    a.deladdr,
+                    a.email,
+                    a.pincode,
+                    a.district,
+                    a.state,
+                    a.country,
+                    a.frtamount,
+                    a.remarks,
+                    d.order_category,
+                    c.delivery_term,
+                    e.pay_desc,
+                    f.trans_name AS transporter
+                FROM plexecom_customer_units AS a
+                LEFT JOIN tbl_vayu_delivery_term AS c
+                    ON a.delterms_code = c.delivery_code::varchar
+                LEFT JOIN tbl_vayu_order_category AS d
+                    ON a.indent_category::varchar = d.id::varchar
+                LEFT JOIN spp_payterm_master AS e
+                    ON a.paycode = e.pay_code::varchar
+                LEFT JOIN transporter_master AS f
+                    ON a.transporter = f.trans_code
+                WHERE a.refno = :refno
+                  AND {$userWhere}
+                ORDER BY a.oid ASC
+                LIMIT 1
+            ";
+
+            $headerStmt = $this->obconn->prepare($headerSql);
+            $headerStmt->bindValue(':refno', $refno);
+            if (!$seeAll) {
+                $headerStmt->bindValue(':cuno', $this->customer_code);
+            }
+            $headerStmt->execute();
+            $headerRow = $headerStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$headerRow) {
+                return [
+                    'success' => false,
+                    'error' => 'Recent order not found or you do not have access to view it.',
+                ];
+            }
+
+            $linesSql = "
+                SELECT
+                    a.oid,
+                    a.posno,
+                    a.tplcode,
+                    a.tpldesc,
+                    a.uom,
+                    a.qty,
+                    a.price,
+                    a.salestax_code,
+                    a.salestpc_value,
+                    a.servicetpc_value,
+                    a.hsn,
+                    a.frtamount
+                FROM plexecom_customer_units AS a
+                WHERE a.refno = :refno
+                  AND {$userWhere}
+                ORDER BY
+                    CASE WHEN a.posno ~ '^[0-9]+$' THEN a.posno::integer ELSE 999999 END ASC,
+                    a.oid ASC
+            ";
+
+            $linesStmt = $this->obconn->prepare($linesSql);
+            $linesStmt->bindValue(':refno', $refno);
+            if (!$seeAll) {
+                $linesStmt->bindValue(':cuno', $this->customer_code);
+            }
+            $linesStmt->execute();
+
+            $lines = [];
+            $subtotal = 0.0;
+            $taxTotal = 0.0;
+            $freightTotal = 0.0;
+
+            while ($row = $linesStmt->fetch(PDO::FETCH_ASSOC)) {
+                $qty = (float) ($row['qty'] ?? 0);
+                $price = (float) ($row['price'] ?? 0);
+                $lineBase = round($qty * $price, 2);
+                $salesTax = (float) ($row['salestpc_value'] ?? 0);
+                $serviceTax = (float) ($row['servicetpc_value'] ?? 0);
+                $lineTax = round($salesTax + $serviceTax, 2);
+                $lineFreight = (float) ($row['frtamount'] ?? 0);
+
+                $subtotal += $lineBase;
+                $taxTotal += $lineTax;
+                $freightTotal += $lineFreight;
+
+                $lines[] = [
+                    'posno' => trim((string) ($row['posno'] ?? '')) !== ''
+                        ? trim((string) $row['posno'])
+                        : (string) (count($lines) + 1),
+                    'item_code' => trim((string) ($row['tplcode'] ?? '')),
+                    'item_desc' => trim((string) ($row['tpldesc'] ?? '')),
+                    'uom' => trim((string) ($row['uom'] ?? '')) !== ''
+                        ? trim((string) $row['uom'])
+                        : '-',
+                    'qty' => $qty,
+                    'price' => $price,
+                    'line_total' => $lineBase,
+                    'tax_code' => trim((string) ($row['salestax_code'] ?? '')),
+                    'tax_amount' => $lineTax,
+                    'hsn' => trim((string) ($row['hsn'] ?? '')),
+                ];
+            }
+
+            if ($freightTotal <= 0) {
+                $freightTotal = (float) ($headerRow['frtamount'] ?? 0);
+            }
+
+            $orderNumber = trim((string) ($headerRow['order_number'] ?? ''));
+            $cuno = trim((string) ($headerRow['cuno'] ?? $this->customer_code));
+            $orderDateRaw = $headerRow['order_date'] ?? $headerRow['indent_date'] ?? null;
+            $orderDate = !empty($orderDateRaw) ? date('d-m-Y', strtotime((string) $orderDateRaw)) : '-';
+
+            $header = [
+                'refno' => trim((string) ($headerRow['refno'] ?? $refno)),
+                'order_number' => $orderNumber !== '' ? $orderNumber : '-',
+                'cuno' => $cuno,
+                'cuname' => trim((string) ($headerRow['cuname'] ?? '')),
+                'po_number' => trim((string) ($headerRow['pono'] ?? '')) !== ''
+                    ? trim((string) $headerRow['pono'])
+                    : '-',
+                'order_date' => $orderDate,
+                'currency' => trim((string) ($headerRow['currency'] ?? '')) !== ''
+                    ? trim((string) $headerRow['currency'])
+                    : 'INR',
+                'category' => trim((string) ($headerRow['order_category'] ?? '')) !== ''
+                    ? trim((string) $headerRow['order_category'])
+                    : '-',
+                'delivery_term' => trim((string) ($headerRow['delivery_term'] ?? '')) !== ''
+                    ? trim((string) $headerRow['delivery_term'])
+                    : '-',
+                'payment_term' => trim((string) ($headerRow['pay_desc'] ?? '')) !== ''
+                    ? trim((string) $headerRow['pay_desc'])
+                    : '100% Advance',
+                'transporter' => trim((string) ($headerRow['transporter'] ?? '')) !== ''
+                    ? trim((string) $headerRow['transporter'])
+                    : '-',
+                'email' => trim((string) ($headerRow['email'] ?? '')),
+                'invoice_address' => $this->formatRecentOrderAddressText($headerRow['invaddr'] ?? ''),
+                'delivery_address' => $this->formatRecentOrderAddressText($headerRow['deladdr'] ?? ''),
+                'order_status' => $this->resolveRecentOrderStatusLabel($orderNumber, $cuno),
+                'remarks' => trim((string) ($headerRow['remarks'] ?? '')),
+            ];
+
+            return [
+                'success' => true,
+                'header' => $header,
+                'lines' => $lines,
+                'totals' => [
+                    'subtotal' => round($subtotal, 2),
+                    'tax' => round($taxTotal, 2),
+                    'freight' => round($freightTotal, 2),
+                    'grand_total' => round($subtotal + $taxTotal + $freightTotal, 2),
+                ],
+            ];
+        } catch (Exception $e) {
+            error_log('getRecentOrderDetails: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => 'Unable to load recent order details.',
+            ];
+        }
+    }
+
+    private function formatRecentOrderAddressText($value): string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return '-';
+        }
+
+        $lines = [];
+        foreach (preg_split('/\R+/', $value) as $line) {
+            $line = trim($line);
+            if ($line !== '' && !in_array($line, $lines, true)) {
+                $lines[] = $line;
+            }
+        }
+
+        return $lines === [] ? '-' : implode("\n", $lines);
+    }
+
+    private function resolveRecentOrderStatusLabel(string $orderNumber, string $cuno): string
+    {
+        $orderNumber = trim($orderNumber);
+        $cuno = trim($cuno);
+
+        if ($orderNumber === '' || $cuno === '') {
+            return 'Pending';
+        }
+
+        $despatchStmt = $this->dpconn->prepare("
+            SELECT 1
+            FROM despatch
+            WHERE cuno = :cuno
+              AND TRIM(ordno) = :ordno
+              AND cmp != 600
+            LIMIT 1
+        ");
+        $despatchStmt->bindValue(':cuno', $cuno);
+        $despatchStmt->bindValue(':ordno', $orderNumber);
+        $despatchStmt->execute();
+
+        if ($despatchStmt->fetchColumn()) {
+            return 'Despatched';
+        }
+
+        $ackStmt = $this->obconn->prepare("
+            SELECT 1
+            FROM plexecom_customer_units
+            WHERE cuno = :cuno
+              AND TRIM(order_number) = :ordno
+              AND company != 600
+            LIMIT 1
+        ");
+        $ackStmt->bindValue(':cuno', $cuno);
+        $ackStmt->bindValue(':ordno', $orderNumber);
+        $ackStmt->execute();
+
+        if ($ackStmt->fetchColumn()) {
+            return 'AO';
+        }
+
+        return 'Pending';
+    }
+
     public function getRecentOrderLine()
     {
         $orderNo = $_POST['orderNo'];

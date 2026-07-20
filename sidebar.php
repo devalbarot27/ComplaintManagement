@@ -33,7 +33,7 @@
         $pageName = "Spare Parts Consumption";
     } else if ($currentPage == "spare_parts_consumption_details.php") {
         $pageName = "Spare Parts Consumption Details";
-    } else if ($currentPage == "recent_orders.php") {
+    } else if ($currentPage == "recent_orders.php" || $currentPage == "recent_order_details.php") {
         $pageName = "Recent Orders";
     } else if ($currentPage == "despatch_details.php") {
         $pageName = "Despatch Details";
@@ -183,7 +183,7 @@
 
                   <?php if ($canRecentOrders) { ?>
                       <a href="recent_orders.php"
-                          class="menu-item <?= ($currentPage == 'recent_orders.php') ? 'active' : '' ?>">
+                          class="menu-item <?= ($currentPage == 'recent_orders.php' || $currentPage == 'recent_order_details.php') ? 'active' : '' ?>">
                           <i class="bi bi-arrow-down-left-square"></i>
                           Recent Orders
                       </a>
