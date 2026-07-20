@@ -3396,7 +3396,9 @@ class orderClass
                     'date'             => !empty($row['indent_date'])
                         ? date('d-m-Y', strtotime($row['indent_date']))
                         : '-',
-                    'lines'            => '<a href="recent_order_details.php?refno='
+                'lines'            => '<button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
+                        . htmlspecialchars($refno, ENT_QUOTES, 'UTF-8')
+                        . '\')"><i class="fa fa-eye"></i></button> <a href="recent_order_details.php?refno='
                         . urlencode($refno)
                         . '" class="btn btn-sm btn-outline-dark" title="View">'
                         . '<i class="fa fa-eye"></i></a>',
@@ -4023,9 +4025,7 @@ class orderClass
                 FROM plexecom_customer_units AS a
                 WHERE a.refno = :refno
                   AND {$userWhere}
-                ORDER BY
-                    CASE WHEN a.posno ~ '^[0-9]+$' THEN a.posno::integer ELSE 999999 END ASC,
-                    a.oid ASC
+                ORDER BY a.posno ASC NULLS LAST, a.oid ASC
             ";
 
             $linesStmt = $this->obconn->prepare($linesSql);
@@ -4138,10 +4138,18 @@ class orderClass
             return '-';
         }
 
+        // Convert stored HTML line breaks to plain text lines.
+        $value = preg_replace('/<br\s*\/?>/i', "\n", $value);
+        $value = html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
         $lines = [];
         foreach (preg_split('/\R+/', $value) as $line) {
             $line = trim($line);
-            if ($line !== '' && !in_array($line, $lines, true)) {
+            $line = trim($line, "- \t");
+            if ($line === '' || $line === '-') {
+                continue;
+            }
+            if (!in_array($line, $lines, true)) {
                 $lines[] = $line;
             }
         }

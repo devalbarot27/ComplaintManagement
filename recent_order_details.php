@@ -23,12 +23,6 @@ $h = static function ($value): string {
 
 $header = $details['header'] ?? [];
 $lines = $details['lines'] ?? [];
-$totals = $details['totals'] ?? [
-    'subtotal' => 0,
-    'tax' => 0,
-    'freight' => 0,
-    'grand_total' => 0,
-];
 
 $customerLabel = trim((string) ($header['cuname'] ?? ''));
 $cuno = trim((string) ($header['cuno'] ?? ''));
@@ -225,17 +219,14 @@ if ($customerLabel !== '' && $cuno !== '') {
                                                 <th>Position No</th>
                                                 <th>Item Code</th>
                                                 <th>Item Description</th>
-                                                <th>UOM</th>
                                                 <th>Qty</th>
                                                 <th>Price / Unit</th>
-                                                <th>Line Total</th>
-                                                <th>Tax</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php if ($lines === []) { ?>
                                                 <tr>
-                                                    <td colspan="8" class="text-center text-muted py-4">No line items found.</td>
+                                                    <td colspan="5" class="text-center text-muted py-4">No line items found.</td>
                                                 </tr>
                                             <?php } else { ?>
                                                 <?php foreach ($lines as $line) { ?>
@@ -243,37 +234,13 @@ if ($customerLabel !== '' && $cuno !== '') {
                                                         <td class="text-center"><span class="oad-pos"><?php echo $h($line['posno']); ?></span></td>
                                                         <td><?php echo $h($line['item_code'] !== '' ? $line['item_code'] : '-'); ?></td>
                                                         <td><span class="oad-item-desc"><?php echo $h($line['item_desc'] !== '' ? $line['item_desc'] : '-'); ?></span></td>
-                                                        <td class="text-center"><span class="oad-uom"><?php echo $h($line['uom']); ?></span></td>
                                                         <td class="text-end"><?php echo number_format((float) $line['qty'], 2); ?></td>
                                                         <td class="text-end"><?php echo number_format((float) $line['price'], 2); ?></td>
-                                                        <td class="text-end"><?php echo number_format((float) $line['line_total'], 2); ?></td>
-                                                        <td class="text-end"><?php echo number_format((float) $line['tax_amount'], 2); ?></td>
                                                     </tr>
                                                 <?php } ?>
                                             <?php } ?>
                                         </tbody>
                                     </table>
-                                </div>
-                            </div>
-
-                            <div class="oad-totals">
-                                <div class="oad-totals__box">
-                                    <div class="oad-totals__row">
-                                        <span>Subtotal</span>
-                                        <strong><?php echo number_format((float) $totals['subtotal'], 2); ?></strong>
-                                    </div>
-                                    <div class="oad-totals__row">
-                                        <span>Tax</span>
-                                        <strong><?php echo number_format((float) $totals['tax'], 2); ?></strong>
-                                    </div>
-                                    <div class="oad-totals__row">
-                                        <span>Freight</span>
-                                        <strong><?php echo number_format((float) $totals['freight'], 2); ?></strong>
-                                    </div>
-                                    <div class="oad-totals__row oad-totals__row--grand">
-                                        <span>Grand Total</span>
-                                        <span><?php echo number_format((float) $totals['grand_total'], 2); ?></span>
-                                    </div>
                                 </div>
                             </div>
                         </section>
