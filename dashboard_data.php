@@ -779,8 +779,8 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
     new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: <?php echo json_encode($monthlyChartData['labels']); ?>,
-            datasets: <?php echo json_encode($monthlyChartDatasets); ?>
+            labels: <?php echo json_encode($monthlyChartData['labels'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+            datasets: <?php echo json_encode($monthlyChartDatasets, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
         },
         options: {
             responsive: true,
@@ -821,9 +821,9 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
                 },
                 y: {
                     beginAtZero: true,
-                    max: <?php echo (int) $monthlyChartMax; ?>,
+                    max: <?php echo htmlspecialchars((string) (int) $monthlyChartMax, ENT_QUOTES, 'UTF-8'); ?>,
                     ticks: {
-                        stepSize: <?php echo max(1, (int) ($monthlyChartMax / 4)); ?>,
+                        stepSize: <?php echo htmlspecialchars((string) max(1, (int) ($monthlyChartMax / 4)), ENT_QUOTES, 'UTF-8'); ?>,
                         color: '#64748b',
                         font: {
                             size: 12,
@@ -848,8 +848,8 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
         type: 'doughnut',
         data: {
             datasets: [{
-                data: <?php echo json_encode($statusChartData); ?>,
-                backgroundColor: <?php echo json_encode($statusChartColors); ?>,
+                data: <?php echo json_encode($statusChartData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+                backgroundColor: <?php echo json_encode($statusChartColors, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
                 borderWidth: 0
             }]
         },

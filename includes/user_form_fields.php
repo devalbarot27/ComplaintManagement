@@ -97,7 +97,7 @@ $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole)
             <input type="password" class="form-control" name="password" id="userPasswordInput"
                 placeholder="Enter password" autocomplete="new-password">
             <button class="btn btn-outline-secondary" type="button"
-                data-toggle-password="userPasswordInput" tabindex="-1">
+                data-toggle-field="userPasswordInput" tabindex="-1">
                 <i class="bi bi-eye-slash"></i>
             </button>
         </div>

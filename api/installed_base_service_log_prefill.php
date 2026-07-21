@@ -31,7 +31,7 @@ $label = '#' . $installedBaseId
     . ' - ' . ($row['fab_number'] ?? '')
     . ' - ' . ($row['customer_name'] ?? '');
 
-echo json_encode([
+$payload = [
     'installed_base_id' => $installedBaseId,
     'installed_base_label' => $label,
     'order_id' => '',
@@ -41,4 +41,10 @@ echo json_encode([
     'machine_model_desc' => trim((string) ($row['machine_model'] ?? '')),
     'running_hours' => $row['running_hours'] ?? '',
     'serial_number' => service_log_peek_next_serial_number_safe($obconn),
-]);
+];
+array_walk_recursive($payload, function (&$val) {
+    if (is_string($val)) {
+        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
+    }
+});
+echo json_encode($payload);

@@ -41,13 +41,15 @@ $result = service_log_save_draft_record(
 
 if (!$result['success']) {
     http_response_code(422);
-    echo json_encode(['error' => $result['message']]);
+    echo json_encode([
+        'error' => htmlspecialchars((string) ($result['message'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
 echo json_encode([
     'success' => true,
-    'message' => $result['message'],
+    'message' => htmlspecialchars((string) ($result['message'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'service_log_id' => (int) ($result['service_log_id'] ?? 0),
     'installed_base_id' => (int) ($_POST['installed_base_id'] ?? 0),
 ]);

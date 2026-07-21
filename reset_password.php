@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
                 <?php } ?>
 
                 <?php if ($tokenValid && empty($success_message)) { ?>
-                <form method="post" action="reset_password.php?token=<?php echo urlencode($token); ?>" id="resetPasswordForm" novalidate>
+                <form method="post" action="reset_password.php?token=<?php echo htmlspecialchars(urlencode($token), ENT_QUOTES, 'UTF-8'); ?>" id="resetPasswordForm" novalidate>
                     <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
                     <input type="hidden" name="reset_password" value="1">
 
@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
                                 placeholder="Enter new password"
                                 autocomplete="new-password"
                             >
-                            <button type="button" class="password-toggle-btn" data-toggle-password="new_password" aria-label="Show password">
+                            <button type="button" class="password-toggle-btn" data-toggle-field="new_password" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
@@ -146,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
                                 placeholder="Confirm new password"
                                 autocomplete="new-password"
                             >
-                            <button type="button" class="password-toggle-btn" data-toggle-password="confirm_password" aria-label="Show password">
+                            <button type="button" class="password-toggle-btn" data-toggle-field="confirm_password" aria-label="Show password">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>

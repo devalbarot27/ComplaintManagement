@@ -9,7 +9,9 @@ header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Method not allowed.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
@@ -19,13 +21,17 @@ complaint_service_log_require_assigned_access($obconn, $complaintId);
 $createdBy = current_user_id($obconn);
 if ($createdBy === null || $createdBy <= 0) {
     http_response_code(401);
-    echo json_encode(['error' => 'Unable to resolve logged-in user.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Unable to resolve logged-in user.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
 if (empty($_POST['from_complaint_modal'])) {
     http_response_code(422);
-    echo json_encode(['error' => 'Invalid complaint service log draft request.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Invalid complaint service log draft request.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
@@ -38,13 +44,15 @@ $result = complaint_service_log_save_draft_record(
 
 if (!$result['success']) {
     http_response_code(422);
-    echo json_encode(['error' => $result['message']]);
+    echo json_encode([
+        'error' => htmlspecialchars((string) ($result['message'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
 echo json_encode([
     'success' => true,
-    'message' => $result['message'],
+    'message' => htmlspecialchars((string) ($result['message'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'service_log_id' => (int) ($result['service_log_id'] ?? 0),
     'complaint_id' => (int) ($result['complaint_id'] ?? $complaintId),
     'is_draft' => 1,

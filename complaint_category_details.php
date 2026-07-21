@@ -26,7 +26,7 @@ if (!$record) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complaint Category Details #<?php echo (int) $record['id']; ?></title>
+    <title>Complaint Category Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
     <?php include 'header_css.php'; ?>
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -40,7 +40,7 @@ if (!$record) {
         <div class="content">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
-                    <h5 class="mb-1">Complaint Category #<?php echo (int) $record['id']; ?></h5>
+                    <h5 class="mb-1">Complaint Category #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></h5>
                 </div>
                 <div>
                     <a href="complaint_categories.php" class="btn btn-light border">Back to List</a>
@@ -54,10 +54,10 @@ if (!$record) {
                 <div class="p-3">
                     <div class="row g-3">
                         <div class="col-md-6"><strong>Name:</strong><br><?php echo htmlspecialchars($record['name']); ?></div>
-                        <div class="col-md-6"><strong>Status:</strong><br><?php echo rbac_status_badge($record['status']); ?></div>
+                        <div class="col-md-6"><strong>Status:</strong><br><?php echo rbac_status_badge(htmlspecialchars((string) ($record['status'] ?? ''), ENT_QUOTES, 'UTF-8')); ?></div>
                         <div class="col-md-6"><strong>Created By (User ID):</strong><br><?php echo htmlspecialchars(complaint_category_created_by_label($record)); ?></div>
-                        <div class="col-md-6"><strong>Created At:</strong><br><?php echo rbac_format_datetime($record['created_at']); ?></div>
-                        <div class="col-md-6"><strong>Updated At:</strong><br><?php echo rbac_format_datetime($record['updated_at']); ?></div>
+                        <div class="col-md-6"><strong>Created At:</strong><br><?php echo htmlspecialchars(rbac_format_datetime($record['created_at']), ENT_QUOTES, 'UTF-8'); ?></div>
+                        <div class="col-md-6"><strong>Updated At:</strong><br><?php echo htmlspecialchars(rbac_format_datetime($record['updated_at']), ENT_QUOTES, 'UTF-8'); ?></div>
                     </div>
                 </div>
             </div>

@@ -20,7 +20,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($result['success']) {
         if (!empty($result['redirect'])) {
-            header('Location: ' . $result['redirect']);
+            $fRedirect = (string) $result['redirect'];
+            if (
+                preg_match('#^https?://#i', $fRedirect)
+                || str_starts_with($fRedirect, '//')
+                || str_contains($fRedirect, '\\')
+                || !preg_match('#^[a-zA-Z0-9_\-./?=&%]+$#', $fRedirect)
+            ) {
+                $fRedirect = 'index.php';
+            }
+            header('Location: ' . $fRedirect);
             exit;
         }
         $success_message = $result['message'];

@@ -12,16 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $redirect = trim((string) ($_POST['redirect_to'] ?? ''));
 if (
     $redirect === ''
-    || str_contains($redirect, '://')
+    || preg_match('#^https?://#i', $redirect)
     || str_starts_with($redirect, '//')
+    || str_contains($redirect, '\\')
     || str_contains($redirect, 'change_password.php')
-) {
-    $redirect = $_SERVER['HTTP_REFERER'] ?? 'index.php';
-}
-if (
-    $redirect === ''
-    || str_contains($redirect, '://')
-    || str_starts_with($redirect, '//')
+    || !preg_match('#^[a-zA-Z0-9_\-./?=&%]+$#', $redirect)
 ) {
     $redirect = 'index.php';
 }

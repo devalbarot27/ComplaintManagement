@@ -37,7 +37,7 @@ $encodedId = base64_encode((string) $record['id']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Details #<?php echo (int) $record['id']; ?></title>
+    <title>User Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
     <?php include 'header_css.php'; ?>
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link href="css/complaint_form.css" rel="stylesheet" />

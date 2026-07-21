@@ -85,7 +85,7 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Installed Base Details #<?php echo (int) $installedBaseRecord['id']; ?></title>
+    <title>Installed Base Details #<?php echo htmlspecialchars((string) (int) $installedBaseRecord['id'], ENT_QUOTES, 'UTF-8'); ?></title>
 
     <?php include 'header_css.php'; ?>
 
@@ -112,25 +112,25 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
 
             <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
                 <div>
-                    <h5 class="mb-2">Installed Base #<?php echo (int) $installedBaseRecord['id']; ?></h5>
+                    <h5 class="mb-2">Installed Base #<?php echo htmlspecialchars((string) (int) $installedBaseRecord['id'], ENT_QUOTES, 'UTF-8'); ?></h5>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         
                         <?php if ($serviceLogCount > 0) { ?>
                         <span class="badge border border-secondary text-secondary">
                             <?php echo (int) $serviceLogCount; ?>
-                            service log<?php echo $serviceLogCount === 1 ? '' : 's'; ?>
+                            service log<?php echo htmlspecialchars($serviceLogCount === 1 ? '' : 's', ENT_QUOTES, 'UTF-8'); ?>
                         </span>
                         <?php } ?>
                         <?php if ($serviceLogDraftCount > 0) { ?>
                         <span class="badge service-log-draft-badge">
                             <?php echo (int) $serviceLogDraftCount; ?>
-                            draft<?php echo $serviceLogDraftCount === 1 ? '' : 's'; ?>
+                            draft<?php echo htmlspecialchars($serviceLogDraftCount === 1 ? '' : 's', ENT_QUOTES, 'UTF-8'); ?>
                         </span>
                         <?php } ?>
                         <?php if ($sparePartsCount > 0) { ?>
                         <span class="badge border border-secondary text-secondary">
                             <?php echo (int) $sparePartsCount; ?>
-                            spare parts record<?php echo $sparePartsCount === 1 ? '' : 's'; ?>
+                            spare parts record<?php echo htmlspecialchars($sparePartsCount === 1 ? '' : 's', ENT_QUOTES, 'UTF-8'); ?>
                         </span>
                         <?php } ?>
                     </div>
@@ -155,13 +155,13 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                     <?php if ($serviceLogDraftCount > 0) { ?>
                     <span class="badge service-log-draft-badge">
                         <?php echo (int) $serviceLogDraftCount; ?>
-                        draft<?php echo $serviceLogDraftCount === 1 ? '' : 's'; ?>
+                        draft<?php echo htmlspecialchars($serviceLogDraftCount === 1 ? '' : 's', ENT_QUOTES, 'UTF-8'); ?>
                     </span>
                     <?php } ?>
                     <?php if ($serviceLogCount > 0) { ?>
                     <span class="badge border border-secondary text-secondary">
                         <?php echo (int) $serviceLogCount; ?>
-                        record<?php echo $serviceLogCount === 1 ? '' : 's'; ?>
+                        record<?php echo htmlspecialchars($serviceLogCount === 1 ? '' : 's', ENT_QUOTES, 'UTF-8'); ?>
                     </span>
                  
                     <?php } ?>
@@ -202,7 +202,7 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                     <?php if ($sparePartsCount > 0) { ?>
                     <span class="badge border border-secondary text-secondary">
                         <?php echo (int) $sparePartsCount; ?>
-                        record<?php echo $sparePartsCount === 1 ? '' : 's'; ?>
+                        record<?php echo htmlspecialchars($sparePartsCount === 1 ? '' : 's', ENT_QUOTES, 'UTF-8'); ?>
                     </span>
                     <?php } ?>
                 </div>

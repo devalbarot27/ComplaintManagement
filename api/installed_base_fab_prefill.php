@@ -28,7 +28,7 @@ if (!$row) {
     exit;
 }
 
-echo json_encode([
+$payload = [
     'found' => true,
     'customer_name' => (string) ($row['customer_name'] ?? ''),
     'street_1' => (string) ($row['street_1'] ?? ''),
@@ -40,4 +40,10 @@ echo json_encode([
     'mobile' => (string) ($row['mobile'] ?? ''),
     'email' => (string) ($row['email'] ?? ''),
     'remarks' => (string) ($row['remarks'] ?? ''),
-], JSON_UNESCAPED_UNICODE);
+];
+array_walk_recursive($payload, function (&$val) {
+    if (is_string($val)) {
+        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
+    }
+});
+echo json_encode($payload, JSON_UNESCAPED_UNICODE);

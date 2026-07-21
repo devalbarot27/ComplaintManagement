@@ -126,14 +126,18 @@ function service_log_find_max_serial_number(PDO $conn): int
 {
     $start = service_log_serial_number_start();
     $max = service_log_serial_number_max();
-    $stmt = $conn->query('
-        SELECT COALESCE(MAX(serial_number::bigint), ' . ($start - 1) . ')
+    $stmt = $conn->prepare('
+        SELECT COALESCE(MAX(serial_number::bigint), :default_val)
         FROM service_logs
         WHERE deleted_at IS NULL
           AND serial_number ~ \'^[0-9]+$\'
-          AND serial_number::bigint >= ' . $start . '
-          AND serial_number::bigint <= ' . $max . '
+          AND serial_number::bigint >= :start_val
+          AND serial_number::bigint <= :max_val
     ');
+    $stmt->bindValue(':default_val', $start - 1, PDO::PARAM_INT);
+    $stmt->bindValue(':start_val', $start, PDO::PARAM_INT);
+    $stmt->bindValue(':max_val', $max, PDO::PARAM_INT);
+    $stmt->execute();
 
     return (int) $stmt->fetchColumn();
 }

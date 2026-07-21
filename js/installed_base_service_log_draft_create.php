@@ -12,20 +12,26 @@ header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Method not allowed.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
 $createdBy = current_user_id($obconn);
 if ($createdBy === null || $createdBy <= 0) {
     http_response_code(401);
-    echo json_encode(['error' => 'Unable to resolve logged-in user.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Unable to resolve logged-in user.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
 if (empty($_POST['from_installed_base_modal'])) {
     http_response_code(422);
-    echo json_encode(['error' => 'Invalid service log draft request.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Invalid service log draft request.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
@@ -41,13 +47,15 @@ $result = service_log_save_draft_record(
 
 if (!$result['success']) {
     http_response_code(422);
-    echo json_encode(['error' => $result['message']]);
+    echo json_encode([
+        'error' => htmlspecialchars((string) ($result['message'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
 echo json_encode([
     'success' => true,
-    'message' => $result['message'],
+    'message' => htmlspecialchars((string) ($result['message'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'service_log_id' => (int) ($result['service_log_id'] ?? 0),
     'installed_base_id' => (int) ($_POST['installed_base_id'] ?? 0),
 ]);

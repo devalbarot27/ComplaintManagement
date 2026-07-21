@@ -87,7 +87,7 @@ $serialNumber = $serviceLogId > 0
     ? trim((string) ($serviceLog['serial_number'] ?? ''))
     : trim((string) ($installedBase['fab_number'] ?? ''));
 
-echo json_encode([
+$payload = [
     'service_log_id' => $serviceLogId > 0 ? $serviceLogId : '',
     'service_log_label' => $serviceLogLabel,
     'installed_base_id' => $installedBaseId,
@@ -107,4 +107,10 @@ echo json_encode([
     'closure_date' => service_log_format_input_date($serviceLog['closure_date'] ?? null),
     'running_hours' => $installedBase['running_hours'] ?? '',
     'service_remarks' => $serviceLog['remarks'] ?? '',
-]);
+];
+array_walk_recursive($payload, function (&$val) {
+    if (is_string($val)) {
+        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
+    }
+});
+echo json_encode($payload);

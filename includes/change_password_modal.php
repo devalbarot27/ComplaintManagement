@@ -66,7 +66,7 @@ if ($openChangePasswordModal) {
                                 </label>
                                 <div class="change-password-field">
                                     <input type="password" class="form-control" id="current_password" name="current_password" autocomplete="current-password">
-                                    <button type="button" class="change-password-toggle" data-toggle-password="current_password" aria-label="Show password">
+                                    <button type="button" class="change-password-toggle" data-toggle-field="current_password" aria-label="Show password">
                                         <i class="bi bi-eye"></i>
                                     </button>
                                 </div>
@@ -80,7 +80,7 @@ if ($openChangePasswordModal) {
                                 </label>
                                 <div class="change-password-field">
                                     <input type="password" class="form-control" id="change_new_password" name="new_password" autocomplete="new-password">
-                                    <button type="button" class="change-password-toggle" data-toggle-password="change_new_password" aria-label="Show password">
+                                    <button type="button" class="change-password-toggle" data-toggle-field="change_new_password" aria-label="Show password">
                                         <i class="bi bi-eye"></i>
                                     </button>
                                 </div>
@@ -97,7 +97,7 @@ if ($openChangePasswordModal) {
                                 </label>
                                 <div class="change-password-field">
                                     <input type="password" class="form-control" id="change_confirm_password" name="confirm_password" autocomplete="new-password">
-                                    <button type="button" class="change-password-toggle" data-toggle-password="change_confirm_password" aria-label="Show password">
+                                    <button type="button" class="change-password-toggle" data-toggle-field="change_confirm_password" aria-label="Show password">
                                         <i class="bi bi-eye"></i>
                                     </button>
                                 </div>

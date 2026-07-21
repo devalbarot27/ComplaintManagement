@@ -14,13 +14,15 @@ $row = role_get_by_id($obconn, $id);
 
 if ($row === null) {
     http_response_code(404);
-    echo json_encode(['error' => 'Role not found.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Role not found.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
 echo json_encode([
     'id' => (int) $row['id'],
-    'role_name' => $row['role_name'],
-    'description' => $row['description'] ?? '',
+    'role_name' => htmlspecialchars((string) ($row['role_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    'description' => htmlspecialchars((string) ($row['description'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'status' => $row['status'],
 ], JSON_UNESCAPED_UNICODE);

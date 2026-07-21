@@ -65,7 +65,7 @@ $pageTitle = $displayName !== '-' ? $displayName : user_display_value($formRecor
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit User #<?php echo (int) $recordId; ?></title>
+    <title>Edit User #<?php echo htmlspecialchars((string) (int) $recordId, ENT_QUOTES, 'UTF-8'); ?></title>
     <?php include 'header_css.php'; ?>
     <link href="css/new_complaint.css" rel="stylesheet" />
     <link href="css/complaint_buttons.css" rel="stylesheet" />
@@ -113,7 +113,7 @@ $pageTitle = $displayName !== '-' ? $displayName : user_display_value($formRecor
                 </div>
 
                 <form method="POST" id="userForm" novalidate>
-                    <input type="hidden" name="record_id" id="userRecordId" value="<?php echo (int) $recordId; ?>">
+                    <input type="hidden" name="record_id" id="userRecordId" value="<?php echo htmlspecialchars((string) (int) $recordId, ENT_QUOTES, 'UTF-8'); ?>">
                     <input type="hidden" name="submit_user" value="1">
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">

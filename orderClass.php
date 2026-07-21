@@ -3423,15 +3423,15 @@ class orderClass
                 $orderCuno = trim((string) ($row['cuno'] ?? $this->customer_code));
                 $orderStatus = $this->resolveRecentOrderStatus($orderNumber, $orderCuno);
                 $rowData = [
-                    'ref_no'           => $refno,
-                    'order_no'         => $row['order_number'],
-                    'category'         => $row['order_category'] ?? '-',
-                    'order_category'   => $row['order_category'] ?? '-',
-                    'delivery_term'    => $row['delivery_term'] ?? '-',
-                    'po_number'        => $row['pono'] ?? '-',
-                    'payment_term'     => $row['pay_desc'] ?? '100% Advance',
-                    'transporter'      => $row['transporter'] ?? '-',
-                    'order_status'     => $orderStatus,
+                    'ref_no'           => htmlspecialchars($refno, ENT_QUOTES, 'UTF-8'),
+                    'order_no'         => htmlspecialchars((string) ($row['order_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
+                    'category'         => htmlspecialchars((string) ($row['order_category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'order_category'   => htmlspecialchars((string) ($row['order_category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'delivery_term'    => htmlspecialchars((string) ($row['delivery_term'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'po_number'        => htmlspecialchars((string) ($row['pono'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'payment_term'     => htmlspecialchars((string) ($row['pay_desc'] ?? '100% Advance'), ENT_QUOTES, 'UTF-8'),
+                    'transporter'      => htmlspecialchars((string) ($row['transporter'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'order_status'     => htmlspecialchars((string) $orderStatus, ENT_QUOTES, 'UTF-8'),
                     'date'             => !empty($row['indent_date'])
                         ? date('d-m-Y', strtotime($row['indent_date']))
                         : '-',
@@ -3624,23 +3624,23 @@ class orderClass
 
                 $data[] = [
 
-                    'ref_no'           => $refno,
+                    'ref_no'           => htmlspecialchars($refno, ENT_QUOTES, 'UTF-8'),
 
-                    'order_no'         => $row['order_number'],
+                    'order_no'         => htmlspecialchars((string) ($row['order_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
 
-                    'category'         => $row['order_category'] ?? '-',
+                    'category'         => htmlspecialchars((string) ($row['order_category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
 
-                    'order_category'   => $row['order_category'] ?? '-',
+                    'order_category'   => htmlspecialchars((string) ($row['order_category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
 
-                    'delivery_term'    => $row['delivery_term'] ?? '-',
+                    'delivery_term'    => htmlspecialchars((string) ($row['delivery_term'] ?? '-'), ENT_QUOTES, 'UTF-8'),
 
-                    'po_number'        => $row['pono'] ?? '-',
+                    'po_number'        => htmlspecialchars((string) ($row['pono'] ?? '-'), ENT_QUOTES, 'UTF-8'),
 
-                    'payment_term'     => $row['pay_desc'] ?? '-',
+                    'payment_term'     => htmlspecialchars((string) ($row['pay_desc'] ?? '-'), ENT_QUOTES, 'UTF-8'),
 
-                    'transporter'      => $row['transporter'] ?? '-',
+                    'transporter'      => htmlspecialchars((string) ($row['transporter'] ?? '-'), ENT_QUOTES, 'UTF-8'),
 
-                    'order_status'     => $orderStatus,
+                    'order_status'     => htmlspecialchars((string) $orderStatus, ENT_QUOTES, 'UTF-8'),
 
                     'date'             => !empty($row['indent_date'])
 

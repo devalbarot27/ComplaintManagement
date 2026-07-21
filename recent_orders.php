@@ -120,7 +120,7 @@ $refNo = trim((string) ($_GET['order_no'] ?? ''));
 </html>
 <?php include('script_js.php'); ?>
 <script>
-    const canViewRecentOrders = <?php echo $canViewRecentOrders ? 'true' : 'false'; ?>;
+    const canViewRecentOrders = <?php echo htmlspecialchars($canViewRecentOrders ? 'true' : 'false', ENT_QUOTES, 'UTF-8'); ?>;
     const recentOrderRefNo = <?php echo json_encode($refNo, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
 
     $(document).ready(function() {

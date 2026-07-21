@@ -14,14 +14,16 @@ $row = module_get_by_id($obconn, $id);
 
 if ($row === null) {
     http_response_code(404);
-    echo json_encode(['error' => 'Module not found.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Module not found.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
 echo json_encode([
     'id' => (int) $row['id'],
-    'module_name' => $row['module_name'],
-    'module_slug' => $row['module_slug'],
-    'description' => $row['description'] ?? '',
+    'module_name' => htmlspecialchars((string) ($row['module_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    'module_slug' => htmlspecialchars((string) ($row['module_slug'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    'description' => htmlspecialchars((string) ($row['description'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'status' => $row['status'],
 ], JSON_UNESCAPED_UNICODE);

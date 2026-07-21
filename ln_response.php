@@ -58,7 +58,7 @@ try {
     $folder = __DIR__ . "/xml";
 
     if (!is_dir($folder)) {
-        mkdir($folder, 0777, true);
+        mkdir($folder, 0755, true);
     }
 
     file_put_contents($folder . "/" . $xmlNo . ".xml", $xmlString);

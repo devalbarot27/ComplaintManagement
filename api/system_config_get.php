@@ -36,6 +36,6 @@ if ($row === null) {
 
 echo json_encode([
     'id' => (int) $row['id'],
-    'name' => $row['name'],
+    'name' => htmlspecialchars((string) ($row['name'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'status' => $row['status'],
 ]);

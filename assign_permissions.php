@@ -117,7 +117,7 @@ foreach ($permissionMatrix as $module) {
 
             <?php if ($selectedRoleId > 0 && $selectedRole !== null) { ?>
             <form method="POST" id="assignPermissionForm">
-                <input type="hidden" name="role_id" value="<?php echo $selectedRoleId; ?>">
+                <input type="hidden" name="role_id" value="<?php echo htmlspecialchars((string) (int) $selectedRoleId, ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="submit_role_permissions" value="1">
 
                 <div class="booking-card">
@@ -167,7 +167,7 @@ foreach ($permissionMatrix as $module) {
                                         class="permission-checkbox"
                                         name="permission_ids[]"
                                         value="<?php echo (int) $permission['id']; ?>"
-                                        <?php echo !empty($permission['assigned']) ? 'checked' : ''; ?>>
+                                        <?php echo htmlspecialchars(!empty($permission['assigned']) ? 'checked' : '', ENT_QUOTES, 'UTF-8'); ?>>
                                     <span><?php echo htmlspecialchars($permission['permission_name']); ?></span>
                                 </label>
                                 <?php } ?>

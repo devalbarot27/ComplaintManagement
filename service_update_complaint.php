@@ -111,7 +111,7 @@ try {
     $assignment_id = (int) $assignment['id'];
  
     $uploadDir = __DIR__ . '/uploads/service_reports/';
-    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
         $_SESSION['error_message'] = 'Unable to create upload directory.';
         header('Location: dse_lse_complaint_list.php');
         exit;

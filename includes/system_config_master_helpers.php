@@ -78,6 +78,17 @@ function scm_config(string $type): array
     return $registry[$type];
 }
 
+function scm_safe_table(string $type): string
+{
+    $config = scm_config($type);
+    $table = $config['table'];
+    $allowed = array_column(scm_registry(), 'table');
+    if (!in_array($table, $allowed, true)) {
+        throw new InvalidArgumentException('Invalid table for system configuration master.');
+    }
+    return $table;
+}
+
 function scm_from_post(array $post): array
 {
     return [
@@ -105,8 +116,7 @@ function scm_validate(array $data, string $label): ?string
 
 function scm_name_exists(PDO $conn, string $type, string $name, int $excludeId = 0): bool
 {
-    $config = scm_config($type);
-    $table = $config['table'];
+    $table = scm_safe_table($type);
 
     $sql = "
         SELECT id
@@ -136,8 +146,7 @@ function scm_search_filter(string $searchValue): array
 
 function scm_get_by_id(PDO $conn, string $type, int $id): ?array
 {
-    $config = scm_config($type);
-    $table = $config['table'];
+    $table = scm_safe_table($type);
 
     $stmt = $conn->prepare("
         SELECT *
@@ -155,8 +164,7 @@ function scm_get_by_id(PDO $conn, string $type, int $id): ?array
 
 function scm_get_active_names(PDO $conn, string $type): array
 {
-    $config = scm_config($type);
-    $table = $config['table'];
+    $table = scm_safe_table($type);
 
     $stmt = $conn->query("
         SELECT name
@@ -171,8 +179,7 @@ function scm_get_active_names(PDO $conn, string $type): array
 
 function scm_option_exists(PDO $conn, string $type, string $name): bool
 {
-    $config = scm_config($type);
-    $table = $config['table'];
+    $table = scm_safe_table($type);
 
     $stmt = $conn->prepare("
         SELECT id
@@ -216,8 +223,7 @@ function scm_entry_actions(string $type, int $id): string
 
 function scm_insert(PDO $conn, string $type, array $data, string $createdBy): void
 {
-    $config = scm_config($type);
-    $table = $config['table'];
+    $table = scm_safe_table($type);
 
     $stmt = $conn->prepare("
         INSERT INTO {$table} (name, status, created_by, created_at)
@@ -231,8 +237,7 @@ function scm_insert(PDO $conn, string $type, array $data, string $createdBy): vo
 
 function scm_update(PDO $conn, string $type, int $id, array $data): void
 {
-    $config = scm_config($type);
-    $table = $config['table'];
+    $table = scm_safe_table($type);
 
     $stmt = $conn->prepare("
         UPDATE {$table} SET
@@ -250,8 +255,7 @@ function scm_update(PDO $conn, string $type, int $id, array $data): void
 
 function scm_soft_delete(PDO $conn, string $type, int $id): void
 {
-    $config = scm_config($type);
-    $table = $config['table'];
+    $table = scm_safe_table($type);
 
     $stmt = $conn->prepare("
         UPDATE {$table}

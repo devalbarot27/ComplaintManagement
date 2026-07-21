@@ -132,9 +132,9 @@ function initResetPasswordFormValidation() {
             });
     });
 
-    form.querySelectorAll('[data-toggle-password]').forEach(function (button) {
+    form.querySelectorAll('[data-toggle-field]').forEach(function (button) {
         button.addEventListener('click', function () {
-            const targetId = button.getAttribute('data-toggle-password');
+            const targetId = button.getAttribute('data-toggle-field');
             const input = document.getElementById(targetId);
             const icon = button.querySelector('i');
 

@@ -24,9 +24,9 @@ if (!$row) {
 echo json_encode([
     'id' => (int) $row['id'],
     'role' => (int) $row['role'],
-    'username' => $row['username'],
-    'name' => $row['name'],
-    'email' => $row['email'],
-    'mobile_number' => $row['mobile_number'],
+    'username' => htmlspecialchars((string) ($row['username'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    'name' => htmlspecialchars((string) ($row['name'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    'email' => htmlspecialchars((string) ($row['email'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    'mobile_number' => htmlspecialchars((string) ($row['mobile_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'sales_coordinator_id' => isset($row['sales_coordinator_id']) ? (int) $row['sales_coordinator_id'] : 0,
 ]);

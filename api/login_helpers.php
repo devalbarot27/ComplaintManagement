@@ -138,7 +138,7 @@ function login_set_remember_cookie(string $usrName): void
         [
             'expires' => $payload['exp'],
             'path' => '/',
-            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+            'secure' => true,
             'httponly' => true,
             'samesite' => 'Lax',
         ]
@@ -153,7 +153,7 @@ function login_clear_remember_cookie(): void
         [
             'expires' => time() - 3600,
             'path' => '/',
-            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+            'secure' => true,
             'httponly' => true,
             'samesite' => 'Lax',
         ]

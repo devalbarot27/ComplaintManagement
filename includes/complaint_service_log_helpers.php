@@ -26,12 +26,14 @@ function complaint_service_log_ensure_schema(PDO $conn): void
 
     $table = complaint_service_log_mapping_table();
 
-    $stmt = $conn->query("
+    $stmt = $conn->prepare("
         SELECT 1
         FROM information_schema.tables
-        WHERE table_name = '{$table}'
+        WHERE table_name = :table_name
         LIMIT 1
     ");
+    $stmt->bindValue(':table_name', $table);
+    $stmt->execute();
     if (!$stmt->fetchColumn()) {
         $conn->exec('
             CREATE TABLE complaint_service_logs (

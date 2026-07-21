@@ -11,11 +11,14 @@ function login_destroy_session(): void
         setcookie(
             session_name(),
             '',
-            time() - 42000,
-            $params['path'],
-            $params['domain'],
-            $params['secure'],
-            $params['httponly']
+            [
+                'expires' => time() - 42000,
+                'path' => $params['path'],
+                'domain' => $params['domain'],
+                'secure' => true,
+                'httponly' => true,
+                'samesite' => $params['samesite'] ?? 'Lax',
+            ]
         );
     }
 
@@ -166,7 +169,7 @@ function login_set_remember_cookie(string $usrName): void
         [
             'expires' => $payload['exp'],
             'path' => '/',
-            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+            'secure' => true,
             'httponly' => true,
             'samesite' => 'Lax',
         ]
@@ -181,7 +184,7 @@ function login_clear_remember_cookie(): void
         [
             'expires' => time() - 3600,
             'path' => '/',
-            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+            'secure' => true,
             'httponly' => true,
             'samesite' => 'Lax',
         ]

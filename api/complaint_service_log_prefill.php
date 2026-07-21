@@ -28,8 +28,15 @@ $result = complaint_service_log_prefill_payload($obconn, $complaintId, current_u
 
 if (!$result['success']) {
     http_response_code(422);
-    echo json_encode(['error' => $result['error'] ?? 'Unable to load complaint details.']);
+    echo json_encode([
+        'error' => htmlspecialchars((string) ($result['error'] ?? ''), ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
+array_walk_recursive($result, function (&$val) {
+    if (is_string($val)) {
+        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
+    }
+});
 echo json_encode($result);

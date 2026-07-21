@@ -19,11 +19,20 @@ if ($roleId <= 0) {
 
 if (role_get_by_id($obconn, $roleId) === null) {
     http_response_code(404);
-    echo json_encode(['error' => 'Role not found.']);
+    echo json_encode([
+        'error' => htmlspecialchars('Role not found.', ENT_QUOTES, 'UTF-8'),
+    ]);
     exit;
 }
 
+$modules = role_permission_matrix($obconn, $roleId);
+array_walk_recursive($modules, function (&$val) {
+    if (is_string($val)) {
+        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
+    }
+});
+
 echo json_encode([
     'role_id' => $roleId,
-    'modules' => role_permission_matrix($obconn, $roleId),
+    'modules' => $modules,
 ], JSON_UNESCAPED_UNICODE);

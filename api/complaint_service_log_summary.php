@@ -24,10 +24,17 @@ try {
 
     if (!$result['success']) {
         http_response_code(404);
-        echo json_encode(['error' => $result['error'] ?? 'Unable to load service log details.']);
+        echo json_encode([
+            'error' => htmlspecialchars((string) ($result['error'] ?? 'Unable to load service log details.'), ENT_QUOTES, 'UTF-8'),
+        ]);
         exit;
     }
 
+    array_walk_recursive($result, function (&$val) {
+        if (is_string($val)) {
+            $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
+        }
+    });
     echo json_encode($result);
 } catch (Throwable $e) {
     http_response_code(500);
