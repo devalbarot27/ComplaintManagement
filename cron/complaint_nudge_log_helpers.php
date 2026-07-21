@@ -89,7 +89,7 @@ function complaint_nudge_user_display_name(array $user): string
 
 /**
  * Send in-app + email to one recipient and log it.
- * Skips if already sent for this complaint / type / user / hours.
+ * Each cron execution may send again for eligible complaints (no duplicate block).
  *
  * @return array{sent: bool, notification_id: ?int, email_sent: bool, reason: string}
  */
@@ -119,11 +119,6 @@ function complaint_nudge_notify_user(
         return $result;
     }
 
-    if (complaint_nudge_log_already_sent($conn, $complaintId, $nudgeType, $userId, $hours)) {
-        $result['reason'] = 'already_sent';
-        return $result;
-    }
-
     $notificationId = notification_create(
         $conn,
         $userId,
@@ -139,7 +134,8 @@ function complaint_nudge_notify_user(
         $emailSent = complaint_mail_send($email, $emailSubject, $emailBody);
     }
 
-    $recorded = complaint_nudge_log_record(
+    // Log every send for audit; logging failure does not block the notification.
+    complaint_nudge_log_record(
         $conn,
         $complaintId,
         $nudgeType,
@@ -149,11 +145,6 @@ function complaint_nudge_notify_user(
         $notificationId,
         $emailSent
     );
-
-    if (!$recorded) {
-        $result['reason'] = 'duplicate_race';
-        return $result;
-    }
 
     $result['sent'] = true;
     $result['notification_id'] = $notificationId;
@@ -197,20 +188,27 @@ function complaint_nudge_log_ensure_schema(PDO $conn): void
             )
         ");
 
-        // Duplicate prevention: same complaint + type + recipient + nudge level
+        // History index only — allow multiple sends per complaint / user / milestone.
         $conn->exec("
-            CREATE UNIQUE INDEX complaint_nudge_logs_unique
+            CREATE INDEX IF NOT EXISTS complaint_nudge_logs_lookup_idx
                 ON {$table} (complaint_id, nudge_type, recipient_user_id, reminder_hours)
         ");
 
         $conn->exec("
-            CREATE INDEX complaint_nudge_logs_complaint_id_idx
+            CREATE INDEX IF NOT EXISTS complaint_nudge_logs_complaint_id_idx
                 ON {$table} (complaint_id)
         ");
 
         $conn->exec("
-            CREATE INDEX complaint_nudge_logs_type_recipient_idx
+            CREATE INDEX IF NOT EXISTS complaint_nudge_logs_type_recipient_idx
                 ON {$table} (nudge_type, recipient_user_id)
+        ");
+    } else {
+        // Remove legacy unique index so repeated cron runs can log each send.
+        $conn->exec('DROP INDEX IF EXISTS complaint_nudge_logs_unique');
+        $conn->exec("
+            CREATE INDEX IF NOT EXISTS complaint_nudge_logs_lookup_idx
+                ON {$table} (complaint_id, nudge_type, recipient_user_id, reminder_hours)
         ");
     }
 
@@ -285,7 +283,7 @@ function complaint_nudge_log_already_sent(
 }
 
 /**
- * Record a nudge send. Returns false on duplicate (unique violation).
+ * Record a nudge send for audit/history.
  *
  * @param int|null $referenceId Optional cycle context (assignment_id / service_update_id)
  */
@@ -346,13 +344,6 @@ function complaint_nudge_log_record(
 
         return true;
     } catch (PDOException $e) {
-        if (
-            str_contains($e->getMessage(), 'complaint_nudge_logs_unique')
-            || str_contains($e->getMessage(), 'duplicate key')
-            || (string) $e->getCode() === '23505'
-        ) {
-            return false;
-        }
-        throw $e;
+        return false;
     }
 }

@@ -10,7 +10,7 @@
  * - > 24h and ≤ 48h → 24h only
  * - > 48h and ≤ 72h → 48h only
  * - > 72h → 72h only
- * Logged once per complaint + user + nudge type + hours.
+ * Logged for audit on each cron run (repeat sends allowed).
  */
 
 require_once dirname(__DIR__) . '/includes/complaint_status.php';

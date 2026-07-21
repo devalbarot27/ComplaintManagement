@@ -8,16 +8,23 @@ require_once dirname(__DIR__) . '/includes/complaint_address_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_category_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 
+$showAddedBy = complaint_can_view_added_by_column($obconn);
+
 $allowedOrderColumns = [
     'id',
     'fab_number',
     'customer_name',
+];
+if ($showAddedBy) {
+    $allowedOrderColumns[] = 'added_by_name';
+}
+$allowedOrderColumns = array_merge($allowedOrderColumns, [
     'complaint_category_name',
     'city',
     'status',
     'created_at',
     'id',
-];
+]);
  
 $req = dt_parse_request($allowedOrderColumns, 'created_at');
 
@@ -61,6 +68,15 @@ if ($req['searchValue'] !== '') {
         array_merge(['fab_number', 'customer_name', 'complaint_category_name', 'username', 'complaint_description'], complaint_address_search_columns()),
         'status'
     );
+    if ($showAddedBy) {
+        $searchFilter['sql'] = '(' . $searchFilter['sql'] . ' OR EXISTS (
+            SELECT 1
+            FROM user_master um_s
+            WHERE um_s.id = complaints.added_by
+              AND um_s.deleted_at IS NULL
+              AND (um_s.name ILIKE :search OR um_s.username ILIKE :search)
+        ))';
+    }
     $filterWhere .= ' AND ' . $searchFilter['sql'];
     $filterParams = array_merge($filterParams, $searchFilter['params']);
 }
@@ -78,7 +94,38 @@ $recordsFiltered = (int) $countFilteredStmt->fetch(PDO::FETCH_ASSOC)['total'];
  
 $orderColumn = $req['orderColumn'];
 $orderDir = $req['orderDir'];
-$orderSql = complaint_entry_datatable_order_sql($obconn, $orderColumn, $orderDir);
+if ($orderColumn === 'added_by_name') {
+    $orderSql = "(
+        COALESCE(
+            (
+                SELECT COALESCE(NULLIF(TRIM(um_ord.name), ''), NULLIF(TRIM(um_ord.username), ''))
+                FROM user_master um_ord
+                WHERE um_ord.id = complaints.added_by
+                  AND um_ord.deleted_at IS NULL
+                LIMIT 1
+            ),
+            NULLIF(TRIM(complaints.username), ''),
+            '-'
+        )
+    ) {$orderDir}, created_at DESC, id DESC";
+} else {
+    $orderSql = complaint_entry_datatable_order_sql($obconn, $orderColumn, $orderDir);
+}
+
+$addedBySelect = $showAddedBy
+    ? ",
+        COALESCE(
+            (
+                SELECT COALESCE(NULLIF(TRIM(um_added.name), ''), NULLIF(TRIM(um_added.username), ''))
+                FROM user_master um_added
+                WHERE um_added.id = complaints.added_by
+                  AND um_added.deleted_at IS NULL
+                LIMIT 1
+            ),
+            NULLIF(TRIM(complaints.username), ''),
+            '-'
+        ) AS added_by_name"
+    : '';
  
 $dataQuery = "
     SELECT
@@ -96,7 +143,7 @@ $dataQuery = "
         complaint_category_name,
         username,
         status,
-        created_at,
+        created_at{$addedBySelect},
         EXISTS (
             SELECT 1
             FROM complaint_service_updates csu
@@ -160,8 +207,8 @@ $complaintEntryPermissions = complaint_entry_action_permissions($obconn);
 foreach ($rows as $row) {
     $status = (int) $row['status'];
     $flags = dt_parse_closure_row_flags($row);
- 
-    $data[] = [
+
+    $rowData = [
         'id' => '#' . (int) $row['id'],
         'fab_number' => htmlspecialchars($row['fab_number'], ENT_QUOTES, 'UTF-8'),
         'customer_name' => htmlspecialchars($row['customer_name'], ENT_QUOTES, 'UTF-8'),
@@ -178,6 +225,16 @@ foreach ($rows as $row) {
             $complaintEntryPermissions
         ),
     ];
+
+    if ($showAddedBy) {
+        $rowData['added_by'] = htmlspecialchars(
+            trim((string) ($row['added_by_name'] ?? '')) !== '' ? (string) $row['added_by_name'] : '-',
+            ENT_QUOTES,
+            'UTF-8'
+        );
+    }
+
+    $data[] = $rowData;
 }
  
 dt_json_response($req['draw'], $recordsTotal, $recordsFiltered, $data);

@@ -50,6 +50,37 @@ $freightPercentage = 4;
         #endCustomerAddressDiv.is-visible {
             display: contents;
         }
+
+        .delivery-date-group {
+            position: relative;
+        }
+
+        .delivery-date-note {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            padding: 6px 10px;
+            width: fit-content;
+            max-width: 100%;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.3;
+            color: #721c24;
+            background: #f8d7da;
+            border: 1px solid #f8d7da;
+            border-radius: 8px;
+        }
+
+        .delivery-date-note.is-visible {
+            display: inline-flex;
+        }
+
+        .delivery-date-note .bi {
+            font-size: 13px;
+            color: #721c24;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 
@@ -116,9 +147,13 @@ $freightPercentage = 4;
                         <label>PO Number <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="pono" placeholder="PO Number" />
                     </div>
-                    <div class="form-group">
-                        <label>Delivery Date <span class="text-danger">*</span></label>
+                    <div class="form-group delivery-date-group">
+                        <label>Delivery Date <span class="text-danger">*</span> <span id="deliveryDateNote" class="delivery-date-note" aria-live="polite" hidden>
+                            <i class="bi bi-info-circle" aria-hidden="true"></i>
+                            Subject to availability
+                        </span></label>
                         <input type="text" class="form-control" id="dDate" placeholder="Delivery Date" autocomplete="false" />
+                        
                     </div>
                     <div class="form-group">
                         <label>Delivery Term <span class="text-danger">*</span></label>
@@ -460,11 +495,24 @@ $freightPercentage = 4;
         setEndCustomerRequired(true);
     }
 
+    function toggleDeliveryDateNote() {
+        var hasDate = ($("#dDate").val() || '').trim() !== '';
+        $("#deliveryDateNote")
+            .toggleClass('is-visible', hasDate)
+            .prop('hidden', !hasDate);
+    }
+
     $(document).ready(function() {
         $("#dDate").datepicker({
             dateFormat: "dd.mm.yy",
-            minDate:0
+            minDate: 0,
+            onSelect: function() {
+                toggleDeliveryDateNote();
+            }
+        }).on('change input', function() {
+            toggleDeliveryDateNote();
         });
+        toggleDeliveryDateNote();
         setTimeout(function() {
             $(".alert-info").hide();
         }, 4000);

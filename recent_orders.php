@@ -15,6 +15,7 @@ $roModule = 'recent-orders';
 $canListRecentOrders = rbac_user_can($obconn, $roModule, 'list');
 $canExportRecentOrders = rbac_user_can($obconn, $roModule, 'export-excel');
 $canViewRecentOrders = rbac_user_can($obconn, $roModule, 'view');
+$showAddedByColumn = is_system_admin() || is_management_user() || is_ccs_admin_user();
 
 if (!$canListRecentOrders) {
     header('Location: access_denied.php');
@@ -78,6 +79,9 @@ $refNo = trim((string) ($_GET['order_no'] ?? ''));
                                             <th width="12%">PO Number</th>
                                             <th width="12%">Payment Term</th>
                                             <th width="15%">Transporter</th>
+                                            <?php if ($showAddedByColumn) { ?>
+                                            <th width="12%">Added By</th>
+                                            <?php } ?>
                                             <th width="10%">Order Status</th>
                                             <th width="5%">Action</th>
                                         </tr>
@@ -155,7 +159,12 @@ $refNo = trim((string) ($_GET['order_no'] ?? ''));
                 },
                 {
                     data: 'transporter'
-                },               
+                },
+                <?php if ($showAddedByColumn) { ?>
+                {
+                    data: 'added_by'
+                },
+                <?php } ?>
                 {
                     data: 'order_status'
                 },

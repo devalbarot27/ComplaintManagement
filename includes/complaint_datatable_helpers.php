@@ -164,6 +164,38 @@ function complaint_user_can_closure(PDO $conn): bool
         && rbac_user_can($conn, 'complaint-entry', 'complaint-closure');
 }
 
+/**
+ * "Added By" column is visible to Management, CCS Admin, and System Admin only.
+ */
+function complaint_can_view_added_by_column(?PDO $conn = null): bool
+{
+    if ($conn !== null && (!isset($_SESSION['role']) || current_user_role() <= 0)) {
+        admin_ensure_session_role($conn);
+    }
+
+    return is_system_admin() || is_management_user() || is_ccs_admin_user();
+}
+
+/**
+ * Dealer/User display name for the complaint creator (added_by → user_master).
+ */
+function complaint_added_by_sql_expression(string $complaintAlias = 'complaints', string $userAlias = 'um_added'): string
+{
+    return "COALESCE(
+        NULLIF(TRIM({$userAlias}.name), ''),
+        NULLIF(TRIM({$userAlias}.username), ''),
+        NULLIF(TRIM({$complaintAlias}.username), ''),
+        '-'
+    )";
+}
+
+function complaint_added_by_join_sql(string $complaintAlias = 'complaints', string $userAlias = 'um_added'): string
+{
+    return "LEFT JOIN user_master {$userAlias}
+        ON {$userAlias}.id = {$complaintAlias}.added_by
+       AND {$userAlias}.deleted_at IS NULL";
+}
+
 function complaint_entry_require_closure_permission(PDO $conn, string $redirect = 'new_complaint.php'): void
 {
     if (!complaint_user_can_closure($conn)) {

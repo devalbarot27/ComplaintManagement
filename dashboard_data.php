@@ -495,6 +495,7 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
                                             <th>PO Number</th>
                                             <th>Payment Term</th>
                                             <th>Transporter</th>
+                                            <th>Added By</th>
                                             <th>Order Status</th>
                                             <th>Action</th>
                                         </tr>
@@ -957,6 +958,7 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
                 { data: 'po_number' },
                 { data: 'payment_term' },
                 { data: 'transporter' },
+                { data: 'added_by' },
                 { data: 'order_status' },
                 {
                     data: 'lines',

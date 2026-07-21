@@ -8,18 +8,25 @@ require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_category_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_assignment_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
- 
+
+$showAddedBy = complaint_can_view_added_by_column($obconn);
+
 $allowedOrderColumns = [
     'c.id',
     'c.fab_number',
     'c.customer_name',
+];
+if ($showAddedBy) {
+    $allowedOrderColumns[] = 'added_by_name';
+}
+$allowedOrderColumns = array_merge($allowedOrderColumns, [
     'c.complaint_category_name',
     'ca.assign_complaint',
     'ca.assign_complaint_datetime',
     'ca.remarks',
     'c.status',
     'ca.id',
-];
+]);
  
 $req = dt_parse_request($allowedOrderColumns, 'ca.assign_complaint_datetime');
 
@@ -29,6 +36,9 @@ $baseParams = $listScope['params'];
 $fromJoin = '
     FROM complaints c
     ' . complaint_assigned_list_join_sql();
+if ($showAddedBy) {
+    $fromJoin .= "\n    " . complaint_added_by_join_sql('c', 'um_added');
+}
 
 $recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total {$fromJoin} WHERE {$baseWhere}");
 foreach ($baseParams as $key => $value) {
@@ -51,9 +61,14 @@ if ($complaintIdFilter > 0) {
 }
 
 if ($req['searchValue'] !== '') {
+    $searchColumns = ['c.fab_number', 'c.customer_name', 'c.complaint_category_name', 'c.username', 'c.complaint_description', 'ca.assign_complaint', 'ca.remarks'];
+    if ($showAddedBy) {
+        $searchColumns[] = 'um_added.name';
+        $searchColumns[] = 'um_added.username';
+    }
     $searchFilter = dt_complaint_search_filter(
         $req['searchValue'],
-        ['c.fab_number', 'c.customer_name', 'c.complaint_category_name', 'c.username', 'c.complaint_description', 'ca.assign_complaint', 'ca.remarks'],
+        $searchColumns,
         'c.status'
     );
     $filterWhere .= ' AND ' . $searchFilter['sql'];
@@ -74,7 +89,14 @@ $recordsFiltered = (int) $countFilteredStmt->fetch(PDO::FETCH_ASSOC)['total'];
  
 $orderColumn = $req['orderColumn'];
 $orderDir = $req['orderDir'];
+if ($orderColumn === 'added_by_name') {
+    $orderColumn = complaint_added_by_sql_expression('c', 'um_added');
+}
  
+$addedBySelect = $showAddedBy
+    ? ', ' . complaint_added_by_sql_expression('c', 'um_added') . ' AS added_by_name'
+    : '';
+
 $dataQuery = "
     SELECT
         c.id,
@@ -88,6 +110,7 @@ $dataQuery = "
         ca.assign_complaint_datetime,
         ca.remarks,
         ca.is_service_updated
+        {$addedBySelect}
     {$fromJoin}
     WHERE {$filterWhere}
     ORDER BY {$orderColumn} {$orderDir}
@@ -115,8 +138,7 @@ foreach ($rows as $row) {
     $status = (int) $row['status'];
     $hasServiceUpdate = (int) ($row['is_service_updated'] ?? 0) === 1;
 
-
-    $data[] = [
+    $rowData = [
         'id' => '#' . (int) $row['c_id'],
         'c_id' => '#' . (int) $row['id'],
         'fab_number' => htmlspecialchars($row['fab_number'], ENT_QUOTES, 'UTF-8'),
@@ -134,7 +156,16 @@ foreach ($rows as $row) {
             $assignedComplaintPermissions
         ),
     ];
+
+    if ($showAddedBy) {
+        $rowData['added_by'] = htmlspecialchars(
+            trim((string) ($row['added_by_name'] ?? '')) !== '' ? (string) $row['added_by_name'] : '-',
+            ENT_QUOTES,
+            'UTF-8'
+        );
+    }
+
+    $data[] = $rowData;
 }
  
 dt_json_response($req['draw'], $recordsTotal, $recordsFiltered, $data);
- 

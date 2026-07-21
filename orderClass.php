@@ -3301,6 +3301,13 @@ class orderClass
             $search = $_POST['search']['value'] ?? '';
             $where = '';
             $params = [];
+
+            // Managers (Management role) see all recent orders; others stay user-scoped.
+           // Refresh role from DB so AJAX requests are not stuck with a missing/stale session role.
+           admin_refresh_session_role($this->obconn);
+           $seeAll = is_system_admin() || is_management_user();
+           $showAddedBy = is_system_admin() || is_management_user() || is_ccs_admin_user();
+
             if (!empty($search)) {
                 $where = "AND (
                     a.refno ILIKE :search
@@ -3308,16 +3315,44 @@ class orderClass
                     OR a.tplcode ILIKE :search
                     OR a.tpldesc ILIKE :search
                     OR COALESCE(d.order_category, '') ILIKE :search
-                )";
+                ";
+                if ($showAddedBy) {
+                    $where .= "
+                    OR COALESCE(um_by_emp.name, '') ILIKE :search
+                    OR COALESCE(um_by_usr.name, '') ILIKE :search
+                    OR COALESCE(a.usr_name, '') ILIKE :search
+                    OR COALESCE(a.emp_code, '') ILIKE :search
+                    ";
+                }
+                $where .= ")";
                 $params[':search'] = "%{$search}%";
            }
-            // Managers (Management role) see all recent orders; others stay user-scoped.
-           // Refresh role from DB so AJAX requests are not stuck with a missing/stale session role.
-           admin_refresh_session_role($this->obconn);
-           $seeAll = is_system_admin() || is_management_user();
          
            $userWhere = $seeAll ? '1=1' : 'a.cuno = :createdBy';
            $totalUserWhere = $seeAll ? '1=1' : 'cuno = :createdBy';
+
+           $addedByJoin = '';
+           $addedBySelect = '';
+           if ($showAddedBy) {
+               // Map emp_code → user_master.username for dealer name; fallback to usr_name.
+               $addedByJoin = "
+                LEFT JOIN user_master AS um_by_emp
+                    ON um_by_emp.deleted_at IS NULL
+                   AND TRIM(COALESCE(a.emp_code, '')) <> ''
+                   AND TRIM(um_by_emp.username) = TRIM(a.emp_code)
+                LEFT JOIN user_master AS um_by_usr
+                    ON um_by_usr.deleted_at IS NULL
+                   AND TRIM(COALESCE(a.usr_name, '')) <> ''
+                   AND TRIM(um_by_usr.username) = TRIM(a.usr_name)
+               ";
+               $addedBySelect = ",
+                    COALESCE(
+                        NULLIF(TRIM(um_by_emp.name), ''),
+                        NULLIF(TRIM(um_by_usr.name), ''),
+                        NULLIF(TRIM(a.usr_name), ''),
+                        '-'
+                    ) AS added_by_name";
+           }
            
             $joinSql = "
                 FROM plexecom_customer_units AS a
@@ -3329,6 +3364,7 @@ class orderClass
                     ON a.paycode = e.pay_code::varchar
                 LEFT JOIN transporter_master AS f
                     ON a.transporter = f.trans_code
+                {$addedByJoin}
                 WHERE {$userWhere}
                 {$where}
             ";
@@ -3359,10 +3395,13 @@ class orderClass
                     a.order_number,
                     a.pono,
                     a.indent_date,
+                    a.emp_code,
+                    a.usr_name,
                     d.order_category,
                     c.delivery_term,
                     e.pay_desc,
                     f.trans_name AS transporter
+                    {$addedBySelect}
                 {$joinSql}
                 ORDER BY a.refno DESC, a.indent_date DESC
                 LIMIT :length OFFSET :start
@@ -3383,7 +3422,7 @@ class orderClass
                 $orderNumber = trim((string) ($row['order_number'] ?? ''));
                 $orderCuno = trim((string) ($row['cuno'] ?? $this->customer_code));
                 $orderStatus = $this->resolveRecentOrderStatus($orderNumber, $orderCuno);
-                $data[] = [
+                $rowData = [
                     'ref_no'           => $refno,
                     'order_no'         => $row['order_number'],
                     'category'         => $row['order_category'] ?? '-',
@@ -3406,6 +3445,17 @@ class orderClass
                         . '" class="btn btn-sm btn-outline-dark" title="View">'
                         . '<i class="fa fa-eye"></i></a>',
                 ];
+
+                if ($showAddedBy) {
+                    $addedBy = trim((string) ($row['added_by_name'] ?? ''));
+                    $rowData['added_by'] = htmlspecialchars(
+                        $addedBy !== '' ? $addedBy : '-',
+                        ENT_QUOTES,
+                        'UTF-8'
+                    );
+                }
+
+                $data[] = $rowData;
            }
             return json_encode([
                 'draw'            => $draw,

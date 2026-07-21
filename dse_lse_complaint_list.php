@@ -25,6 +25,7 @@ $canEditComplaintServiceLog = $complaintServiceLogPermissions['edit'];
 $canShowComplaintServiceLogModal = $canServiceUpdateAssignedComplaint && ($canAddComplaintServiceLog || $canEditComplaintServiceLog);
 $serviceLogWarrantyTypes = service_log_warranty_types($obconn);
 $partReplacedOptions = service_log_part_replaced_options($obconn);
+$showAddedByColumn = complaint_can_view_added_by_column($obconn);
 
 ?>
 
@@ -119,11 +120,14 @@ $partReplacedOptions = service_log_part_replaced_options($obconn);
                             <tr>
                                 <th width="5%">ID</th>
                                 <th width="10%">Fab Number</th>
-                                <th width="10%">Customer Name</th>
+                                <th width="10%">Customer Name</th>                              
                                 <th width="10%">Complaint Category</th>
                                 <th width="10%">Assigned To</th>
                                 <th width="15%">Assigned Date</th>
                                 <th>Remarks</th>
+                                <?php if ($showAddedByColumn) { ?>
+                                <th width="10%">Added By</th>
+                                <?php } ?>
                                 <th width="10%">Status</th>
                                 <th width="8%">Action</th>
                             </tr>
@@ -304,7 +308,7 @@ function initAssignedComplaintDatatable() {
                 }
             }
         },
-        order: [[5, 'desc']],
+        order: [[<?php echo $showAddedByColumn ? 6 : 5; ?>, 'desc']],
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         columns: [
@@ -315,6 +319,9 @@ function initAssignedComplaintDatatable() {
             { data: 'assign_complaint' },
             { data: 'assign_complaint_datetime' },
             { data: 'remarks' },
+            <?php if ($showAddedByColumn) { ?>
+            { data: 'added_by' },
+            <?php } ?>
             { data: 'status', orderable: false },
             { data: 'actions', orderable: false, searchable: false }
         ],

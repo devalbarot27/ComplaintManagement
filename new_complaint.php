@@ -23,6 +23,7 @@ $canAddComplaint = $complaintEntryPermissions['add'];
 $canAssignComplaint = $complaintEntryPermissions['assign'];
 $canReassignComplaint = $complaintEntryPermissions['reassign'];
 $canShowComplaintClosure = $complaintEntryPermissions['closure'];
+$showAddedByColumn = complaint_can_view_added_by_column($obconn);
 
 if(isset($_POST['submit_complaint']))
 {
@@ -545,9 +546,12 @@ if(isset($_POST['submit_complaint']))
                             <tr>
                                 <th width="5%">ID</th>
                                 <th width="10%">Fab Number</th>
-                                <th width="12%">Customer Name</th>
+                                <th width="12%">Customer Name</th>                              
                                 <th width="12%">Complaint Category</th>
                                 <th>Customer Address</th>
+                                <?php if ($showAddedByColumn) { ?>
+                                <th width="12%">Added By</th>
+                                <?php } ?>
                                 <th width="15%">Status</th>
                                 <th width="12%">Created At</th>
                                 <th width="8%">Action</th>
@@ -1018,7 +1022,7 @@ function initComplaintEntryDatatable() {
                 }
             }
         },
-        order: [[6, 'desc']],
+        order: [[<?php echo $showAddedByColumn ? 7 : 6; ?>, 'desc']],
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         columns: [
@@ -1027,6 +1031,9 @@ function initComplaintEntryDatatable() {
             { data: 'customer_name' },
             { data: 'complaint_category' },
             { data: 'customer_address' },
+            <?php if ($showAddedByColumn) { ?>
+            { data: 'added_by' },
+            <?php } ?>
             { data: 'status', orderable: false },
             { data: 'created_at' },
             { data: 'actions', orderable: false, searchable: false }
