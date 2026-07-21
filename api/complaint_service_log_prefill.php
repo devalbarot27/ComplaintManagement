@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_service_log_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -12,7 +13,7 @@ $complaintId = (int) ($_GET['complaint_id'] ?? 0);
 
 if ($complaintId <= 0) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid complaint record.']);
+    api_json_echo(['error' => 'Invalid complaint record.']);
     exit;
 }
 
@@ -20,23 +21,20 @@ complaint_service_log_require_assigned_access($obconn, $complaintId);
 
 if (!after_market_user_can_add_service_log($obconn)) {
     http_response_code(403);
-    echo json_encode(['error' => 'Access denied. You do not have permission to add service log records.']);
+    api_json_echo(['error' => 'Access denied. You do not have permission to add service log records.']);
     exit;
 }
 
 $result = complaint_service_log_prefill_payload($obconn, $complaintId, current_username());
 
 if (!$result['success']) {
+    $errorMessage = (string) ($result['error'] ?? '');
+    unset($result);
     http_response_code(422);
-    echo json_encode([
-        'error' => htmlspecialchars((string) ($result['error'] ?? ''), ENT_QUOTES, 'UTF-8'),
-    ]);
+    api_json_echo(['error' => $errorMessage]);
     exit;
 }
 
-array_walk_recursive($result, function (&$val) {
-    if (is_string($val)) {
-        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
-    }
-});
-echo json_encode($result);
+$response = $result;
+unset($result);
+api_json_echo($response);

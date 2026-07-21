@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/service_log_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 after_market_require_installed_base_spare_parts_add_api_access($obconn);
 
@@ -16,13 +17,13 @@ $username = current_username();
 
 if ($id <= 0) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid installed base record.']);
+    api_json_echo(['error' => 'Invalid installed base record.']);
     exit;
 }
 
 if ($username === '') {
     http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized.']);
+    api_json_echo(['error' => 'Unauthorized.']);
     exit;
 }
 
@@ -30,14 +31,16 @@ $installedBase = service_log_get_installed_base($obconn, $id, $username);
 
 if (!$installedBase) {
     http_response_code(404);
-    echo json_encode(['error' => 'Installed base record not found.']);
+    api_json_echo(['error' => 'Installed base record not found.']);
     exit;
 }
 
 $installedBaseId = (int) $installedBase['id'];
-$installedBaseLabel = '#' . $installedBaseId
-    . ' - ' . ($installedBase['fab_number'] ?? '')
-    . ' - ' . ($installedBase['customer_name'] ?? '');
+$fabNumber = (string) ($installedBase['fab_number'] ?? '');
+$customerName = (string) ($installedBase['customer_name'] ?? '');
+$runningHours = (string) ($installedBase['running_hours'] ?? '');
+$machineModel = service_log_machine_model_from_installed_base($installedBase);
+$installedBaseLabel = '#' . $installedBaseId . ' - ' . $fabNumber . ' - ' . $customerName;
 
 $serviceLogScope = after_market_list_scope($obconn);
 $serviceLogWhere = after_market_scope_where_for_alias($serviceLogScope['where'], 'sl');
@@ -78,39 +81,33 @@ $dealerStmt->execute();
 $dealerRow = $dealerStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
 $serviceLogId = !empty($serviceLog['id']) ? (int) $serviceLog['id'] : 0;
+$serialFromLog = trim((string) ($serviceLog['serial_number'] ?? ''));
 $serviceLogLabel = $serviceLogId > 0
-    ? '#' . $serviceLogId
-        . ' - ' . ($serviceLog['serial_number'] ?? '')
+    ? '#' . $serviceLogId . ' - ' . $serialFromLog
     : '';
+$serialNumber = $serviceLogId > 0 ? $serialFromLog : $fabNumber;
 
-$serialNumber = $serviceLogId > 0
-    ? trim((string) ($serviceLog['serial_number'] ?? ''))
-    : trim((string) ($installedBase['fab_number'] ?? ''));
-
-$payload = [
+$response = [
     'service_log_id' => $serviceLogId > 0 ? $serviceLogId : '',
     'service_log_label' => $serviceLogLabel,
     'installed_base_id' => $installedBaseId,
     'installed_base_label' => $installedBaseLabel,
-    'customer_name' => $installedBase['customer_name'] ?? '',
-    'dealer_name' => $dealerRow['dealer_name'] ?? '',
+    'customer_name' => $customerName,
+    'dealer_name' => (string) ($dealerRow['dealer_name'] ?? ''),
     'order_id' => '',
-    'fab_number' => $installedBase['fab_number'] ?? '',
+    'fab_number' => $fabNumber,
     'serial_number' => $serialNumber,
-    'machine_model' => service_log_machine_model_from_installed_base($installedBase),
-    'warranty_chargeable' => $serviceLog['warranty_chargeable'] ?? '',
+    'machine_model' => $machineModel,
+    'warranty_chargeable' => (string) ($serviceLog['warranty_chargeable'] ?? ''),
     'complaint_date' => service_log_format_input_date($serviceLog['complaint_date'] ?? null),
-    'issue_description' => $serviceLog['issue_description'] ?? '',
-    'engineer_name' => $serviceLog['engineer_name'] ?? '',
+    'issue_description' => (string) ($serviceLog['issue_description'] ?? ''),
+    'engineer_name' => (string) ($serviceLog['engineer_name'] ?? ''),
     'visit_date' => service_log_format_input_date($serviceLog['visit_date'] ?? null),
-    'action_taken' => $serviceLog['action_taken'] ?? '',
+    'action_taken' => (string) ($serviceLog['action_taken'] ?? ''),
     'closure_date' => service_log_format_input_date($serviceLog['closure_date'] ?? null),
-    'running_hours' => $installedBase['running_hours'] ?? '',
-    'service_remarks' => $serviceLog['remarks'] ?? '',
+    'running_hours' => $runningHours,
+    'service_remarks' => (string) ($serviceLog['remarks'] ?? ''),
 ];
-array_walk_recursive($payload, function (&$val) {
-    if (is_string($val)) {
-        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
-    }
-});
-echo json_encode($payload);
+
+unset($installedBase, $serviceLog, $dealerRow);
+api_json_echo($response);

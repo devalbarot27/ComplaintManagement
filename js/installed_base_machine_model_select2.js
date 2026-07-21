@@ -6,14 +6,62 @@ function setMachineModelDesc(value) {
     }
 }
 
-function setMachineModelSelect2(code, description) {
+function ensureMachineModelCodeHidden(code) {
+    let hidden = document.getElementById('machineModelCodeLocked');
+
+    if (!hidden) {
+        const select = document.getElementById('machineModelSelect');
+        if (!select || !select.parentNode) {
+            return;
+        }
+
+        hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'machine_model_code';
+        hidden.id = 'machineModelCodeLocked';
+        select.parentNode.insertBefore(hidden, select.nextSibling);
+    }
+
+    hidden.value = code || '';
+}
+
+function removeMachineModelCodeHidden() {
+    const hidden = document.getElementById('machineModelCodeLocked');
+    if (hidden) {
+        hidden.remove();
+    }
+}
+
+function setMachineModelSelect2Locked(locked) {
     const $select = $('#machineModelSelect');
 
     if (!$select.length) {
         return;
     }
 
+    const code = String($select.val() || '').trim();
+
+    if (locked && code !== '') {
+        ensureMachineModelCodeHidden(code);
+        $select.prop('disabled', true);
+        $select.data('locked', true);
+    } else {
+        removeMachineModelCodeHidden();
+        $select.prop('disabled', false);
+        $select.data('locked', false);
+    }
+}
+
+function setMachineModelSelect2(code, description, options) {
+    const $select = $('#machineModelSelect');
+    options = options || {};
+
+    if (!$select.length) {
+        return;
+    }
+
     if (!code) {
+        setMachineModelSelect2Locked(false);
         $select.val(null).trigger('change');
         setMachineModelDesc('');
         $select.removeClass('is-invalid');
@@ -30,6 +78,7 @@ function setMachineModelSelect2(code, description) {
     $select.val(code).trigger('change');
     setMachineModelDesc(description || '');
     $select.removeClass('is-invalid');
+    setMachineModelSelect2Locked(!!options.locked);
 }
 
 function resetMachineModelSelect2() {
@@ -39,6 +88,7 @@ function resetMachineModelSelect2() {
         return;
     }
 
+    setMachineModelSelect2Locked(false);
     $select.val(null).trigger('change');
     setMachineModelDesc('');
     $select.removeClass('is-invalid');
@@ -83,6 +133,12 @@ function initInstalledBaseMachineModelSelect2() {
             searching: function () {
                 return 'Searching...';
             }
+        }
+    });
+
+    $select.on('select2:opening select2:unselecting', function (e) {
+        if ($select.data('locked')) {
+            e.preventDefault();
         }
     });
 

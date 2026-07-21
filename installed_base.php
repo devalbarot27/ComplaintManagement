@@ -46,11 +46,20 @@ $defaultDealerName = current_assignee_name();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = installed_base_from_post($_POST);
+    $existingByFabId = null;
 
-    if ($recordId > 0) {
+    if ($error_message === '' && $data['fab_number'] !== '') {
+        $existingByFabId = installed_base_find_id_by_fab($obconn, $data['fab_number']);
+    }
+
+    // FAB number is the unique key: update existing FAB record, otherwise insert.
+    $targetId = $existingByFabId ?? ($recordId > 0 ? $recordId : 0);
+    $isUpdate = $targetId > 0;
+
+    if ($isUpdate) {
         if (!$canEditInstalledBase) {
             $error_message = 'Access denied. You do not have permission to edit installed base records.';
-        } elseif (!after_market_user_can_access_record($obconn, 'installed_base', $recordId)) {
+        } elseif (!after_market_user_can_access_record($obconn, 'installed_base', $targetId)) {
             $error_message = 'Access denied. You do not have permission to edit this record.';
         }
     } elseif (!$canAddInstalledBase) {
@@ -58,192 +67,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     }
 
     if ($error_message === '') {
-    if ($recordId <= 0) {
-        $data['dealer_name'] = $defaultDealerName;
-    }
-    $validationError = installed_base_validate($obconn, $data);
+        // Only set default dealer name for brand-new inserts.
+        if (!$isUpdate) {
+            $data['dealer_name'] = $defaultDealerName;
+        }
 
-    if ($validationError !== null) {
-        $error_message = $validationError;
-    } else {
-        $invoiceDateFromFab = ln_invoice_resolve_invoice_date_for_fab($dpconn, $data['fab_number']);
+        $validationError = installed_base_validate($obconn, $data);
 
-        if ($invoiceDateFromFab === null) {
-            $error_message = 'Selected Fab Number was not found in invoice details.';
+        if ($validationError !== null) {
+            $error_message = $validationError;
         } else {
-            $data['invoice_date'] = $invoiceDateFromFab;
-        }
+            $invoiceDateFromFab = ln_invoice_resolve_invoice_date_for_fab($dpconn, $data['fab_number']);
 
-        if ($error_message === '') {
-            if ($createdBy === null || $createdBy <= 0) {
-                $error_message = 'Unable to resolve logged-in user.';
+            if ($invoiceDateFromFab === null) {
+                $error_message = 'Selected Fab Number was not found in invoice details.';
             } else {
-        try {
-            if ($recordId > 0) {
-                $checkStmt = $obconn->prepare('
-                    SELECT id
-                    FROM installed_base
-                    WHERE id = :id
-                      AND deleted_at IS NULL
-                ');
-                $checkStmt->bindValue(':id', $recordId, PDO::PARAM_INT);
-                $checkStmt->execute();
+                $data['invoice_date'] = $invoiceDateFromFab;
+            }
 
-                if (!$checkStmt->fetch(PDO::FETCH_ASSOC)) {
-                    $error_message = 'Record not found or already deleted.';
+            if ($error_message === '') {
+                if ($createdBy === null || $createdBy <= 0) {
+                    $error_message = 'Unable to resolve logged-in user.';
                 } else {
-                    $update = $obconn->prepare('
-                        UPDATE installed_base
-                        SET
-                            order_ref_id = :order_ref_id,
-                            order_id = :order_id,
-                            fab_number = :fab_number,
-                            customer_name = :customer_name,
-                            street_1 = :street_1,
-                            street_2 = :street_2,
-                            pincode = :pincode,
-                            city = :city,
-                            district = :district,
-                            state = :state,
-                            mobile = :mobile,
-                            email = :email,
-                            dealer_name = :dealer_name,
-                            machine_model_code = :machine_model_code,
-                            machine_model = :machine_model,
-                            invoice_date = :invoice_date,
-                            commissioning_date = :commissioning_date,
-                            running_hours = :running_hours,
-                            industry_segment = :industry_segment,
-                            remarks = :remarks,
-                            updated_at = CURRENT_TIMESTAMP
-                        WHERE id = :id
-                          AND deleted_at IS NULL
-                    ');
+                    try {
+                        if ($isUpdate) {
+                            $checkStmt = $obconn->prepare('
+                                SELECT id, dealer_name
+                                FROM installed_base
+                                WHERE id = :id
+                                  AND deleted_at IS NULL
+                            ');
+                            $checkStmt->bindValue(':id', $targetId, PDO::PARAM_INT);
+                            $checkStmt->execute();
+                            $existingRow = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
-                    $update->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
-                    $update->bindValue(':order_id', '0', PDO::PARAM_INT);
-                    $update->bindValue(':fab_number', $data['fab_number']);
-                    $update->bindValue(':customer_name', $data['customer_name']);
-                    $update->bindValue(':street_1', $data['street_1']);
-                    $update->bindValue(':street_2', $data['street_2'] !== '' ? $data['street_2'] : null);
-                    $update->bindValue(':pincode', $data['pincode']);
-                    $update->bindValue(':city', $data['city']);
-                    $update->bindValue(':district', $data['district']);
-                    $update->bindValue(':state', $data['state']);
-                    $update->bindValue(':mobile', $data['mobile']);
-                    $update->bindValue(':email', $data['email']);
-                    $update->bindValue(':dealer_name', $data['dealer_name']);
-                    $update->bindValue(':machine_model_code', $data['machine_model_code']);
-                    $update->bindValue(':machine_model', $data['machine_model']);
-                    $update->bindValue(':invoice_date', $data['invoice_date']);
-                    $update->bindValue(':commissioning_date', $data['commissioning_date']);
-                    $update->bindValue(':running_hours', $data['running_hours']);
-                    $update->bindValue(':industry_segment', $data['industry_segment']);
-                    $update->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
-                    $update->bindValue(':id', $recordId, PDO::PARAM_INT);
-                    $update->execute();
+                            if (!$existingRow) {
+                                $error_message = 'Record not found or already deleted.';
+                            } else {
+                                // Keep existing dealer when form did not supply one.
+                                if (trim((string) ($data['dealer_name'] ?? '')) === '') {
+                                    $data['dealer_name'] = trim((string) ($existingRow['dealer_name'] ?? $defaultDealerName));
+                                }
 
-                    header('Location: installed_base.php?ib_updated=1');
-                    exit;
+                                installed_base_update_record($obconn, $targetId, $data);
+                                header('Location: installed_base.php?ib_updated=1');
+                                exit;
+                            }
+                        } else {
+                            installed_base_insert_record($obconn, $data, (int) $createdBy, $userName);
+
+                            $returnComplaintId = (int) ($_POST['return_complaint_id'] ?? 0);
+                            if ($returnComplaintId > 0) {
+                                $_SESSION['success_message'] = 'Installed base record saved successfully.';
+                                header(
+                                    'Location: dse_lse_complaint_list.php?complaint_id='
+                                    . rawurlencode((string) $returnComplaintId)
+                                    . '&open_service_update=1'
+                                );
+                                exit;
+                            }
+
+                            header('Location: installed_base.php?ib_saved=1');
+                            exit;
+                        }
+                    } catch (PDOException $e) {
+                        $error_message = 'Failed to save installed base record.';
+                    }
                 }
-            } else {
-                $insert = $obconn->prepare('
-                    INSERT INTO installed_base
-                    (
-                        order_ref_id,
-                        order_id,
-                        fab_number,
-                        customer_name,
-                        street_1,
-                        street_2,
-                        pincode,
-                        city,
-                        district,
-                        state,
-                        mobile,
-                        email,
-                        dealer_name,
-                        machine_model_code,
-                        machine_model,
-                        invoice_date,
-                        commissioning_date,
-                        running_hours,
-                        industry_segment,
-                        remarks,
-                        created_by,
-                        username
-                    )
-                    VALUES
-                    (
-                        :order_ref_id,
-                        :order_id,
-                        :fab_number,
-                        :customer_name,
-                        :street_1,
-                        :street_2,
-                        :pincode,
-                        :city,
-                        :district,
-                        :state,
-                        :mobile,
-                        :email,
-                        :dealer_name,
-                        :machine_model_code,
-                        :machine_model,
-                        :invoice_date,
-                        :commissioning_date,
-                        :running_hours,
-                        :industry_segment,
-                        :remarks,
-                        :created_by,
-                        :username
-                    )
-                ');
-
-                $insert->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
-                $insert->bindValue(':order_id', '0', PDO::PARAM_INT);
-                $insert->bindValue(':fab_number', $data['fab_number']);
-                $insert->bindValue(':customer_name', $data['customer_name']);
-                $insert->bindValue(':street_1', $data['street_1']);
-                $insert->bindValue(':street_2', $data['street_2'] !== '' ? $data['street_2'] : null);
-                $insert->bindValue(':pincode', $data['pincode']);
-                $insert->bindValue(':city', $data['city']);
-                $insert->bindValue(':district', $data['district']);
-                $insert->bindValue(':state', $data['state']);
-                $insert->bindValue(':mobile', $data['mobile']);
-                $insert->bindValue(':email', $data['email']);
-                $insert->bindValue(':dealer_name', $data['dealer_name']);
-                $insert->bindValue(':machine_model_code', $data['machine_model_code']);
-                $insert->bindValue(':machine_model', $data['machine_model']);
-                $insert->bindValue(':invoice_date', $data['invoice_date']);
-                $insert->bindValue(':commissioning_date', $data['commissioning_date']);
-                $insert->bindValue(':running_hours', $data['running_hours']);
-                $insert->bindValue(':industry_segment', $data['industry_segment']);
-                $insert->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
-                $insert->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
-                $insert->bindValue(':username', $userName);
-                $insert->execute();
-
-                $returnComplaintId = (int) ($_POST['return_complaint_id'] ?? 0);
-                if ($returnComplaintId > 0) {
-                    $_SESSION['success_message'] = 'Installed base record saved successfully.';
-                    header(
-                        'Location: dse_lse_complaint_list.php?complaint_id='
-                        . rawurlencode((string) $returnComplaintId)
-                        . '&open_service_update=1'
-                    );
-                    exit;
-                }
-
-                header('Location: installed_base.php?ib_saved=1');
-                exit;
-            }
-        } catch (PDOException $e) {
-            $error_message = 'Failed to save installed base record.';
-        }
             }
         }
-    }
     }
 }
 ?>
@@ -273,6 +165,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        .select2-container--default.select2-container--disabled .select2-selection--single {
+                background-color: #f8fafc;
+            }
+        </style>
 </head>
 
 <body>

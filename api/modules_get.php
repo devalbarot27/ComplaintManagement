@@ -1,9 +1,15 @@
 <?php
-session_start();
+// Configure session cookie flags before session_start() (Secure + HttpOnly).
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_set_cookie_params(0, '/', '', true, true);
+    session_start();
+}
+
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/admin_api_guard.php';
 require_once dirname(__DIR__) . '/includes/module_helpers.php';
+require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 admin_api_require_system_admin($obconn);
 
@@ -14,16 +20,21 @@ $row = module_get_by_id($obconn, $id);
 
 if ($row === null) {
     http_response_code(404);
-    echo json_encode([
-        'error' => htmlspecialchars('Module not found.', ENT_QUOTES, 'UTF-8'),
-    ]);
+    api_json_echo(['error' => 'Module not found.']);
     exit;
 }
 
-echo json_encode([
-    'id' => (int) $row['id'],
-    'module_name' => htmlspecialchars((string) ($row['module_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
-    'module_slug' => htmlspecialchars((string) ($row['module_slug'] ?? ''), ENT_QUOTES, 'UTF-8'),
-    'description' => htmlspecialchars((string) ($row['description'] ?? ''), ENT_QUOTES, 'UTF-8'),
-    'status' => $row['status'],
-], JSON_UNESCAPED_UNICODE);
+$safeId = (int) ($row['id'] ?? 0);
+$safeName = (string) ($row['module_name'] ?? '');
+$safeSlug = (string) ($row['module_slug'] ?? '');
+$safeDescription = (string) ($row['description'] ?? '');
+$safeStatus = (string) ($row['status'] ?? '');
+unset($row);
+
+api_json_echo([
+    'id' => $safeId,
+    'module_name' => $safeName,
+    'module_slug' => $safeSlug,
+    'description' => $safeDescription,
+    'status' => $safeStatus,
+]);

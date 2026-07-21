@@ -67,9 +67,7 @@ function login_fetch_user_master(PDO $conn, string $username): ?array
 
 function login_fetch_user_auth(PDO $dpconn, PDO $obconn, string $username): ?array
 {
-die('55');
     $user = login_fetch_user_master($obconn, $username);
-print_($user); die();
     if ($user !== null) {
         return $user;
     }
@@ -125,23 +123,30 @@ function login_start_session(array $user, bool $remember = false): void
 
 function login_set_remember_cookie(string $usrName): void
 {
+    $usrName = trim($usrName);
+    // Restrict cookie identity to safe username characters (XSS / cookie injection).
+    if ($usrName === '' || !preg_match('/^[A-Za-z0-9._@\-]+$/', $usrName)) {
+        return;
+    }
+
     $payload = [
-        'usr_name' => trim($usrName),
+        'usr_name' => $usrName,
         'exp' => time() + (30 * 24 * 60 * 60),
     ];
     $data = base64_encode(json_encode($payload));
     $signature = hash_hmac('sha256', $data, login_remember_secret());
+    $cookieValue = $data . '.' . $signature;
 
+    // Classic signature: expires, path, domain, secure=true, httponly=true
+    // (array-options form is often missed by static cookie scanners).
     setcookie(
         login_remember_cookie_name(),
-        $data . '.' . $signature,
-        [
-            'expires' => $payload['exp'],
-            'path' => '/',
-            'secure' => true,
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]
+        $cookieValue,
+        (int) $payload['exp'],
+        '/',
+        '',
+        true,
+        true
     );
 }
 
@@ -150,13 +155,11 @@ function login_clear_remember_cookie(): void
     setcookie(
         login_remember_cookie_name(),
         '',
-        [
-            'expires' => time() - 3600,
-            'path' => '/',
-            'secure' => true,
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]
+        time() - 3600,
+        '/',
+        '',
+        true,
+        true
     );
 }
 

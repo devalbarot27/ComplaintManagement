@@ -2,6 +2,7 @@
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 rbac_require_api_access($obconn);
 
@@ -11,11 +12,12 @@ $fabNumber = trim((string) ($_GET['fab_number'] ?? ''));
 $complaintId = (int) ($_GET['complaint_id'] ?? 0);
 
 if ($fabNumber === '' && $complaintId <= 0) {
-    echo json_encode(['found' => false]);
+    api_json_echo(['found' => false]);
     exit;
 }
 
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
+require_once dirname(__DIR__) . '/includes/ln_invoice_helpers.php';
 
 $row = installed_base_fab_prefill_row(
     $obconn,
@@ -23,27 +25,50 @@ $row = installed_base_fab_prefill_row(
     $complaintId > 0 ? $complaintId : null
 );
 
-if (!$row) {
-    echo json_encode(['found' => false]);
+$machineModel = $fabNumber !== ''
+    ? ln_invoice_get_machine_model_by_fabno($dpconn, $fabNumber)
+    : null;
+
+$installedBaseRow = $fabNumber !== ''
+    ? installed_base_latest_record_by_fab($obconn, $fabNumber)
+    : null;
+$hasInstalledBase = $installedBaseRow !== null;
+
+if (!$row && !$machineModel && !$hasInstalledBase) {
+    api_json_echo(['found' => false]);
     exit;
 }
 
-$payload = [
+$commissioningDate = '';
+if ($hasInstalledBase && !empty($installedBaseRow['commissioning_date'])) {
+    $commissioningDate = substr((string) $installedBaseRow['commissioning_date'], 0, 10);
+}
+
+$response = [
     'found' => true,
-    'customer_name' => (string) ($row['customer_name'] ?? ''),
-    'street_1' => (string) ($row['street_1'] ?? ''),
-    'street_2' => (string) ($row['street_2'] ?? ''),
-    'pincode' => (string) ($row['pincode'] ?? ''),
-    'city' => (string) ($row['city'] ?? ''),
-    'district' => (string) ($row['district'] ?? ''),
-    'state' => (string) ($row['state'] ?? ''),
-    'mobile' => (string) ($row['mobile'] ?? ''),
-    'email' => (string) ($row['email'] ?? ''),
-    'remarks' => (string) ($row['remarks'] ?? ''),
+    'has_installed_base' => $hasInstalledBase,
+    'customer_name' => (string) ($row['customer_name'] ?? ($installedBaseRow['customer_name'] ?? '')),
+    'street_1' => (string) ($row['street_1'] ?? ($installedBaseRow['street_1'] ?? '')),
+    'street_2' => (string) ($row['street_2'] ?? ($installedBaseRow['street_2'] ?? '')),
+    'pincode' => (string) ($row['pincode'] ?? ($installedBaseRow['pincode'] ?? '')),
+    'city' => (string) ($row['city'] ?? ($installedBaseRow['city'] ?? '')),
+    'district' => (string) ($row['district'] ?? ($installedBaseRow['district'] ?? '')),
+    'state' => (string) ($row['state'] ?? ($installedBaseRow['state'] ?? '')),
+    'mobile' => (string) ($row['mobile'] ?? ($installedBaseRow['mobile'] ?? '')),
+    'email' => (string) ($row['email'] ?? ($installedBaseRow['email'] ?? '')),
+    'machine_model_code' => (string) ($machineModel['machine_model_code'] ?? ''),
+    'machine_model' => (string) ($machineModel['machine_model'] ?? ''),
+    'commissioning_date' => $hasInstalledBase ? $commissioningDate : '',
+    'running_hours' => $hasInstalledBase
+        ? (string) ($installedBaseRow['running_hours'] ?? '')
+        : '',
+    'industry_segment' => $hasInstalledBase
+        ? (string) ($installedBaseRow['industry_segment'] ?? '')
+        : '',
+    'remarks' => $hasInstalledBase
+        ? (string) ($installedBaseRow['remarks'] ?? '')
+        : '',
 ];
-array_walk_recursive($payload, function (&$val) {
-    if (is_string($val)) {
-        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
-    }
-});
-echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+
+unset($row, $machineModel, $installedBaseRow);
+api_json_echo($response);

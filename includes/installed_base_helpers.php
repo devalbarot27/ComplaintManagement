@@ -124,6 +124,168 @@ function installed_base_validate(PDO $conn, array $data): ?string
     return null;
 }
 
+/**
+ * Find the active installed base id for a FAB number (unique key).
+ */
+function installed_base_find_id_by_fab(PDO $conn, string $fabNumber): ?int
+{
+    $fabNumber = trim($fabNumber);
+    if ($fabNumber === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id
+        FROM installed_base
+        WHERE TRIM(fab_number) = TRIM(:fab_number)
+          AND deleted_at IS NULL
+        ORDER BY created_at ASC, id ASC
+        LIMIT 1
+    ');
+    $stmt->bindValue(':fab_number', $fabNumber);
+    $stmt->execute();
+
+    $id = $stmt->fetchColumn();
+
+    return $id !== false ? (int) $id : null;
+}
+
+function installed_base_update_record(PDO $conn, int $id, array $data): void
+{
+    $update = $conn->prepare('
+        UPDATE installed_base
+        SET
+            order_ref_id = :order_ref_id,
+            order_id = :order_id,
+            fab_number = :fab_number,
+            customer_name = :customer_name,
+            street_1 = :street_1,
+            street_2 = :street_2,
+            pincode = :pincode,
+            city = :city,
+            district = :district,
+            state = :state,
+            mobile = :mobile,
+            email = :email,
+            dealer_name = :dealer_name,
+            machine_model_code = :machine_model_code,
+            machine_model = :machine_model,
+            invoice_date = :invoice_date,
+            commissioning_date = :commissioning_date,
+            running_hours = :running_hours,
+            industry_segment = :industry_segment,
+            remarks = :remarks,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+          AND deleted_at IS NULL
+    ');
+
+    $update->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
+    $update->bindValue(':order_id', '0', PDO::PARAM_INT);
+    $update->bindValue(':fab_number', $data['fab_number']);
+    $update->bindValue(':customer_name', $data['customer_name']);
+    $update->bindValue(':street_1', $data['street_1']);
+    $update->bindValue(':street_2', $data['street_2'] !== '' ? $data['street_2'] : null);
+    $update->bindValue(':pincode', $data['pincode']);
+    $update->bindValue(':city', $data['city']);
+    $update->bindValue(':district', $data['district']);
+    $update->bindValue(':state', $data['state']);
+    $update->bindValue(':mobile', $data['mobile']);
+    $update->bindValue(':email', $data['email']);
+    $update->bindValue(':dealer_name', $data['dealer_name']);
+    $update->bindValue(':machine_model_code', $data['machine_model_code']);
+    $update->bindValue(':machine_model', $data['machine_model']);
+    $update->bindValue(':invoice_date', $data['invoice_date']);
+    $update->bindValue(':commissioning_date', $data['commissioning_date']);
+    $update->bindValue(':running_hours', $data['running_hours']);
+    $update->bindValue(':industry_segment', $data['industry_segment']);
+    $update->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
+    $update->bindValue(':id', $id, PDO::PARAM_INT);
+    $update->execute();
+}
+
+function installed_base_insert_record(PDO $conn, array $data, int $createdBy, string $username): int
+{
+    $insert = $conn->prepare('
+        INSERT INTO installed_base
+        (
+            order_ref_id,
+            order_id,
+            fab_number,
+            customer_name,
+            street_1,
+            street_2,
+            pincode,
+            city,
+            district,
+            state,
+            mobile,
+            email,
+            dealer_name,
+            machine_model_code,
+            machine_model,
+            invoice_date,
+            commissioning_date,
+            running_hours,
+            industry_segment,
+            remarks,
+            created_by,
+            username
+        )
+        VALUES
+        (
+            :order_ref_id,
+            :order_id,
+            :fab_number,
+            :customer_name,
+            :street_1,
+            :street_2,
+            :pincode,
+            :city,
+            :district,
+            :state,
+            :mobile,
+            :email,
+            :dealer_name,
+            :machine_model_code,
+            :machine_model,
+            :invoice_date,
+            :commissioning_date,
+            :running_hours,
+            :industry_segment,
+            :remarks,
+            :created_by,
+            :username
+        )
+    ');
+
+    $insert->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
+    $insert->bindValue(':order_id', '0', PDO::PARAM_INT);
+    $insert->bindValue(':fab_number', $data['fab_number']);
+    $insert->bindValue(':customer_name', $data['customer_name']);
+    $insert->bindValue(':street_1', $data['street_1']);
+    $insert->bindValue(':street_2', $data['street_2'] !== '' ? $data['street_2'] : null);
+    $insert->bindValue(':pincode', $data['pincode']);
+    $insert->bindValue(':city', $data['city']);
+    $insert->bindValue(':district', $data['district']);
+    $insert->bindValue(':state', $data['state']);
+    $insert->bindValue(':mobile', $data['mobile']);
+    $insert->bindValue(':email', $data['email']);
+    $insert->bindValue(':dealer_name', $data['dealer_name']);
+    $insert->bindValue(':machine_model_code', $data['machine_model_code']);
+    $insert->bindValue(':machine_model', $data['machine_model']);
+    $insert->bindValue(':invoice_date', $data['invoice_date']);
+    $insert->bindValue(':commissioning_date', $data['commissioning_date']);
+    $insert->bindValue(':running_hours', $data['running_hours']);
+    $insert->bindValue(':industry_segment', $data['industry_segment']);
+    $insert->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
+    $insert->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
+    $insert->bindValue(':username', $username);
+    $insert->execute();
+
+    return (int) $conn->lastInsertId();
+}
+
 function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $complaintId = null): ?array
 {
     $fabNumber = trim($fabNumber);
@@ -153,6 +315,7 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $comp
         if ($complaintRow) {
             $complaintRow['mobile'] = '';
             $complaintRow['email'] = '';
+            $complaintRow['has_installed_base'] = false;
             return $complaintRow;
         }
     }
@@ -161,30 +324,10 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $comp
         return null;
     }
 
-    $stmt = $conn->prepare('
-        SELECT
-            customer_name,
-            street_1,
-            street_2,
-            pincode,
-            city,
-            district,
-            state,
-            mobile,
-            email,
-            remarks
-        FROM installed_base
-        WHERE fab_number = :fab_number
-          AND deleted_at IS NULL
-        ORDER BY created_at DESC, id DESC
-        LIMIT 1
-    ');
-    $stmt->bindValue(':fab_number', $fabNumber);
-    $stmt->execute();
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($row) {
-        return $row;
+    $installedBaseRow = installed_base_latest_record_by_fab($conn, $fabNumber);
+    if ($installedBaseRow !== null) {
+        $installedBaseRow['has_installed_base'] = true;
+        return $installedBaseRow;
     }
 
     $complaintByFabStmt = $conn->prepare('
@@ -213,8 +356,48 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $comp
 
     $complaintByFab['mobile'] = '';
     $complaintByFab['email'] = '';
+    $complaintByFab['has_installed_base'] = false;
 
     return $complaintByFab;
+}
+
+/**
+ * Latest active Installed Base row for a FAB (for prefill of saved IB fields).
+ */
+function installed_base_latest_record_by_fab(PDO $conn, string $fabNumber): ?array
+{
+    $fabNumber = trim($fabNumber);
+    if ($fabNumber === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT
+            customer_name,
+            street_1,
+            street_2,
+            pincode,
+            city,
+            district,
+            state,
+            mobile,
+            email,
+            remarks,
+            commissioning_date,
+            running_hours,
+            industry_segment
+        FROM installed_base
+        WHERE TRIM(fab_number) = TRIM(:fab_number)
+          AND deleted_at IS NULL
+        ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+        LIMIT 1
+    ');
+    $stmt->bindValue(':fab_number', $fabNumber);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
 }
 
 function installed_base_pending_order_normalize_row(array $row): array

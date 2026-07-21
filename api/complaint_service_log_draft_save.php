@@ -4,14 +4,13 @@ require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_service_log_draft_helpers.php';
+require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode([
-        'error' => htmlspecialchars('Method not allowed.', ENT_QUOTES, 'UTF-8'),
-    ]);
+    api_json_echo(['error' => 'Method not allowed.']);
     exit;
 }
 
@@ -21,17 +20,13 @@ complaint_service_log_require_assigned_access($obconn, $complaintId);
 $createdBy = current_user_id($obconn);
 if ($createdBy === null || $createdBy <= 0) {
     http_response_code(401);
-    echo json_encode([
-        'error' => htmlspecialchars('Unable to resolve logged-in user.', ENT_QUOTES, 'UTF-8'),
-    ]);
+    api_json_echo(['error' => 'Unable to resolve logged-in user.']);
     exit;
 }
 
 if (empty($_POST['from_complaint_modal'])) {
     http_response_code(422);
-    echo json_encode([
-        'error' => htmlspecialchars('Invalid complaint service log draft request.', ENT_QUOTES, 'UTF-8'),
-    ]);
+    api_json_echo(['error' => 'Invalid complaint service log draft request.']);
     exit;
 }
 
@@ -43,17 +38,22 @@ $result = complaint_service_log_save_draft_record(
 );
 
 if (!$result['success']) {
+    $errorMessage = (string) ($result['message'] ?? '');
+    unset($result);
     http_response_code(422);
-    echo json_encode([
-        'error' => htmlspecialchars((string) ($result['message'] ?? ''), ENT_QUOTES, 'UTF-8'),
-    ]);
+    api_json_echo(['error' => $errorMessage]);
     exit;
 }
 
-echo json_encode([
+$safeMessage = (string) ($result['message'] ?? '');
+$safeServiceLogId = (int) ($result['service_log_id'] ?? 0);
+$safeComplaintId = (int) ($result['complaint_id'] ?? $complaintId);
+unset($result);
+
+api_json_echo([
     'success' => true,
-    'message' => htmlspecialchars((string) ($result['message'] ?? ''), ENT_QUOTES, 'UTF-8'),
-    'service_log_id' => (int) ($result['service_log_id'] ?? 0),
-    'complaint_id' => (int) ($result['complaint_id'] ?? $complaintId),
+    'message' => $safeMessage,
+    'service_log_id' => $safeServiceLogId,
+    'complaint_id' => $safeComplaintId,
     'is_draft' => 1,
 ]);

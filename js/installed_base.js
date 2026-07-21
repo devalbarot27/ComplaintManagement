@@ -90,7 +90,9 @@ function fillInstalledBaseForm(record) {
     setInstalledBaseDealerName(record.dealer_name || getInstalledBaseDefaultDealerName());
 
     setStaticSelect2Value('industrySegmentSelect', record.industry_segment || '');
-    setMachineModelSelect2(record.machine_model_code || '', record.machine_model || '');
+    setMachineModelSelect2(record.machine_model_code || '', record.machine_model || '', {
+        locked: !!(record.machine_model_code || '').trim()
+    });
 
     setInstalledBaseFabSelect2(record.fab_number || '');
     setInstalledBaseInvoiceDate(form, record.invoice_date || '');
@@ -136,6 +138,17 @@ function resetInstalledBaseForm() {
     });
 
     setInstalledBaseDealerName(getInstalledBaseDefaultDealerName());
+}
+
+function clearInstalledBaseUpdatedQueryParam() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('ib_updated')) {
+        return;
+    }
+
+    url.searchParams.delete('ib_updated');
+    const nextUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+    window.history.replaceState({}, document.title, nextUrl);
 }
 
 function openInstalledBaseForm() {
@@ -193,6 +206,7 @@ function initInstalledBasePage() {
 
     if (openBtn) {
         openBtn.addEventListener('click', function () {
+            clearInstalledBaseUpdatedQueryParam();
             resetInstalledBaseForm();
             openInstalledBaseForm();
         });

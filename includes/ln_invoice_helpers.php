@@ -39,13 +39,16 @@ function ln_invoice_search_fabno(PDO $conn, string $term, int $limit = 25): arra
     }
 
     $stmt = $conn->prepare('
-        SELECT fabno, MAX(inv_dt) AS inv_dt
+        SELECT DISTINCT ON (TRIM(fabno))
+            fabno,
+            inv_dt,
+            tpl,
+            tpl_desc
         FROM ln_invoice_details
         WHERE fabno IS NOT NULL
           AND TRIM(fabno) <> \'\'
           AND fabno ILIKE :term
-        GROUP BY fabno
-        ORDER BY fabno
+        ORDER BY TRIM(fabno), inv_dt DESC NULLS LAST
         LIMIT :limit
     ');
     $stmt->bindValue(':term', '%' . $term . '%');
@@ -91,11 +94,50 @@ function ln_invoice_get_invoice_date_by_fabno(PDO $conn, string $fabno): ?string
 function ln_invoice_fabno_to_select2_result(array $row): array
 {
     $fabno = trim((string) ($row['fabno'] ?? ''));
+    $machineModelCode = trim((string) ($row['tpl'] ?? ''));
+    $machineModelDesc = trim((string) ($row['tpl_desc'] ?? ''));
 
     return [
         'id' => $fabno,
         'text' => $fabno,
         'invoice_date' => ln_invoice_format_date($row['inv_dt'] ?? null),
+        'machine_model_code' => $machineModelCode,
+        'machine_model' => $machineModelDesc,
+    ];
+}
+
+function ln_invoice_get_machine_model_by_fabno(PDO $conn, string $fabno): ?array
+{
+    $fabno = trim($fabno);
+    if ($fabno === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT tpl, tpl_desc
+        FROM ln_invoice_details
+        WHERE fabno = :fabno
+          AND TRIM(COALESCE(tpl, \'\')) <> \'\'
+        ORDER BY inv_dt DESC NULLS LAST, id DESC
+        LIMIT 1
+    ');
+    $stmt->bindValue(':fabno', $fabno);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return null;
+    }
+
+    $code = trim((string) ($row['tpl'] ?? ''));
+    $description = trim((string) ($row['tpl_desc'] ?? ''));
+    if ($code === '') {
+        return null;
+    }
+
+    return [
+        'machine_model_code' => $code,
+        'machine_model' => $description,
     ];
 }
 

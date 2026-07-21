@@ -44,6 +44,14 @@ function initInstalledBaseFabnoSelect2() {
         onSelect: function (data, form) {
             setInstalledBaseInvoiceDate(form, data.invoice_date || '');
             prefillInstalledBaseFromFab(form, data.id);
+
+            const machineModelCode = String(data.machine_model_code || '').trim();
+            const machineModelDesc = String(data.machine_model || '').trim();
+            if (machineModelCode !== '') {
+                setMachineModelSelect2(machineModelCode, machineModelDesc, { locked: true });
+            } else {
+                setMachineModelSelect2Locked(false);
+            }
         },
         onClear: function (form) {
             setInstalledBaseInvoiceDate(form, '');
