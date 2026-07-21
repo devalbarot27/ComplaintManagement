@@ -17,7 +17,6 @@ if ($fabNumber === '' && $complaintId <= 0) {
 }
 
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
-require_once dirname(__DIR__) . '/includes/ln_invoice_helpers.php';
 
 $row = installed_base_fab_prefill_row(
     $obconn,
@@ -25,16 +24,12 @@ $row = installed_base_fab_prefill_row(
     $complaintId > 0 ? $complaintId : null
 );
 
-$machineModel = $fabNumber !== ''
-    ? ln_invoice_get_machine_model_by_fabno($dpconn, $fabNumber)
-    : null;
-
 $installedBaseRow = $fabNumber !== ''
     ? installed_base_latest_record_by_fab($obconn, $fabNumber)
     : null;
 $hasInstalledBase = $installedBaseRow !== null;
 
-if (!$row && !$machineModel && !$hasInstalledBase) {
+if (!$row && !$hasInstalledBase) {
     api_json_echo(['found' => false]);
     exit;
 }
@@ -42,6 +37,14 @@ if (!$row && !$machineModel && !$hasInstalledBase) {
 $commissioningDate = '';
 if ($hasInstalledBase && !empty($installedBaseRow['commissioning_date'])) {
     $commissioningDate = substr((string) $installedBaseRow['commissioning_date'], 0, 10);
+}
+
+// Machine Model comes only from Installed Base when FAB already exists.
+$machineModelCode = '';
+$machineModelDesc = '';
+if ($hasInstalledBase) {
+    $machineModelCode = (string) ($installedBaseRow['machine_model_code'] ?? '');
+    $machineModelDesc = (string) ($installedBaseRow['machine_model'] ?? '');
 }
 
 $response = [
@@ -56,8 +59,8 @@ $response = [
     'state' => (string) ($row['state'] ?? ($installedBaseRow['state'] ?? '')),
     'mobile' => (string) ($row['mobile'] ?? ($installedBaseRow['mobile'] ?? '')),
     'email' => (string) ($row['email'] ?? ($installedBaseRow['email'] ?? '')),
-    'machine_model_code' => (string) ($machineModel['machine_model_code'] ?? ''),
-    'machine_model' => (string) ($machineModel['machine_model'] ?? ''),
+    'machine_model_code' => $machineModelCode,
+    'machine_model' => $machineModelDesc,
     'commissioning_date' => $hasInstalledBase ? $commissioningDate : '',
     'running_hours' => $hasInstalledBase
         ? (string) ($installedBaseRow['running_hours'] ?? '')
@@ -70,5 +73,5 @@ $response = [
         : '',
 ];
 
-unset($row, $machineModel, $installedBaseRow);
+unset($row, $installedBaseRow);
 api_json_echo($response);

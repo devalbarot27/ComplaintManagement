@@ -385,7 +385,9 @@ function installed_base_latest_record_by_fab(PDO $conn, string $fabNumber): ?arr
             remarks,
             commissioning_date,
             running_hours,
-            industry_segment
+            industry_segment,
+            machine_model_code,
+            machine_model
         FROM installed_base
         WHERE TRIM(fab_number) = TRIM(:fab_number)
           AND deleted_at IS NULL

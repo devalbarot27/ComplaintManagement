@@ -96,10 +96,15 @@ function setInstalledBaseFabAutoFields(form, data) {
     setPincodeSelect2(form, 'installedBasePincodeSelect', data);
     setInstalledBaseFabRecordFields(form, data);
 
-    const machineModelCode = String(data.machine_model_code || '').trim();
-    const machineModelDesc = String(data.machine_model || '').trim();
-    if (machineModelCode !== '' && typeof setMachineModelSelect2 === 'function') {
-        setMachineModelSelect2(machineModelCode, machineModelDesc, { locked: true });
+    // Machine Model: only auto-fill + lock when FAB already exists in Installed Base.
+    if (data.has_installed_base) {
+        const machineModelCode = String(data.machine_model_code || '').trim();
+        const machineModelDesc = String(data.machine_model || '').trim();
+        if (typeof setMachineModelSelect2 === 'function') {
+            setMachineModelSelect2(machineModelCode, machineModelDesc, { locked: true });
+        }
+    } else if (typeof setMachineModelSelect2Locked === 'function') {
+        setMachineModelSelect2Locked(false);
     }
 }
 

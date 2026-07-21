@@ -90,8 +90,9 @@ function fillInstalledBaseForm(record) {
     setInstalledBaseDealerName(record.dealer_name || getInstalledBaseDefaultDealerName());
 
     setStaticSelect2Value('industrySegmentSelect', record.industry_segment || '');
+    // Edit loads an existing Installed Base FAB — Machine Model is read-only.
     setMachineModelSelect2(record.machine_model_code || '', record.machine_model || '', {
-        locked: !!(record.machine_model_code || '').trim()
+        locked: true
     });
 
     setInstalledBaseFabSelect2(record.fab_number || '');
