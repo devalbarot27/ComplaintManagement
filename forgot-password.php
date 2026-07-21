@@ -21,15 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($result['success']) {
         if (!empty($result['redirect'])) {
             $fRedirect = (string) $result['redirect'];
-            if (
-                preg_match('#^https?://#i', $fRedirect)
-                || str_starts_with($fRedirect, '//')
-                || str_contains($fRedirect, '\\')
-                || !preg_match('#^[a-zA-Z0-9_\-./?=&%]+$#', $fRedirect)
-            ) {
-                $fRedirect = 'index.php';
+            // Allow only relative reset_password.php?token=<hex> (open-redirect safe).
+            if (preg_match('#^reset_password\.php\?token=([a-fA-F0-9]+)$#', $fRedirect, $m)) {
+                header('Location: reset_password.php?token=' . $m[1]);
+                exit;
             }
-            header('Location: ' . $fRedirect);
+            header('Location: index.php');
             exit;
         }
         $success_message = $result['message'];

@@ -80,13 +80,21 @@ function scm_config(string $type): array
 
 function scm_safe_table(string $type): string
 {
-    $config = scm_config($type);
-    $table = $config['table'];
-    $allowed = array_column(scm_registry(), 'table');
-    if (!in_array($table, $allowed, true)) {
-        throw new InvalidArgumentException('Invalid table for system configuration master.');
+    // Return only string literals so SQL builders never interpolate untrusted input.
+    switch ($type) {
+        case 'industry_segment':
+            return 'industry_segments';
+        case 'warranty_chargeable':
+            return 'warranty_chargeable_types';
+        case 'part_replaced':
+            return 'part_replaced_masters';
+        case 'customer_feedback':
+            return 'customer_feedback_options';
+        case 'reason':
+            return 'reason_masters';
+        default:
+            throw new InvalidArgumentException('Unknown system configuration master type.');
     }
-    return $table;
 }
 
 function scm_from_post(array $post): array
@@ -164,15 +172,56 @@ function scm_get_by_id(PDO $conn, string $type, int $id): ?array
 
 function scm_get_active_names(PDO $conn, string $type): array
 {
-    $table = scm_safe_table($type);
-
-    $stmt = $conn->query("
-        SELECT name
-        FROM {$table}
-        WHERE deleted_at IS NULL
-          AND status = 'active'
-        ORDER BY created_at ASC, id ASC
-    ");
+    // Fully literal SQL per type (no table-name interpolation).
+    switch ($type) {
+        case 'industry_segment':
+            $stmt = $conn->query("
+                SELECT name
+                FROM industry_segments
+                WHERE deleted_at IS NULL
+                  AND status = 'active'
+                ORDER BY created_at ASC, id ASC
+            ");
+            break;
+        case 'warranty_chargeable':
+            $stmt = $conn->query("
+                SELECT name
+                FROM warranty_chargeable_types
+                WHERE deleted_at IS NULL
+                  AND status = 'active'
+                ORDER BY created_at ASC, id ASC
+            ");
+            break;
+        case 'part_replaced':
+            $stmt = $conn->query("
+                SELECT name
+                FROM part_replaced_masters
+                WHERE deleted_at IS NULL
+                  AND status = 'active'
+                ORDER BY created_at ASC, id ASC
+            ");
+            break;
+        case 'customer_feedback':
+            $stmt = $conn->query("
+                SELECT name
+                FROM customer_feedback_options
+                WHERE deleted_at IS NULL
+                  AND status = 'active'
+                ORDER BY created_at ASC, id ASC
+            ");
+            break;
+        case 'reason':
+            $stmt = $conn->query("
+                SELECT name
+                FROM reason_masters
+                WHERE deleted_at IS NULL
+                  AND status = 'active'
+                ORDER BY created_at ASC, id ASC
+            ");
+            break;
+        default:
+            throw new InvalidArgumentException('Unknown system configuration master type.');
+    }
 
     return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'name');
 }

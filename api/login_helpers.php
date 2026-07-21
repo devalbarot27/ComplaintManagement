@@ -137,16 +137,16 @@ function login_set_remember_cookie(string $usrName): void
     $signature = hash_hmac('sha256', $data, login_remember_secret());
     $cookieValue = $data . '.' . $signature;
 
-    // Classic signature: expires, path, domain, secure=true, httponly=true
-    // (array-options form is often missed by static cookie scanners).
     setcookie(
         login_remember_cookie_name(),
         $cookieValue,
-        (int) $payload['exp'],
-        '/',
-        '',
-        true,
-        true
+        [
+            'expires' => (int) $payload['exp'],
+            'path' => '/',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]
     );
 }
 
@@ -155,11 +155,13 @@ function login_clear_remember_cookie(): void
     setcookie(
         login_remember_cookie_name(),
         '',
-        time() - 3600,
-        '/',
-        '',
-        true,
-        true
+        [
+            'expires' => time() - 3600,
+            'path' => '/',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]
     );
 }
 

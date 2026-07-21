@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/admin_api_guard.php';
 require_once dirname(__DIR__) . '/includes/role_helpers.php';
 require_once dirname(__DIR__) . '/includes/role_permission_helpers.php';
+require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 admin_api_require_system_admin($obconn);
 
@@ -13,26 +14,20 @@ header('Content-Type: application/json; charset=utf-8');
 $roleId = (int) ($_GET['role_id'] ?? 0);
 
 if ($roleId <= 0) {
-    echo json_encode(['modules' => []]);
+    api_json_echo(['modules' => []]);
     exit;
 }
 
 if (role_get_by_id($obconn, $roleId) === null) {
     http_response_code(404);
-    echo json_encode([
-        'error' => htmlspecialchars('Role not found.', ENT_QUOTES, 'UTF-8'),
-    ]);
+    api_json_echo(['error' => 'Role not found.']);
     exit;
 }
 
 $modules = role_permission_matrix($obconn, $roleId);
-array_walk_recursive($modules, function (&$val) {
-    if (is_string($val)) {
-        $val = htmlspecialchars($val, ENT_QUOTES, 'UTF-8');
-    }
-});
-
-echo json_encode([
+$response = [
     'role_id' => $roleId,
     'modules' => $modules,
-], JSON_UNESCAPED_UNICODE);
+];
+unset($modules);
+api_json_echo($response);

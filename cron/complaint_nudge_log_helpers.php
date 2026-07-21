@@ -165,17 +165,19 @@ function complaint_nudge_log_ensure_schema(PDO $conn): void
 
     $table = complaint_nudge_log_table();
 
-    $stmt = $conn->query("
+    $stmt = $conn->prepare('
         SELECT 1
         FROM information_schema.tables
-        WHERE table_schema = 'public'
-          AND table_name = '{$table}'
+        WHERE table_schema = \'public\'
+          AND table_name = :table_name
         LIMIT 1
-    ");
+    ');
+    $stmt->bindValue(':table_name', $table);
+    $stmt->execute();
 
     if (!$stmt->fetchColumn()) {
-        $conn->exec("
-            CREATE TABLE {$table} (
+        $conn->exec('
+            CREATE TABLE complaint_nudge_logs (
                 id SERIAL PRIMARY KEY,
                 complaint_id INTEGER NOT NULL,
                 nudge_type VARCHAR(50) NOT NULL,
@@ -186,30 +188,30 @@ function complaint_nudge_log_ensure_schema(PDO $conn): void
                 email_sent SMALLINT NOT NULL DEFAULT 0,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
-        ");
+        ');
 
         // History index only — allow multiple sends per complaint / user / milestone.
-        $conn->exec("
+        $conn->exec('
             CREATE INDEX IF NOT EXISTS complaint_nudge_logs_lookup_idx
-                ON {$table} (complaint_id, nudge_type, recipient_user_id, reminder_hours)
-        ");
+                ON complaint_nudge_logs (complaint_id, nudge_type, recipient_user_id, reminder_hours)
+        ');
 
-        $conn->exec("
+        $conn->exec('
             CREATE INDEX IF NOT EXISTS complaint_nudge_logs_complaint_id_idx
-                ON {$table} (complaint_id)
-        ");
+                ON complaint_nudge_logs (complaint_id)
+        ');
 
-        $conn->exec("
+        $conn->exec('
             CREATE INDEX IF NOT EXISTS complaint_nudge_logs_type_recipient_idx
-                ON {$table} (nudge_type, recipient_user_id)
-        ");
+                ON complaint_nudge_logs (nudge_type, recipient_user_id)
+        ');
     } else {
         // Remove legacy unique index so repeated cron runs can log each send.
         $conn->exec('DROP INDEX IF EXISTS complaint_nudge_logs_unique');
-        $conn->exec("
+        $conn->exec('
             CREATE INDEX IF NOT EXISTS complaint_nudge_logs_lookup_idx
-                ON {$table} (complaint_id, nudge_type, recipient_user_id, reminder_hours)
-        ");
+                ON complaint_nudge_logs (complaint_id, nudge_type, recipient_user_id, reminder_hours)
+        ');
     }
 
     // Drop legacy per-nudge tables if they still exist

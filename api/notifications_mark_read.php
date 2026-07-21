@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/notification_helpers.php';
+require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -11,14 +12,14 @@ rbac_require_api_access($obconn);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(['error' => 'Method not allowed.']);
+    api_json_echo(['error' => 'Method not allowed.']);
     exit;
 }
 
 $userId = current_user_id($obconn);
 if ($userId === null || $userId <= 0) {
     http_response_code(401);
-    echo json_encode(['error' => 'Unauthorized.']);
+    api_json_echo(['error' => 'Unauthorized.']);
     exit;
 }
 
@@ -30,22 +31,25 @@ if (!is_array($input)) {
 $notificationId = (int) ($input['id'] ?? $input['notification_id'] ?? 0);
 if ($notificationId <= 0) {
     http_response_code(400);
-    echo json_encode(['error' => 'Invalid notification.']);
+    api_json_echo(['error' => 'Invalid notification.']);
     exit;
 }
 
 $notification = notification_get_for_user($obconn, $userId, $notificationId);
 if ($notification === null) {
     http_response_code(404);
-    echo json_encode(['error' => 'Notification not found.']);
+    api_json_echo(['error' => 'Notification not found.']);
     exit;
 }
 
 notification_mark_read($obconn, $userId, $notificationId);
 $updated = notification_get_for_user($obconn, $userId, $notificationId);
+$unreadCount = notification_unread_count($obconn, $userId);
 
-echo json_encode([
+$response = [
     'ok' => true,
     'notification' => $updated,
-    'unread_count' => notification_unread_count($obconn, $userId),
-]);
+    'unread_count' => $unreadCount,
+];
+unset($notification, $updated, $input);
+api_json_echo($response);

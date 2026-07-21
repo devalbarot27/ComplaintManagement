@@ -145,12 +145,15 @@ $errorMessage = $invoice === null ? 'Order not found in pending orders.' : '';
                         </div>
                         <div class="invoice-summary-item">
                             <div class="invoice-summary-label">Grand Total</div>
-                            <div class="invoice-summary-value"><?php echo htmlspecialchars(pending_invoice_format_money_html($invoice['grand_total']), ENT_QUOTES, 'UTF-8'); ?></div>
+                            <div class="invoice-summary-value"><?php echo '&#8377; ' . htmlspecialchars(number_format((float) $invoice['grand_total'], 2), ENT_QUOTES, 'UTF-8'); ?></div>
                         </div>
                     </div>
 
+                    <?php
+                    $safeOrdno = preg_replace('/[^A-Za-z0-9._\-]/', '', (string) ($invoice['ordno'] ?? '')) ?? '';
+                    ?>
                     <a
-                        href="generate_pending_order_invoice.php?ordno=<?php echo htmlspecialchars(urlencode($invoice['ordno']), ENT_QUOTES, 'UTF-8'); ?>"
+                        href="generate_pending_order_invoice.php?ordno=<?php echo htmlspecialchars($safeOrdno, ENT_QUOTES, 'UTF-8'); ?>"
                         class="invoice-download-btn">
                         <i class="bi bi-file-earmark-pdf"></i>
                         Download Invoice PDF

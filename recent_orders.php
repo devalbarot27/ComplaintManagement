@@ -23,6 +23,13 @@ if (!$canListRecentOrders) {
 }
 
 $refNo = trim((string) ($_GET['order_no'] ?? ''));
+$recentOrderRefNoJson = json_encode(
+    htmlspecialchars($refNo, ENT_QUOTES, 'UTF-8'),
+    JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT
+);
+if (!is_string($recentOrderRefNoJson)) {
+    $recentOrderRefNoJson = '""';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -121,7 +128,7 @@ $refNo = trim((string) ($_GET['order_no'] ?? ''));
 <?php include('script_js.php'); ?>
 <script>
     const canViewRecentOrders = <?php echo htmlspecialchars($canViewRecentOrders ? 'true' : 'false', ENT_QUOTES, 'UTF-8'); ?>;
-    const recentOrderRefNo = <?php echo json_encode($refNo, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+    const recentOrderRefNo = <?php echo $recentOrderRefNoJson; ?>;
 
     $(document).ready(function() {
 

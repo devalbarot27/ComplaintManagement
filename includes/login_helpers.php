@@ -7,17 +7,15 @@ function login_destroy_session(): void
     $_SESSION = [];
 
     if (ini_get('session.use_cookies')) {
-        $params = session_get_cookie_params();
         setcookie(
             session_name(),
             '',
             [
                 'expires' => time() - 42000,
-                'path' => $params['path'],
-                'domain' => $params['domain'],
+                'path' => '/',
                 'secure' => true,
                 'httponly' => true,
-                'samesite' => $params['samesite'] ?? 'Lax',
+                'samesite' => 'Lax',
             ]
         );
     }
@@ -170,15 +168,16 @@ function login_set_remember_cookie(string $usrName): void
     $signature = hash_hmac('sha256', $data, login_remember_secret());
     $cookieValue = $data . '.' . $signature;
 
-    // Classic signature: expires, path, domain, secure=true, httponly=true
     setcookie(
         login_remember_cookie_name(),
         $cookieValue,
-        (int) $payload['exp'],
-        '/',
-        '',
-        true,
-        true
+        [
+            'expires' => (int) $payload['exp'],
+            'path' => '/',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]
     );
 }
 
@@ -187,11 +186,13 @@ function login_clear_remember_cookie(): void
     setcookie(
         login_remember_cookie_name(),
         '',
-        time() - 3600,
-        '/',
-        '',
-        true,
-        true
+        [
+            'expires' => time() - 3600,
+            'path' => '/',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]
     );
 }
 

@@ -166,9 +166,9 @@ foreach ($permissionMatrix as $module) {
                                     <input type="checkbox"
                                         class="permission-checkbox"
                                         name="permission_ids[]"
-                                        value="<?php echo (int) $permission['id']; ?>"
-                                        <?php echo htmlspecialchars(!empty($permission['assigned']) ? 'checked' : '', ENT_QUOTES, 'UTF-8'); ?>>
-                                    <span><?php echo htmlspecialchars($permission['permission_name']); ?></span>
+                                        value="<?php echo htmlspecialchars((string) (int) $permission['id'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        <?php if (!empty($permission['assigned'])) { ?>checked<?php } ?>>
+                                    <span><?php echo htmlspecialchars((string) ($permission['permission_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
                                 </label>
                                 <?php } ?>
                             </div>

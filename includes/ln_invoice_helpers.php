@@ -118,7 +118,7 @@ function ln_invoice_get_machine_model_by_fabno(PDO $conn, string $fabno): ?array
         FROM ln_invoice_details
         WHERE fabno = :fabno
           AND TRIM(COALESCE(tpl, \'\')) <> \'\'
-        ORDER BY inv_dt DESC NULLS LAST, id DESC
+        ORDER BY inv_dt DESC NULLS LAST, inv_dt DESC
         LIMIT 1
     ');
     $stmt->bindValue(':fabno', $fabno);

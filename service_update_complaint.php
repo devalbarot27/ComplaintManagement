@@ -123,7 +123,7 @@ try {
         $storedPaths = $uploadResult['paths'];
     } catch (RuntimeException $e) {
         service_report_delete_files($storedPaths);
-        $_SESSION['error_message'] = $e->getMessage();
+        $_SESSION['error_message'] = 'Unable to store service report upload.';
         header('Location: dse_lse_complaint_list.php');
         exit;
     }

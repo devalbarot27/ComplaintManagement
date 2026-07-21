@@ -207,9 +207,10 @@ function password_reset_process_forgot(PDO $obconn, string $email): array
         password_reset_send_email($user, $resetUrl);
 
         if (password_reset_use_redirect()) {
+            // Relative path only — absolute URLs are for email, not Location headers.
             return [
                 'success' => true,
-                'redirect' => $resetUrl,
+                'redirect' => 'reset_password.php?token=' . $token,
                 'message' => 'Redirecting to reset password page.',
             ];
         }

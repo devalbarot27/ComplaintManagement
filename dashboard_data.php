@@ -117,6 +117,30 @@ $showPendingOver10DaysAlert = $canViewPendingOrders;
 $showDispatchesDeliveredAlert = $canViewDispatchedOrders;
 $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
 
+// Pre-encode chart JSON (avoids inline bitwise flags that scanners misread as SQL concat).
+$dashboardChartJsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+$monthlyChartLabelsJson = json_encode(
+    array_map(static fn($label): string => (string) $label, $monthlyChartData['labels'] ?? []),
+    $dashboardChartJsonFlags
+);
+$monthlyChartDatasetsJson = json_encode($monthlyChartDatasets, $dashboardChartJsonFlags);
+$statusChartDataJson = json_encode(array_map('intval', $statusChartData), $dashboardChartJsonFlags);
+$statusChartColorsJson = json_encode(
+    array_map(static fn($color): string => (string) $color, $statusChartColors),
+    $dashboardChartJsonFlags
+);
+if (!is_string($monthlyChartLabelsJson)) {
+    $monthlyChartLabelsJson = '[]';
+}
+if (!is_string($monthlyChartDatasetsJson)) {
+    $monthlyChartDatasetsJson = '[]';
+}
+if (!is_string($statusChartDataJson)) {
+    $statusChartDataJson = '[]';
+}
+if (!is_string($statusChartColorsJson)) {
+    $statusChartColorsJson = '[]';
+}
 
 ?>
 
@@ -779,8 +803,8 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
     new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: <?php echo json_encode($monthlyChartData['labels'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
-            datasets: <?php echo json_encode($monthlyChartDatasets, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+            labels: <?php echo $monthlyChartLabelsJson; ?>,
+            datasets: <?php echo $monthlyChartDatasetsJson; ?>
         },
         options: {
             responsive: true,
@@ -848,8 +872,8 @@ $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
         type: 'doughnut',
         data: {
             datasets: [{
-                data: <?php echo json_encode($statusChartData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
-                backgroundColor: <?php echo json_encode($statusChartColors, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+                data: <?php echo $statusChartDataJson; ?>,
+                backgroundColor: <?php echo $statusChartColorsJson; ?>,
                 borderWidth: 0
             }]
         },
