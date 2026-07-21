@@ -3321,7 +3321,7 @@ class orderClass
                     OR COALESCE(um_by_emp.name, '') ILIKE :search
                     OR COALESCE(um_by_usr.name, '') ILIKE :search
                     OR COALESCE(a.usr_name, '') ILIKE :search
-                    OR COALESCE(a.emp_code, '') ILIKE :search
+                    OR COALESCE(a.emp_code::text, '') ILIKE :search
                     ";
                 }
                 $where .= ")";
@@ -3338,8 +3338,8 @@ class orderClass
                $addedByJoin = "
                 LEFT JOIN user_master AS um_by_emp
                     ON um_by_emp.deleted_at IS NULL
-                   AND TRIM(COALESCE(a.emp_code, '')) <> ''
-                   AND TRIM(um_by_emp.username) = TRIM(a.emp_code)
+                   AND TRIM(COALESCE(a.emp_code::text, '')) <> ''
+                   AND TRIM(um_by_emp.username) = TRIM(a.emp_code::text)
                 LEFT JOIN user_master AS um_by_usr
                     ON um_by_usr.deleted_at IS NULL
                    AND TRIM(COALESCE(a.usr_name, '')) <> ''
