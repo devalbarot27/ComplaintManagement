@@ -48,6 +48,7 @@ $canViewCreatedOrders = $orderModulePermissions['created'];
 $canViewRecentOrders = $orderModulePermissions['recent'];
 $canViewAcknowledgedOrders = $orderModulePermissions['acknowledged'];
 $canViewPendingOrders = $orderModulePermissions['pending'];
+$showAddedByColumn = is_system_admin() || is_management_user() || is_ccs_admin_user();
 $canViewDispatchedOrders = $orderModulePermissions['dispatched'];
 $canViewComplaintView = $orderModulePermissions['complaint-view'];
 $canViewAnyOrderCards = $canViewCreatedOrders
@@ -544,7 +545,9 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                                             <th>PO Number</th>
                                             <th>Payment Term</th>
                                             <th>Transporter</th>
+                                            <?php if ($showAddedByColumn) { ?>
                                             <th>Added By</th>
+                                            <?php } ?>
                                             <th>Order Status</th>
                                             <th>Action</th>
                                         </tr>
@@ -1019,7 +1022,9 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                 { data: 'po_number' },
                 { data: 'payment_term' },
                 { data: 'transporter' },
+                <?php if ($showAddedByColumn) { ?>
                 { data: 'added_by' },
+                <?php } ?>
                 { data: 'order_status' },
                 {
                     data: 'lines',
