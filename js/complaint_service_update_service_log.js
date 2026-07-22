@@ -140,6 +140,23 @@ function escapeComplaintServiceLogHtml(value) {
     return $('<div>').text(value == null ? '' : String(value)).html();
 }
 
+function buildInstalledBaseAddUrl(complaintId, fabNumber) {
+    const params = new URLSearchParams();
+    params.set('open_form', '1');
+    if (complaintId) {
+        params.set('complaint_id', String(complaintId));
+    }
+    fabNumber = String(fabNumber || '').trim();
+    if (fabNumber !== '') {
+        params.set('fab_number', fabNumber);
+    }
+    return 'installed_base.php?' + params.toString();
+}
+
+function normalizeInstalledBaseAddUrl(url) {
+    return String(url || '').replace(/&amp;/gi, '&');
+}
+
 function buildServiceLogSummaryCardHtml(log) {
     const draftBadge = log.is_draft
         ? '<span class="badge service-log-draft-badge ms-2">Draft</span>'
@@ -231,12 +248,17 @@ function renderComplaintServiceLogSummary(data) {
             let emptyHtml = '<p class="service-update-installed-base-empty__text mb-2">'
                 + escapeComplaintServiceLogHtml('Service log cannot be added until a matching installed base exists.')
                 + '</p>';
-            if (data.can_add_installed_base && data.installed_base_add_url) {
-                emptyHtml += ''
-                    + '<a href="' + escapeComplaintServiceLogHtml(data.installed_base_add_url) + '" '
-                    + 'class="btn btn-sm btn-complaint-primary service-update-installed-base-add-btn">'
-                    + '<i class="bi bi-plus-lg"></i> Add Installed Base Capture'
-                    + '</a>';
+            if (data.can_add_installed_base) {
+                const complaintId = parseInt(data.complaint_id || activeComplaintIdForServiceLog || 0, 10) || 0;
+                const addUrl = buildInstalledBaseAddUrl(complaintId, data.fab_number)
+                    || normalizeInstalledBaseAddUrl(data.installed_base_add_url);
+                if (addUrl) {
+                    emptyHtml += ''
+                        + '<a href="' + escapeComplaintServiceLogHtml(addUrl) + '" '
+                        + 'class="btn btn-sm btn-complaint-primary service-update-installed-base-add-btn">'
+                        + '<i class="bi bi-plus-lg"></i> Add Installed Base Capture'
+                        + '</a>';
+                }
             }
             emptyState.innerHTML = emptyHtml;
         }

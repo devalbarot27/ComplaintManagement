@@ -675,12 +675,13 @@ function complaint_service_log_summary_payload(PDO $conn, int $complaintId, stri
             'has_installed_base' => false,
             'has_service_log' => false,
             'permissions' => $permissions,
+            'complaint_id' => $complaintId,
             'complaint_status' => (int) $context['complaint_status'],
             'complaint_status_label' => $context['complaint_status_label'],
             'current_cycle' => $context['cycle'],
             'fab_number' => $fabNumber,
             'can_add_installed_base' => $canAddInstalledBase,
-            'installed_base_add_url' => 'installed_base.php?' . http_build_query($addUrlParams),
+            'installed_base_add_url' => 'installed_base.php?' . http_build_query($addUrlParams, '', '&', PHP_QUERY_RFC3986),
             'message' => 'No installed base record found for this complaint Fab Number.',
         ];
     }

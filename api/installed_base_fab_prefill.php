@@ -2,6 +2,8 @@
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 rbac_require_api_access($obconn);
@@ -10,13 +12,33 @@ header('Content-Type: application/json; charset=utf-8');
 
 $fabNumber = trim((string) ($_GET['fab_number'] ?? ''));
 $complaintId = (int) ($_GET['complaint_id'] ?? 0);
+$editingRecordId = (int) ($_GET['record_id'] ?? 0);
 
 if ($fabNumber === '' && $complaintId <= 0) {
-    api_json_echo(['found' => false]);
+    api_json_echo(['found' => false, 'blocked' => false]);
     exit;
 }
 
-require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
+// Block another user's FAB before any auto-population.
+if ($fabNumber !== '') {
+    $ownershipError = installed_base_validate_fab_for_current_user(
+        $obconn,
+        $fabNumber,
+        null,
+        $editingRecordId
+    );
+
+    if ($ownershipError !== null) {
+        api_json_echo([
+            'found' => false,
+            'blocked' => true,
+            'available' => false,
+            'has_installed_base' => false,
+            'message' => $ownershipError,
+        ]);
+        exit;
+    }
+}
 
 $row = installed_base_fab_prefill_row(
     $obconn,
@@ -30,7 +52,11 @@ $installedBaseRow = $fabNumber !== ''
 $hasInstalledBase = $installedBaseRow !== null;
 
 if (!$row && !$hasInstalledBase) {
-    api_json_echo(['found' => false]);
+    api_json_echo([
+        'found' => false,
+        'blocked' => false,
+        'available' => true,
+    ]);
     exit;
 }
 
@@ -49,6 +75,8 @@ if ($hasInstalledBase) {
 
 $response = [
     'found' => true,
+    'blocked' => false,
+    'available' => true,
     'has_installed_base' => $hasInstalledBase,
     'customer_name' => (string) ($row['customer_name'] ?? ($installedBaseRow['customer_name'] ?? '')),
     'street_1' => (string) ($row['street_1'] ?? ($installedBaseRow['street_1'] ?? '')),
@@ -71,6 +99,7 @@ $response = [
     'remarks' => $hasInstalledBase
         ? (string) ($installedBaseRow['remarks'] ?? '')
         : '',
+    'message' => '',
 ];
 
 unset($row, $installedBaseRow);

@@ -42,13 +42,22 @@ function resetFabNumberSelect2() {
 function initInstalledBaseFabnoSelect2() {
     initFabnoSelect2('installedBaseForm', 'fabNumberSelect', {
         onSelect: function (data, form) {
-            setInstalledBaseInvoiceDate(form, data.invoice_date || '');
-            // Prefill decides Machine Model lock from Installed Base existence.
-            prefillInstalledBaseFromFab(form, data.id);
+            // Ownership is checked inside prefill; only fill invoice date when allowed.
+            prefillInstalledBaseFromFab(form, data.id).done(function (result) {
+                if (result && result.allowed) {
+                    setInstalledBaseInvoiceDate(form, data.invoice_date || '');
+                    return;
+                }
+
+                setInstalledBaseInvoiceDate(form, '');
+            });
         },
         onClear: function (form) {
             setInstalledBaseInvoiceDate(form, '');
             resetInstalledBaseFabAutoFields(form);
+            if (typeof window.clearInstalledBaseFabOwnershipError === 'function') {
+                window.clearInstalledBaseFabOwnershipError();
+            }
         }
     });
 }

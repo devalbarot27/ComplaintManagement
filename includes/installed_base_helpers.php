@@ -125,7 +125,7 @@ function installed_base_validate(PDO $conn, array $data): ?string
 }
 
 /**
- * Find the active installed base id for a FAB number (unique key).
+ * Find the active installed base id for a FAB number (unique key, case-insensitive).
  */
 function installed_base_find_id_by_fab(PDO $conn, string $fabNumber): ?int
 {
@@ -137,7 +137,7 @@ function installed_base_find_id_by_fab(PDO $conn, string $fabNumber): ?int
     $stmt = $conn->prepare('
         SELECT id
         FROM installed_base
-        WHERE TRIM(fab_number) = TRIM(:fab_number)
+        WHERE LOWER(TRIM(fab_number)) = LOWER(TRIM(:fab_number))
           AND deleted_at IS NULL
         ORDER BY created_at ASC, id ASC
         LIMIT 1
@@ -148,6 +148,176 @@ function installed_base_find_id_by_fab(PDO $conn, string $fabNumber): ?int
     $id = $stmt->fetchColumn();
 
     return $id !== false ? (int) $id : null;
+}
+
+/**
+ * @return array<int, int>
+ */
+function installed_base_find_ids_by_fab(PDO $conn, string $fabNumber): array
+{
+    $fabNumber = trim($fabNumber);
+    if ($fabNumber === '') {
+        return [];
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id
+        FROM installed_base
+        WHERE LOWER(TRIM(fab_number)) = LOWER(TRIM(:fab_number))
+          AND deleted_at IS NULL
+        ORDER BY created_at ASC, id ASC
+    ');
+    $stmt->bindValue(':fab_number', $fabNumber);
+    $stmt->execute();
+
+    $ids = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        $ids[] = (int) $id;
+    }
+
+    return $ids;
+}
+
+/**
+ * Prefer a FAB record owned by the current user (username / created_by only).
+ * Privileged after-market access does not count as ownership for FAB reuse.
+ */
+function installed_base_find_accessible_id_by_fab(PDO $conn, string $fabNumber): ?int
+{
+    foreach (installed_base_find_ids_by_fab($conn, $fabNumber) as $id) {
+        if ($id > 0 && installed_base_current_user_owns_record($conn, $id)) {
+            return $id;
+        }
+    }
+
+    return null;
+}
+
+function installed_base_fab_assigned_to_other_user_message(): string
+{
+    return 'This FAB Number is already assigned to another user and cannot be used.';
+}
+
+function installed_base_record_has_fab(PDO $conn, int $recordId, string $fabNumber): bool
+{
+    $fabNumber = trim($fabNumber);
+    if ($recordId <= 0 || $fabNumber === '') {
+        return false;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT 1
+        FROM installed_base
+        WHERE id = :id
+          AND deleted_at IS NULL
+          AND LOWER(TRIM(fab_number)) = LOWER(TRIM(:fab_number))
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $recordId, PDO::PARAM_INT);
+    $stmt->bindValue(':fab_number', $fabNumber);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * True when the current user is the record owner (created_by or username).
+ * Does not grant ownership via admin / after-market list scope.
+ */
+function installed_base_current_user_owns_record(PDO $conn, int $recordId): bool
+{
+    if ($recordId <= 0) {
+        return false;
+    }
+
+    $userId = function_exists('current_user_id') ? (int) (current_user_id($conn) ?? 0) : 0;
+    $username = function_exists('current_username') ? trim(current_username()) : '';
+
+    if ($userId <= 0 && $username === '') {
+        return false;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id
+        FROM installed_base
+        WHERE id = :id
+          AND deleted_at IS NULL
+          AND (
+                (:check_created_by = 1 AND created_by = :created_by)
+             OR (
+                    :check_username = 1
+                AND LOWER(TRIM(COALESCE(username, \'\'))) = LOWER(TRIM(:username))
+             )
+          )
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $recordId, PDO::PARAM_INT);
+    $stmt->bindValue(':check_created_by', $userId > 0 ? 1 : 0, PDO::PARAM_INT);
+    $stmt->bindValue(':created_by', $userId, PDO::PARAM_INT);
+    $stmt->bindValue(':check_username', $username !== '' ? 1 : 0, PDO::PARAM_INT);
+    $stmt->bindValue(':username', $username);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * True when current user may view/edit the record (owner or after-market scope).
+ */
+function installed_base_current_user_can_use_record(PDO $conn, int $recordId): bool
+{
+    if ($recordId <= 0) {
+        return false;
+    }
+
+    if (function_exists('after_market_user_can_access_record')
+        && after_market_user_can_access_record($conn, 'installed_base', $recordId)
+    ) {
+        return true;
+    }
+
+    return installed_base_current_user_owns_record($conn, $recordId);
+}
+
+/**
+ * Returns an error when FAB exists on another user's record.
+ * Applies to all roles (including System Admin / CCS Admin / Management).
+ * Own FAB or new FAB => allowed. Claiming another user's FAB => blocked.
+ * Editing an existing row that already has this FAB => allowed (edit ACL checked separately).
+ */
+function installed_base_validate_fab_for_current_user(
+    PDO $conn,
+    string $fabNumber,
+    ?int $existingByFabId = null,
+    int $editingRecordId = 0
+): ?string {
+    $fabNumber = trim($fabNumber);
+    if ($fabNumber === '') {
+        return 'Fab Number is required.';
+    }
+
+    // Updating the same existing record with the same FAB is allowed when the
+    // user can open that record. Create/claim of another user's FAB is not.
+    if (
+        $editingRecordId > 0
+        && installed_base_record_has_fab($conn, $editingRecordId, $fabNumber)
+        && installed_base_current_user_can_use_record($conn, $editingRecordId)
+    ) {
+        return null;
+    }
+
+    $fabIds = installed_base_find_ids_by_fab($conn, $fabNumber);
+    if ($fabIds === []) {
+        return null;
+    }
+
+    foreach ($fabIds as $fabId) {
+        if (installed_base_current_user_owns_record($conn, $fabId)) {
+            return null;
+        }
+    }
+
+    return installed_base_fab_assigned_to_other_user_message();
 }
 
 function installed_base_update_record(PDO $conn, int $id, array $data): void

@@ -3431,7 +3431,7 @@ class orderClass
                     'po_number'        => htmlspecialchars((string) ($row['pono'] ?? '-'), ENT_QUOTES, 'UTF-8'),
                     'payment_term'     => htmlspecialchars((string) ($row['pay_desc'] ?? '100% Advance'), ENT_QUOTES, 'UTF-8'),
                     'transporter'      => htmlspecialchars((string) ($row['transporter'] ?? '-'), ENT_QUOTES, 'UTF-8'),
-                    'order_status'     => htmlspecialchars((string) $orderStatus, ENT_QUOTES, 'UTF-8'),
+                    'order_status'     => $orderStatus,
                     'date'             => !empty($row['indent_date'])
                         ? date('d-m-Y', strtotime($row['indent_date']))
                         : '-',
@@ -3640,7 +3640,7 @@ class orderClass
 
                     'transporter'      => htmlspecialchars((string) ($row['transporter'] ?? '-'), ENT_QUOTES, 'UTF-8'),
 
-                    'order_status'     => htmlspecialchars((string) $orderStatus, ENT_QUOTES, 'UTF-8'),
+                    'order_status'     => $orderStatus,
 
                     'date'             => !empty($row['indent_date'])
 

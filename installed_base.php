@@ -49,21 +49,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     $existingByFabId = null;
 
     if ($error_message === '' && $data['fab_number'] !== '') {
-        $existingByFabId = installed_base_find_id_by_fab($obconn, $data['fab_number']);
+        $fabOwnershipError = installed_base_validate_fab_for_current_user(
+            $obconn,
+            $data['fab_number'],
+            null,
+            $recordId
+        );
+        if ($fabOwnershipError !== null) {
+            $error_message = $fabOwnershipError;
+        } else {
+            // Prefer the current user's accessible FAB record for upsert.
+            $existingByFabId = installed_base_find_accessible_id_by_fab($obconn, $data['fab_number']);
+        }
+    }
+
+    // Editing an existing row with the same FAB must update that row.
+    if (
+        $error_message === ''
+        && $recordId > 0
+        && installed_base_current_user_can_use_record($obconn, $recordId)
+        && (
+            $data['fab_number'] === ''
+            || installed_base_record_has_fab($obconn, $recordId, $data['fab_number'])
+        )
+    ) {
+        $existingByFabId = $recordId;
     }
 
     // FAB number is the unique key: update existing FAB record, otherwise insert.
     $targetId = $existingByFabId ?? ($recordId > 0 ? $recordId : 0);
     $isUpdate = $targetId > 0;
 
-    if ($isUpdate) {
-        if (!$canEditInstalledBase) {
-            $error_message = 'Access denied. You do not have permission to edit installed base records.';
-        } elseif (!after_market_user_can_access_record($obconn, 'installed_base', $targetId)) {
-            $error_message = 'Access denied. You do not have permission to edit this record.';
+    if ($error_message === '') {
+        if ($isUpdate) {
+            if (!$canEditInstalledBase) {
+                $error_message = 'Access denied. You do not have permission to edit installed base records.';
+            } elseif (!installed_base_current_user_can_use_record($obconn, $targetId)) {
+                $error_message = installed_base_fab_assigned_to_other_user_message();
+            }
+        } elseif (!$canAddInstalledBase) {
+            $error_message = 'Access denied. You do not have permission to add installed base records.';
         }
-    } elseif (!$canAddInstalledBase) {
-        $error_message = 'Access denied. You do not have permission to add installed base records.';
     }
 
     if ($error_message === '') {
