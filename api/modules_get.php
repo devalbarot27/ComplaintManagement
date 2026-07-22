@@ -1,7 +1,17 @@
 <?php
 // Configure session cookie flags before session_start() (Secure + HttpOnly).
 if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_set_cookie_params(0, '/', '', true, true);
+    ini_set('session.cookie_secure', '1');
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_samesite', 'Lax');
+    ini_set('session.use_only_cookies', '1');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => true,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 

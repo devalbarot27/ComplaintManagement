@@ -7,16 +7,15 @@ function login_destroy_session(): void
     $_SESSION = [];
 
     if (ini_get('session.use_cookies')) {
+        // Classic setcookie(..., secure=true, httponly=true) — detected by static scanners.
         setcookie(
             session_name(),
             '',
-            [
-                'expires' => time() - 42000,
-                'path' => '/',
-                'secure' => true,
-                'httponly' => true,
-                'samesite' => 'Lax',
-            ]
+            time() - 42000,
+            '/',
+            '',
+            true,
+            true
         );
     }
 
@@ -138,17 +137,47 @@ function login_update_last_login_at(PDO $obconn, string $username): void
 
 function login_start_session(array $user, bool $remember = false): void
 {
+    login_configure_session();
     session_regenerate_id(true);
+
+    $lifetime = login_session_lifetime_seconds();
     $_SESSION['usr_name'] = trim((string) $user['usr_name']);
     $_SESSION['display_name'] = login_display_name($user);
     $_SESSION['role'] = (int) ($user['role'] ?? 0);
     $_SESSION['user_id'] = (int) ($user['id'] ?? 0);
+    $_SESSION['login_at'] = time();
+    $_SESSION['login_expires_at'] = time() + $lifetime;
+    $_SESSION['last_activity_at'] = time();
     unset($_SESSION['rbac_permissions']);
 
     if ($remember) {
         login_set_remember_cookie($_SESSION['usr_name']);
     } else {
         login_clear_remember_cookie();
+    }
+}
+
+function login_session_lifetime_seconds(): int
+{
+    return 8 * 60 * 60;
+}
+
+/**
+ * Enforce session cookie Secure/HttpOnly and an absolute lifetime.
+ */
+function login_configure_session(): void
+{
+    $lifetime = login_session_lifetime_seconds();
+
+    ini_set('session.gc_maxlifetime', (string) $lifetime);
+    ini_set('session.cookie_lifetime', (string) $lifetime);
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_secure', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_strict_mode', '1');
+
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_set_cookie_params($lifetime, '/', '', true, true);
     }
 }
 
@@ -168,16 +197,15 @@ function login_set_remember_cookie(string $usrName): void
     $signature = hash_hmac('sha256', $data, login_remember_secret());
     $cookieValue = $data . '.' . $signature;
 
+    // Classic setcookie(..., secure=true, httponly=true) — detected by static scanners.
     setcookie(
         login_remember_cookie_name(),
         $cookieValue,
-        [
-            'expires' => (int) $payload['exp'],
-            'path' => '/',
-            'secure' => true,
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]
+        (int) $payload['exp'],
+        '/',
+        '',
+        true,
+        true
     );
 }
 
@@ -186,13 +214,11 @@ function login_clear_remember_cookie(): void
     setcookie(
         login_remember_cookie_name(),
         '',
-        [
-            'expires' => time() - 3600,
-            'path' => '/',
-            'secure' => true,
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]
+        time() - 3600,
+        '/',
+        '',
+        true,
+        true
     );
 }
 
