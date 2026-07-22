@@ -693,7 +693,49 @@ function installed_base_format_date(?string $value): string
         return '-';
     }
 
-    return date('d M Y', strtotime($value));
+    $normalized = installed_base_format_date_for_input((string) $value);
+    if ($normalized === '') {
+        return '-';
+    }
+
+    $timestamp = strtotime($normalized);
+    if ($timestamp === false) {
+        return '-';
+    }
+
+    return date('d M Y', $timestamp);
+}
+
+/**
+ * Normalize DB date values to Y-m-d for HTML date inputs.
+ * Supports Y-m-d, DD.MM.YYYY, DD/MM/YYYY, and DD-MM-YYYY.
+ */
+function installed_base_format_date_for_input(?string $value): string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return '';
+    }
+
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $value, $matches)) {
+        return $matches[1] . '-' . $matches[2] . '-' . $matches[3];
+    }
+
+    if (preg_match('/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/', $value, $matches)) {
+        return sprintf(
+            '%04d-%02d-%02d',
+            (int) $matches[3],
+            (int) $matches[2],
+            (int) $matches[1]
+        );
+    }
+
+    $timestamp = strtotime($value);
+    if ($timestamp === false) {
+        return '';
+    }
+
+    return date('Y-m-d', $timestamp);
 }
 
 function installed_base_format_datetime(?string $value): string

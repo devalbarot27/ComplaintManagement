@@ -62,7 +62,9 @@ if (!$row && !$hasInstalledBase) {
 
 $commissioningDate = '';
 if ($hasInstalledBase && !empty($installedBaseRow['commissioning_date'])) {
-    $commissioningDate = substr((string) $installedBaseRow['commissioning_date'], 0, 10);
+    $commissioningDate = installed_base_format_date_for_input(
+        (string) $installedBaseRow['commissioning_date']
+    );
 }
 
 // Machine Model comes only from Installed Base when FAB already exists.

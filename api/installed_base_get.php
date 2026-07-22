@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/ln_invoice_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -50,8 +51,9 @@ if (!empty($row['fab_number'])) {
 }
 
 $commissioning_date = $row['commissioning_date'];
-$date = new DateTime($commissioning_date);
-$formatted_commissioning_date = $date->format('Y-m-d'); 
+$formatted_commissioning_date = installed_base_format_date_for_input(
+    $commissioning_date !== null ? (string) $commissioning_date : ''
+); 
  
 echo json_encode([
     'id' => (int) $row['id'],
