@@ -117,18 +117,42 @@ $showPendingOver10DaysAlert = $canViewPendingOrders;
 $showDispatchesDeliveredAlert = $canViewDispatchedOrders;
 $showAlertGrid = $showPendingOver10DaysAlert || $showDispatchesDeliveredAlert;
 
-// Pre-encode chart JSON (avoids inline bitwise flags that scanners misread as SQL concat).
+// XSS-safe chart payloads for inline <script> output.
 $dashboardChartJsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
-$monthlyChartLabelsJson = json_encode(
-    array_map(static fn($label): string => (string) $label, $monthlyChartData['labels'] ?? []),
-    $dashboardChartJsonFlags
-);
-$monthlyChartDatasetsJson = json_encode($monthlyChartDatasets, $dashboardChartJsonFlags);
+
+$safeMonthlyChartLabels = [];
+foreach (($monthlyChartData['labels'] ?? []) as $chartLabel) {
+    $safeMonthlyChartLabels[] = htmlspecialchars((string) $chartLabel, ENT_QUOTES, 'UTF-8');
+}
+
+$safeMonthlyChartDatasets = [];
+foreach ($monthlyChartDatasets as $dataset) {
+    $safeData = [];
+    foreach (($dataset['data'] ?? []) as $point) {
+        $safeData[] = (int) $point;
+    }
+    $safeMonthlyChartDatasets[] = [
+        'label' => htmlspecialchars((string) ($dataset['label'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'data' => $safeData,
+        'backgroundColor' => htmlspecialchars((string) ($dataset['backgroundColor'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'borderRadius' => (int) ($dataset['borderRadius'] ?? 0),
+        'borderSkipped' => (bool) ($dataset['borderSkipped'] ?? false),
+        'categoryPercentage' => (float) ($dataset['categoryPercentage'] ?? 0),
+        'barPercentage' => (float) ($dataset['barPercentage'] ?? 0),
+    ];
+}
+
+$monthlyChartLabelsJson = json_encode($safeMonthlyChartLabels, $dashboardChartJsonFlags);
+$monthlyChartDatasetsJson = json_encode($safeMonthlyChartDatasets, $dashboardChartJsonFlags);
 $statusChartDataJson = json_encode(array_map('intval', $statusChartData), $dashboardChartJsonFlags);
 $statusChartColorsJson = json_encode(
-    array_map(static fn($color): string => (string) $color, $statusChartColors),
+    array_map(
+        static fn($color): string => htmlspecialchars((string) $color, ENT_QUOTES, 'UTF-8'),
+        $statusChartColors
+    ),
     $dashboardChartJsonFlags
 );
+
 if (!is_string($monthlyChartLabelsJson)) {
     $monthlyChartLabelsJson = '[]';
 }
@@ -142,6 +166,7 @@ if (!is_string($statusChartColorsJson)) {
     $statusChartColorsJson = '[]';
 }
 
+unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 ?>
 
 <!-- CONTENT -->
@@ -795,16 +820,26 @@ if (!is_string($statusChartColorsJson)) {
     width: 100%;
 }
 </style>
+<?php if (!empty($monthlyChartDatasets)): ?>
+<script type="application/json" id="dashboardMonthlyChartLabels"><?php echo htmlspecialchars($monthlyChartLabelsJson, ENT_NOQUOTES, 'UTF-8'); ?></script>
+<script type="application/json" id="dashboardMonthlyChartDatasets"><?php echo htmlspecialchars($monthlyChartDatasetsJson, ENT_NOQUOTES, 'UTF-8'); ?></script>
+<?php endif; ?>
+<?php if (!empty($statusChartData)): ?>
+<script type="application/json" id="dashboardStatusChartData"><?php echo htmlspecialchars($statusChartDataJson, ENT_NOQUOTES, 'UTF-8'); ?></script>
+<script type="application/json" id="dashboardStatusChartColors"><?php echo htmlspecialchars($statusChartColorsJson, ENT_NOQUOTES, 'UTF-8'); ?></script>
+<?php endif; ?>
 <script>
     <?php if (!empty($monthlyChartDatasets)): ?>
     // BAR CHART
     const ctx = document.getElementById('monthlyChart').getContext('2d');
+    const monthlyChartLabels = JSON.parse(document.getElementById('dashboardMonthlyChartLabels').textContent || '[]');
+    const monthlyChartDatasets = JSON.parse(document.getElementById('dashboardMonthlyChartDatasets').textContent || '[]');
 
     new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: <?php echo $monthlyChartLabelsJson; ?>,
-            datasets: <?php echo $monthlyChartDatasetsJson; ?>
+            labels: monthlyChartLabels,
+            datasets: monthlyChartDatasets
         },
         options: {
             responsive: true,
@@ -868,12 +903,14 @@ if (!is_string($statusChartColorsJson)) {
 
     <?php if (!empty($statusChartData)): ?>
     // DONUT CHART
+    const statusChartData = JSON.parse(document.getElementById('dashboardStatusChartData').textContent || '[]');
+    const statusChartColors = JSON.parse(document.getElementById('dashboardStatusChartColors').textContent || '[]');
     new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
         data: {
             datasets: [{
-                data: <?php echo $statusChartDataJson; ?>,
-                backgroundColor: <?php echo $statusChartColorsJson; ?>,
+                data: statusChartData,
+                backgroundColor: statusChartColors,
                 borderWidth: 0
             }]
         },

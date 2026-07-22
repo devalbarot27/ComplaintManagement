@@ -46,6 +46,24 @@ foreach ($permissionMatrix as $module) {
         }
     }
 }
+
+// Escape matrix into safe locals for XSS-safe template output.
+$safePermissionMatrix = [];
+foreach ($permissionMatrix as $module) {
+    $safePermissions = [];
+    foreach (($module['permissions'] ?? []) as $permission) {
+        $safePermissions[] = [
+            'id' => (int) ($permission['id'] ?? 0),
+            'permission_name' => htmlspecialchars((string) ($permission['permission_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
+            'assigned' => !empty($permission['assigned']),
+        ];
+    }
+    $safePermissionMatrix[] = [
+        'module_name' => htmlspecialchars((string) ($module['module_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'permissions' => $safePermissions,
+    ];
+}
+unset($permissionMatrix, $module, $permission, $safePermissions);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -134,7 +152,7 @@ foreach ($permissionMatrix as $module) {
                     </div>
 
                     <div class="p-3" id="permissionMatrixContainer">
-                        <?php if (empty($permissionMatrix)) { ?>
+                        <?php if (empty($safePermissionMatrix)) { ?>
                         <div class="alert alert-info mb-0">
                             No active modules or permissions found. Please create modules and permissions first.
                         </div>
@@ -149,26 +167,30 @@ foreach ($permissionMatrix as $module) {
                             </button>
                         </div>
 
-                        <?php foreach ($permissionMatrix as $module) { ?>
+                        <?php foreach ($safePermissionMatrix as $module) { ?>
                         <div class="rbac-module-block">
                             <div class="rbac-module-title">
                                 <label class="rbac-module-check-all">
                                     <input type="checkbox" class="module-check-all">
-                                    <span><?php echo htmlspecialchars($module['module_name']); ?></span>
+                                    <span><?php echo $module['module_name']; ?></span>
                                 </label>
                             </div>
                             <?php if (empty($module['permissions'])) { ?>
                             <p class="text-muted mb-0 ps-4">No permissions defined for this module.</p>
                             <?php } else { ?>
                             <div class="rbac-permission-list">
-                                <?php foreach ($module['permissions'] as $permission) { ?>
+                                <?php foreach ($module['permissions'] as $permission) {
+                                    $safePermissionId = htmlspecialchars((string) (int) $permission['id'], ENT_QUOTES, 'UTF-8');
+                                    $safePermissionName = (string) $permission['permission_name'];
+                                    $permissionChecked = !empty($permission['assigned']);
+                                    ?>
                                 <label class="rbac-permission-item">
                                     <input type="checkbox"
                                         class="permission-checkbox"
                                         name="permission_ids[]"
-                                        value="<?php echo htmlspecialchars((string) (int) $permission['id'], ENT_QUOTES, 'UTF-8'); ?>"
-                                        <?php if (!empty($permission['assigned'])) { ?>checked<?php } ?>>
-                                    <span><?php echo htmlspecialchars((string) ($permission['permission_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                                        value="<?php echo $safePermissionId; ?>"
+                                        <?php if ($permissionChecked) { ?>checked<?php } ?>>
+                                    <span><?php echo $safePermissionName; ?></span>
                                 </label>
                                 <?php } ?>
                             </div>
@@ -178,7 +200,7 @@ foreach ($permissionMatrix as $module) {
                         <?php } ?>
                     </div>
 
-                    <?php if (!empty($permissionMatrix)) { ?>
+                    <?php if (!empty($safePermissionMatrix)) { ?>
                     <div class="p-3 border-top text-end">
                         <button type="submit" class="submit-btn btn-complaint-primary">
                             Save Permission Assignment
