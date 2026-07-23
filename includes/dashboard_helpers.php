@@ -81,7 +81,7 @@ function dashboard_fetch_stats(PDO $dpconn, PDO $obconn, ?string $period = null)
         'dispatched_orders_count' => $recentOrderStats['dispatched'],
         'pending_over_10_days_count' => dashboard_fetch_pending_over_10_days_count($dpconn, $scope, $obconn),
         'dispatches_delivered_this_week_count' => dashboard_fetch_dispatched_count($dpconn, $scope, 'this_week'),
-        'monthly_chart' => dashboard_fetch_monthly_chart_data($dpconn, $obconn, $scope),
+        'monthly_chart' => dashboard_fetch_monthly_chart_data($obconn),
     ];
 }
 
@@ -231,7 +231,7 @@ function dashboard_count_recent_orders_with_invoice(PDO $dpconn, array $aoByCuno
     return $dispatched;
 }
 
-// Orders pending for more than 10 days ó same Pending definition as Order Pipeline:
+// Orders pending for more than 10 days ù same Pending definition as Order Pipeline:
 // Recent Orders (plexecom_customer_units) without AO Number, indent_date older than 10 days.
 function dashboard_fetch_pending_over_10_days_count(PDO $dpconn, array $scope, PDO $obconn): int
 {
@@ -281,7 +281,7 @@ function dashboard_format_pending_over_10_days_alert(int $count): string
     return $count . ' ' . $orderLabel . ' pending for more than 10 days';
 }
 
-// Pending Orders ó mirrors getPendingOrderListNew() recordsTotal logic
+// Pending Orders ù mirrors getPendingOrderListNew() recordsTotal logic
 function dashboard_fetch_pending_orders_count(PDO $conn, array $scope, string $period): int
 {
     $customerCode = dashboard_resolve_customer_code();
@@ -392,43 +392,49 @@ function dashboard_build_month_series(int $months = 6): array
     return $series;
 }
 
-// Monthly Acknowledgement
-function dashboard_fetch_monthly_acknowledgement_counts(PDO $conn, array $scope, string $startDate): array
+// Monthly Acknowledgement ù same definition as Order Pipeline Acknowledged:
+// Recent Orders (plexecom_customer_units) with AO Number, by indent_date month.
+function dashboard_fetch_monthly_acknowledgement_counts(PDO $obconn, string $startDate): array
 {
     $counts = [];
-    $cunoFilter = dashboard_scope_maintdealer_cuno_sql($scope, 'm.cuno');
-
-    $sql = '
-        SELECT month_key, COUNT(*) AS cnt
-        FROM (
-            SELECT DISTINCT
-                m.cuno,
-                m.ordno,
-                m.ord_date,
-                m.purno,
-                m.dpst,
-                d.dpst_desc,
-                to_char(date_trunc(\'month\', m.ord_date), \'YYYY-MM\') AS month_key
-            FROM maintdealer m
-            LEFT OUTER JOIN dpst_master d ON TRIM(m.dpst) = d.dpst_code::text
-            WHERE m.company != 600
-              AND m.ord_date >= :start_date
-              AND m.ord_date <= CURRENT_DATE
-    ';
-
-    if ($cunoFilter !== '') {
-        $sql .= "\n              {$cunoFilter}";
-    }
-
-    $sql .= '
-        ) acknowledged_orders
-        GROUP BY month_key
-        ORDER BY month_key
-    ';
 
     try {
-        $stmt = $conn->prepare($sql);
-        dashboard_bind_maintdealer_scope_params($stmt, $scope);
+        admin_ensure_session_role($obconn);
+
+        // Match getRecentOrders() / pipeline visibility rules.
+        $seeAll = is_system_admin() || is_management_user();
+        $customerCode = dashboard_resolve_customer_code();
+        if (!$seeAll && $customerCode === '') {
+            return [];
+        }
+
+        $userWhere = $seeAll ? '1=1' : 'a.cuno = :customer_code';
+
+        $sql = "
+            SELECT
+                to_char(date_trunc('month', a.indent_date), 'YYYY-MM') AS month_key,
+                COUNT(*) AS cnt
+            FROM (
+                SELECT DISTINCT ON (a.refno)
+                    a.refno,
+                    a.order_number,
+                    a.indent_date,
+                    a.cuno
+                FROM plexecom_customer_units AS a
+                WHERE {$userWhere}
+                  AND a.indent_date >= :start_date
+                  AND a.indent_date <= CURRENT_DATE
+                ORDER BY a.refno DESC, a.indent_date DESC
+            ) AS a
+            WHERE TRIM(COALESCE(a.order_number, '')) <> ''
+            GROUP BY month_key
+            ORDER BY month_key
+        ";
+
+        $stmt = $obconn->prepare($sql);
+        if (!$seeAll) {
+            $stmt->bindValue(':customer_code', $customerCode, PDO::PARAM_STR);
+        }
         $stmt->bindValue(':start_date', $startDate);
         $stmt->execute();
 
@@ -442,7 +448,7 @@ function dashboard_fetch_monthly_acknowledgement_counts(PDO $conn, array $scope,
     return $counts;
 }
 
-// Monthly Pending ó same definition as Order Pipeline Pending:
+// Monthly Pending ù same definition as Order Pipeline Pending:
 // Recent Orders (plexecom_customer_units) without AO Number, by indent_date month.
 function dashboard_fetch_monthly_pending_counts(PDO $obconn, string $startDate): array
 {
@@ -498,13 +504,13 @@ function dashboard_fetch_monthly_pending_counts(PDO $obconn, string $startDate):
 }
 
 // Monthly Chart
-function dashboard_fetch_monthly_chart_data(PDO $dpconn, PDO $obconn, array $scope, int $months = 6): array
+function dashboard_fetch_monthly_chart_data(PDO $obconn, int $months = 6): array
 {
     $monthSeries = dashboard_build_month_series($months);
     $monthKeys = array_keys($monthSeries);
     $startDate = $monthKeys[0] . '-01';
 
-    $acknowledgementCounts = dashboard_fetch_monthly_acknowledgement_counts($dpconn, $scope, $startDate);
+    $acknowledgementCounts = dashboard_fetch_monthly_acknowledgement_counts($obconn, $startDate);
     $pendingCounts = dashboard_fetch_monthly_pending_counts($obconn, $startDate);
 
     foreach ($monthKeys as $monthKey) {
