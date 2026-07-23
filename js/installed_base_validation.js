@@ -18,6 +18,10 @@ function initInstalledBaseFormValidation() {
             presence: {
                 allowEmpty: false,
                 message: '^Customer Name is required'
+            },
+            format: {
+                pattern: /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/,
+                message: '^Customer Name can contain only alphabetic characters and spaces.'
             }
         },
         street_1: {

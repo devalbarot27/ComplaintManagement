@@ -612,7 +612,11 @@ function initInstalledBaseServiceLogValidation() {
             presence: { allowEmpty: false, message: '^Issue / Service Description is required' }
         },
         engineer_name: {
-            presence: { allowEmpty: false, message: '^Engineer Name is required' }
+            presence: { allowEmpty: false, message: '^Engineer Name is required' },
+            format: {
+                pattern: /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/,
+                message: '^Engineer Name can contain only alphabetic characters and spaces.'
+            }
         },
         visit_date: {
             presence: { allowEmpty: false, message: '^Visit Date is required' }

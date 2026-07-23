@@ -739,6 +739,18 @@ function initInstalledBaseServiceLogModal() {
                 }
             }
         });
+        const engineerNameInput = form.querySelector('[name="engineer_name"]');
+        if (engineerNameInput) {
+            const engineerNameValue = String(engineerNameInput.value || '').trim();
+            if (engineerNameValue !== '' && !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(engineerNameValue)) {
+                hasError = true;
+                engineerNameInput.classList.add('is-invalid');
+                const engineerMsg = form.querySelector('.validation-msg[data-field="engineer_name"]');
+                if (engineerMsg) {
+                    engineerMsg.textContent = 'Engineer Name can contain only alphabetic characters and spaces.';
+                }
+            }
+        }
         const partErrors = complaintServiceLogValidatePartReplacementEntries(form);
         if (partErrors) {
             complaintServiceLogShowPartReplacementErrors(form, partErrors);

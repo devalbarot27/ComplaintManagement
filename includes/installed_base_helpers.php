@@ -64,6 +64,10 @@ function installed_base_validate(PDO $conn, array $data): ?string
         return 'Customer Name is required.';
     }
 
+    if (!preg_match('/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/', $data['customer_name'])) {
+        return 'Customer Name can contain only alphabetic characters and spaces.';
+    }
+
     $addressError = complaint_validate_address_fields($data);
     if ($addressError !== null) {
         return $addressError;

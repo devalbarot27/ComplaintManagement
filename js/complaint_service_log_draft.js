@@ -30,6 +30,17 @@ function validateComplaintServiceLogDraftForm(form) {
     requireField('visit_date', 'Visit Date is required');
     requireField('action_taken', 'Action Taken is required');
 
+    const engineerName = form.querySelector('[name="engineer_name"]');
+    if (engineerName) {
+        const engineerNameValue = String(engineerName.value || '').trim();
+        if (engineerNameValue !== '' && !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(engineerNameValue)) {
+            addError('engineer_name', 'Engineer Name can contain only alphabetic characters and spaces.');
+        }
+        if (engineerName.value.length > 150) {
+            addError('engineer_name', 'Engineer Name cannot exceed 150 characters');
+        }
+    }
+
     const partReplacedSelect = document.getElementById('ibServiceLogPartReplacedSelect');
     const partReplaced = partReplacedSelect ? String(partReplacedSelect.value || '').trim() : '';
     if (!partReplaced) {

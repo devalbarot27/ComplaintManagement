@@ -31,8 +31,14 @@ function validateInstalledBaseServiceLogDraftForm(form) {
     requireField('part_replaced', 'Part Replaced is required');
 
     const engineerName = form.querySelector('[name="engineer_name"]');
-    if (engineerName && engineerName.value.length > 150) {
-        addError('engineer_name', 'Engineer Name cannot exceed 150 characters');
+    if (engineerName) {
+        const engineerNameValue = String(engineerName.value || '').trim();
+        if (engineerNameValue !== '' && !/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/.test(engineerNameValue)) {
+            addError('engineer_name', 'Engineer Name can contain only alphabetic characters and spaces.');
+        }
+        if (engineerName.value.length > 150) {
+            addError('engineer_name', 'Engineer Name cannot exceed 150 characters');
+        }
     }
 
     const partReplacedSelect = document.getElementById('ibServiceLogPartReplacedSelect');

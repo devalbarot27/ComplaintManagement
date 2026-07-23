@@ -74,6 +74,10 @@ function initServiceLogFormValidation() {
             presence: {
                 allowEmpty: false,
                 message: '^Engineer Name is required'
+            },
+            format: {
+                pattern: /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/,
+                message: '^Engineer Name can contain only alphabetic characters and spaces.'
             }
         },
         visit_date: {

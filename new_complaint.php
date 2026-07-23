@@ -50,6 +50,10 @@ if(isset($_POST['submit_complaint']))
         $error_message = 'Fab Number is required.';
     } elseif (!ln_invoice_fabno_exists($dpconn, $fab_number)) {
         $error_message = 'Selected Fab Number was not found in invoice details.';
+    } elseif ($customer_name === '') {
+        $error_message = 'Customer Name is required.';
+    } elseif (!preg_match('/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/', $customer_name)) {
+        $error_message = 'Customer Name can contain only alphabetic characters and spaces.';
     } elseif ($complaintCategory === null) {
         $error_message = 'Complaint Category is required.';
     } elseif (strlen($remarks) > 500) {
@@ -787,6 +791,10 @@ function initComplaintFormValidation() {
             presence: {
                 allowEmpty: false,
                 message: '^Customer Name is required'
+            },
+            format: {
+                pattern: /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/,
+                message: '^Customer Name can contain only alphabetic characters and spaces.'
             }
         },
         street_1: {

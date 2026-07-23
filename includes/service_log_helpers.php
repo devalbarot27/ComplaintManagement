@@ -522,6 +522,10 @@ function service_log_validate(PDO $conn, array $data, int $recordId = 0): ?strin
         return 'Engineer Name is required.';
     }
 
+    if (!preg_match('/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/', $data['engineer_name'])) {
+        return 'Engineer Name can contain only alphabetic characters and spaces.';
+    }
+
     if (strlen($data['engineer_name']) > 150) {
         return 'Engineer Name cannot exceed 150 characters.';
     }
