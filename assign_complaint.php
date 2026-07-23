@@ -31,7 +31,7 @@ if (strlen($remarks) > 500) {
     exit;
 }
 
-if (($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $assign_complaint)) !== null) {
+if (($assigneeError = complaint_validate_assignee_for_complaint($obconn, $complaint_id, $assign_complaint)) !== null) {
     $_SESSION['error_message'] = $assigneeError;
     header('Location: ' . $redirect);
     exit;

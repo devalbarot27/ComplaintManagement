@@ -14,8 +14,12 @@ include('includes/ln_invoice_helpers.php');
 $success_message = '';
 $error_message = '';
 $userName = current_username();
-$complaintAssignees = complaint_fetch_elgi_engineer_assignees($obconn);
-$complaintAssigneeOptionsHtml = complaint_render_assignee_options($complaintAssignees);
+$createAssignOptions = complaint_assign_options_for_current_creator($obconn);
+$complaintAssignees = $createAssignOptions['assignees'];
+$complaintAssigneeOptionsHtml = complaint_render_assignee_options(
+    $complaintAssignees,
+    $createAssignOptions['preselect']
+);
 $complaintCategoryOptions = complaint_category_get_active_options($obconn);
 $complaintCategoryOptionsHtml = complaint_category_render_options($complaintCategoryOptions);
 $complaintEntryPermissions = complaint_entry_action_permissions($obconn);
@@ -58,7 +62,20 @@ if(isset($_POST['submit_complaint']))
         $error_message = 'Complaint Category is required.';
     } elseif (strlen($remarks) > 500) {
         $error_message = 'Remarks cannot exceed 500 characters.';
-    } elseif ($assign_complaint !== '' && ($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $assign_complaint)) !== null) {
+    } elseif (
+        $assign_complaint !== ''
+        && is_dealer_user()
+        && (
+            ($createAssignOptions['preselect'] ?? '') === ''
+            || $assign_complaint !== ($createAssignOptions['preselect'] ?? '')
+        )
+    ) {
+        $error_message = 'Selected Dealer User is not allowed for this complaint.';
+    } elseif (
+        $assign_complaint !== ''
+        && !is_dealer_user()
+        && ($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $assign_complaint)) !== null
+    ) {
         $error_message = $assigneeError;
     } else {
         try {
@@ -1279,6 +1296,13 @@ function initClosureValidation() {
             resetAssignToSelect2('closureReassignToSelect');
         }
 
+        if (isNo && typeof loadClosureReassignAssigneeOptions === 'function') {
+            const complaintId = document.getElementById('closureComplaintId');
+            if (complaintId && complaintId.value) {
+                loadClosureReassignAssigneeOptions(complaintId.value);
+            }
+        }
+
         if (reassignRemarksField && !isNo) {
             reassignRemarksField.value = '';
         }
@@ -1485,13 +1509,19 @@ $(document).ready(function() {
  
 <?php if ($canAssignComplaint) { ?>
 $(document).on('click', '.manual-assign-btn', function() {
-    resetAssignForm($(this).data('id'));
+    const complaintId = $(this).data('id');
+    resetAssignForm(complaintId);
+    loadAssignComplaintAssigneeOptions(complaintId);
 });
 <?php } ?>
 
 <?php if ($canShowComplaintClosure) { ?>
 $(document).on('click', '.closure-btn', function() {
-    resetClosureForm($(this).data('id'));
+    const complaintId = $(this).data('id');
+    resetClosureForm(complaintId);
+<?php if ($canReassignComplaint) { ?>
+    loadClosureReassignAssigneeOptions(complaintId);
+<?php } ?>
 });
 <?php } ?>
 

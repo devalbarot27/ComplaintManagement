@@ -52,3 +52,61 @@ function resetAssignToSelect2(selectId) {
     $select.val(null).trigger('change');
     $select.removeClass('is-invalid');
 }
+
+function setAssignToSelect2Options(selectId, assignees, preselect) {
+    const $select = $('#' + selectId);
+
+    if (!$select.length) {
+        return;
+    }
+
+    const currentValue = preselect || null;
+    $select.empty().append(new Option('', '', false, false));
+
+    (assignees || []).forEach(function (assignee) {
+        const value = assignee && assignee.value ? String(assignee.value) : '';
+        const label = assignee && assignee.label ? String(assignee.label) : value;
+        if (value === '') {
+            return;
+        }
+        $select.append(new Option(label, value, false, false));
+    });
+
+    if (currentValue) {
+        $select.val(currentValue).trigger('change');
+    } else {
+        $select.val(null).trigger('change');
+    }
+}
+
+function loadAssignComplaintAssigneeOptions(complaintId) {
+    loadComplaintAssigneeOptions('assignModalAssignToSelect', complaintId);
+}
+
+function loadClosureReassignAssigneeOptions(complaintId) {
+    loadComplaintAssigneeOptions('closureReassignToSelect', complaintId);
+}
+
+function loadComplaintAssigneeOptions(selectId, complaintId) {
+    const $select = $('#' + selectId);
+    if (!$select.length || !complaintId) {
+        return;
+    }
+
+    $.ajax({
+        url: 'api/complaint_assign_options.php',
+        type: 'GET',
+        dataType: 'json',
+        data: { complaint_id: complaintId }
+    }).done(function (response) {
+        if (!response || !response.success) {
+            return;
+        }
+
+        setAssignToSelect2Options(
+            selectId,
+            response.assignees || [],
+            response.preselect || null
+        );
+    });
+}

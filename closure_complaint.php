@@ -65,7 +65,7 @@ if ($call_closure === 'No' && strlen($reassign_remarks) > 500) {
     exit;
 }
 
-if ($call_closure === 'No' && ($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $reassign_assign_complaint)) !== null) {
+if ($call_closure === 'No' && ($assigneeError = complaint_validate_assignee_for_complaint($obconn, $complaint_id, $reassign_assign_complaint)) !== null) {
     $_SESSION['error_message'] = $assigneeError;
     header('Location: ' . $redirect);
     exit;
