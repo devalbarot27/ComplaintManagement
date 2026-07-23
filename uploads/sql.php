@@ -1,7 +1,34 @@
 <?php
 include '../pdo_obconn.php';
 
-$sql = "SELECT * FROM pendingordersnew ORDER BY orddt DESC LIMIT 10";
+/*
+$sql = "DELETE FROM notifications";
+
+$stmt = $obconn->prepare($sql);
+
+if (!$stmt->execute()) {
+    echo "<pre>";
+    print_r($stmt->errorInfo());
+    exit;
+}
+
+echo "Deleted rows: " . $stmt->rowCount();
+
+$sql = "DELETE FROM complaint_nudge_logs";
+
+$stmt = $obconn->prepare($sql);
+
+if (!$stmt->execute()) {
+    echo "<pre>";
+    print_r($stmt->errorInfo());
+    exit;
+}
+
+echo "Deleted rowsss: " . $stmt->rowCount();
+die('_');
+*/
+
+$sql = "SELECT * FROM ln_invoice_details LIMIT 10";
 
 $stmt = $dpconn->prepare($sql);
 

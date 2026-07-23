@@ -597,7 +597,7 @@ $freightPercentage = 4;
         initPincodeSelect2('orderBookingForm', 'orderBookingPincodeSelect');
         changeAddressType($('#deliveryAddressType').val() || '1');
 
-        // Manual Freight Amount field � separate from per-line 4% freight calculation
+        // Manual Freight Amount field   separate from per-line 4% freight calculation
         $('#fAmount').on('input', function() {
             sanitizeFreightInput(this);
         });

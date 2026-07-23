@@ -2,6 +2,8 @@
 
 include('pdo_obconn.php');
 
+header('Content-Type: application/json; charset=UTF-8');
+
 $xmlString = file_get_contents("php://input");
 
 // Log incoming XML
@@ -9,7 +11,7 @@ error_log("===== Incoming Sales Order XML =====");
 error_log($xmlString);
 error_log("===================================");
 
-$xml = simplexml_load_string($xmlString);
+$xml = simplexml_load_string($xmlString, 'SimpleXMLElement', LIBXML_NONET);
 
 if ($xml === false) {
     echo json_encode([
@@ -55,18 +57,28 @@ try {
 
     $xmlNo = str_replace('/', '-', $orderNumber);
 
-    $folder = __DIR__ . "/xml";
+    $folder = __DIR__ . DIRECTORY_SEPARATOR . 'xml';
 
     if (!is_dir($folder)) {
-        mkdir($folder, 0755, true);
+
+        if (!mkdir($folder, 0755, true) && !is_dir($folder)) {
+            throw new RuntimeException('Unable to create XML directory.');
+        }
+    }
+    $file = $folder . DIRECTORY_SEPARATOR . $xmlNo . '.xml';
+
+
+    if (file_put_contents($file, $xmlString, LOCK_EX) === false) {
+        throw new RuntimeException('Unable to write XML.');
     }
 
-    file_put_contents($folder . "/" . $xmlNo . ".xml", $xmlString);
+
+    chmod($file, 0644);
 
     echo json_encode([
         "status" => 200,
         "message" => "Received Successfully"
-    ]);
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 } catch (PDOException $e) {
 
     error_log("Database Error: " . $e->getMessage());
@@ -74,5 +86,5 @@ try {
     echo json_encode([
         "status" => 500,
         "message" => $e->getMessage()
-    ]);
+    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 }

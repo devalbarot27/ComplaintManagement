@@ -8,7 +8,6 @@ require_once __DIR__ . '/includes/rbac_access_helpers.php';
 if (!isset($_SESSION['role'])) {
     admin_refresh_session_role($obconn);
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">

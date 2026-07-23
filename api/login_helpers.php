@@ -167,7 +167,7 @@ function login_set_remember_cookie(string $usrName): void
     $signature = hash_hmac('sha256', $data, login_remember_secret());
     $cookieValue = $data . '.' . $signature;
 
-    // Classic setcookie(..., secure=true, httponly=true) â€” detected by static scanners.
+    // Classic setcookie(..., secure=true, httponly=true) — detected by static scanners.
     setcookie(
         login_remember_cookie_name(),
         $cookieValue,

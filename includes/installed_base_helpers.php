@@ -647,7 +647,7 @@ function installed_base_pending_order_to_select2_result(array $row): array
     $row = installed_base_pending_order_normalize_row($row);
     $ordno = $row['order_id'];
     $customerName = trim((string) ($row['cuname'] ?? ''));
-    //$text = $customerName !== '' ? $ordno . ' � ' . $customerName : $ordno;
+    //$text = $customerName !== '' ? $ordno . '   ' . $customerName : $ordno;
     $text = $ordno;
 
     return [

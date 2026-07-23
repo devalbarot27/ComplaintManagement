@@ -21,7 +21,7 @@ class orderClass
         $this->dpconn = $dpconn;
         $this->userId = $_SESSION['usr_name'];
         //$this->customer_code = $_SESSION['customer_number_vayu'];
-        $this->customer_code = @$_SESSION['customer_number_vayu']??'CU1A03751';
+        $this->customer_code = $_SESSION['customer_number_vayu']??'10001';
     }
 
     public function getCartCount()
@@ -35,7 +35,7 @@ class orderClass
 
     public function searchItems()
     {
-        $search = $_POST['search'] ?? '';
+        $search = htmlspecialchars($_POST['search'] ?? '', ENT_QUOTES, 'UTF-8');
 
         $getItem = $this->obconn->prepare("SELECT tplcode, tpldesc FROM product_master WHERE (tplcode ILIKE :search OR tpldesc ILIKE :search) ORDER BY tplcode LIMIT 20");
         $searchTerm = "%{$search}%";
@@ -53,8 +53,8 @@ class orderClass
     }
     public function getPrice()
     {
-        $item = $_POST['item'] ?? '';
-        $dpst = $_POST['dpst'] ?? '';
+        $item = htmlspecialchars($_POST['item'] ?? '', ENT_QUOTES, 'UTF-8');
+        $dpst = htmlspecialchars($_POST['dpst'] ?? '', ENT_QUOTES, 'UTF-8');
 
         $stmt = $this->obconn->prepare("
         SELECT cos
@@ -73,13 +73,13 @@ class orderClass
         if ($row) {
             echo json_encode([
                 'status' => true,
-                'price'  => (float)$row['cos']
-            ]);
+                'price'  => htmlspecialchars((float)$row['cos'] ?? '', ENT_QUOTES, 'UTF-8'),
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } else {
             echo json_encode([
                 'status' => false,
                 'price'  => 0
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
         exit;
     }
@@ -342,14 +342,14 @@ class orderClass
         $rows = $chkItem->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($rows as $row) {
-            $unitPrice = (float) $row['price'];
-            $qty = (float) $row['qty'];
+            $unitPrice = filter_var($row['price'] ?? 0, FILTER_VALIDATE_FLOAT);
+            $qty       = filter_var($row['qty'] ?? 0, FILTER_VALIDATE_FLOAT);
             $amounts = $this->computeCartLineGstAmounts($unitPrice, $qty);
             $totalPriceSum += $amounts['line_base'];
             $totalGstSum += $amounts['line_gst'];
             $totalFreightSum += $amounts['freight'];
             $totalAmountSum += $amounts['line_total'];
-            $cartId = (int) $row['id'];
+            $cartId = filter_var($row['id'] ?? 0, FILTER_VALIDATE_INT);
 
             $html .= '
         <tr class="cart-item-row" data-cart-id="' . $cartId . '" data-unit-price="' . htmlspecialchars((string) $unitPrice, ENT_QUOTES, 'UTF-8') . '">
@@ -659,7 +659,7 @@ class orderClass
                 return json_encode([
                     'status' => false,
                     'message' => 'Invalid cart item.',
-                ]);
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             }
 
 
@@ -680,7 +680,7 @@ class orderClass
                 return json_encode([
                     'status' => false,
                     'message' => 'Cart item not found.',
-                ]);
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             }
 
             $customerContext = $this->fetchPriceBreakupCustomerContext();
@@ -696,7 +696,7 @@ class orderClass
             return json_encode([
                 'status' => false,
                 'message' => 'Unable to fetch price breakup.',
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -769,7 +769,7 @@ class orderClass
             return json_encode([
                 'status' => false,
                 'message' => 'Unable to fetch order price breakup.',
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
     public function submitCartApi()
@@ -862,9 +862,7 @@ class orderClass
 
                 $districtValue = $city ?? null; // Added new field 01-07-26
             }
-        } 
-        else 
-        {
+        } else {
             $cuname = trim($_POST['end_customer_name'] ?? '');
 
             $email     = trim($_POST['end_customer_email'] ?? ''); // Added new field 01-07-26
@@ -927,7 +925,6 @@ class orderClass
                 if (empty($cartItems)) {
 
                     throw new Exception("Cart is empty.");
-
                 }
 
                 $stmt = $this->obconn->prepare("SELECT max(substr(indent_number,7,9)) AS maxindno FROM 
@@ -1295,7 +1292,7 @@ class orderClass
                         ':edi_cuno'          => $cuno,
 
                         ':seqid'             => $seqid,
-                        
+
                         ':status'            => 'A',
 
                         ':aoseries'          => $aoseries,
@@ -1348,7 +1345,6 @@ class orderClass
                             'status'  => 'error',
                             'message' => "Error in request"
                         ]);
-
                     }
                 }
 
@@ -1365,7 +1361,7 @@ class orderClass
 
                 $maxRetries = 3;
 
-                $retryDelay = 1; 
+                $retryDelay = 1;
 
                 $ch = null;
 
@@ -1442,16 +1438,15 @@ class orderClass
                 if ($httpCode == 201 && isset($data['status']) && $data['status'] === 'OK') {
                     return json_encode([
                         'status'   => $refno,
-                    ]);
+                    ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                 } else {
-                    return json_encode(["status" => ($data['message'] ?? 'Unknown error')]);
+                    return json_encode(["status" => ($data['message'] ?? 'Unknown error')], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                 }
             } catch (Exception $e) {
 
                 if ($this->obconn->inTransaction()) {
 
                     $this->obconn->rollBack();
-
                 }
 
                 error_log(
@@ -1464,7 +1459,7 @@ class orderClass
                 return json_encode([
                     'status'  => 'error',
                     'message' => $e->getMessage() . $e->getLine()
-                ]);
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             }
         }
     }
@@ -1892,7 +1887,7 @@ class orderClass
             return json_encode([
                 'status'   => 'success',
                 'order_no' => $refno
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
 
             if ($this->obconn->inTransaction()) {
@@ -1909,7 +1904,7 @@ class orderClass
             return json_encode([
                 'status'  => 'error',
                 'message' => $e->getMessage() . $e->getLine()
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -2552,7 +2547,7 @@ class orderClass
 
                 'order_no' => $refno
 
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
 
             if ($this->obconn->inTransaction()) {
@@ -2578,7 +2573,7 @@ class orderClass
 
                 'message' => $e->getMessage() . $e->getLine()
 
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -2688,32 +2683,32 @@ class orderClass
     //     }
     // }
 
-   
 
-// Start of New Pending Order List
+
+    // Start of New Pending Order List
     public function getPendingOrderListNew()
     {
         try {
- 
+
             $draw   = isset($_POST['draw']) ? (int)$_POST['draw'] : 0;
             $start  = isset($_POST['start']) ? (int)$_POST['start'] : 0;
             $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
- 
+
             $search = $_POST['search']['value'] ?? '';
- 
-/* // user wise data
+
+            /* // user wise data
             admin_refresh_session_role($this->obconn);
             $seeAll = is_system_admin() || is_management_user();
             $cunoFilter = $seeAll ? '1=1' : 'p.cuno = :uname';
 */
-           $seeAll = '';
-           $cunoFilter = 'p.cuno = :uname';
- 
+            $seeAll = '';
+            $cunoFilter = 'p.cuno = :uname';
 
- 
+
+
             $where = '';
             $params = [];
- 
+
             if (!empty($search)) {
                 $where = "AND (
                     p.ordno ILIKE :search
@@ -2723,9 +2718,9 @@ class orderClass
                 )";
                 $params[':search'] = "%{$search}%";
             }
- 
+
             $baseWhere = "p.company != 600 AND {$cunoFilter} {$where}";
- 
+
             $totalQry = $this->dpconn->prepare("
                 SELECT COUNT(*) FROM (
                     SELECT p.ordno
@@ -2739,7 +2734,7 @@ class orderClass
             }
             $totalQry->execute();
             $totalRecords = $totalQry->fetchColumn();
- 
+
             $countSql = "
                 SELECT COUNT(*) FROM (
                     SELECT p.ordno
@@ -2757,7 +2752,7 @@ class orderClass
             }
             $countStmt->execute();
             $filteredRecords = $countStmt->fetchColumn();
- 
+
             $sql = "
                 SELECT
                     p.cuno,
@@ -2772,7 +2767,7 @@ class orderClass
                 ORDER BY MAX(p.orddt) DESC
                 LIMIT :length OFFSET :start
             ";
- 
+
             $stmt = $this->dpconn->prepare($sql);
             if (!$seeAll) {
                 $stmt->bindParam(':uname', $this->customer_code, PDO::PARAM_STR);
@@ -2783,17 +2778,17 @@ class orderClass
             $stmt->bindValue(':length', $length, PDO::PARAM_INT);
             $stmt->bindValue(':start', $start, PDO::PARAM_INT);
             $stmt->execute();
- 
+
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $plexecomMap = $this->fetchPendingOrderPlexecomDetails(array_column($rows, 'ordno'), $seeAll);
- 
+
             $data = [];
- 
+
             foreach ($rows as $row) {
                 $ordno = trim((string) ($row['ordno'] ?? ''));
                 $cuno = trim((string) ($row['cuno'] ?? ''));
                 $plexecom = $plexecomMap[$ordno] ?? [];
- 
+
                 $orderNumber = trim((string) ($row['indentno'] ?? ''));
                 if ($orderNumber === '') {
                     $orderNumber = trim((string) ($plexecom['refno'] ?? ''));
@@ -2801,16 +2796,16 @@ class orderClass
                 if ($orderNumber === '') {
                     $orderNumber = '-';
                 }
- 
+
                 $customerName = trim((string) ($row['cuname'] ?? ''));
                 $customerLabel = $customerName !== ''
                     ? $customerName
                     : '-';
- 
+
                 $actionCell = '';
                 if ($ordno !== '') {
                     $ordnoJs = htmlspecialchars($ordno, ENT_QUOTES, 'UTF-8');
-                   /* $actionCell = '<div class="cart-action-group">'
+                    /* $actionCell = '<div class="cart-action-group">'
                         . '<button type="button" class="cart-action-btn cart-action-btn--breakup" '
                         . 'onclick="openPendingOrderPriceBreakup(\'' . $ordnoJs . '\')" title="Price Breakup">'
                         . '<i class="bi bi-receipt"></i></button>'
@@ -2820,14 +2815,14 @@ class orderClass
                         . '<i class="fa fa-eye"></i></a>'
                         . '</div>';
                         */
-                        $actionCell = '<div class="cart-action-group">'
+                    $actionCell = '<div class="cart-action-group">'
                         . '<a href="order_data_new.php?order=' . urlencode($ordno)
                         . '&cuno=' . urlencode($cuno)
                         . '&reference=pending_order" target="_blank" class="btn btn-sm btn-outline-dark" title="View">'
                         . '<i class="fa fa-eye"></i></a>'
                         . '</div>';
                 }
- 
+
                 $data[] = [
                     'order_number'     => htmlspecialchars($orderNumber, ENT_QUOTES, 'UTF-8'),
                     'ao_number'        => $ordno !== '' ? htmlspecialchars($ordno, ENT_QUOTES, 'UTF-8') : '-',
@@ -2843,27 +2838,27 @@ class orderClass
                     'action'           => $actionCell,
                 ];
             }
- 
+
             return json_encode([
                 'draw'            => $draw,
                 'recordsTotal'    => (int)$totalRecords,
                 'recordsFiltered' => (int)$filteredRecords,
                 'data'            => $data
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
- 
+
             error_log($e->getMessage());
- 
+
             return json_encode([
                 'draw' => 0,
                 'recordsTotal' => 0,
                 'recordsFiltered' => 0,
                 'data' => [],
                 'error' => $e->getMessage() . $e->getLine()
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
- 
+
     /**
      * Display-only consolidated price breakup for a pending LN order (all lines).
      */
@@ -2946,7 +2941,7 @@ class orderClass
             return json_encode([
                 'status' => false,
                 'message' => 'Unable to fetch pending order price breakup.',
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -2957,7 +2952,7 @@ class orderClass
         return $value !== '' ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : '-';
     }
 
-   
+
     /**
      * Fetch invoice/delivery address and payment/delivery terms from plexecom_customer_units
      */
@@ -3151,7 +3146,7 @@ class orderClass
                 'recordsTotal'    => (int)$totalRecords,
                 'recordsFiltered' => (int)$filteredRecords,
                 'data'            => $data
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
 
             error_log($e->getMessage());
@@ -3162,7 +3157,7 @@ class orderClass
                 'recordsFiltered' => 0,
                 'data' => [],
                 'error' => $e->getMessage() . $e->getLine()
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -3235,7 +3230,7 @@ class orderClass
                 'recordsTotal'    => (int)$totalRecords,
                 'recordsFiltered' => (int)$filteredRecords,
                 'data'            => $data
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
             error_log($e->getMessage());
             return json_encode([
@@ -3244,7 +3239,7 @@ class orderClass
                 'recordsFiltered' => 0,
                 'data' => [],
                 'error' => $e->getMessage() . $e->getLine()
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -3292,7 +3287,7 @@ class orderClass
         return $refMap;
     }
 
-     public function getRecentOrders()
+    public function getRecentOrders()
     {
         try {
             $draw   = isset($_POST['draw']) ? (int)$_POST['draw'] : 0;
@@ -3303,10 +3298,10 @@ class orderClass
             $params = [];
 
             // Managers (Management role) see all recent orders; others stay user-scoped.
-           // Refresh role from DB so AJAX requests are not stuck with a missing/stale session role.
-           admin_refresh_session_role($this->obconn);
-           $seeAll = is_system_admin() || is_management_user();
-           $showAddedBy = is_system_admin() || is_management_user() || is_ccs_admin_user();
+            // Refresh role from DB so AJAX requests are not stuck with a missing/stale session role.
+            admin_refresh_session_role($this->obconn);
+            $seeAll = is_system_admin() || is_management_user();
+            $showAddedBy = is_system_admin() || is_management_user() || is_ccs_admin_user();
 
             if (!empty($search)) {
                 $where = "AND (
@@ -3326,16 +3321,16 @@ class orderClass
                 }
                 $where .= ")";
                 $params[':search'] = "%{$search}%";
-           }
-         
-           $userWhere = $seeAll ? '1=1' : 'a.cuno = :createdBy';
-           $totalUserWhere = $seeAll ? '1=1' : 'cuno = :createdBy';
+            }
 
-           $addedByJoin = '';
-           $addedBySelect = '';
-           if ($showAddedBy) {
-               // Map emp_code → user_master.username for dealer name; fallback to usr_name.
-               $addedByJoin = "
+            $userWhere = $seeAll ? '1=1' : 'a.cuno = :createdBy';
+            $totalUserWhere = $seeAll ? '1=1' : 'cuno = :createdBy';
+
+            $addedByJoin = '';
+            $addedBySelect = '';
+            if ($showAddedBy) {
+                // Map emp_code ? user_master.username for dealer name; fallback to usr_name.
+                $addedByJoin = "
                 LEFT JOIN user_master AS um_by_emp
                     ON um_by_emp.deleted_at IS NULL
                    AND TRIM(COALESCE(a.emp_code::text, '')) <> ''
@@ -3345,15 +3340,15 @@ class orderClass
                    AND TRIM(COALESCE(a.usr_name, '')) <> ''
                    AND TRIM(um_by_usr.username) = TRIM(a.usr_name)
                ";
-               $addedBySelect = ",
+                $addedBySelect = ",
                     COALESCE(
                         NULLIF(TRIM(um_by_emp.name), ''),
                         NULLIF(TRIM(um_by_usr.name), ''),
                         NULLIF(TRIM(a.usr_name), ''),
                         '-'
                     ) AS added_by_name";
-           }
-           
+            }
+
             $joinSql = "
                 FROM plexecom_customer_units AS a
                 LEFT JOIN tbl_vayu_delivery_term AS c
@@ -3374,18 +3369,18 @@ class orderClass
                 WHERE {$totalUserWhere}
             ");
             if (!$seeAll) {
-               $totalQry->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
-           }
+                $totalQry->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
+            }
             $totalQry->execute();
             $totalRecords = (int) $totalQry->fetchColumn();
             $countSql = "SELECT COUNT(*) FROM (SELECT DISTINCT a.refno {$joinSql}) recent_orders";
             $countStmt = $this->obconn->prepare($countSql);
             if (!$seeAll) {
-               $countStmt->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
-           }
+                $countStmt->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
+            }
             foreach ($params as $key => $value) {
                 $countStmt->bindValue($key, $value);
-           }
+            }
             $countStmt->execute();
             $filteredRecords = (int) $countStmt->fetchColumn();
             $sql = "
@@ -3408,11 +3403,11 @@ class orderClass
             ";
             $stmt = $this->obconn->prepare($sql);
             if (!$seeAll) {
-               $stmt->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
-           }
+                $stmt->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
+            }
             foreach ($params as $key => $value) {
                 $stmt->bindValue($key, $value);
-           }
+            }
             $stmt->bindValue(':length', $length, PDO::PARAM_INT);
             $stmt->bindValue(':start', $start, PDO::PARAM_INT);
             $stmt->execute();
@@ -3423,24 +3418,24 @@ class orderClass
                 $orderCuno = trim((string) ($row['cuno'] ?? $this->customer_code));
                 $orderStatus = $this->resolveRecentOrderStatus($orderNumber, $orderCuno);
                 $rowData = [
-                    'ref_no'           => htmlspecialchars($refno, ENT_QUOTES, 'UTF-8'),
-                    'order_no'         => htmlspecialchars((string) ($row['order_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
-                    'category'         => htmlspecialchars((string) ($row['order_category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
-                    'order_category'   => htmlspecialchars((string) ($row['order_category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
-                    'delivery_term'    => htmlspecialchars((string) ($row['delivery_term'] ?? '-'), ENT_QUOTES, 'UTF-8'),
-                    'po_number'        => htmlspecialchars((string) ($row['pono'] ?? '-'), ENT_QUOTES, 'UTF-8'),
-                    'payment_term'     => htmlspecialchars((string) ($row['pay_desc'] ?? '100% Advance'), ENT_QUOTES, 'UTF-8'),
-                    'transporter'      => htmlspecialchars((string) ($row['transporter'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'ref_no'           => htmlspecialchars($refno ??  '-', ENT_QUOTES, 'UTF-8'),
+                    'order_no'         => htmlspecialchars($row['order_number'] ?? '-', ENT_QUOTES, 'UTF-8'),
+                    'category'         => htmlspecialchars($row['order_category'] ?? '-', ENT_QUOTES, 'UTF-8'),
+                    'order_category'   => htmlspecialchars($row['order_category'] ?? '-', ENT_QUOTES, 'UTF-8'),
+                    'delivery_term'    => htmlspecialchars($row['delivery_term'] ?? '-', ENT_QUOTES, 'UTF-8'),
+                    'po_number'        => htmlspecialchars($row['pono'] ?? '-', ENT_QUOTES, 'UTF-8'),
+                    'payment_term'     => htmlspecialchars($row['pay_desc'] ?? '100% Advance', ENT_QUOTES, 'UTF-8'),
+                    'transporter'      => htmlspecialchars($row['transporter'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'order_status'     => $orderStatus,
                     'date'             => !empty($row['indent_date'])
                         ? date('d-m-Y', strtotime($row['indent_date']))
                         : '-',
-                        /*
+                    /*
                         <button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
                         . htmlspecialchars($refno, ENT_QUOTES, 'UTF-8')
                         . '\')"><i class="fa fa-eye"></i></button>
                         */
-                'lines'            => ' <a href="recent_order_details.php?refno='
+                    'lines'            => ' <a href="recent_order_details.php?refno='
                         . urlencode($refno)
                         . '" class="btn btn-sm btn-outline-dark" title="View">'
                         . '<i class="fa fa-eye"></i></a>',
@@ -3456,14 +3451,14 @@ class orderClass
                 }
 
                 $data[] = $rowData;
-           }
+            }
             return json_encode([
                 'draw'            => $draw,
                 'recordsTotal'    => $totalRecords,
                 'recordsFiltered' => $filteredRecords,
                 'data'            => $data,
-            ]);
-       } catch (Exception $e) {
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        } catch (Exception $e) {
             error_log($e->getMessage());
             return json_encode([
                 'draw' => 0,
@@ -3471,10 +3466,10 @@ class orderClass
                 'recordsFiltered' => 0,
                 'data' => [],
                 'error' => $e->getMessage() . $e->getLine(),
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
- 
+
     public function getRecentOrders_bk_14_07()
 
     {
@@ -3624,21 +3619,21 @@ class orderClass
 
                 $data[] = [
 
-                    'ref_no'           => htmlspecialchars($refno, ENT_QUOTES, 'UTF-8'),
+                    'ref_no'           => $refno,
 
-                    'order_no'         => htmlspecialchars((string) ($row['order_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
+                    'order_no'         => $row['order_number'],
 
-                    'category'         => htmlspecialchars((string) ($row['order_category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'category'         => $row['order_category'] ?? '-',
 
-                    'order_category'   => htmlspecialchars((string) ($row['order_category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'order_category'   => $row['order_category'] ?? '-',
 
-                    'delivery_term'    => htmlspecialchars((string) ($row['delivery_term'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'delivery_term'    => $row['delivery_term'] ?? '-',
 
-                    'po_number'        => htmlspecialchars((string) ($row['pono'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'po_number'        => $row['pono'] ?? '-',
 
-                    'payment_term'     => htmlspecialchars((string) ($row['pay_desc'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'payment_term'     => $row['pay_desc'] ?? '-',
 
-                    'transporter'      => htmlspecialchars((string) ($row['transporter'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+                    'transporter'      => $row['transporter'] ?? '-',
 
                     'order_status'     => $orderStatus,
 
@@ -3667,7 +3662,7 @@ class orderClass
 
                 'data'            => $data,
 
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
 
             error_log($e->getMessage());
@@ -3684,7 +3679,7 @@ class orderClass
 
                 'error' => $e->getMessage() . $e->getLine(),
 
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -3857,7 +3852,7 @@ class orderClass
 
                 'data'            => $data
 
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
 
             error_log($e->getMessage());
@@ -3874,7 +3869,7 @@ class orderClass
 
                 'error' => $e->getMessage() . $e->getLine()
 
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -3928,7 +3923,7 @@ class orderClass
             ];
         }
 
-        echo json_encode($result);
+        echo json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 
     public function getAcknowledgeLine()
@@ -3982,6 +3977,8 @@ class orderClass
         } catch (Exception $e) {
         }
     }
+
+
     /**
      * Fetch Recent Order header, line items, and totals by refno.
      *
@@ -4312,6 +4309,14 @@ class orderClass
         return 'Pending';
     }
 
+
+
+
+
+
+
+
+
     public function getRecentOrderLine()
     {
         $orderNo = $_POST['orderNo'];
@@ -4443,7 +4448,7 @@ class orderClass
                 'recordsTotal'    => $totalRecords,
                 'recordsFiltered' => $filteredRecords,
                 'data'            => $data
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
 
             echo json_encode([
@@ -4452,7 +4457,7 @@ class orderClass
                 'recordsFiltered' => 0,
                 'data' => [],
                 'error' => $e->getMessage()
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -4609,7 +4614,7 @@ class orderClass
                 'recordsTotal'    => $totalRecords,
                 'recordsFiltered' => $filteredRecords,
                 'data'            => $data
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
 
             echo json_encode([
@@ -4618,7 +4623,7 @@ class orderClass
                 'recordsFiltered' => 0,
                 'data' => [],
                 'error' => $e->getMessage()
-            ]);
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
     }
 
@@ -4653,12 +4658,14 @@ class orderClass
         }
         $data = json_decode($response, true);
         unset($ch);
-        return $data['access_token'] ?? '';
+        return isset($data['access_token']) && is_string($data['access_token'])
+            ? $data['access_token']
+            : '';
     }
 
     function search_dealer()
     {
-        $search = trim($_POST['search'] ?? '');
+        $search = htmlspecialchars(trim($_POST['search'] ?? ''),ENT_QUOTES, 'UTF-8');
 
         $sql = "SELECT cuno, cuname
         FROM customer_master
@@ -4691,6 +4698,6 @@ class orderClass
             ];
         }
 
-        return json_encode($result);
+        return json_encode($result,JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 }

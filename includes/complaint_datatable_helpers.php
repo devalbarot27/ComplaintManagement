@@ -177,7 +177,7 @@ function complaint_can_view_added_by_column(?PDO $conn = null): bool
 }
 
 /**
- * Dealer/User display name for the complaint creator (added_by → user_master).
+ * Dealer/User display name for the complaint creator (added_by ? user_master).
  */
 function complaint_added_by_sql_expression(string $complaintAlias = 'complaints', string $userAlias = 'um_added'): string
 {

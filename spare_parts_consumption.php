@@ -295,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
                                 <th width="10%">Type</th>
                                 <th width="12%">Kit Number</th>
                                 <th width="8%">Qty</th>
-                                <th width="10%">Order Value (₹)</th>
+                                <th width="10%">Order Value (?)</th>
                                 <th width="8%">Reason</th>
                                 <th width="10%">Service Log</th>
                                 <th width="10%">Created At</th>
