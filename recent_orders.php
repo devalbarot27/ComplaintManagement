@@ -30,6 +30,8 @@ $recentOrderRefNoJson = json_encode(
 if (!is_string($recentOrderRefNoJson)) {
     $recentOrderRefNoJson = '""';
 }
+// Columns: Ref, AO, Category, Delivery, PO, Payment, Transporter, [Added By], Status, Order Date, Action
+$orderDateColumnIndex = $showAddedByColumn ? 9 : 8;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -130,6 +132,7 @@ if (!is_string($recentOrderRefNoJson)) {
 <script>
     const canViewRecentOrders = <?php echo htmlspecialchars($canViewRecentOrders ? 'true' : 'false', ENT_QUOTES, 'UTF-8'); ?>;
     const recentOrderRefNo = <?php echo $recentOrderRefNoJson; ?>;
+    const orderDateColumnIndex = <?php echo (int) $orderDateColumnIndex; ?>;
 
     $(document).ready(function() {
 
@@ -139,6 +142,7 @@ if (!is_string($recentOrderRefNoJson)) {
             scrollX: true,
             autoWidth: false,
             pageLength: 10,
+            order: [[orderDateColumnIndex, 'desc']],
             ajax: {
                 url: 'orderRequest.php',
                 type: 'POST',
@@ -181,7 +185,8 @@ if (!is_string($recentOrderRefNoJson)) {
                 },
                 {
                     data: 'lines',
-                    orderable: false
+                    orderable: false,
+                    searchable: false
                 },
             ],
             drawCallback: function() {

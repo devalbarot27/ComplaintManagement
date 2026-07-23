@@ -3383,23 +3383,55 @@ class orderClass
             }
             $countStmt->execute();
             $filteredRecords = (int) $countStmt->fetchColumn();
+
+            $orderColumnIndex = (int) ($_POST['order'][0]['column'] ?? -1);
+            $orderDir = (
+                isset($_POST['order'][0]['dir'])
+                && strtolower((string) $_POST['order'][0]['dir']) === 'asc'
+            ) ? 'ASC' : 'DESC';
+            $postedColumns = $_POST['columns'] ?? [];
+            $orderDataKey = is_array($postedColumns[$orderColumnIndex] ?? null)
+                ? trim((string) ($postedColumns[$orderColumnIndex]['data'] ?? 'order_date'))
+                : 'order_date';
+
+            $orderSqlMap = [
+                'ref_no' => 'recent_orders.refno',
+                'order_no' => 'recent_orders.order_number',
+                'category' => 'recent_orders.order_category',
+                'delivery_term' => 'recent_orders.delivery_term',
+                'po_number' => 'recent_orders.pono',
+                'payment_term' => "COALESCE(NULLIF(TRIM(recent_orders.pay_desc), ''), '100% Advance')",
+                'transporter' => 'recent_orders.transporter',
+                'order_status' => "CASE WHEN TRIM(COALESCE(recent_orders.order_number, '')) = '' THEN 0 ELSE 1 END",
+                'order_date' => 'recent_orders.sort_order_date',
+            ];
+            if ($showAddedBy) {
+                $orderSqlMap['added_by'] = 'recent_orders.added_by_name';
+            }
+            $orderExpr = $orderSqlMap[$orderDataKey] ?? 'recent_orders.sort_order_date';
+
             $sql = "
-                SELECT DISTINCT ON (a.refno)
-                    a.refno,
-                    a.cuno,
-                    a.order_number,
-                    a.pono,
-                    a.indent_date,
-                    a.order_date,
-                    a.emp_code,
-                    a.usr_name,
-                    d.order_category,
-                    c.delivery_term,
-                    e.pay_desc,
-                    f.trans_name AS transporter
-                    {$addedBySelect}
-                {$joinSql}
-                ORDER BY a.refno DESC, a.indent_date DESC
+                SELECT *
+                FROM (
+                    SELECT DISTINCT ON (a.refno)
+                        a.refno,
+                        a.cuno,
+                        a.order_number,
+                        a.pono,
+                        a.indent_date,
+                        a.order_date,
+                        COALESCE(a.order_date, a.indent_date) AS sort_order_date,
+                        a.emp_code,
+                        a.usr_name,
+                        d.order_category,
+                        c.delivery_term,
+                        e.pay_desc,
+                        f.trans_name AS transporter
+                        {$addedBySelect}
+                    {$joinSql}
+                    ORDER BY a.refno DESC, a.indent_date DESC
+                ) AS recent_orders
+                ORDER BY {$orderExpr} {$orderDir} NULLS LAST, recent_orders.refno DESC
                 LIMIT :length OFFSET :start
             ";
             $stmt = $this->obconn->prepare($sql);
