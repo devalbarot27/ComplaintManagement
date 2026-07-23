@@ -90,6 +90,7 @@ if (!is_string($recentOrderRefNoJson)) {
                                             <th width="12%">Added By</th>
                                             <?php } ?>
                                             <th width="10%">Order Status</th>
+                                            <th width="10%">Order Date</th>
                                             <th width="5%">Action</th>
                                         </tr>
                                     </thead>
@@ -174,6 +175,9 @@ if (!is_string($recentOrderRefNoJson)) {
                 <?php } ?>
                 {
                     data: 'order_status'
+                },
+                {
+                    data: 'order_date'
                 },
                 {
                     data: 'lines',

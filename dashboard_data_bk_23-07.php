@@ -72,25 +72,25 @@ $monthlyChartMax = max(4, (int) (ceil((max($monthlyChartMaxValues ?: [0]) / 4)) 
 
 $statusChartData = [];
 $statusChartColors = [];
-//if ($canViewRecentOrders) {
+if ($canViewRecentOrders) {
     $statusChartData[] = (int) $createdOrdersCount;
     $statusChartColors[] = '#2563eb';
-//}
-//if ($canViewAcknowledgedOrders) {
+}
+if ($canViewAcknowledgedOrders) {
     $statusChartData[] = (int) $acknowledgementCount;
     $statusChartColors[] = '#7c3aed';
-//}
-//if ($canViewPendingOrders) {
+}
+if ($canViewPendingOrders) {
     $statusChartData[] = (int) $pendingOrdersCount;
     $statusChartColors[] = '#f59e0b';
-//}
-// if ($canViewDispatchedOrders) {
+}
+if ($canViewDispatchedOrders) {
     $statusChartData[] = (int) $dispatched_orders_count;
     $statusChartColors[] = '#16a34a';
-//}
+}
 
 $monthlyChartDatasets = [];
-//if ($canViewAcknowledgedOrders) {
+if ($canViewAcknowledgedOrders) {
     $monthlyChartDatasets[] = [
         'label' => 'Acknowledged',
         'data' => $monthlyChartData['acknowledged'],
@@ -100,9 +100,9 @@ $monthlyChartDatasets = [];
         'categoryPercentage' => 0.72,
         'barPercentage' => 0.88,
     ];
-//}
+}
 
-//if ($canViewPendingOrders) {
+if ($canViewPendingOrders) {
     $monthlyChartDatasets[] = [
         'label' => 'Pending',
         'data' => $monthlyChartData['pending'],
@@ -112,7 +112,7 @@ $monthlyChartDatasets = [];
         'categoryPercentage' => 0.72,
         'barPercentage' => 0.88,
     ];
-//}
+}
 
 $showPendingOver10DaysAlert = $canViewPendingOrders;
 $showDispatchesDeliveredAlert = $canViewDispatchedOrders;
@@ -241,23 +241,27 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 
     <!-- ALERTS -->
 
-    <?php // if ($showAlertGrid): ?>
+    <?php if ($showAlertGrid): ?>
     <div class="alert-grid">
 
-        <?php // if ($showPendingOver10DaysAlert): ?>
+        <?php if ($showPendingOver10DaysAlert): ?>
         <div class="custom-alert alert-orange">
             <?php echo htmlspecialchars($pendingOver10DaysAlert); ?>
         </div>
-        <?php // endif; ?>
+        <?php endif; ?>
 
-        <?php // if ($showDispatchesDeliveredAlert): ?>
+        <div class="custom-alert alert-blue d-none">
+            Credit utilization at 68%   ?19.7L available
+        </div>
+
+        <?php if ($showDispatchesDeliveredAlert): ?>
         <div class="custom-alert alert-green">
             <?php echo htmlspecialchars($dispatchesDeliveredThisWeekAlert); ?>
         </div>
-        <?php // endif; ?>
+        <?php endif; ?>
 
     </div>
-    <?php // endif; ?>
+    <?php endif; ?>
 
     <!-- STATS -->
 
@@ -288,7 +292,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 
         </div>
 
-        <?php // if ($canViewPendingOrders): ?>
+        <?php if ($canViewPendingOrders): ?>
         <div class="stat-card">
 
             <div class="card-top">
@@ -312,9 +316,9 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
             </div>
 
         </div>
-        <?php // endif; ?>
+        <?php endif; ?>
 
-        <?php // if ($canViewDispatchedOrders): ?>
+        <?php if ($canViewDispatchedOrders): ?>
         <div class="stat-card">
 
             <div class="card-top">
@@ -338,7 +342,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
             </div>
 
         </div>
-        <?php // endif; ?>
+        <?php endif; ?>
 
         <div class="stat-card d-none">
 
@@ -390,33 +394,33 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 
         <div class="pipeline-wrapper">
 
-            <?php // if ($canViewRecentOrders): ?>
+            <?php if ($canViewRecentOrders): ?>
             <div class="pipeline-step">
                 <div class="pipeline-count blue"><?php echo htmlspecialchars((string) $createdOrdersCount); ?></div>
                 <div class="pipeline-label">Created</div>
             </div>
-            <?php // endif; ?>
+            <?php endif; ?>
 
-            <?php // if ($canViewAcknowledgedOrders): ?>
+            <?php if ($canViewAcknowledgedOrders): ?>
             <div class="pipeline-step">
                 <div class="pipeline-count purple"><?php echo htmlspecialchars((string) $acknowledgementCount); ?></div>
                 <div class="pipeline-label">Acknowledged</div>
             </div>
-            <?php // endif; ?>
+            <?php endif; ?>
 
-            <?php // if ($canViewPendingOrders): ?>
+            <?php if ($canViewPendingOrders): ?>
             <div class="pipeline-step">
                 <div class="pipeline-count orange"><?php echo htmlspecialchars((string) $pendingOrdersCount); ?></div>
                 <div class="pipeline-label">Pending</div>
             </div>
-            <?php // endif; ?>
+            <?php endif; ?>
 
-            <?php // if ($canViewDispatchedOrders): ?>
+            <?php if ($canViewDispatchedOrders): ?>
             <div class="pipeline-step">
                 <div class="pipeline-count green"><?php echo htmlspecialchars((string) $dispatched_orders_count); ?></div>
                 <div class="pipeline-label">Dispatched</div>
             </div>
-            <?php // endif; ?>
+            <?php endif; ?>
 
         </div>
 
@@ -428,7 +432,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
     <?php if (!empty($monthlyChartDatasets) || !empty($statusChartData)): ?>
     <div class="chart-grid">
 
-        <?php //if (!empty($monthlyChartDatasets)): ?>
+        <?php if (!empty($monthlyChartDatasets)): ?>
         <div class="chart-card">
 
             <div class="chart-title">
@@ -446,7 +450,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
             </div>
 
         </div>
-        <?php // endif; ?>
+        <?php endif; ?>
 
         <?php if (!empty($statusChartData)): ?>
         <div class="chart-card">
@@ -463,37 +467,37 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 
             <div class="status-legend">
 
-                <?php // if ($canViewRecentOrders): ?>
+                <?php if ($canViewRecentOrders): ?>
                 <div class="legend-item">
                     <div class="legend-dot"
                         style="background:#2563eb"></div>
                     Created: <?php echo htmlspecialchars((string) $createdOrdersCount); ?>
                 </div>
-                <?php // endif; ?>
+                <?php endif; ?>
 
-                <?php  // if ($canViewAcknowledgedOrders): ?>
+                <?php if ($canViewAcknowledgedOrders): ?>
                 <div class="legend-item">
                     <div class="legend-dot"
                         style="background:#7c3aed"></div>
                     Acknowledged: <?php echo htmlspecialchars((string) $acknowledgementCount); ?>
                 </div>
-                <?php // endif; ?>
+                <?php endif; ?>
 
-                <?php // if ($canViewPendingOrders): ?>
+                <?php if ($canViewPendingOrders): ?>
                 <div class="legend-item">
                     <div class="legend-dot"
                         style="background:#f59e0b"></div>
                     Pending: <?php echo htmlspecialchars((string) $pendingOrdersCount); ?>
                 </div>
-                <?php // endif; ?>
+                <?php endif; ?>
 
-                <?php // if ($canViewDispatchedOrders): ?>
+                <?php if ($canViewDispatchedOrders): ?>
                 <div class="legend-item">
                     <div class="legend-dot"
                         style="background:#16a34a"></div>
                     Dispatched: <?php echo htmlspecialchars((string) $dispatched_orders_count); ?>
                 </div>
-                <?php // endif; ?>
+                <?php endif; ?>
 
             </div>
 
@@ -545,7 +549,6 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                                             <th>Added By</th>
                                             <?php } ?>
                                             <th>Order Status</th>
-                                            <th>Order Date</th>
                                             <th>Action</th>
                                         </tr>
                                     </thead>
@@ -1023,7 +1026,6 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                 { data: 'added_by' },
                 <?php } ?>
                 { data: 'order_status' },
-                { data: 'order_date' },
                 {
                     data: 'lines',
                     orderable: false

@@ -3390,6 +3390,7 @@ class orderClass
                     a.order_number,
                     a.pono,
                     a.indent_date,
+                    a.order_date,
                     a.emp_code,
                     a.usr_name,
                     d.order_category,
@@ -3417,6 +3418,10 @@ class orderClass
                 $orderNumber = trim((string) ($row['order_number'] ?? ''));
                 $orderCuno = trim((string) ($row['cuno'] ?? $this->customer_code));
                 $orderStatus = $this->resolveRecentOrderStatus($orderNumber, $orderCuno);
+                $orderDateRaw = $row['order_date'] ?? $row['indent_date'] ?? null;
+                $orderDateFormatted = !empty($orderDateRaw)
+                    ? date('d M Y', strtotime((string) $orderDateRaw))
+                    : '-';
                 $rowData = [
                     'ref_no'           => htmlspecialchars($refno ??  '-', ENT_QUOTES, 'UTF-8'),
                     'order_no'         => htmlspecialchars($row['order_number'] ?? '-', ENT_QUOTES, 'UTF-8'),
@@ -3427,9 +3432,8 @@ class orderClass
                     'payment_term'     => htmlspecialchars($row['pay_desc'] ?? '100% Advance', ENT_QUOTES, 'UTF-8'),
                     'transporter'      => htmlspecialchars($row['transporter'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'order_status'     => $orderStatus,
-                    'date'             => !empty($row['indent_date'])
-                        ? date('d-m-Y', strtotime($row['indent_date']))
-                        : '-',
+                    'order_date'       => $orderDateFormatted,
+                    'date'             => $orderDateFormatted,
                     /*
                         <button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
                         . htmlspecialchars($refno, ENT_QUOTES, 'UTF-8')
