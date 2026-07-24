@@ -61,6 +61,10 @@
         $pageName = "Permission Details";
     } else if ($currentPage == 'assign_permissions.php') {
         $pageName = "Assign Permissions";
+    } else if ($currentPage == 'complaint_categories.php') {
+        $pageName = "Complaint Category";
+    } else if ($currentPage == 'complaint_category_details.php') {
+        $pageName = "Complaint Category Details";
     } else if ($currentPage == 'industry_segments.php') {
         $pageName = "Industry Segment";
     } else if ($currentPage == 'industry_segment_details.php') {
@@ -81,6 +85,10 @@
         $pageName = "Reason";
     } else if ($currentPage == 'reason_details.php') {
         $pageName = "Reason Details";
+    } else if ($currentPage == 'products.php') {
+        $pageName = "Products";
+    } else if ($currentPage == 'product_details.php') {
+        $pageName = "Product Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     } else if ($currentPage == 'notifications.php') {
@@ -316,6 +324,12 @@
                       SYSTEM CONFIGURATION
                   </div>
 
+                  <a href="products.php"
+                      class="menu-item <?= in_array($currentPage, ['products.php', 'product_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-box-seam"></i>
+                      Products
+                  </a>
+
                   <a href="complaint_categories.php"
                       class="menu-item <?= in_array($currentPage, ['complaint_categories.php', 'complaint_category_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-tags"></i>
@@ -340,17 +354,19 @@
                       Part Replaced
                   </a>
 
-                  <a href="customer_feedback.php"
+                  <!-- <a href="customer_feedback.php"
                       class="menu-item <?= in_array($currentPage, ['customer_feedback.php', 'customer_feedback_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-chat-left-text"></i>
                       Customer Feedback
-                  </a>
+                  </a> -->
 
                   <a href="reasons.php"
                       class="menu-item <?= in_array($currentPage, ['reasons.php', 'reason_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-list-check"></i>
                       Reason
                   </a>
+
+                
 
               </div>
           <?php } ?>
