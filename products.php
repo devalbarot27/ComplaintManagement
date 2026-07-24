@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
 
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">Dealer Price</label>
-                                    <input type="text" class="form-control" name="dealer_price" maxlength="20" placeholder="0">
+                                    <input type="text" class="form-control" name="dealer_price" maxlength="20" placeholder="0" inputmode="decimal" autocomplete="off">
                                     <div class="text-danger validation-msg" data-field="dealer_price"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
@@ -186,17 +186,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
 
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">MC</label>
-                                    <input type="text" class="form-control" name="mc" maxlength="20" placeholder="0">
+                                    <input type="text" class="form-control" name="mc" maxlength="20" placeholder="0" inputmode="decimal" autocomplete="off">
                                     <div class="text-danger validation-msg" data-field="mc"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">VC</label>
-                                    <input type="text" class="form-control" name="vc" maxlength="20" placeholder="0">
+                                    <input type="text" class="form-control" name="vc" maxlength="20" placeholder="0" inputmode="decimal" autocomplete="off">
                                     <div class="text-danger validation-msg" data-field="vc"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">FC</label>
-                                    <input type="text" class="form-control" name="fc" maxlength="20" placeholder="0">
+                                    <input type="text" class="form-control" name="fc" maxlength="20" placeholder="0" inputmode="decimal" autocomplete="off">
                                     <div class="text-danger validation-msg" data-field="fc"></div>
                                 </div>
                                 <div class="col-md-3 form-group">

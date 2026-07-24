@@ -101,6 +101,18 @@ function product_validate(array $data): ?string
         return 'Excisable must be Y or N.';
     }
 
+    if ($data['mc'] !== '' && !product_is_numeric_value($data['mc'])) {
+        return 'MC must be numeric.';
+    }
+
+    if ($data['vc'] !== '' && !product_is_numeric_value($data['vc'])) {
+        return 'VC must be numeric.';
+    }
+
+    if ($data['fc'] !== '' && !product_is_numeric_value($data['fc'])) {
+        return 'FC must be numeric.';
+    }
+
     if ($data['cos'] === '') {
         return 'COS (Price) is required.';
     }
@@ -323,7 +335,7 @@ function product_insert(PDO $conn, array $data, ?int $createdBy): void
             :tod_flag, :excisable, :mc, :vc, :fc, :cos, :valid,
             :company, :warehouse, :payment_term,
             :status, :created_by, :updated_by,
-            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
     ');
 
@@ -354,7 +366,7 @@ function product_update(PDO $conn, int $id, array $data, ?int $updatedBy): void
             warehouse = :warehouse,
             payment_term = :payment_term,
             updated_by = :updated_by,
-            updated_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
           AND deleted_at IS NULL
     ');

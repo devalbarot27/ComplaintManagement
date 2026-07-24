@@ -27,6 +27,24 @@ function initProductFormValidation() {
                 message: '^Dealer Price must be numeric'
             }
         },
+        mc: {
+            format: {
+                pattern: /^-?\d+(\.\d+)?$/,
+                message: '^MC must be numeric'
+            }
+        },
+        vc: {
+            format: {
+                pattern: /^-?\d+(\.\d+)?$/,
+                message: '^VC must be numeric'
+            }
+        },
+        fc: {
+            format: {
+                pattern: /^-?\d+(\.\d+)?$/,
+                message: '^FC must be numeric'
+            }
+        },
         cos: {
             presence: { allowEmpty: false, message: '^COS (Price) is required' },
             format: {
@@ -104,9 +122,11 @@ function initProductFormValidation() {
 
     function getActiveConstraints(values) {
         const activeConstraints = Object.assign({}, constraints);
-        if (values.dealer_price === '' || values.dealer_price == null) {
-            delete activeConstraints.dealer_price;
-        }
+        ['dealer_price', 'mc', 'vc', 'fc'].forEach(function (field) {
+            if (values[field] === '' || values[field] == null) {
+                delete activeConstraints[field];
+            }
+        });
         return activeConstraints;
     }
 
@@ -157,10 +177,12 @@ function initProductFormValidation() {
         }
     });
 
-    initCosNumericOnlyInput(form.querySelector('[name="cos"]'));
+    ['dealer_price', 'mc', 'vc', 'fc', 'cos'].forEach(function (fieldName) {
+        initNumericOnlyInput(form.querySelector('[name="' + fieldName + '"]'));
+    });
 }
 
-function initCosNumericOnlyInput(input) {
+function initNumericOnlyInput(input) {
     if (!input) {
         return;
     }

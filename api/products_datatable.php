@@ -32,7 +32,7 @@ if ($validFilter !== '' && !array_key_exists($validFilter, product_yn_options())
 $baseWhere = 'deleted_at IS NULL';
 $filterParams = [];
 
-$recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM product_master WHERE {$baseWhere}");
+$recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM products WHERE {$baseWhere}");
 $recordsTotalStmt->execute();
 $recordsTotal = (int) $recordsTotalStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
@@ -49,7 +49,7 @@ if ($req['searchValue'] !== '') {
     $filterParams = array_merge($filterParams, $searchFilter['params']);
 }
 
-$countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM product_master WHERE {$filterWhere}");
+$countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM products WHERE {$filterWhere}");
 foreach ($filterParams as $key => $value) {
     $countFilteredStmt->bindValue($key, $value);
 }
@@ -71,7 +71,7 @@ $dataQuery = "
         company,
         warehouse,
         created_at
-    FROM product_master
+    FROM products
     WHERE {$filterWhere}
     ORDER BY {$orderColumn} {$orderDir}
     LIMIT :limit OFFSET :offset
