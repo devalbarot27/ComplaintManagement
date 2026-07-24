@@ -322,7 +322,7 @@ function initAssignedComplaintDatatable() {
             <?php if ($showAddedByColumn) { ?>
             { data: 'added_by' },
             <?php } ?>
-            { data: 'status', orderable: false },
+            { data: 'status', searchable: true },
             { data: 'actions', orderable: false, searchable: false }
         ],
         language: {

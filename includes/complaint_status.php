@@ -174,9 +174,19 @@ function dt_match_status_ids(string $searchValue): array
     }
 
     $matched = [];
+    $isReopenSearch = (bool) preg_match('/\bre[\s-]?open\b|\breopen\b/', $search);
+    $isBareOpenSearch = (bool) preg_match('/\bopen\b/', $search) && !$isReopenSearch;
 
     foreach (complaint_status_map() as $id => $label) {
         $labelLower = strtolower($label);
+
+        // Keep "Open" and "Re-Open" distinct for global search.
+        if ((int) $id === COMPLAINT_STATUS_OPEN && $isReopenSearch) {
+            continue;
+        }
+        if ((int) $id === COMPLAINT_STATUS_REOPEN && $isBareOpenSearch) {
+            continue;
+        }
 
         if (
             $search === $labelLower
@@ -187,7 +197,7 @@ function dt_match_status_ids(string $searchValue): array
         }
     }
 
-    if (preg_match('/\bopen\b/', $search) && !preg_match('/\bre[\s-]?open\b/', $search)) {
+    if ($isBareOpenSearch) {
         $matched[] = COMPLAINT_STATUS_OPEN;
     }
 
@@ -199,7 +209,7 @@ function dt_match_status_ids(string $searchValue): array
         $matched[] = COMPLAINT_STATUS_PENDING_HO;
     }
 
-    if (preg_match('/\b(re[\s-]?open|reopen)\b/', $search)) {
+    if ($isReopenSearch) {
         $matched[] = COMPLAINT_STATUS_REOPEN;
     }
 
