@@ -111,7 +111,7 @@ $validBadge = product_yn_badge((string) ($record['valid'] ?? ''));
             );
             record_details_field(
                 'Updated At',
-                rbac_format_datetime($record['updated_at'] ?? ($record['updated_date'] ?? null)),
+                rbac_format_datetime($record['updated_at'] ?? ($record['updated_at'] ?? null)),
                 'col-md-3'
             );
             record_details_section_end();

@@ -317,13 +317,13 @@ function product_insert(PDO $conn, array $data, ?int $createdBy): void
             tod_flag, excisable, mc, vc, fc, cos, valid,
             company, warehouse, payment_term,
             status, created_by, updated_by,
-            created_at, updated_at, updated_date
+            created_at, updated_at
         ) VALUES (
             :dpst, :product_group, :tplcode, :tpldesc, :dealer_price,
             :tod_flag, :excisable, :mc, :vc, :fc, :cos, :valid,
             :company, :warehouse, :payment_term,
             :status, :created_by, :updated_by,
-            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
     ');
 
@@ -355,7 +355,6 @@ function product_update(PDO $conn, int $id, array $data, ?int $updatedBy): void
             payment_term = :payment_term,
             updated_by = :updated_by,
             updated_at = CURRENT_TIMESTAMP,
-            updated_date = CURRENT_TIMESTAMP
         WHERE id = :id
           AND deleted_at IS NULL
     ');
@@ -372,7 +371,6 @@ function product_soft_delete(PDO $conn, int $id, ?int $updatedBy = null): void
         UPDATE product_master
         SET deleted_at = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP,
-            updated_date = CURRENT_TIMESTAMP,
             updated_by = :updated_by
         WHERE id = :id
           AND deleted_at IS NULL
