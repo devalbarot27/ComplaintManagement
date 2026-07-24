@@ -7,7 +7,7 @@ function initProductFormValidation() {
     const constraints = {
         dpst: {
             presence: { allowEmpty: false, message: '^DPST is required' },
-            length: { maximum: 20, message: '^DPST cannot exceed 20 characters' }
+            length: { maximum: 10, message: '^DPST cannot exceed 10 characters' }
         },
         product_group: {
             presence: { allowEmpty: false, message: '^Product Group is required' },
@@ -25,7 +25,8 @@ function initProductFormValidation() {
             format: {
                 pattern: /^-?\d+(\.\d+)?$/,
                 message: '^Dealer Price must be numeric'
-            }
+            },
+            length: { maximum: 7, message: '^Dealer Price cannot exceed 7 characters' }
         },
         mc: {
             format: {
@@ -61,14 +62,24 @@ function initProductFormValidation() {
         },
         company: {
             presence: { allowEmpty: false, message: '^Company is required' },
-            length: { maximum: 50, message: '^Company cannot exceed 50 characters' }
+            format: {
+                pattern: /^-?\d+$/,
+                message: '^Company must be an integer'
+            }
         },
         warehouse: {
             presence: { allowEmpty: false, message: '^Warehouse is required' },
-            length: { maximum: 20, message: '^Warehouse cannot exceed 20 characters' }
+            length: { maximum: 3, message: '^Warehouse cannot exceed 3 characters' }
         },
-        payment_term: {
-            length: { maximum: 100, message: '^Payment Term cannot exceed 100 characters' }
+        otcode: {
+            length: { maximum: 3, message: '^OT Code cannot exceed 3 characters' }
+        },
+        order_type: {
+            presence: { allowEmpty: false, message: '^Order Type is required' },
+            inclusion: {
+                within: ['1', '2'],
+                message: '^Order Type must be Units or Spares'
+            }
         }
     };
 
@@ -122,7 +133,7 @@ function initProductFormValidation() {
 
     function getActiveConstraints(values) {
         const activeConstraints = Object.assign({}, constraints);
-        ['dealer_price', 'mc', 'vc', 'fc'].forEach(function (field) {
+        ['dealer_price', 'mc', 'vc', 'fc', 'otcode'].forEach(function (field) {
             if (values[field] === '' || values[field] == null) {
                 delete activeConstraints[field];
             }
@@ -284,7 +295,8 @@ function initProductDatatable() {
             { data: 'valid' },
             { data: 'company' },
             { data: 'warehouse' },
-            { data: 'created_at' },
+            { data: 'order_type' },
+            { data: 'updated_date' },
             { data: 'actions', orderable: false, searchable: false }
         ],
         language: {
@@ -311,7 +323,7 @@ function fillProductForm(record) {
     const fields = [
         'dpst', 'product_group', 'tplcode', 'tpldesc', 'dealer_price',
         'tod_flag', 'excisable', 'mc', 'vc', 'fc', 'cos', 'valid',
-        'company', 'warehouse', 'payment_term'
+        'company', 'warehouse', 'otcode', 'order_type'
     ];
 
     fields.forEach(function (field) {
@@ -334,6 +346,7 @@ function resetProductForm() {
     form.querySelector('[name="tod_flag"]').value = 'N';
     form.querySelector('[name="excisable"]').value = 'N';
     form.querySelector('[name="valid"]').value = '';
+    form.querySelector('[name="order_type"]').value = '1';
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
     });

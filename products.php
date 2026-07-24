@@ -10,30 +10,32 @@ require_system_admin($obconn);
 
 $success_message = '';
 $error_message = '';
-$createdByUserId = current_user_id($obconn);
+$updatedByUsername = current_username();
 $ynOptions = product_yn_options();
+$orderTypeOptions = product_order_type_options();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = product_from_post($_POST);
     $isEdit = $recordId > 0;
     $validationError = product_validate($data);
+    $orderType = (int) ($data['order_type'] ?? 0);
 
     if ($validationError !== null) {
         $error_message = $validationError;
-    } elseif (product_tplcode_exists($obconn, $data['tplcode'], $recordId)) {
-        $error_message = 'TPL Code already exists. Please choose a different TPL Code.';
+    } elseif (product_tplcode_exists($obconn, $data['tplcode'], $orderType, $recordId)) {
+        $error_message = 'TPL Code already exists for this Order Type. Please choose a different TPL Code.';
     } else {
         try {
             if ($isEdit) {
                 if (!product_get_by_id($obconn, $recordId)) {
                     $error_message = 'Product not found or already deleted.';
                 } else {
-                    product_update($obconn, $recordId, $data, $createdByUserId);
+                    product_update($obconn, $recordId, $data, $updatedByUsername);
                     $success_message = 'Product updated successfully.';
                 }
             } else {
-                product_insert($obconn, $data, $createdByUserId);
+                product_insert($obconn, $data, $updatedByUsername);
                 $success_message = 'Product saved successfully.';
             }
         } catch (PDOException $e) {
@@ -127,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
                             <div class="row g-3">
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">DPST <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="dpst" maxlength="20" placeholder="e.g. Y0001">
+                                    <input type="text" class="form-control" name="dpst" maxlength="10" placeholder="e.g. Y0001">
                                     <div class="text-danger validation-msg" data-field="dpst"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
@@ -148,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
 
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">Dealer Price</label>
-                                    <input type="text" class="form-control" name="dealer_price" maxlength="20" placeholder="0" inputmode="decimal" autocomplete="off">
+                                    <input type="text" class="form-control" name="dealer_price" maxlength="7" placeholder="0" inputmode="decimal" autocomplete="off">
                                     <div class="text-danger validation-msg" data-field="dealer_price"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
@@ -207,18 +209,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
 
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">Company <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="company" maxlength="50" placeholder="Company">
+                                    <input type="text" class="form-control" name="company" maxlength="10" placeholder="e.g. 401" inputmode="numeric" autocomplete="off">
                                     <div class="text-danger validation-msg" data-field="company"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">Warehouse <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="warehouse" maxlength="20" placeholder="e.g. 257">
+                                    <input type="text" class="form-control" name="warehouse" maxlength="3" placeholder="e.g. 257">
                                     <div class="text-danger validation-msg" data-field="warehouse"></div>
                                 </div>
                                 <div class="col-md-3 form-group">
-                                    <label class="form-label">Payment Term</label>
-                                    <input type="text" class="form-control" name="payment_term" maxlength="100" placeholder="Payment term">
-                                    <div class="text-danger validation-msg" data-field="payment_term"></div>
+                                    <label class="form-label">OT Code</label>
+                                    <input type="text" class="form-control" name="otcode" maxlength="3" placeholder="e.g. OT1">
+                                    <div class="text-danger validation-msg" data-field="otcode"></div>
+                                </div>
+                                <div class="col-md-3 form-group">
+                                    <label class="form-label">Order Type <span class="text-danger">*</span></label>
+                                    <select class="form-control" name="order_type" id="orderType">
+                                        <?php foreach ($orderTypeOptions as $value => $label) { ?>
+                                        <option value="<?php echo htmlspecialchars($value); ?>" <?php echo $value === '1' ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($label); ?>
+                                        </option>
+                                        <?php } ?>
+                                    </select>
+                                    <div class="text-danger validation-msg" data-field="order_type"></div>
                                 </div>
                             </div>
                         </section>
@@ -257,7 +270,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
                                 <th>Valid</th>
                                 <th>Company</th>
                                 <th>Warehouse</th>
-                                <th>Added Date</th>
+                                <th>Order Type</th>
+                                <th>Updated Date</th>
                                 <th>Action</th>
                             </tr>
                         </thead>

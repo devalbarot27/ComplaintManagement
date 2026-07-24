@@ -68,6 +68,7 @@ $validBadge = product_yn_badge((string) ($record['valid'] ?? ''));
             record_details_field('TPL Code', $tplCode, 'col-md-3');
             record_details_field('TPL Description', $tplDesc, 'col-md-3');
             record_details_field('Valid', $validBadge, 'col-md-3', false, true);
+            record_details_field('Order Type', product_order_type_label($record['order_type'] ?? ''), 'col-md-3');
             record_details_section_end();
 
             record_details_section_start(2, 'Pricing & Commercial Flags', 'Price and commercial indicators');
@@ -83,36 +84,16 @@ $validBadge = product_yn_badge((string) ($record['valid'] ?? ''));
             record_details_field('FC', product_display_value($record['fc'] ?? ''), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(4, 'Organization', 'Company, warehouse, and payment details');
-            record_details_field('Company', product_display_value($record['company'] ?? ''), 'col-md-4');
-            record_details_field('Warehouse', product_display_value($record['warehouse'] ?? ''), 'col-md-4');
-            record_details_field('Payment Term', product_display_value($record['payment_term'] ?? ''), 'col-md-4');
+            record_details_section_start(4, 'Organization', 'Company, warehouse, and OT details');
+            record_details_field('Company', product_display_value($record['company'] ?? ''), 'col-md-3');
+            record_details_field('Warehouse', product_display_value($record['warehouse'] ?? ''), 'col-md-3');
+            record_details_field('OT Code', product_display_value($record['otcode'] ?? ''), 'col-md-3');
+            record_details_field('Status', product_display_value($record['status'] ?? ''), 'col-md-3');
             record_details_section_end();
 
-            record_details_section_start(5, 'Audit Trail', 'Creation and last update history', true);
-            record_details_field(
-                'Created By',
-                product_user_label(
-                    $record['created_by_name'] ?? null,
-                    $record['created_by_username'] ?? null,
-                    $record['created_by'] ?? null
-                ),
-                'col-md-3'
-            );
-            record_details_field('Created At', rbac_format_datetime($record['created_at'] ?? null), 'col-md-3');
-            record_details_field(
-                'Updated By',
-                product_user_label(
-                    $record['updated_by_name'] ?? null,
-                    $record['updated_by'] ?? null
-                ),
-                'col-md-3'
-            );
-            record_details_field(
-                'Updated At',
-                rbac_format_datetime($record['updated_at'] ?? null),
-                'col-md-3'
-            );
+            record_details_section_start(5, 'Audit Trail', 'Last update history', true);
+            record_details_field('Updated By', product_display_value($record['updated_by'] ?? ''), 'col-md-6');
+            record_details_field('Updated Date', rbac_format_datetime($record['updated_date'] ?? null), 'col-md-6');
             record_details_section_end();
 
             record_details_card_end();

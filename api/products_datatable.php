@@ -18,7 +18,8 @@ $allowedOrderColumns = [
     'valid',
     'company',
     'warehouse',
-    'created_at',
+    'order_type',
+    'updated_date',
     'id',
 ];
 
@@ -29,10 +30,10 @@ if ($validFilter !== '' && !array_key_exists($validFilter, product_yn_options())
     $validFilter = '';
 }
 
-$baseWhere = 'deleted_at IS NULL';
+$baseWhere = '1=1';
 $filterParams = [];
 
-$recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM products WHERE {$baseWhere}");
+$recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM product_master_vayu WHERE {$baseWhere}");
 $recordsTotalStmt->execute();
 $recordsTotal = (int) $recordsTotalStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
@@ -49,7 +50,7 @@ if ($req['searchValue'] !== '') {
     $filterParams = array_merge($filterParams, $searchFilter['params']);
 }
 
-$countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM products WHERE {$filterWhere}");
+$countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM product_master_vayu WHERE {$filterWhere}");
 foreach ($filterParams as $key => $value) {
     $countFilteredStmt->bindValue($key, $value);
 }
@@ -70,8 +71,9 @@ $dataQuery = "
         valid,
         company,
         warehouse,
-        created_at
-    FROM products
+        order_type,
+        updated_date
+    FROM product_master_vayu
     WHERE {$filterWhere}
     ORDER BY {$orderColumn} {$orderDir}
     LIMIT :limit OFFSET :offset
@@ -100,7 +102,8 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'valid' => product_yn_badge((string) ($row['valid'] ?? '')),
         'company' => htmlspecialchars(product_display_value($row['company'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'warehouse' => htmlspecialchars(product_display_value($row['warehouse'] ?? ''), ENT_QUOTES, 'UTF-8'),
-        'created_at' => rbac_format_datetime($row['created_at'] ?? null),
+        'order_type' => htmlspecialchars(product_order_type_label($row['order_type'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'updated_date' => rbac_format_datetime($row['updated_date'] ?? null),
         'actions' => product_entry_actions($id),
     ];
 }

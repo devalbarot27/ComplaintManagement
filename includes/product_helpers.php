@@ -10,6 +10,22 @@ function product_yn_options(): array
     ];
 }
 
+function product_order_type_options(): array
+{
+    return [
+        '1' => 'Units',
+        '2' => 'Spares',
+    ];
+}
+
+function product_order_type_label($value): string
+{
+    $key = trim((string) $value);
+    $options = product_order_type_options();
+
+    return $options[$key] ?? product_display_value($value);
+}
+
 function product_normalize_yn(?string $value, string $default = ''): string
 {
     $normalized = strtoupper(trim((string) $value));
@@ -44,9 +60,10 @@ function product_from_post(array $post): array
         'fc' => trim((string) ($post['fc'] ?? '')),
         'cos' => trim((string) ($post['cos'] ?? '')),
         'valid' => product_normalize_yn($post['valid'] ?? '', ''),
-        'company' => trim((string) ($post['company'] ?? '')),
         'warehouse' => trim((string) ($post['warehouse'] ?? '')),
-        'payment_term' => trim((string) ($post['payment_term'] ?? '')),
+        'otcode' => trim((string) ($post['otcode'] ?? '')),
+        'company' => trim((string) ($post['company'] ?? '')),
+        'order_type' => trim((string) ($post['order_type'] ?? '')),
     ];
 }
 
@@ -59,13 +76,22 @@ function product_is_numeric_value(string $value): bool
     return (bool) preg_match('/^-?\d+(\.\d+)?$/', $value);
 }
 
+function product_is_integer_value(string $value): bool
+{
+    if ($value === '') {
+        return true;
+    }
+
+    return (bool) preg_match('/^-?\d+$/', $value);
+}
+
 function product_validate(array $data): ?string
 {
     if ($data['dpst'] === '') {
         return 'DPST is required.';
     }
-    if (strlen($data['dpst']) > 20) {
-        return 'DPST cannot exceed 20 characters.';
+    if (strlen($data['dpst']) > 10) {
+        return 'DPST cannot exceed 10 characters.';
     }
 
     if ($data['product_group'] === '') {
@@ -91,6 +117,9 @@ function product_validate(array $data): ?string
 
     if ($data['dealer_price'] !== '' && !product_is_numeric_value($data['dealer_price'])) {
         return 'Dealer Price must be numeric.';
+    }
+    if (strlen($data['dealer_price']) > 7) {
+        return 'Dealer Price cannot exceed 7 characters.';
     }
 
     if ($data['tod_flag'] !== '' && !array_key_exists($data['tod_flag'], product_yn_options())) {
@@ -127,34 +156,41 @@ function product_validate(array $data): ?string
         return 'Valid must be Y or N.';
     }
 
-    if ($data['company'] === '') {
-        return 'Company is required.';
-    }
-    if (strlen($data['company']) > 50) {
-        return 'Company cannot exceed 50 characters.';
-    }
-
     if ($data['warehouse'] === '') {
         return 'Warehouse is required.';
     }
-    if (strlen($data['warehouse']) > 20) {
-        return 'Warehouse cannot exceed 20 characters.';
+    if (strlen($data['warehouse']) > 3) {
+        return 'Warehouse cannot exceed 3 characters.';
     }
 
-    if (strlen($data['payment_term']) > 100) {
-        return 'Payment Term cannot exceed 100 characters.';
+    if (strlen($data['otcode']) > 3) {
+        return 'OT Code cannot exceed 3 characters.';
+    }
+
+    if ($data['company'] === '') {
+        return 'Company is required.';
+    }
+    if (!product_is_integer_value($data['company'])) {
+        return 'Company must be an integer.';
+    }
+
+    if ($data['order_type'] === '') {
+        return 'Order Type is required.';
+    }
+    if (!array_key_exists($data['order_type'], product_order_type_options())) {
+        return 'Order Type must be Units or Spares.';
     }
 
     return null;
 }
 
-function product_tplcode_exists(PDO $conn, string $tplcode, int $excludeId = 0): bool
+function product_tplcode_exists(PDO $conn, string $tplcode, int $orderType, int $excludeId = 0): bool
 {
     $sql = '
         SELECT id
-        FROM products
+        FROM product_master_vayu
         WHERE LOWER(TRIM(tplcode)) = LOWER(TRIM(:tplcode))
-          AND deleted_at IS NULL
+          AND order_type = :order_type
     ';
     if ($excludeId > 0) {
         $sql .= ' AND id != :exclude_id';
@@ -163,6 +199,7 @@ function product_tplcode_exists(PDO $conn, string $tplcode, int $excludeId = 0):
 
     $stmt = $conn->prepare($sql);
     $stmt->bindValue(':tplcode', $tplcode);
+    $stmt->bindValue(':order_type', $orderType, PDO::PARAM_INT);
     if ($excludeId > 0) {
         $stmt->bindValue(':exclude_id', $excludeId, PDO::PARAM_INT);
     }
@@ -196,30 +233,22 @@ function product_search_filter(string $searchValue): array
         'CAST(fc AS TEXT)',
         'CAST(cos AS TEXT)',
         'valid',
-        'company',
         'warehouse',
-        'payment_term',
+        'otcode',
+        'CAST(company AS TEXT)',
+        'CAST(order_type AS TEXT)',
+        'status',
+        'updated_by',
     ]);
 }
 
 function product_get_by_id(PDO $conn, int $id): ?array
 {
     $stmt = $conn->prepare('
-        SELECT
-            pm.*,
-            um_created.username AS created_by_username,
-            um_created.name AS created_by_name,
-            um_updated.username AS updated_by_username,
-            um_updated.name AS updated_by_name
-        FROM products pm
-        LEFT JOIN user_master um_created
-            ON um_created.id = pm.created_by
-           AND um_created.deleted_at IS NULL
-        LEFT JOIN user_master um_updated
-            ON um_updated.id = pm.updated_by
-           AND um_updated.deleted_at IS NULL
-        WHERE pm.id = :id
-          AND pm.deleted_at IS NULL
+        SELECT *
+        FROM product_master_vayu
+        WHERE id = :id
+        LIMIT 1
     ');
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
@@ -227,25 +256,6 @@ function product_get_by_id(PDO $conn, int $id): ?array
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $row ?: null;
-}
-
-function product_user_label(?string $name, ?string $username, $fallbackId = null): string
-{
-    $name = trim((string) $name);
-    $username = trim((string) $username);
-
-    if ($username !== '' && $name !== '') {
-        return $name . ' (' . $username . ')';
-    }
-    if ($name !== '') {
-        return $name;
-    }
-    if ($username !== '') {
-        return $username;
-    }
-
-    $fallbackId = (int) $fallbackId;
-    return $fallbackId > 0 ? (string) $fallbackId : '-';
 }
 
 function product_yn_badge(string $value): string
@@ -285,14 +295,19 @@ function product_entry_actions(int $id): string
     ';
 }
 
-function product_bind_user_id(PDOStatement $stmt, string $param, ?int $userId): void
+function product_resolve_updated_by(?string $username, ?int $userId = null): ?string
 {
-    if ($userId === null || $userId <= 0) {
-        $stmt->bindValue($param, null, PDO::PARAM_NULL);
-        return;
+    $username = trim((string) $username);
+    if ($username !== '') {
+        return substr($username, 0, 30);
     }
 
-    $stmt->bindValue($param, $userId, PDO::PARAM_INT);
+    $userId = (int) $userId;
+    if ($userId > 0) {
+        return substr((string) $userId, 0, 30);
+    }
+
+    return null;
 }
 
 function product_bind_common(PDOStatement $stmt, array $data): void
@@ -312,44 +327,47 @@ function product_bind_common(PDOStatement $stmt, array $data): void
     $stmt->bindValue(':fc', product_nullable_numeric($data['fc']));
     $stmt->bindValue(':cos', product_nullable_numeric($data['cos']));
     $stmt->bindValue(':valid', $data['valid']);
-    $stmt->bindValue(':company', $data['company']);
     $stmt->bindValue(':warehouse', $data['warehouse']);
     $stmt->bindValue(
-        ':payment_term',
-        $data['payment_term'] !== '' ? $data['payment_term'] : null,
-        $data['payment_term'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL
+        ':otcode',
+        $data['otcode'] !== '' ? $data['otcode'] : null,
+        $data['otcode'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL
     );
+    $stmt->bindValue(':company', (int) $data['company'], PDO::PARAM_INT);
+    $stmt->bindValue(':order_type', (int) $data['order_type'], PDO::PARAM_INT);
 }
 
-function product_insert(PDO $conn, array $data, ?int $createdBy): void
+function product_insert(PDO $conn, array $data, ?string $updatedBy): void
 {
     $stmt = $conn->prepare('
-        INSERT INTO products (
+        INSERT INTO product_master_vayu (
             dpst, product_group, tplcode, tpldesc, dealer_price,
             tod_flag, excisable, mc, vc, fc, cos, valid,
-            company, warehouse, payment_term,
-            status, created_by, updated_by,
-            created_at, updated_at
+            warehouse, otcode, company, order_type,
+            status, updated_by, updated_date
         ) VALUES (
             :dpst, :product_group, :tplcode, :tpldesc, :dealer_price,
             :tod_flag, :excisable, :mc, :vc, :fc, :cos, :valid,
-            :company, :warehouse, :payment_term,
-            :status, :created_by, :updated_by,
-            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            :warehouse, :otcode, :company, :order_type,
+            :status, :updated_by, CURRENT_TIMESTAMP
         )
     ');
 
     product_bind_common($stmt, $data);
-    $stmt->bindValue(':status', 'YES');
-    product_bind_user_id($stmt, ':created_by', $createdBy);
-    product_bind_user_id($stmt, ':updated_by', $createdBy);
+    $stmt->bindValue(':status', '1');
+    $resolvedUpdatedBy = product_resolve_updated_by($updatedBy);
+    if ($resolvedUpdatedBy === null) {
+        $stmt->bindValue(':updated_by', null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(':updated_by', $resolvedUpdatedBy);
+    }
     $stmt->execute();
 }
 
-function product_update(PDO $conn, int $id, array $data, ?int $updatedBy): void
+function product_update(PDO $conn, int $id, array $data, ?string $updatedBy): void
 {
     $stmt = $conn->prepare('
-        UPDATE products SET
+        UPDATE product_master_vayu SET
             dpst = :dpst,
             product_group = :product_group,
             tplcode = :tplcode,
@@ -362,32 +380,32 @@ function product_update(PDO $conn, int $id, array $data, ?int $updatedBy): void
             fc = :fc,
             cos = :cos,
             valid = :valid,
-            company = :company,
             warehouse = :warehouse,
-            payment_term = :payment_term,
+            otcode = :otcode,
+            company = :company,
+            order_type = :order_type,
             updated_by = :updated_by,
-            updated_at = CURRENT_TIMESTAMP
+            updated_date = CURRENT_TIMESTAMP
         WHERE id = :id
-          AND deleted_at IS NULL
     ');
 
     product_bind_common($stmt, $data);
-    product_bind_user_id($stmt, ':updated_by', $updatedBy);
+    $resolvedUpdatedBy = product_resolve_updated_by($updatedBy);
+    if ($resolvedUpdatedBy === null) {
+        $stmt->bindValue(':updated_by', null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(':updated_by', $resolvedUpdatedBy);
+    }
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
 }
 
-function product_soft_delete(PDO $conn, int $id, ?int $updatedBy = null): void
+function product_delete(PDO $conn, int $id): void
 {
     $stmt = $conn->prepare('
-        UPDATE products
-        SET deleted_at = CURRENT_TIMESTAMP,
-            updated_at = CURRENT_TIMESTAMP,
-            updated_by = :updated_by
+        DELETE FROM product_master_vayu
         WHERE id = :id
-          AND deleted_at IS NULL
     ');
-    product_bind_user_id($stmt, ':updated_by', $updatedBy);
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
 }

@@ -40,7 +40,8 @@ api_json_echo([
     'fc' => (string) ($row['fc'] ?? ''),
     'cos' => (string) ($row['cos'] ?? ''),
     'valid' => product_normalize_yn((string) ($row['valid'] ?? ''), ''),
+    'warehouse' => trim((string) ($row['warehouse'] ?? '')),
+    'otcode' => trim((string) ($row['otcode'] ?? '')),
     'company' => (string) ($row['company'] ?? ''),
-    'warehouse' => (string) ($row['warehouse'] ?? ''),
-    'payment_term' => (string) ($row['payment_term'] ?? ''),
+    'order_type' => (string) ($row['order_type'] ?? ''),
 ]);
