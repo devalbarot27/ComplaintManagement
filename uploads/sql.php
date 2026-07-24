@@ -1,6 +1,23 @@
 <?php
 include '../pdo_obconn.php';
 
+
+$sql = "SELECT * FROM despatch LIMIT 1";
+$stmt = $dpconn->prepare($sql);
+$stmt->execute();
+
+$fields = [];
+
+for ($i = 0; $i < $stmt->columnCount(); $i++) {
+    $meta = $stmt->getColumnMeta($i);
+    $fields[] = $meta['name'];
+echo $meta['name'].'<br>';
+}
+
+
+
+
+die();
 /*
 $sql = "DELETE FROM notifications";
 

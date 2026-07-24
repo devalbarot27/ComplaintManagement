@@ -95,22 +95,6 @@ $freightPercentage = 4;
             <div class="order-form-card" id="orderFormCard">
                 <div class="order-form-grid" id="orderBookingForm">
                     <div class="form-group">
-                        <label>Dpst <span class="text-danger">*</span></label>
-                        <select class="form-control" id="dpst">
-                            <?php
-                            $getDpst = $obconn->prepare("SELECT dpst FROM tbl_vayu_dpst_master WHERE status=1");
-                            $getDpst->execute();
-                            if ($getDpst->rowCount() > 0) {
-                                while ($rowDpst = $getDpst->fetch(PDO::FETCH_ASSOC)) {
-                            ?>
-                                    <option value="<?php echo $rowDpst['dpst']; ?>"><?php echo $rowDpst['dpst']; ?></option>
-                            <?php
-                                }
-                            }
-                            ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Order Category <span class="text-danger">*</span></label>
                         <select class="form-control" id="orderCategory" readonly style="cursor: not-allowed;pointer-events: none;background-color: #ededed;">
                             <option value="1">Standard</option>
@@ -149,11 +133,11 @@ $freightPercentage = 4;
                     </div>
                     <div class="form-group delivery-date-group">
                         <label>Delivery Date <span class="text-danger">*</span> <span id="deliveryDateNote" class="delivery-date-note" aria-live="polite" hidden>
-                            <i class="bi bi-info-circle" aria-hidden="true"></i>
-                            Subject to availability
-                        </span></label>
+                                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                                Subject to availability
+                            </span></label>
                         <input type="text" class="form-control" id="dDate" placeholder="Delivery Date" autocomplete="false" />
-                        
+
                     </div>
                     <div class="form-group">
                         <label>Delivery Term <span class="text-danger">*</span></label>
@@ -310,6 +294,14 @@ $freightPercentage = 4;
                                 placeholder="Auto-filled from pincode" maxlength="100" readonly>
                             <input type="hidden" id="state_code" name="state_code" />
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Order Type <span class="text-danger">*</span></label>
+                        <select class="form-control" name="orderType" id="orderType">
+                            <option value=1>Units</option>
+                            <option value=2>Spares</option>
+                        </select>
+
                     </div>
                 </div>
             </div>
@@ -536,7 +528,8 @@ $freightPercentage = 4;
                 data: function(params) {
                     return {
                         action: 'searchItems',
-                        search: params.term
+                        search: params.term,
+                        ordertype: $('#orderType').val()
                     };
                 },
                 processResults: function(data) {
@@ -602,6 +595,11 @@ $freightPercentage = 4;
             sanitizeFreightInput(this);
         });
         getDealerList();
+
+        $('#item').on('select2:select', function(e) {
+            enableBtn();
+        });
+
     });
 
     function sanitizeFreightInput(input) {
@@ -622,19 +620,23 @@ $freightPercentage = 4;
     function enableBtn() {
         $(".add-item-btn").prop("disabled", false);
         var item = $("#item").val().trim();
-        var dpst = $("#dpst").val().trim();
+        var orderType = $("#orderType").val();
         var type = "getPrice";
         $.ajax({
             url: 'orderRequest.php',
             type: 'POST',
             data: {
                 item: item,
-                dpst: dpst,
+                orderType: orderType,
                 action: type
             },
             dataType: "JSON",
             success: function(res) {
-                $("#price").val(res.price);
+                if (res.status == true) {
+                    $("#price").val(res.price);
+                } else {
+                    alert(res.message);
+                }
             },
             error: function(xhr, status, error) {
                 alert('Request failed');
@@ -646,6 +648,7 @@ $freightPercentage = 4;
         var item = $("#item").val().trim();
         var qty = $("#qty").val().trim();
         var price = $("#price").val().trim();
+        var orderType = $("#orderType").val();
 
 
         const fields = [{
@@ -659,6 +662,10 @@ $freightPercentage = 4;
             {
                 value: price,
                 message: "Please enter a price"
+            },
+            {
+                value: orderType,
+                message: "Please select a order type"
             }
         ];
 
@@ -678,6 +685,7 @@ $freightPercentage = 4;
             item: item,
             qty: qty,
             price: price,
+            orderType: orderType,
             action: "addItem"
         };
         $.ajax({
@@ -1289,7 +1297,6 @@ $freightPercentage = 4;
         $("#loader").show();
         $("#divbtnUpload").hide();
         $("#divbtnUpload1").hide();
-        var dpst = $("#dpst").val().trim();
         var orderCategory = $("#orderCategory").val().trim();
         var addressCode = $("#customer_master").val().trim();
         var deliveryTerm = $("#deliveryTerm").val().trim();
@@ -1300,10 +1307,8 @@ $freightPercentage = 4;
 
         var ddate = $("#dDate").val().trim();
         var pono = $("#pono").val().trim();
-        const fields = [{
-                value: dpst,
-                message: "Please enter a dpst"
-            },
+        var orderType = $("#orderType").val().trim();
+        const fields = [
             {
                 value: orderCategory,
                 message: "Please select a order category"
@@ -1331,6 +1336,10 @@ $freightPercentage = 4;
             {
                 value: pono,
                 message: "Please enter PO Number"
+            },
+            {
+                value: orderType,
+                message: "Please select ordertype"
             },
         ];
 
@@ -1386,7 +1395,6 @@ $freightPercentage = 4;
         }
 
         data = {
-            dpst: dpst,
             orderCategory: orderCategory,
             addressCode: addressCode,
             deliveryTerm: deliveryTerm,
@@ -1397,6 +1405,7 @@ $freightPercentage = 4;
             area: area,
             pono: pono,
             ddate: ddate,
+            orderType:orderType,
             action: "submitCartApi"
         };
 

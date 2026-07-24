@@ -35,12 +35,10 @@ class orderClass
     public function searchItems()
     {
         $search = htmlspecialchars($_POST['search'] ?? '', ENT_QUOTES, 'UTF-8');
-        $ordertype = htmlspecialchars($_POST['ordertype'] ?? '', ENT_QUOTES, 'UTF-8');
 
-        $getItem = $this->obconn->prepare("SELECT tplcode, tpldesc FROM product_master_vayu WHERE (tplcode ILIKE :search OR tpldesc ILIKE :search) AND order_type=:orderType ORDER BY tplcode LIMIT 20");
+        $getItem = $this->obconn->prepare("SELECT tplcode, tpldesc FROM product_master_vayu WHERE (tplcode ILIKE :search OR tpldesc ILIKE :search) ORDER BY tplcode LIMIT 20");
         $searchTerm = "%{$search}%";
         $getItem->bindParam(':search', $searchTerm, PDO::PARAM_STR);
-        $getItem->bindParam(':orderType', $ordertype, PDO::PARAM_STR);
         $getItem->execute();
         $data = [];
         while ($row = $getItem->fetch(PDO::FETCH_ASSOC)) {
@@ -54,57 +52,19 @@ class orderClass
     }
     public function getPrice()
     {
-        $item      = htmlspecialchars($_POST['item'] ?? '', ENT_QUOTES, 'UTF-8');
-        $dpst      = htmlspecialchars($_POST['dpst'] ?? '', ENT_QUOTES, 'UTF-8');
-        $orderType = htmlspecialchars($_POST['orderType'] ?? '', ENT_QUOTES, 'UTF-8');
-        $status = 0;
-
-        $checkData = $this->obconn->prepare("
-            SELECT DISTINCT order_type
-            FROM tbl_vayu_cartitems
-            WHERE created_by = :createdBy AND status=:status
-            LIMIT 1
-        ");
-        $checkData->bindValue(':createdBy', $this->userId, PDO::PARAM_STR);
-        $checkData->bindValue(':status', $status, PDO::PARAM_INT);
-        $checkData->execute();
-        if ($checkData->rowCount() != 0) {
-
-            $checkStmt = $this->obconn->prepare("
-            SELECT DISTINCT order_type
-            FROM tbl_vayu_cartitems
-            WHERE created_by = :createdBy AND status=:status AND order_type=:orderType
-            LIMIT 1
-        ");
-            $checkStmt->bindValue(':createdBy', $this->userId, PDO::PARAM_STR);
-            $checkStmt->bindValue(':status', $status, PDO::PARAM_INT);
-            $checkStmt->bindValue(':orderType', $orderType, PDO::PARAM_INT);
-            $checkStmt->execute();
-
-            $cart = $checkStmt->fetch(PDO::FETCH_ASSOC);
-
-
-            if ($checkStmt->rowCount() == 0) {
-
-                echo json_encode([
-                    'status'  => false,
-                    'message' => 'Items with different order types cannot be added to the same cart. Please clear the cart or use the existing order type.'
-                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-                exit;
-            }
-        }
-
+        $item = htmlspecialchars($_POST['item'] ?? '', ENT_QUOTES, 'UTF-8');
+        $dpst = htmlspecialchars($_POST['dpst'] ?? '', ENT_QUOTES, 'UTF-8');
 
         $stmt = $this->obconn->prepare("
         SELECT cos
         FROM product_master_vayu
         WHERE tplcode = :item
-        AND order_type =:orderType
+        AND dpst = :dpst
         LIMIT 1
     ");
 
         $stmt->bindParam(':item', $item, PDO::PARAM_STR);
-        $stmt->bindValue(':orderType', $orderType, PDO::PARAM_INT);
+        $stmt->bindParam(':dpst', $dpst, PDO::PARAM_STR);
         $stmt->execute();
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -117,7 +77,7 @@ class orderClass
         } else {
             echo json_encode([
                 'status' => false,
-                'message'  => 0
+                'price'  => 0
             ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
         exit;
@@ -222,13 +182,13 @@ class orderClass
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query([
-                'token_name'    => getenv('API_TOKEN_NAME'),
-                'grant_type'    => getenv('API_GRANT_TYPE'),
+                'token_name'    => 'ELGi_TST',
+                'grant_type'    => 'password',
                 'redirect_uri'  => 'https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2',
-                'client_id'     => getenv('API_CLIENT_ID'),
-                'client_secret' => getenv('API_CLIENT_SECRET'),
-                'username'      => getenv('API_USERNAME'),
-                'password'      => getenv('API_PASSWORD'),
+                'client_id'     => 'ELGI_TST~p4V8O-Ozk_oHnB1Sm8gADwT6AaqWwCelyMy6cEwaiHI',
+                'client_secret' => 'JZP5EFh1MNO1KbV4wwDLflbL-2tyJEV2cyyhC78rmffsRyvAJqM5Jt5mdkI5VkSaR3AYpj_Mq0BJ1bjs5rgcHQ',
+                'username'      => 'ELGI_TST#09VzG5W5QzUuK0nA2IU0uOqrqZ0YLRdMvc4_n9RVyCzdHesvBBRx65ZoDaE6mAxkj3hYw_dTYuhPfgPG4TaUaA',
+                'password'      => 'YVCL-70dqTapkmhY-V_8Clfqpse09KP8YyUST9xs3cNBQgjQXHapCKw0ZmRor-HVjsTqK6TCMfctfOwnJPKkeA',
                 'scope'         => ''
             ]),
             CURLOPT_HTTPHEADER => [
@@ -252,45 +212,38 @@ class orderClass
             $item_code = filter_input(INPUT_POST, 'item', FILTER_SANITIZE_SPECIAL_CHARS);
             $qty = filter_input(INPUT_POST, 'qty', FILTER_VALIDATE_FLOAT);
             $price = filter_input(INPUT_POST, 'price', FILTER_VALIDATE_FLOAT);
-            $orderType = filter_input(INPUT_POST, 'orderType', FILTER_VALIDATE_FLOAT);
             if (empty($item_code) || $qty <= 0 || $price <= 0) {
                 return 0;
             }
             $stmt = $this->obconn->prepare("SELECT qty FROM tbl_vayu_cartitems WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code");
-            $stmt->bindValue(':createdBy', $this->userId);
+            $stmt->bindValue(':createdBy', $this->customer_code);
             $stmt->bindValue(':item_code', $item_code);
             $stmt->execute();
             $item = $stmt->fetch(PDO::FETCH_ASSOC);
-            $getDesc = $this->obconn->prepare("SELECT tpldesc,dpst FROM product_master_vayu WHERE tplcode=:tplcode and order_type =:orderType");
-            $getDesc->bindParam(":tplcode", $item_code);
-            $getDesc->bindParam(":orderType", $orderType);
-            $getDesc->execute();
-            $fetDesc = $getDesc->fetch(PDO::FETCH_ASSOC);
-            $desc = $fetDesc['tpldesc'] ?? '-';
-            $dpst = $fetDesc['dpst'] ?? '-';
             if (!$item) {
                 $totalAmount = $qty * $price;
-                $insert = $this->obconn->prepare("INSERT INTO tbl_vayu_cartitems(item_code,item_name,price,qty,total_amount,created_by,dpst,order_type)VALUES(:item_code,:item_name,:price,:qty,:total_amount,:created_by,:dpst,:order_type)");
+                $getDesc = $this->obconn->prepare("SELECT tpldesc FROM product_master_vayu WHERE tplcode=:tplcode");
+                $getDesc->bindParam(":tplcode", $item_code);
+                $getDesc->execute();
+                $fetDesc = $getDesc->fetch(PDO::FETCH_ASSOC);
+                $desc = $fetDesc['tpldesc'] ?? '-';
+                $insert = $this->obconn->prepare("INSERT INTO tbl_vayu_cartitems(item_code,item_name,price,qty,total_amount,created_by)VALUES(:item_code,:item_name,:price,:qty,:total_amount,:created_by)");
                 $insert->bindValue(':item_code', $item_code);
                 $insert->bindValue(':item_name', $desc);
                 $insert->bindValue(':price', $price);
                 $insert->bindValue(':qty', $qty);
                 $insert->bindValue(':total_amount', $totalAmount);
-                $insert->bindValue(':created_by', $this->userId);
-                $insert->bindValue(':dpst', $dpst);
-                $insert->bindValue(':order_type', $orderType);
+                $insert->bindValue(':created_by', $this->customer_code);
                 return $insert->execute() ? 1 : 0;
             } else {
                 $updatedQty = $item['qty'] + $qty;
                 $totalAmount = $updatedQty * $price;
-                $update = $this->obconn->prepare("UPDATE tbl_vayu_cartitems SET qty = :qty,price = :price,total_amount = :totalAmount WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code AND dpst=:dpst AND order_type =:orderType");
+                $update = $this->obconn->prepare("UPDATE tbl_vayu_cartitems SET qty = :qty,price = :price,total_amount = :totalAmount WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code");
                 $update->bindValue(':qty', $updatedQty);
                 $update->bindValue(':price', $price);
                 $update->bindValue(':totalAmount', $totalAmount);
-                $update->bindValue(':createdBy', $this->userId);
+                $update->bindValue(':createdBy', $this->customer_code);
                 $update->bindValue(':item_code', $item_code);
-                $update->bindValue(':dpst', $dpst);
-                $update->bindValue(':orderType', $orderType);
                 return $update->execute() ? 1 : 0;
             }
         } catch (PDOException $e) {
@@ -351,7 +304,7 @@ class orderClass
     {
         $freightPercentage = $this->freightPercentage();
         $chkItem = $this->obconn->prepare("SELECT * FROM tbl_vayu_cartitems WHERE created_by = :createdBy AND status = 0 ORDER BY id");
-        $chkItem->bindParam(':createdBy', $this->userId, PDO::PARAM_STR);
+        $chkItem->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
         $chkItem->execute();
 
         if ($chkItem->rowCount() == 0) {
@@ -836,7 +789,7 @@ class orderClass
 
         $trans     = $_POST['transporter'];
 
-        $delterms  = $_POST['deliveryTerm'];
+        // $delterms  = $_POST['deliveryTerm'];
 
         $paycode   = $_POST['paymentTerm'];
 
@@ -854,19 +807,21 @@ class orderClass
 
         $indcat = "Normal Order";
 
-        $otcode = $_POST['orderCategory'];
+        $otcode = 511;
 
-        $orderType = $_POST['orderType'];
+        $empcode = "102464";
 
-        $aoseries = ($orderType == 1) ? 'YUU' : 'YUS';
+        $warehouse = "W_553";
 
-        $cmp = ($orderType == 1) ? 401 : 490;
+        $aoseries = "501";
 
-        $dpst  = ($_POST['orderType'] == 1) ? 'Y0001' : 'Y0011';
-
-        $warehouse = ($_POST['orderType'] == 1) ? '257' : '102';
+        $cmp      = "401";
 
         $state    = "TN";
+
+        $dpst      = "90092";
+
+        $delterms = "CIF";
 
         if ($addrType == 1) {
 
@@ -961,7 +916,7 @@ class orderClass
                 $cartStmt = $this->obconn->prepare("SELECT item_code,item_name,qty,price,total_amount FROM tbl_vayu_cartitems WHERE created_by = :createdBy AND status = 0");
 
                 $cartStmt->execute([
-                    ':createdBy' => $this->userId
+                    ':createdBy' => $this->customer_code
                 ]);
 
                 $cartItems = $cartStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1057,8 +1012,8 @@ class orderClass
                     <DataArea>
                         <Process>
                             <TenantID>ELGI2_PRD</TenantID> 
-                            <AccountingEntityID>" . $cmp . "</AccountingEntityID> 
-                            <LocationID>S_" . $cmp . "</LocationID>
+                            <AccountingEntityID>401</AccountingEntityID> 
+                            <LocationID>S_401</LocationID>
                             <ActionCriteria>
                                 <ActionExpression actionCode='Add' />
                             </ActionCriteria>
@@ -1104,13 +1059,6 @@ class orderClass
                     <RequestedShipDateTime>" . $datetime . "</RequestedShipDateTime> 
                     <UserArea>
                         <Property>
-                        <NameValue name='ln.Area' type='StringType'>051</NameValue>
-                        </Property>
-                        <Property>
-                        <NameValue name='Ln.CRMMAIL' type='StringType'>" . $emailValue . "
-                        </NameValue>
-                        </Property>
-                        <Property>
                         <NameValue name='ln.CRMID' type='StringType'>" . $refno . "</NameValue>
                         </Property>
                         <Property>
@@ -1132,7 +1080,7 @@ class orderClass
                         </Property>
                     </UserArea>
                     <SalesPersonReference>
-                        <IDs><ID>" . $this->userId . "</ID></IDs>
+                        <IDs><ID>102765</ID></IDs>
                     <SalesPersonRole>Internal</SalesPersonRole>
                 </SalesPersonReference>
                 </SalesOrderHeader>";
@@ -1211,7 +1159,7 @@ class orderClass
 
                     <ShipFromParty>
                         <Location type='Warehouse'>
-                            <ID>W_" . $warehouse . "</ID>
+                            <ID>" . $warehouse . "</ID>
                         </Location>
                     </ShipFromParty>
                     
@@ -1294,7 +1242,7 @@ class orderClass
                     $success = $insertStmt->execute([
                         ':uname'             => $this->userId,
 
-                        ':emp_code'          => '102464',
+                        ':emp_code'          => $empcode,
 
                         ':cuno'              => $cuno,
 
@@ -1407,8 +1355,6 @@ class orderClass
                 <characterSet>UTF-8</characterSet> 
                 </document>
                 </messageRequest>";
-
-
 
                 $url = "https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_TST/IONSERVICES/api/ion/messaging/service/v2/message";
 
@@ -2891,8 +2837,6 @@ class orderClass
                     'action'           => $actionCell,
                 ];
             }
-            $draw = filter_input(INPUT_POST, 'draw', FILTER_VALIDATE_INT);
-            $draw = ($draw !== false && $draw !== null) ? $draw : 0;
 
             return json_encode([
                 'draw'            => $draw,
@@ -3196,8 +3140,6 @@ class orderClass
                     'action'        => $actionCell,
                 ];
             }
-            $draw = filter_input(INPUT_POST, 'draw', FILTER_VALIDATE_INT);
-            $draw = ($draw !== false && $draw !== null) ? $draw : 0;
             return json_encode([
                 'draw'            => $draw,
                 'recordsTotal'    => (int)$totalRecords,
@@ -3282,8 +3224,6 @@ class orderClass
                         '&cuno=' . urlencode($row['cuno']) . '&reference=order_acknowledgement" target="_blank" style="text-decoration:none;"><i class="fa fa-eye"></i></a>'
                 ];
             }
-            $draw = filter_input(INPUT_POST, 'draw', FILTER_VALIDATE_INT);
-            $draw = ($draw !== false && $draw !== null) ? $draw : 0;
             return json_encode([
                 'draw'            => $draw,
                 'recordsTotal'    => (int)$totalRecords,
@@ -3442,55 +3382,22 @@ class orderClass
             }
             $countStmt->execute();
             $filteredRecords = (int) $countStmt->fetchColumn();
-
-            $orderColumnIndex = (int) ($_POST['order'][0]['column'] ?? -1);
-            $orderDir = (
-                isset($_POST['order'][0]['dir'])
-                && strtolower((string) $_POST['order'][0]['dir']) === 'asc'
-            ) ? 'ASC' : 'DESC';
-            $postedColumns = $_POST['columns'] ?? [];
-            $orderDataKey = is_array($postedColumns[$orderColumnIndex] ?? null)
-                ? trim((string) ($postedColumns[$orderColumnIndex]['data'] ?? 'order_date'))
-                : 'order_date';
-
-            $orderSqlMap = [
-                'ref_no' => 'recent_orders.refno',
-                'order_no' => 'recent_orders.order_number',
-                'category' => 'recent_orders.order_category',
-                'delivery_term' => 'recent_orders.delivery_term',
-                'po_number' => 'recent_orders.pono',
-                'payment_term' => "COALESCE(NULLIF(TRIM(recent_orders.pay_desc), ''), '100% Advance')",
-                'transporter' => 'recent_orders.transporter',
-                'order_status' => "CASE WHEN TRIM(COALESCE(recent_orders.order_number, '')) = '' THEN 0 ELSE 1 END",
-                'order_date' => 'recent_orders.sort_order_date',
-            ];
-            if ($showAddedBy) {
-                $orderSqlMap['added_by'] = 'recent_orders.added_by_name';
-            }
-            $orderExpr = $orderSqlMap[$orderDataKey] ?? 'recent_orders.sort_order_date';
-
             $sql = "
-                SELECT *
-                FROM (
-                    SELECT DISTINCT ON (a.refno)
-                        a.refno,
-                        a.cuno,
-                        a.order_number,
-                        a.pono,
-                        a.indent_date,
-                        a.order_date,
-                        COALESCE(a.order_date, a.indent_date) AS sort_order_date,
-                        a.emp_code,
-                        a.usr_name,
-                        d.order_category,
-                        c.delivery_term,
-                        e.pay_desc,
-                        f.trans_name AS transporter
-                        {$addedBySelect}
-                    {$joinSql}
-                    ORDER BY a.refno DESC, a.indent_date DESC
-                ) AS recent_orders
-                ORDER BY {$orderExpr} {$orderDir} NULLS LAST, recent_orders.refno DESC
+                SELECT DISTINCT ON (a.refno)
+                    a.refno,
+                    a.cuno,
+                    a.order_number,
+                    a.pono,
+                    a.indent_date,
+                    a.emp_code,
+                    a.usr_name,
+                    d.order_category,
+                    c.delivery_term,
+                    e.pay_desc,
+                    f.trans_name AS transporter
+                    {$addedBySelect}
+                {$joinSql}
+                ORDER BY a.refno DESC, a.indent_date DESC
                 LIMIT :length OFFSET :start
             ";
             $stmt = $this->obconn->prepare($sql);
@@ -3509,10 +3416,6 @@ class orderClass
                 $orderNumber = trim((string) ($row['order_number'] ?? ''));
                 $orderCuno = trim((string) ($row['cuno'] ?? $this->customer_code));
                 $orderStatus = $this->resolveRecentOrderStatus($orderNumber, $orderCuno);
-                $orderDateRaw = $row['order_date'] ?? $row['indent_date'] ?? null;
-                $orderDateFormatted = !empty($orderDateRaw)
-                    ? date('d M Y', strtotime((string) $orderDateRaw))
-                    : '-';
                 $rowData = [
                     'ref_no'           => htmlspecialchars($refno ??  '-', ENT_QUOTES, 'UTF-8'),
                     'order_no'         => htmlspecialchars($row['order_number'] ?? '-', ENT_QUOTES, 'UTF-8'),
@@ -3523,10 +3426,11 @@ class orderClass
                     'payment_term'     => htmlspecialchars($row['pay_desc'] ?? '100% Advance', ENT_QUOTES, 'UTF-8'),
                     'transporter'      => htmlspecialchars($row['transporter'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'order_status'     => $orderStatus,
-                    'order_date'       => $orderDateFormatted,
-                    'date'             => $orderDateFormatted,
+                    'date'             => !empty($row['indent_date'])
+                        ? date('d-m-Y', strtotime($row['indent_date']))
+                        : '-',
                     /*
-<button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
+                        <button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
                         . htmlspecialchars($refno, ENT_QUOTES, 'UTF-8')
                         . '\')"><i class="fa fa-eye"></i></button>
                         */
@@ -3747,9 +3651,6 @@ class orderClass
                 ];
             }
 
-            $draw = filter_input(INPUT_POST, 'draw', FILTER_VALIDATE_INT);
-            $draw = ($draw !== false && $draw !== null) ? $draw : 0;
-
             return json_encode([
 
                 'draw'            => $draw,
@@ -3939,8 +3840,6 @@ class orderClass
 
                 ];
             }
-            $draw = filter_input(INPUT_POST, 'draw', FILTER_VALIDATE_INT);
-            $draw = ($draw !== false && $draw !== null) ? $draw : 0;
 
             return json_encode([
 
@@ -4543,9 +4442,6 @@ class orderClass
                 ];
             }
 
-            $draw = filter_input(INPUT_POST, 'draw', FILTER_VALIDATE_INT);
-            $draw = ($draw !== false && $draw !== null) ? $draw : 0;
-
             echo json_encode([
                 'draw'            => (int)$draw,
                 'recordsTotal'    => $totalRecords,
@@ -4712,9 +4608,6 @@ class orderClass
                 ];
             }
 
-            $draw = filter_input(INPUT_POST, 'draw', FILTER_VALIDATE_INT);
-            $draw = ($draw !== false && $draw !== null) ? $draw : 0;
-
             echo json_encode([
                 'draw'            => $draw,
                 'recordsTotal'    => $totalRecords,
@@ -4743,13 +4636,13 @@ class orderClass
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query([
-                'token_name'    => getenv('API_TOKEN_NAME'),
-                'grant_type'    => getenv('API_GRANT_TYPE'),
+                'token_name'    => 'ELGi_TST',
+                'grant_type'    => 'password',
                 'redirect_uri'  => 'https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2',
-                'client_id'     => getenv('API_CLIENT_ID'),
-                'client_secret' => getenv('API_CLIENT_SECRET'),
-                'username'      => getenv('API_USERNAME'),
-                'password'      => getenv('API_PASSWORD'),
+                'client_id'     => 'ELGI_TST~GjQTy8se0SnpL_BcZIuhHd5P4aoiNWYNLjk3H8U-tNs',
+                'client_secret' => 'N-OBXSqM6KER0LE5dVfCtAabW_Cci2zPBR1JhiPgELnoDXTYkkbL_YfMBYX5uogOXdZVcVG-8Vd9l7iLn9z1Eg',
+                'username'      => 'ELGI_TST#oIdzzt-8I84jlKl-ZNUNqnMoBT3k9f0sZ2CoW2TSQBcNoo3BZTzgxYwEi2y8p-EBhNRqQXTHyZVmBYkS3ED2bg',
+                'password'      => 'T1hQoXbhq5nmfn7FIG8BBzpvA3by6k9FkL0XvhLFmEkXn-EUxD_oSbQRQFJT9cyxkUeNM2fb08fFe3mt80n0Ew',
                 'scope'         => ''
             ]),
             CURLOPT_HTTPHEADER => [
@@ -4771,7 +4664,7 @@ class orderClass
 
     function search_dealer()
     {
-        $search = htmlspecialchars(trim($_POST['search'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $search = htmlspecialchars(trim($_POST['search'] ?? ''),ENT_QUOTES, 'UTF-8');
 
         $sql = "SELECT cuno, cuname
         FROM customer_master
@@ -4804,6 +4697,6 @@ class orderClass
             ];
         }
 
-        return json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        return json_encode($result,JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 }
