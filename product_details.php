@@ -104,14 +104,13 @@ $validBadge = product_yn_badge((string) ($record['valid'] ?? ''));
                 'Updated By',
                 product_user_label(
                     $record['updated_by_name'] ?? null,
-                    $record['updated_by_username'] ?? null,
                     $record['updated_by'] ?? null
                 ),
                 'col-md-3'
             );
             record_details_field(
                 'Updated At',
-                rbac_format_datetime($record['updated_at'] ?? ($record['updated_at'] ?? null)),
+                rbac_format_datetime($record['updated_at'] ?? null),
                 'col-md-3'
             );
             record_details_section_end();

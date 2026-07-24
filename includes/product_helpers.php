@@ -140,7 +140,7 @@ function product_tplcode_exists(PDO $conn, string $tplcode, int $excludeId = 0):
 {
     $sql = '
         SELECT id
-        FROM product_master
+        FROM products
         WHERE LOWER(TRIM(tplcode)) = LOWER(TRIM(:tplcode))
           AND deleted_at IS NULL
     ';
@@ -199,7 +199,7 @@ function product_get_by_id(PDO $conn, int $id): ?array
             um_created.name AS created_by_name,
             um_updated.username AS updated_by_username,
             um_updated.name AS updated_by_name
-        FROM product_master pm
+        FROM products pm
         LEFT JOIN user_master um_created
             ON um_created.id = pm.created_by
            AND um_created.deleted_at IS NULL
@@ -312,7 +312,7 @@ function product_bind_common(PDOStatement $stmt, array $data): void
 function product_insert(PDO $conn, array $data, ?int $createdBy): void
 {
     $stmt = $conn->prepare('
-        INSERT INTO product_master (
+        INSERT INTO products (
             dpst, product_group, tplcode, tpldesc, dealer_price,
             tod_flag, excisable, mc, vc, fc, cos, valid,
             company, warehouse, payment_term,
@@ -323,7 +323,7 @@ function product_insert(PDO $conn, array $data, ?int $createdBy): void
             :tod_flag, :excisable, :mc, :vc, :fc, :cos, :valid,
             :company, :warehouse, :payment_term,
             :status, :created_by, :updated_by,
-            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
         )
     ');
 
@@ -337,7 +337,7 @@ function product_insert(PDO $conn, array $data, ?int $createdBy): void
 function product_update(PDO $conn, int $id, array $data, ?int $updatedBy): void
 {
     $stmt = $conn->prepare('
-        UPDATE product_master SET
+        UPDATE products SET
             dpst = :dpst,
             product_group = :product_group,
             tplcode = :tplcode,
@@ -368,7 +368,7 @@ function product_update(PDO $conn, int $id, array $data, ?int $updatedBy): void
 function product_soft_delete(PDO $conn, int $id, ?int $updatedBy = null): void
 {
     $stmt = $conn->prepare('
-        UPDATE product_master
+        UPDATE products
         SET deleted_at = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP,
             updated_by = :updated_by

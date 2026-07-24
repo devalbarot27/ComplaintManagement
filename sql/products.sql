@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS products (
     status              CHAR(3)       NULL,
     created_by          INTEGER       NULL,
     updated_by          INTEGER       NULL,
-    updated_by_username VARCHAR(30)   NULL,
     created_at          TIMESTAMP     NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          TIMESTAMP     NULL,
     deleted_at          TIMESTAMP     NULL,
