@@ -2,15 +2,15 @@
 /**
  * Export all rows from a whitelisted database table to an .xlsx file (data only).
  *
- * Usage: export_table.php?table=user_master
+ * Usage: uploads/export_table.php?table=user_master
  *
  * Read-only: does not modify any database records.
  */
 
 session_start();
 
-require_once __DIR__ . '/pdo_obconn.php';
-require_once __DIR__ . '/includes/admin_access_helpers.php';
+require_once __DIR__ . '/../pdo_obconn.php';
+require_once __DIR__ . '/../includes/admin_access_helpers.php';
 
 require_system_admin($obconn);
 
