@@ -400,4 +400,5 @@
   </script>
   <?php if (!empty($_SESSION['usr_name'])): ?>
       <script src="js/session_tab_tracker.js"></script>
+      <script src="js/session_idle_logout.js"></script>
   <?php endif; ?>

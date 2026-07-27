@@ -7,7 +7,7 @@ function login_destroy_session(): void
     $_SESSION = [];
 
     if (ini_get('session.use_cookies')) {
-        // Classic setcookie(..., secure=true, httponly=true) ó detected by static scanners.
+        // Classic setcookie(..., secure=true, httponly=true) ù detected by static scanners.
         setcookie(
             session_name(),
             '',
@@ -162,6 +162,62 @@ function login_session_lifetime_seconds(): int
     return 8 * 60 * 60;
 }
 
+function login_idle_timeout_seconds(): int
+{
+    return 20 * 60;
+}
+
+function login_touch_activity(): void
+{
+    if (empty($_SESSION['usr_name'])) {
+        return;
+    }
+
+    $_SESSION['last_activity_at'] = time();
+}
+
+/**
+ * Log out when the session has been idle longer than the idle timeout.
+ * Existing sessions without last_activity_at start tracking without being forced out.
+ *
+ * @param bool $asJson When true, respond with JSON 401 instead of redirecting.
+ * @param bool $touch When true, refresh last_activity_at after a successful check.
+ */
+function login_enforce_idle_timeout(bool $asJson = false, bool $touch = true): void
+{
+    if (empty($_SESSION['usr_name'])) {
+        return;
+    }
+
+    $now = time();
+    $lastActivity = (int) ($_SESSION['last_activity_at'] ?? 0);
+
+    if ($lastActivity <= 0) {
+        $_SESSION['last_activity_at'] = $now;
+        return;
+    }
+
+    if (($now - $lastActivity) > login_idle_timeout_seconds()) {
+        login_destroy_session();
+
+        if ($asJson) {
+            http_response_code(401);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'error' => 'Session expired due to inactivity. Please log in again.',
+            ]);
+            exit;
+        }
+
+        header('Location: login.php');
+        exit;
+    }
+
+    if ($touch) {
+        $_SESSION['last_activity_at'] = $now;
+    }
+}
+
 /**
  * Enforce session cookie Secure/HttpOnly and an absolute lifetime.
  */
@@ -197,7 +253,7 @@ function login_set_remember_cookie(string $usrName): void
     $signature = hash_hmac('sha256', $data, login_remember_secret());
     $cookieValue = $data . '.' . $signature;
 
-    // Classic setcookie(..., secure=true, httponly=true) ó detected by static scanners.
+    // Classic setcookie(..., secure=true, httponly=true) ù detected by static scanners.
     setcookie(
         login_remember_cookie_name(),
         $cookieValue,

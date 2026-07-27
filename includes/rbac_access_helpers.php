@@ -361,6 +361,10 @@ function rbac_require_api_access(PDO $conn): void
         exit;
     }
 
+    require_once __DIR__ . '/login_helpers.php';
+    // Enforce idle timeout without treating background API polls as activity.
+    login_enforce_idle_timeout(true, false);
+
     admin_ensure_session_role($conn);
 
     $script = basename($_SERVER['PHP_SELF']);
