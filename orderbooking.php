@@ -56,7 +56,7 @@ $freightPercentage = 4;
         }
 
         .delivery-date-note {
-            display: none;
+            display: inline-flex;
             align-items: center;
             gap: 6px;
             margin-top: 8px;
@@ -70,10 +70,6 @@ $freightPercentage = 4;
             background: #f8d7da;
             border: 1px solid #f8d7da;
             border-radius: 8px;
-        }
-
-        .delivery-date-note.is-visible {
-            display: inline-flex;
         }
 
         .delivery-date-note .bi {
@@ -132,7 +128,8 @@ $freightPercentage = 4;
                         <input type="text" class="form-control" id="pono" placeholder="PO Number" />
                     </div>
                     <div class="form-group delivery-date-group">
-                        <label>Delivery Date <span class="text-danger">*</span> <span id="deliveryDateNote" class="delivery-date-note" aria-live="polite" hidden>
+                        <label>Delivery Date <span class="text-danger">*</span> 
+                        <span id="deliveryDateNote" class="delivery-date-note" aria-live="polite">
                                 <i class="bi bi-info-circle" aria-hidden="true"></i>
                                 Subject to availability
                             </span></label>
@@ -487,24 +484,11 @@ $freightPercentage = 4;
         setEndCustomerRequired(true);
     }
 
-    function toggleDeliveryDateNote() {
-        var hasDate = ($("#dDate").val() || '').trim() !== '';
-        $("#deliveryDateNote")
-            .toggleClass('is-visible', hasDate)
-            .prop('hidden', !hasDate);
-    }
-
     $(document).ready(function() {
         $("#dDate").datepicker({
             dateFormat: "dd.mm.yy",
-            minDate: 0,
-            onSelect: function() {
-                toggleDeliveryDateNote();
-            }
-        }).on('change input', function() {
-            toggleDeliveryDateNote();
+            minDate: 0
         });
-        toggleDeliveryDateNote();
         setTimeout(function() {
             $(".alert-info").hide();
         }, 4000);
