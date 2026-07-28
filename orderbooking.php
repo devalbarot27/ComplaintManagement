@@ -55,7 +55,7 @@ $freightPercentage = 4;
             position: relative;
         }
 
-        .delivery-date-note {
+         .delivery-date-note {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -128,8 +128,7 @@ $freightPercentage = 4;
                         <input type="text" class="form-control" id="pono" placeholder="PO Number" />
                     </div>
                     <div class="form-group delivery-date-group">
-                        <label>Delivery Date <span class="text-danger">*</span> 
-                        <span id="deliveryDateNote" class="delivery-date-note" aria-live="polite">
+                        <label>Delivery Date <span class="text-danger">*</span> <span id="deliveryDateNote" class="delivery-date-note" aria-live="polite">
                                 <i class="bi bi-info-circle" aria-hidden="true"></i>
                                 Subject to availability
                             </span></label>
@@ -140,27 +139,31 @@ $freightPercentage = 4;
                         <label>Delivery Term <span class="text-danger">*</span></label>
                         <select class="form-control" id="deliveryTerm">
                             <option value="">Select</option>
-                            <option value='003'>FREIGHT PAID - D/D AGST. C/C</option>
-                            <option value='508'>TO PAY-D/D AGA CONSIGNEE COPY</option>
-                            <option value='509'>TOPAY-DOOR DELIVERY CC ATTACHED</option>
-                            <option value='581'>TOPAY - GODOWN DELIVERY</option>
-                            <option value='545'>TO-PAY DOOR DELIVERY (FTL)</option>
-                            <option value='540'>TOPAY - DOOR DELIVERY ( LCV)</option>
-                            <option value='011'>PAID-DOOR DELY REIM CC ATTACH</option>
-                            <option value='013'>PAID-DD AGST CC REIM-PART LOAD</option>
-                            <option value='579'>TOPAY-DOOR DELY AGNST C/C(FTL)</option>
-                            <option value='580'>PAID-D/D AGNST C/C (FTL)</option>
-                            <option value="546">PAID - GODOWN DELIVERY</option>
-                            <option value='004'>PAID - DOOR DELY CC ATTACHED</option>
-                            <option value='010'>PAID-DOOR DELIVERY REIM-FTL</option>
-                            <option value='541'>PAID - DOOR DELIVERY (FTL)</option>
-                            <option value='122'>PAID DOOR DELIVERY WITHOUT CC</option>
+                            <option value="ACP">EX-WORKS,FRIGHT BY ELGi</option>
+                            <option value='CFR'>FREIGHT PAID - D/D AGST. C/C</option>
+                            <option value='CIF'>FREIGHT PAID - D/D AGST. C/C</option>
+                            <option value='CIP'>PAID - DOOR DELY CC ATTACHED</option>
+                            <option value='CPT'>PAID-DOOR DELY REIM-FTL</option>
+                            <option value='DAF'>PAID-DOOR DELY REIM CC ATTACHD</option>
+                            <option value='DAP'>TOPAY DD WITHOUT CC FTL</option>
+                            <option value='DAT'>FREIGHT PAID - GODOWN DELIVERY</option>
+                            <option value='DDP'>TO PAY-D/D AGA CONSIGNEE COPY</option>
+                            <option value='DDU'>PAID DOOR DELIVERY WITHOUT CC</option>
+                            <option value='DEQ'>LOCAL DELIVERY-PARTY'S VEHICLE</option>
+                            <option value="DES">PAID -DOOR DELIVERY FTL</option>
+                            <option value='EXW'>TOPAY-DOOR DELIVERY BY COURIER</option>
+                            <option value='FAS'>TO-PAY DOOR DELIVERY (FTL)</option>
+                            <option value='FCA'>TOPAY - D/DELY ANGST C/C (LCV)</option>
+                            <option value='FDY'>TOPAY-DOOR DELIVERY CC ATTACHE</option>
+                            <option value='FOB'>TO PAY -DOOR DELIVERY (FDY)</option>
+                            <option value='NPF'>DELIVERT AR NALLATIPALAYAM FAR</option>
+                            <option value='RLY'>PAID - D/D AGNST C/COPY (LCV)</option>
                         </select>
                     </div>
                     <div class="form-group">
                         <label>Payment Term <span class="text-danger">*</span></label>
                         <select class="form-control" id="paymentTerm" readonly style="cursor: not-allowed;pointer-events: none;background-color: #ededed;">
-                            <option value="1">100% Advance</option>
+                            <option value="804">100% Advance</option>
                             <?php /*
                             <option value="">Select</option>
                             <?php
@@ -489,6 +492,8 @@ $freightPercentage = 4;
             dateFormat: "dd.mm.yy",
             minDate: 0
         });
+
+    
         setTimeout(function() {
             $(".alert-info").hide();
         }, 4000);
@@ -1292,8 +1297,7 @@ $freightPercentage = 4;
         var ddate = $("#dDate").val().trim();
         var pono = $("#pono").val().trim();
         var orderType = $("#orderType").val().trim();
-        const fields = [
-            {
+        const fields = [{
                 value: orderCategory,
                 message: "Please select a order category"
             },
@@ -1389,7 +1393,7 @@ $freightPercentage = 4;
             area: area,
             pono: pono,
             ddate: ddate,
-            orderType:orderType,
+            orderType: orderType,
             action: "submitCartApi"
         };
 

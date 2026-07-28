@@ -2,8 +2,34 @@
 include '../pdo_obconn.php';
 
 
-$sql = "SELECT * FROM despatch LIMIT 1";
-$stmt = $dpconn->prepare($sql);
+$sql = "SELECT COUNT(*) AS total_records FROM elgi_item_master";
+$stmt = $obconn->prepare($sql);
+
+if (!$stmt->execute()) {
+    print_r($stmt->errorInfo());
+    die();
+}
+
+$result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+echo "Total Records: " . $result['total_records'];
+die();
+
+$sql = "SELECT * FROM elgi_item_master Limit 10";
+$stmt = $obconn->prepare($sql);
+
+if (!$stmt->execute()) {
+    print_r($stmt->errorInfo());
+    die();
+}
+
+$result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+echo "<pre>";
+print_r($result);
+die();
+/*
+$stmt = $obconn->prepare($sql);
 $stmt->execute();
 
 $fields = [];
@@ -18,6 +44,7 @@ echo $meta['name'].'<br>';
 
 
 die();
+*/
 /*
 $sql = "DELETE FROM notifications";
 

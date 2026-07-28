@@ -1,7 +1,7 @@
 <?php
 /**
  * Stream DealerPortal table data to CSV (Excel-compatible).
- * Designed for large tables (100kâ€“1M+ rows) via batched cursor reads.
+ * Designed for large tables (100k–1M+ rows) via batched cursor reads.
  *
  * Usage:
  * uploads/export_dealerportal_table.php?table=customer_address

@@ -20,8 +20,7 @@ class orderClass
         $this->obconn = $obconn;
         $this->dpconn = $dpconn;
         $this->userId = $_SESSION['usr_name'];
-        //$this->customer_code = $_SESSION['customer_number_vayu'];
-        $this->customer_code = $_SESSION['customer_number_vayu']??'10001';
+        $this->customer_code = $_SESSION['customer_number_vayu'];
     }
 
     public function getCartCount()
@@ -865,7 +864,7 @@ class orderClass
 
         $dpst  = ($_POST['orderType'] == 1) ? 'Y0001' : 'Y0011';
 
-        $warehouse = ($_POST['orderType'] == 1) ? '257' : '102';
+        $warehouse = ($_POST['orderType'] == 1) ? 'Y57' : '102';
 
         $state    = "TN";
 
@@ -1409,7 +1408,9 @@ class orderClass
                 </document>
                 </messageRequest>";
 
+                print_r($xml);
 
+                exit();
 
                 $url = "https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_TST/IONSERVICES/api/ion/messaging/service/v2/message";
 
