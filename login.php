@@ -4,14 +4,22 @@ session_start();
 
 include 'pdo_obconn.php';
 include 'includes/login_helpers.php';
+require_once __DIR__ . '/includes/sso/bootstrap.php';
 
 $error_message = '';
 $success_message = '';
 $username_value = '';
+$ssoAvailable = sso_is_available();
+$ssoProviderName = sso_provider_display_name();
 
 if (!empty($_SESSION['success_message'])) {
     $success_message = (string) $_SESSION['success_message'];
     unset($_SESSION['success_message']);
+}
+
+$ssoFlashError = (new SsoSessionManager())->pullFlashError();
+if ($ssoFlashError !== '') {
+    $error_message = $ssoFlashError;
 }
 
 if (!empty($_SESSION['usr_name'])) {
@@ -513,6 +521,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         Login with OTP
                     </a>
                 </div>
+
+                <?php if ($ssoAvailable) { ?>
+                    <div class="sso-divider" role="separator">
+                        <span>or</span>
+                    </div>
+                    <a href="sso_login.php" class="login-btn sso-login-btn">
+                        Continue with <?php echo htmlspecialchars($ssoProviderName); ?>
+                    </a>
+                <?php } ?>
 
             </div>
 

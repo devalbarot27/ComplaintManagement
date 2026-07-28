@@ -57,3 +57,40 @@
     opacity: 0.7;
     cursor: not-allowed;
 }
+
+.sso-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0 16px;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.sso-divider::before,
+.sso-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.sso-login-btn {
+    text-decoration: none;
+    background-color: #0f172a;
+    border-color: #0f172a;
+}
+
+.sso-login-btn:hover,
+.sso-login-btn:focus {
+    background-color: #1e293b;
+    border-color: #1e293b;
+    color: #fff;
+}
+
+.sso-login-btn:active {
+    background-color: #020617;
+    border-color: #020617;
+    color: #fff;
+}
