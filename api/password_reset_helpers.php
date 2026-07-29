@@ -107,7 +107,7 @@ function password_reset_send_email(array $user, string $resetUrl): bool
     ]);
 
     $subject = 'Dealer Portal Password Reset';
-    $fromAddress = 'noreply@dealerportal.local';
+    $fromAddress = 'noreply@vayudealerportal.com';
     $headers = 'From: Dealer Portal <' . $fromAddress . ">\r\n"
         . 'Reply-To: ' . $fromAddress . "\r\n"
         . 'Content-Type: text/plain; charset=UTF-8' . "\r\n"

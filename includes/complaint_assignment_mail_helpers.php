@@ -4,7 +4,7 @@ require_once __DIR__ . '/complaint_assignment_helpers.php';
 
 function complaint_mail_from_address(): string
 {
-    return 'noreply@complaintmanagement.local';
+    return 'noreply@vayudealerportal.com';
 }
 
 function complaint_mail_headers(): string
