@@ -335,8 +335,8 @@ function login_verify_password(array $user, string $password): bool
 
 function login_generate_otp(): string
 {
-    //return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-    return '123456'; // Temp
+    return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    //return '123456'; // Temp
 }
 
 function login_otp_resend_cooldown_seconds(): int

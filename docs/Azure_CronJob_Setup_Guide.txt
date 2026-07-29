@@ -1,0 +1,286 @@
+================================================================================
+  COMPLAINT MANAGEMENT — CRON JOB SETUP GUIDE (AZURE SERVER)
+================================================================================
+
+  Prepared: 29 July 2026
+  Environment: Azure VM (Windows Server / Linux) or Azure App Service
+  Application Path (adjust to your deployment):
+    Windows: C:\inetpub\wwwroot\ComplaintManagement
+    Linux:   /var/www/ComplaintManagement
+
+================================================================================
+  CRON JOBS OVERVIEW
+================================================================================
+
+  #   Job Name                        Script
+  --  ------------------------------  ------------------------------------------------
+  1   Complaint Open Status Nudge     cron/complaint_open_status_nudge.php
+  2   Dealer Service Update Nudge     cron/complaint_dealer_service_nudge.php
+  3   CCS Closure Nudge               cron/complaint_ccs_closure_nudge.php
+
+  Recommended Schedule: Daily at 06:00 AM
+  Purpose: Send email + in-app notification reminders at 24h / 48h / 72h milestones
+
+
+================================================================================
+  OPTION A: AZURE VM — WINDOWS SERVER (Task Scheduler)
+================================================================================
+
+  Prerequisites:
+  - PHP installed (e.g. C:\php\php.exe or C:\xampp\php\php.exe)
+  - Application deployed to e.g. C:\inetpub\wwwroot\ComplaintManagement
+  - PHP can connect to the PostgreSQL database from the server
+
+  STEP 1: Open Task Scheduler
+  ---------------------------
+  - Press Win+R → type "taskschd.msc" → Enter
+  - Or: Server Manager → Tools → Task Scheduler
+
+  STEP 2: Create Task — Complaint Open Status Nudge
+  --------------------------------------------------
+  a) Click "Create Task" (right panel)
+  b) General tab:
+     - Name: Complaint_Open_Status_Nudge
+     - Run whether user is logged on or not: Yes
+     - Run with highest privileges: Yes
+     - Configure for: Windows Server 2019 (or your version)
+  c) Triggers tab → New:
+     - Begin the task: On a schedule
+     - Settings: Daily
+     - Start: 06:00 AM
+     - Recur every: 1 day
+     - Enabled: Yes
+  d) Actions tab → New:
+     - Action: Start a program
+     - Program/script: C:\php\php.exe
+     - Add arguments: C:\inetpub\wwwroot\ComplaintManagement\cron\complaint_open_status_nudge.php
+     - Start in: C:\inetpub\wwwroot\ComplaintManagement
+  e) Settings tab:
+     - Allow task to be run on demand: Yes
+     - Stop the task if it runs longer than: 10 minutes
+     - If the task is already running: Do not start a new instance
+  f) Click OK → Enter the Windows user credentials when prompted
+
+  STEP 3: Create Task — Dealer Service Update Nudge
+  --------------------------------------------------
+  Repeat Step 2 with:
+  - Name: Complaint_Dealer_Service_Nudge
+  - Program/script: C:\php\php.exe
+  - Add arguments: C:\inetpub\wwwroot\ComplaintManagement\cron\complaint_dealer_service_nudge.php
+  - Start in: C:\inetpub\wwwroot\ComplaintManagement
+  - Same trigger: Daily at 06:00 AM
+
+  STEP 4: Create Task — CCS Closure Nudge
+  ----------------------------------------
+  Repeat Step 2 with:
+  - Name: Complaint_CCS_Closure_Nudge
+  - Program/script: C:\php\php.exe
+  - Add arguments: C:\inetpub\wwwroot\ComplaintManagement\cron\complaint_ccs_closure_nudge.php
+  - Start in: C:\inetpub\wwwroot\ComplaintManagement
+  - Same trigger: Daily at 06:00 AM
+
+  STEP 5: Verify
+  ---------------
+  - Right-click each task → Run
+  - Check "Last Run Result" column shows 0x0 (success)
+  - Check the database table "complaint_nudge_logs" for new entries
+  - Check email delivery (recipients should receive reminders)
+
+
+================================================================================
+  OPTION B: AZURE VM — LINUX (crontab)
+================================================================================
+
+  Prerequisites:
+  - PHP CLI installed: sudo apt install php-cli php-pgsql
+  - Application deployed to /var/www/ComplaintManagement
+  - PHP can connect to PostgreSQL
+
+  STEP 1: Open crontab
+  ---------------------
+  sudo crontab -e
+
+  STEP 2: Add the following 3 lines
+  -----------------------------------
+  (Runs daily at 06:00 AM)
+
+  0 6 * * * /usr/bin/php /var/www/ComplaintManagement/cron/complaint_open_status_nudge.php >> /var/log/cron_open_nudge.log 2>&1
+  0 6 * * * /usr/bin/php /var/www/ComplaintManagement/cron/complaint_dealer_service_nudge.php >> /var/log/cron_dealer_nudge.log 2>&1
+  0 6 * * * /usr/bin/php /var/www/ComplaintManagement/cron/complaint_ccs_closure_nudge.php >> /var/log/cron_ccs_nudge.log 2>&1
+
+  STEP 3: Save and exit
+  ----------------------
+  - For nano: Ctrl+O → Enter → Ctrl+X
+  - For vi: Esc → :wq → Enter
+
+  STEP 4: Verify crontab saved
+  -----------------------------
+  sudo crontab -l
+
+  STEP 5: Test manually
+  ----------------------
+  /usr/bin/php /var/www/ComplaintManagement/cron/complaint_open_status_nudge.php
+  /usr/bin/php /var/www/ComplaintManagement/cron/complaint_dealer_service_nudge.php
+  /usr/bin/php /var/www/ComplaintManagement/cron/complaint_ccs_closure_nudge.php
+
+  Expected output (example):
+    [2026-07-29 15:30:00] Complaint Open Status Nudge
+      Processed complaints : 5
+      Reminders sent       : 3
+      Notifications created: 3
+      Emails sent          : 3
+
+  STEP 6: Monitor logs
+  ---------------------
+  tail -f /var/log/cron_open_nudge.log
+  tail -f /var/log/cron_dealer_nudge.log
+  tail -f /var/log/cron_ccs_nudge.log
+
+
+================================================================================
+  OPTION C: AZURE APP SERVICE (WebJobs or Azure Functions Timer Trigger)
+================================================================================
+
+  If hosted on Azure App Service (not a VM), use Azure WebJobs:
+
+  STEP 1: Create a run.cmd (or run.sh) for each job
+  ---------------------------------------------------
+  Create 3 files in a folder called "CronJobs":
+
+  File: open_nudge_run.cmd
+  -------------------------
+  @echo off
+  D:\home\site\wwwroot\bin\php\php.exe D:\home\site\wwwroot\cron\complaint_open_status_nudge.php
+
+  File: dealer_nudge_run.cmd
+  ---------------------------
+  @echo off
+  D:\home\site\wwwroot\bin\php\php.exe D:\home\site\wwwroot\cron\complaint_dealer_service_nudge.php
+
+  File: ccs_nudge_run.cmd
+  -------------------------
+  @echo off
+  D:\home\site\wwwroot\bin\php\php.exe D:\home\site\wwwroot\cron\complaint_ccs_closure_nudge.php
+
+  Note: PHP path on Azure App Service may be D:\home\site\wwwroot\bin\php\php.exe
+        or D:\Program Files\PHP\v8.x\php.exe (check via Kudu console)
+
+  STEP 2: Create a settings.job file for each
+  ---------------------------------------------
+  Place alongside each .cmd file:
+
+  File: settings.job
+  {
+    "schedule": "0 0 6 * * *"
+  }
+
+  This is a CRON expression for "daily at 06:00 AM".
+  (Azure WebJobs uses 6-field CRON: second minute hour day month weekday)
+
+  STEP 3: Deploy as Triggered WebJobs
+  -------------------------------------
+  a) Azure Portal → App Service → WebJobs (left menu)
+  b) Click "+ Add"
+  c) For each job:
+     - Name: complaint-open-nudge (or dealer-nudge / ccs-nudge)
+     - File Upload: ZIP containing run.cmd + settings.job
+     - Type: Triggered
+     - Triggers: Scheduled (CRON)
+     - CRON Expression: 0 0 6 * * *
+  d) Repeat for all 3 jobs
+
+  STEP 4: Enable "Always On"
+  ----------------------------
+  Azure Portal → App Service → Configuration → General settings
+  → Set "Always On" = On
+  (Required for scheduled WebJobs to run reliably)
+
+  STEP 5: Verify via Azure Portal
+  ---------------------------------
+  - App Service → WebJobs → check Status = Running
+  - Click job name → Logs → verify output
+  - Check complaint_nudge_logs table in database
+
+
+================================================================================
+  OPTION D: HTTP TRIGGER (Alternative — Any Azure Setup)
+================================================================================
+
+  If CLI access is not available, trigger via HTTP using Azure Logic Apps,
+  Azure Functions Timer, or any HTTP scheduler (e.g., cron-job.org):
+
+  URLs (replace <BASE_URL> and <CRON_SECRET>):
+
+  1. <BASE_URL>/cron/complaint_open_status_nudge.php?key=<CRON_SECRET>
+  2. <BASE_URL>/cron/complaint_dealer_service_nudge.php?key=<CRON_SECRET>
+  3. <BASE_URL>/cron/complaint_ccs_closure_nudge.php?key=<CRON_SECRET>
+
+  OR use header-based auth:
+  - GET <BASE_URL>/cron/complaint_open_status_nudge.php
+  - Header: X-Cron-Key: <CRON_SECRET>
+
+  Azure Logic App setup:
+  a) Create a Logic App (Consumption plan)
+  b) Trigger: Recurrence → Every 1 Day, Start time: 06:00 AM
+  c) Action: HTTP → GET → paste URL above
+  d) Save → Enable
+  e) Repeat for all 3 jobs
+
+
+================================================================================
+  IMPORTANT NOTES
+================================================================================
+
+  1. CRON SECRET
+     - The secret key is defined as a constant in each cron PHP file.
+     - Current value: BjNX718biT6cF5RE
+     - For production: rotate this secret and keep it confidential.
+     - CLI execution does NOT require the secret (only HTTP trigger does).
+
+  2. PHP EXTENSIONS REQUIRED
+     - pdo_pgsql (PostgreSQL)
+     - mbstring
+     - openssl
+
+  3. DATABASE CONNECTIVITY
+     - The cron scripts include pdo_obconn.php which connects to PostgreSQL.
+     - Ensure the Azure server can reach the database host/port.
+     - If using Azure Database for PostgreSQL, whitelist the server's IP.
+
+  4. EMAIL (PHP mail)
+     - The cron sends emails via PHP mail() function.
+     - On Azure, configure SMTP relay (e.g., SendGrid, Azure Communication Services,
+       or Office 365 SMTP) in php.ini or use a local sendmail wrapper.
+     - Without SMTP config, emails will silently fail.
+
+  5. TIMEZONE
+     - Ensure the server timezone matches expected business hours.
+     - Set in php.ini: date.timezone = Asia/Kolkata (or your timezone)
+
+  6. LOGGING & MONITORING
+     - All nudge sends are logged to the "complaint_nudge_logs" database table.
+     - Monitor using: SELECT * FROM complaint_nudge_logs ORDER BY created_at DESC LIMIT 50;
+     - Set up Azure Monitor alerts if jobs stop running.
+
+  7. SCHEDULE RECOMMENDATION
+     - Daily at 06:00 AM is the configured schedule.
+     - Adjust time if business hours differ across timezones.
+     - Ensure server timezone matches the intended 06:00 AM local time.
+
+
+================================================================================
+  QUICK VERIFICATION CHECKLIST
+================================================================================
+
+  [ ] PHP CLI works on the server (php -v)
+  [ ] PHP can connect to database (php -r "new PDO('pgsql:...')")
+  [ ] Manual run of each script succeeds without errors
+  [ ] Emails are delivered to recipients
+  [ ] complaint_nudge_logs table shows new entries
+  [ ] Scheduled task / crontab is active and running at interval
+  [ ] Azure "Always On" enabled (if App Service)
+  [ ] Server timezone is correct (date or php -r "echo date_default_timezone_get();")
+
+================================================================================
+  END OF GUIDE
+================================================================================
