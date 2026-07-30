@@ -4146,17 +4146,16 @@ class orderClass
                     ON a.transporter = f.trans_code
                 LEFT JOIN area AS g
                     ON a.areacode = g.area_code
-                WHERE a.refno = :refno
-                  AND {$userWhere}
+                WHERE a.refno = :refno                 
                 ORDER BY a.oid ASC
                 LIMIT 1
-            ";
+            "; // AND {$userWhere}
 
             $headerStmt = $this->obconn->prepare($headerSql);
             $headerStmt->bindValue(':refno', $refno);
-            if (!$seeAll) {
-                $headerStmt->bindValue(':cuno', $this->customer_code);
-            }
+            // if (!$seeAll) {
+            //     $headerStmt->bindValue(':cuno', $this->customer_code);
+            // }
             $headerStmt->execute();
             $headerRow = $headerStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -4182,16 +4181,15 @@ class orderClass
                     a.hsn,
                     a.frtamount
                 FROM plexecom_customer_units AS a
-                WHERE a.refno = :refno
-                  AND {$userWhere}
+                WHERE a.refno = :refno                 
                 ORDER BY a.posno ASC NULLS LAST, a.oid ASC
-            ";
+            "; //  AND {$userWhere}
 
             $linesStmt = $this->obconn->prepare($linesSql);
             $linesStmt->bindValue(':refno', $refno);
-            if (!$seeAll) {
-                $linesStmt->bindValue(':cuno', $this->customer_code);
-            }
+            // if (!$seeAll) {
+            //     $linesStmt->bindValue(':cuno', $this->customer_code);
+            // }
             $linesStmt->execute();
 
             $lines = [];
