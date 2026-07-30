@@ -191,7 +191,7 @@
 
                   <?php if ($canRecentOrders) { ?>
                       <a href="recent_orders.php"
-                          class="menu-item <?= ($currentPage == 'recent_orders.php') ? 'active' : '' ?>">
+                          class="menu-item <?= ($currentPage == 'recent_orders.php' || ($currentPage == 'recent_order_details.php' && @$_GET['refno'] != '')) ? 'active' : '' ?>">
                           <i class="bi bi-arrow-down-left-square"></i>
                           Recent Orders
                       </a>
