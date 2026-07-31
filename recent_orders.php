@@ -93,7 +93,7 @@ $orderDateColumnIndex = $showAddedByColumn ? 9 : 8;
                                             <?php } ?>
                                             <th width="10%">Order Status</th>
                                             <th width="10%">Order Date</th>
-                                            <th width="5%">Action</th>
+                                            <th width="12%">Action</th>
                                         </tr>
                                     </thead>
                                 </table>
@@ -220,5 +220,9 @@ $orderDateColumnIndex = $showAddedByColumn ? 9 : 8;
                 $(".modal-body").html(res);
             }
         })
+    }
+
+    function rePushOrder(refNo) {
+        alert('Coming Soon');
     }
 </script>

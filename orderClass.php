@@ -24,7 +24,7 @@ class orderClass
         $this->customer_code = @$_SESSION['customer_number_vayu']??'10001';
     }
 
-    
+
     public function getCartCount()
     {
         $cnt = $this->obconn->prepare("SELECT * FROM tbl_vayu_item_master WHERE status=0 AND created_by=:createdBy");
@@ -1261,7 +1261,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
 
                     $line += 10;
 
-                    $insertStmt = $this->obconn->prepare("INSERT INTO plexecom_customer_units(usr_name,emp_code,cuno,cuname,areacode,pono,indent_category,indent_number,indent_date,transporter,delterms_code,delivery_date,invaddr,email, pincode,district,deladdr,dpst,tplcode,price,qty,salestax_code,sessionid,paycode,insby,edi_cuno,seqid,status,aoseries,otcode,warehouse,edi_delivery_date,edi_delivery_code,tpldesc,mc,vc,fc,cos,delivery_code,frtamount,company,adrcode,refno,hsn,state,country,edistatus,edi_date)VALUES(:uname,:emp_code,:cuno,:cname,:area,:pono,:indcat,:indno,current_date,:trans,:delterms,:deldate,:invaddr,:email,:pincode,:district,:deladdr,:dpst,:tplcode,:price,:qty,:taxcode,:sid,:paycode,:insby,:edi_cuno,:seqid,:status,:aoseries,:otcode,:warehouse,:edi_delivery_date,:edi_delivery_code,:tpldesc,:mcval,:vcval,:fcval,:cosval,:shipto,:frtamount,:cmp,:adrcode,:refno,:hsn,:state,:country,:edistatus,:edi_date)");
+                    $insertStmt = $this->obconn->prepare("INSERT INTO plexecom_customer_units(usr_name,emp_code,cuno,cuname,areacode,pono,indent_category,indent_number,indent_date,order_time,transporter,delterms_code,delivery_date,invaddr,email, pincode,district,deladdr,dpst,tplcode,price,qty,salestax_code,sessionid,paycode,insby,edi_cuno,seqid,status,aoseries,otcode,warehouse,edi_delivery_date,edi_delivery_code,tpldesc,mc,vc,fc,cos,delivery_code,frtamount,company,adrcode,refno,hsn,state,country,edistatus,edi_date)VALUES(:uname,:emp_code,:cuno,:cname,:area,:pono,:indcat,:indno,current_date,CURRENT_TIME,:trans,:delterms,:deldate,:invaddr,:email,:pincode,:district,:deladdr,:dpst,:tplcode,:price,:qty,:taxcode,:sid,:paycode,:insby,:edi_cuno,:seqid,:status,:aoseries,:otcode,:warehouse,:edi_delivery_date,:edi_delivery_code,:tpldesc,:mcval,:vcval,:fcval,:cosval,:shipto,:frtamount,:cmp,:adrcode,:refno,:hsn,:state,:country,:edistatus,:edi_date)");
 
 
                     $success = $insertStmt->execute([
@@ -1698,6 +1698,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                 indent_category,
                 indent_number,
                 indent_date,
+                order_time,
                 transporter,
                 delterms_code,
                 delivery_date,
@@ -1749,6 +1750,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                 :indcat,
                 :indno,
                 current_date,
+                CURRENT_TIME,
                 :trans,
                 :delterms,
                 :deldate,
@@ -3459,6 +3461,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                         a.pono,
                         a.indent_date,
                         a.order_date,
+                        a.order_time,
                         COALESCE(a.order_date, a.indent_date) AS sort_order_date,
                         a.emp_code,
                         a.usr_name,
@@ -3489,12 +3492,27 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                 $orderNumber = trim((string) ($row['order_number'] ?? ''));
                 $orderCuno = trim((string) ($row['cuno'] ?? $this->userId));
                 $orderStatus = $this->resolveRecentOrderStatus($orderNumber, $orderCuno);
+                $orderStatusLabel = $this->resolveRecentOrderStatusLabel($orderNumber, $orderCuno);
                 $orderDateRaw = $row['order_date'] ?? $row['indent_date'] ?? null;
+                $orderTimeRaw = $row['order_time'] ?? null;
                 $orderDateFormatted = !empty($orderDateRaw)
                     ? date('d M Y', strtotime((string) $orderDateRaw))
                     : '-';
+
+                $safeRef = htmlspecialchars($refno, ENT_QUOTES, 'UTF-8');
+                $linesHtml = ' <a href="recent_order_details.php?refno='
+                    . urlencode($refno)
+                    . '" class="btn btn-sm btn-outline-dark" title="View">'
+                    . '<i class="fa fa-eye"></i></a>';
+
+                if ($this->canShowRecentOrderRepush($orderNumber, $orderStatusLabel, $orderDateRaw, $orderTimeRaw)) {
+                    $linesHtml .= ' <button type="button" class="btn btn-sm btn-outline-dark mt-2"'
+                        . ' title="Re-Push" onclick="rePushOrder(\'' . $safeRef . '\')">'
+                        . '<i class="fa fa-refresh"></i></button>';
+                }
+
                 $rowData = [
-                    'ref_no'           => htmlspecialchars($refno ??  '-', ENT_QUOTES, 'UTF-8'),
+                    'ref_no'           => htmlspecialchars($refno !== '' ? $refno : '-', ENT_QUOTES, 'UTF-8'),
                     'order_no'         => htmlspecialchars($row['order_number'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'category'         => htmlspecialchars($row['order_category'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'order_category'   => htmlspecialchars($row['order_category'] ?? '-', ENT_QUOTES, 'UTF-8'),
@@ -3505,15 +3523,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                     'order_status'     => $orderStatus,
                     'order_date'       => $orderDateFormatted,
                     'date'             => $orderDateFormatted,
-                    /*
-<button type="button" class="btn btn-sm btn-outline-dark" onclick="openLineItems(\''
-                        . htmlspecialchars($refno, ENT_QUOTES, 'UTF-8')
-                        . '\')"><i class="fa fa-eye"></i></button>
-                        */
-                    'lines'            => ' <a href="recent_order_details.php?refno='
-                        . urlencode($refno)
-                        . '" class="btn btn-sm btn-outline-dark" title="View">'
-                        . '<i class="fa fa-eye"></i></a>',
+                    'lines'            => $linesHtml,
                 ];
 
                 if ($showAddedBy) {
@@ -3828,6 +3838,66 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
         }
 
         return '<span class="status-badge border border-dark">Pending</span>';
+    }
+
+    /**
+     * Re-Push is shown only when: Pending, no AO number, and placed > 30 minutes ago.
+     */
+    private function canShowRecentOrderRepush(
+        string $orderNumber,
+        string $statusLabel,
+        $orderDateRaw,
+        $orderTimeRaw
+    ): bool {
+        if (trim($orderNumber) !== '') {
+            return false;
+        }
+
+        if (strcasecmp(trim($statusLabel), 'Pending') !== 0) {
+            return false;
+        }
+
+        $placedAt = $this->resolveRecentOrderPlacedTimestamp($orderDateRaw, $orderTimeRaw);
+        if ($placedAt === null) {
+            return false;
+        }
+
+        return $placedAt <= (time() - 1800);
+    }
+
+    /**
+     * Build a unix timestamp for when the order was placed.
+     * Uses order_date/indent_date + order_time when available.
+     */
+    private function resolveRecentOrderPlacedTimestamp($orderDateRaw, $orderTimeRaw): ?int
+    {
+        $dateRaw = trim((string) ($orderDateRaw ?? ''));
+        if ($dateRaw === '') {
+            return null;
+        }
+
+        $dayTs = strtotime(date('Y-m-d', strtotime($dateRaw)));
+        if ($dayTs === false) {
+            return null;
+        }
+
+        $timeRaw = trim((string) ($orderTimeRaw ?? ''));
+        if ($timeRaw !== '') {
+            // PostgreSQL time may include microseconds (HH:MM:SS.uuuuuu).
+            if (preg_match('/^(\d{1,2}:\d{2}(:\d{2})?)/', $timeRaw, $m)) {
+                $timeRaw = $m[1];
+            }
+            $placedTs = strtotime(date('Y-m-d', $dayTs) . ' ' . $timeRaw);
+            return $placedTs === false ? null : $placedTs;
+        }
+
+        // Legacy rows without order_time: only treat past calendar days as eligible.
+        $todayStart = strtotime(date('Y-m-d'));
+        if ($todayStart !== false && $dayTs < $todayStart) {
+            return $dayTs;
+        }
+
+        return null;
     }
 
     public function getRecentOrders_bk()
