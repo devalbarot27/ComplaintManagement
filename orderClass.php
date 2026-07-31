@@ -868,6 +868,14 @@ class orderClass
         $warehouse = ($_POST['orderType'] == 1) ? 'Y57' : '102';
 
         $state    = "TN";
+        $cuname   = '';
+        $street1  = '';
+        $street2  = '';
+        $city     = '';
+        $emailValue = null;
+        $pincodeValue = 0;
+        $districtValue = null;
+        $pincode = '';
 
         if ($addrType == 1) {
 
@@ -924,11 +932,24 @@ class orderClass
 
             $pincode   = trim($_POST['pincode'] ?? ''); // Added new field 01-07-26
 
+            $addressState = trim($_POST['state'] ?? $state); // Full state name for stored delivery address
+
             $emailValue = ($email !== '') ? $email : null; // Added new field 01-07-26
 
             $pincodeValue = ($pincode !== '') ? $pincode : 000; // Added new field 01-07-26
 
             $districtValue = ($district !== '') ? $district : null; // Added new field 01-07-26
+
+            // Persist end-customer delivery address in deladdr (invoice stays in invaddr).
+            $deladdr = $street1 . '<br> - <br>'
+                . $street2 . '<br> - <br>'
+                . $city . '<br> - <br>'
+                . $addressState . '<br> - <br>'
+                . $district . '<br> - <br>'
+                . $pincode;
+
+            // End-customer orders must not keep a dealer delivery_code.
+            $addrCode = '';
         }
 
 
@@ -1299,7 +1320,7 @@ class orderClass
 
                         ':cuno'              => $cuno,
 
-                        ':cname'             => '',
+                        ':cname'             => $cuname,
 
                         ':area'              => $area,
 
@@ -1528,6 +1549,7 @@ class orderClass
             $area      = $_POST['area'];
             $indcat    = (int) ($_POST['orderCategory'] ?? 0);
             $deladdr   = strtoupper($_POST['addressCode']);
+            $addrType  = (string) ($_POST['deliveryAddressType'] ?? '1');
             $trans     = $_POST['transporter'];
             $delterms  = $_POST['deliveryTerm'];
             // $paycode   = $_POST['paymentTerm']
@@ -1535,6 +1557,7 @@ class orderClass
             $dpst      = "90092";
             $pono      = $_POST['pono'];
             $frtamount = (isset($_POST['freightAmount']) && $_POST['freightAmount'] !== '') ? $_POST['freightAmount'] : null;
+            $endCustomerName = trim($_POST['end_customer_name'] ?? '');
             $email     = trim($_POST['end_customer_email'] ?? ''); // Added new field 01-07-26
             $street1   = trim($_POST['street_1'] ?? ''); // Added new field 01-07-26
             $street2   = trim($_POST['street_2'] ?? ''); // Added new field 01-07-26
@@ -1545,6 +1568,7 @@ class orderClass
             $emailValue = ($email !== '') ? $email : null; // Added new field 01-07-26
             $pincodeValue = ($pincode !== '') ? $pincode : null; // Added new field 01-07-26
             $districtValue = ($district !== '') ? $district : null; // Added new field 01-07-26
+            $cuname = '';
 
             if ($indcat <= 0) {
                 throw new Exception('Order category is required.');
@@ -1646,27 +1670,33 @@ class orderClass
 
             $adrcode = $customer['adr_code'];
             $country = trim($customer['country']);
-            $hasEndCustomerAddress = ( // Added new field 01-07-26
-                $street1 !== '' || // Added new field 01-07-26
-                $street2 !== '' || // Added new field 01-07-26
-                $city !== '' || // Added new field 01-07-26
-                $addressState !== '' || // Added new field 01-07-26
-                $district !== '' || // Added new field 01-07-26
-                $pincode !== '' // Added new field 01-07-26
-            ); // Added new field 01-07-26
+            // Always keep dealer invoice address in invaddr.
+            $invaddr = pg_escape_string($customer['custaddr']);
 
-            if ($hasEndCustomerAddress) { // Added new field 01-07-26
-                $invaddr = pg_escape_string( // Added new field 01-07-26
-                    $street1 . '<br> - <br>' . // Added new field 01-07-26
-                        $street2 . '<br> - <br>' . // Added new field 01-07-26
-                        $city . '<br> - <br>' . // Added new field 01-07-26
-                        $addressState . '<br> - <br>' . // Added new field 01-07-26
-                        $district . '<br> - <br>' . // Added new field 01-07-26
-                        $pincode // Added new field 01-07-26
-                ); // Added new field 01-07-26
-            } else { // Added new field 01-07-26
-                $invaddr = pg_escape_string($customer['custaddr']); // Added new field 01-07-26
-            } // Added new field 01-07-26
+            $hasEndCustomerAddress = (
+                $addrType === '2' ||
+                $street1 !== '' ||
+                $street2 !== '' ||
+                $city !== '' ||
+                $addressState !== '' ||
+                $district !== '' ||
+                $pincode !== ''
+            );
+
+            if ($hasEndCustomerAddress) {
+                // Store end-customer delivery details in deladdr (not invaddr).
+                $deladdr = $street1 . '<br> - <br>'
+                    . $street2 . '<br> - <br>'
+                    . $city . '<br> - <br>'
+                    . $addressState . '<br> - <br>'
+                    . $district . '<br> - <br>'
+                    . $pincode;
+                $cuname = $endCustomerName;
+                $addrCode = '';
+                if ($addressState !== '') {
+                    $state = $addressState;
+                }
+            }
 
 
 
@@ -1872,7 +1902,7 @@ class orderClass
                     ':uname'             => $this->userId,
                     ':emp_code'          => "102464",
                     ':cuno'              => $cuno,
-                    ':cname'             => '',
+                    ':cname'             => $cuname,
                     ':area'              => $area,
                     ':pono'              => $pono,
                     ':indcat'            => $indcat,
@@ -4237,6 +4267,11 @@ class orderClass
             $orderDateRaw = $headerRow['order_date'] ?? $headerRow['indent_date'] ?? null;
             $orderDate = !empty($orderDateRaw) ? date('d-m-Y', strtotime((string) $orderDateRaw)) : '-';
 
+            $email = trim((string) ($headerRow['email'] ?? ''));
+            $deliveryCode = trim((string) ($headerRow['delivery_code'] ?? ''));
+            // End-customer orders always capture email; dealer orders leave it empty.
+            $isEndCustomer = ($email !== '') || ($deliveryCode === '');
+
             $header = [
                 'refno' => trim((string) ($headerRow['refno'] ?? $refno)),
                 'order_number' => $orderNumber !== '' ? $orderNumber : '-',
@@ -4267,13 +4302,16 @@ class orderClass
                 'delivery_date' => !empty($headerRow['delivery_date'])
                     ? date('d-m-Y', strtotime((string) $headerRow['delivery_date']))
                     : '-',
-                'email' => trim((string) ($headerRow['email'] ?? '')),
+                'email' => $email,
                 'invoice_address' => $this->formatRecentOrderAddressText($headerRow['invaddr'] ?? ''),
                 'delivery_address' => $this->formatRecentOrderAddressText($headerRow['deladdr'] ?? ''),
-                'delivery_address_type' => (trim((string) ($headerRow['delivery_code'] ?? '')) !== '') ? 'dealer' : 'end_customer',
-                'delivery_code' => trim((string) ($headerRow['delivery_code'] ?? '')),
+                'delivery_address_type' => $isEndCustomer ? 'end_customer' : 'dealer',
+                'delivery_code' => $deliveryCode,
                 'end_customer_name' => trim((string) ($headerRow['cuname'] ?? '')),
-                'end_customer_email' => trim((string) ($headerRow['email'] ?? '')),
+                'end_customer_email' => $email,
+                'end_customer_street1' => '',
+                'end_customer_street2' => '',
+                'end_customer_city' => '',
                 'end_customer_pincode' => trim((string) ($headerRow['pincode'] ?? '')),
                 'end_customer_district' => trim((string) ($headerRow['district'] ?? '')),
                 'end_customer_state' => trim((string) ($headerRow['state'] ?? '')),
@@ -4281,17 +4319,30 @@ class orderClass
                 'remarks' => trim((string) ($headerRow['remarks'] ?? '')),
             ];
 
-            // Parse end customer street/city from invaddr when delivery_address_type is end_customer
+            // End-customer delivery details: prefer deladdr; fall back to invaddr for older rows.
             if ($header['delivery_address_type'] === 'end_customer') {
-                $rawInv = trim((string) ($headerRow['invaddr'] ?? ''));
-                if ($rawInv !== '') {
-                    $normalized = preg_replace('/<br\s*\/?>\s*-\s*<br\s*\/?>/i', '||', $rawInv);
-                    $normalized = preg_replace('/<br\s*\/?>/i', "\n", (string) $normalized);
-                    $normalized = html_entity_decode(strip_tags((string) $normalized), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    $addrParts = array_map(static fn($part) => trim((string) $part, " \t\n\r\0\x0B-"), explode('||', (string) $normalized));
+                $addrParts = $this->parseRecentOrderEndCustomerAddressParts(
+                    (string) ($headerRow['deladdr'] ?? '')
+                );
+                if ($addrParts === []) {
+                    $addrParts = $this->parseRecentOrderEndCustomerAddressParts(
+                        (string) ($headerRow['invaddr'] ?? '')
+                    );
+                }
+
+                if ($addrParts !== []) {
                     $header['end_customer_street1'] = $addrParts[0] ?? '';
                     $header['end_customer_street2'] = $addrParts[1] ?? '';
                     $header['end_customer_city'] = $addrParts[2] ?? '';
+                    if ($header['end_customer_state'] === '' && isset($addrParts[3])) {
+                        $header['end_customer_state'] = $addrParts[3];
+                    }
+                    if ($header['end_customer_district'] === '' && isset($addrParts[4])) {
+                        $header['end_customer_district'] = $addrParts[4];
+                    }
+                    if ($header['end_customer_pincode'] === '' && isset($addrParts[5])) {
+                        $header['end_customer_pincode'] = $addrParts[5];
+                    }
                 }
             }
 
@@ -4338,6 +4389,29 @@ class orderClass
                 'error' => 'Unable to load recent order details.',
             ];
         }
+    }
+
+    /**
+     * Split stored end-customer address HTML into parts:
+     * street1, street2, city, state, district, pincode
+     *
+     * @return list<string>
+     */
+    private function parseRecentOrderEndCustomerAddressParts(string $raw): array
+    {
+        $raw = trim($raw);
+        if ($raw === '' || !preg_match('/<br\s*\/?>/i', $raw)) {
+            return [];
+        }
+
+        $normalized = preg_replace('/<br\s*\/?>\s*-\s*<br\s*\/?>/i', '||', $raw);
+        $normalized = preg_replace('/<br\s*\/?>/i', "\n", (string) $normalized);
+        $normalized = html_entity_decode(strip_tags((string) $normalized), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return array_values(array_map(
+            static fn($part) => trim((string) $part, " \t\n\r\0\x0B-"),
+            explode('||', (string) $normalized)
+        ));
     }
 
     private function formatRecentOrderAddressText($value): string
