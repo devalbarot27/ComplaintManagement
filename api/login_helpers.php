@@ -315,8 +315,8 @@ function login_send_otp_email(array $user, string $otp): bool
         . 'Content-Type: text/plain; charset=UTF-8' . "\r\n"
         . 'X-Mailer: PHP/' . phpversion();
 
-    //return mail($email, $subject, $message, $headers);
-    return 1;
+    return mail($email, $subject, $message, $headers);
+    //return 1;
 }
 
 function login_issue_otp(PDO $dpconn, PDO $obconn, string $username, bool $isResend = false): array

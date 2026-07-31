@@ -113,7 +113,7 @@ function password_reset_send_email(array $user, string $resetUrl): bool
         . 'Content-Type: text/plain; charset=UTF-8' . "\r\n"
         . 'X-Mailer: PHP/' . phpversion();
 
-    //return mail($email, $subject, $message, $headers);
+    return mail($email, $subject, $message, $headers);
     return 1;
 }
 
