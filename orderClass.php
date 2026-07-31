@@ -24,6 +24,7 @@ class orderClass
         $this->customer_code = @$_SESSION['customer_number_vayu']??'10001';
     }
 
+    
     public function getCartCount()
     {
         $cnt = $this->obconn->prepare("SELECT * FROM tbl_vayu_item_master WHERE status=0 AND created_by=:createdBy");
