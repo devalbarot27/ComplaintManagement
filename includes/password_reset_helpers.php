@@ -183,19 +183,6 @@ function password_reset_update_password(PDO $obconn, string $username, string $n
 
 function password_reset_process_forgot(PDO $obconn, string $email): array
 {
-
-$sql = "
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
-    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    usr_name VARCHAR(255) NOT NULL,
-    token_hash VARCHAR(255) NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    used_at TIMESTAMP NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-)";
- 
-$obconn->exec($sql);
-
     $email = trim($email);
 
     if ($email === '') {
@@ -213,12 +200,6 @@ $obconn->exec($sql);
 
     $username = trim((string) ($user['usr_name'] ?? ''));
 
-
-    $token = password_reset_create_token($obconn, $username);
-        $resetUrl = password_reset_build_url($token);
-
-        password_reset_send_email($user, $resetUrl);
-        
     try {
         $token = password_reset_create_token($obconn, $username);
         $resetUrl = password_reset_build_url($token);

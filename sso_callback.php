@@ -1,6 +1,6 @@
 <?php
 /**
- * SSO OIDC callback â€” validates the IdP response, authenticates the local user
+ * SSO OIDC callback — validates the IdP response, authenticates the local user
  * by email, creates a secure session, and redirects to the dashboard (index.php).
  */
 

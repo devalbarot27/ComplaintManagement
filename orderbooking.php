@@ -1248,6 +1248,7 @@ $freightPercentage = 4;
             data.city = $("#endCustomerCity").val().trim();
             data.district = $("#endCustomerDistrict").val().trim();
             data.state = $("#endCustomerState").val().trim();
+            data.state_code = $("#state_code").val().trim();
         }
         $.ajax({
             url: 'orderRequest.php',

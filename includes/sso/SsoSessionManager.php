@@ -3,7 +3,7 @@
  * Manages SSO-specific session state (CSRF state, PKCE, nonce, IdP tokens).
  *
  * Application login sessions still use login_start_session() / login_destroy_session()
- * from includes/login_helpers.php â€” this class only stores the OIDC handshake data.
+ * from includes/login_helpers.php — this class only stores the OIDC handshake data.
  */
 class SsoSessionManager
 {

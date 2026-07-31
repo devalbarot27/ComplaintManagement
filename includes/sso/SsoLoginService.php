@@ -27,7 +27,7 @@ class SsoLoginService
     {
         $this->config->assertReadyForLogin();
 
-        // Already authenticated in the app â€” send to dashboard
+        // Already authenticated in the app — send to dashboard
         $this->session->ensurePhpSession();
         if (!empty($_SESSION['usr_name'])) {
             $this->redirect($this->config->getDashboardPath());

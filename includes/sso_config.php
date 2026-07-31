@@ -3,7 +3,7 @@
  * SSO configuration (OIDC / OAuth 2.0 Authorization Code + PKCE).
  *
  * Edit the $defaults array below for local/XAMPP setups.
- * Environment variables (SSO_*) override these values when set â€” preferred in production.
+ * Environment variables (SSO_*) override these values when set — preferred in production.
  *
  * Register this redirect URI with your Identity Provider:
  *   https://your-host/.../sso_callback.php

@@ -1,7 +1,7 @@
 <?php
 /**
  * Dedicated SSO logout endpoint.
- * Prefer logout.php for the UI â€” it delegates here when the session was via SSO.
+ * Prefer logout.php for the UI — it delegates here when the session was via SSO.
  */
 
 session_start();

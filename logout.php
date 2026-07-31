@@ -6,7 +6,6 @@
  */
 
 session_start();
-
 require_once __DIR__ . '/includes/login_helpers.php';
 require_once __DIR__ . '/includes/sso/bootstrap.php';
 

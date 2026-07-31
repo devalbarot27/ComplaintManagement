@@ -1,6 +1,6 @@
 <?php
 /**
- * SSO login entry point â€” redirects the browser to the Identity Provider.
+ * SSO login entry point — redirects the browser to the Identity Provider.
  * Existing password / OTP login flows are unchanged.
  */
 

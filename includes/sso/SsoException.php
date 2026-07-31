@@ -1,6 +1,6 @@
 <?php
 /**
- * SSO module exception â€” used for controlled error handling and user-facing messages.
+ * SSO module exception — used for controlled error handling and user-facing messages.
  */
 class SsoException extends Exception
 {
