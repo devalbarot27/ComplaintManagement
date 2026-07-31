@@ -3502,7 +3502,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                 $safeRef = htmlspecialchars($refno, ENT_QUOTES, 'UTF-8');
                 $linesHtml = ' <a href="recent_order_details.php?refno='
                     . urlencode($refno)
-                    . '" class="btn btn-sm btn-outline-dark" title="View">'
+                    . '" class="btn btn-sm btn-outline-dark mt-2" title="View">'
                     . '<i class="fa fa-eye"></i></a>';
 
                 if ($this->canShowRecentOrderRepush($orderNumber, $orderStatusLabel, $orderDateRaw, $orderTimeRaw)) {
@@ -3867,7 +3867,8 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
 
     /**
      * Build a unix timestamp for when the order was placed.
-     * Uses order_date/indent_date + order_time when available.
+     * Uses order_date/indent_date + order_time.
+     * DB order_time format example: 14:01:26.970592
      */
     private function resolveRecentOrderPlacedTimestamp($orderDateRaw, $orderTimeRaw): ?int
     {
@@ -3876,25 +3877,38 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
             return null;
         }
 
-        $dayTs = strtotime(date('Y-m-d', strtotime($dateRaw)));
-        if ($dayTs === false) {
+        $dateTs = strtotime($dateRaw);
+        if ($dateTs === false) {
             return null;
         }
+        $dayStr = date('Y-m-d', $dateTs);
 
         $timeRaw = trim((string) ($orderTimeRaw ?? ''));
         if ($timeRaw !== '') {
-            // PostgreSQL time may include microseconds (HH:MM:SS.uuuuuu).
-            if (preg_match('/^(\d{1,2}:\d{2}(:\d{2})?)/', $timeRaw, $m)) {
-                $timeRaw = $m[1];
+            // Normalize DB time "14:01:26.970592" (or HH:MM:SS / HH:MM) to a parseable value.
+            if (preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/', $timeRaw, $m)) {
+                $hour = str_pad($m[1], 2, '0', STR_PAD_LEFT);
+                $minute = $m[2];
+                $second = isset($m[3]) && $m[3] !== '' ? $m[3] : '00';
+                $timeRaw = $hour . ':' . $minute . ':' . $second;
+            } else {
+                // Fallback: drop fractional seconds if present.
+                $timeRaw = explode('.', $timeRaw, 2)[0];
             }
-            $placedTs = strtotime(date('Y-m-d', $dayTs) . ' ' . $timeRaw);
+
+            $placed = DateTime::createFromFormat('Y-m-d H:i:s', $dayStr . ' ' . $timeRaw);
+            if ($placed instanceof DateTime) {
+                return $placed->getTimestamp();
+            }
+
+            $placedTs = strtotime($dayStr . ' ' . $timeRaw);
             return $placedTs === false ? null : $placedTs;
         }
 
         // Legacy rows without order_time: only treat past calendar days as eligible.
         $todayStart = strtotime(date('Y-m-d'));
-        if ($todayStart !== false && $dayTs < $todayStart) {
-            return $dayTs;
+        if ($todayStart !== false && $dateTs < $todayStart) {
+            return strtotime($dayStr);
         }
 
         return null;
