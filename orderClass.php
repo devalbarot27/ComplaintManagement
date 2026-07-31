@@ -3462,6 +3462,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                         a.indent_date,
                         a.order_date,
                         a.order_time,
+                        a.ediprocessdt,
                         COALESCE(a.order_date, a.indent_date) AS sort_order_date,
                         a.emp_code,
                         a.usr_name,
@@ -3506,8 +3507,14 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                     . '<i class="fa fa-eye"></i></a>';
 
                 if ($this->canShowRecentOrderRepush($orderNumber, $orderStatusLabel, $orderDateRaw, $orderTimeRaw)) {
-                    $linesHtml .= ' <button type="button" class="btn btn-sm btn-outline-dark mt-2"'
-                        . ' title="Re-Push" onclick="rePushOrder(\'' . $safeRef . '\')">'
+                    $cooldownUntil = $this->resolveRecentOrderRepushCooldownUntil($row['ediprocessdt'] ?? null);
+                    $disabledAttr = $cooldownUntil !== null ? ' disabled' : '';
+                    $untilAttr = $cooldownUntil !== null
+                        ? ' data-repush-until="' . (int) $cooldownUntil . '"'
+                        : '';
+                    $linesHtml .= ' <button type="button" class="btn btn-sm btn-outline-dark mt-2 btn-repush"'
+                        . $disabledAttr . $untilAttr
+                        . ' title="Re-Push" onclick="rePushOrder(\'' . $safeRef . '\', this)">'
                         . '<i class="fa fa-refresh"></i></button>';
                 }
 
@@ -3863,6 +3870,29 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
         }
 
         return $placedAt <= (time() - 1800);
+    }
+
+    /**
+     * Returns unix timestamp when Re-Push cooldown ends, or null if not in cooldown.
+     */
+    private function resolveRecentOrderRepushCooldownUntil($ediprocessdt): ?int
+    {
+        $raw = trim((string) ($ediprocessdt ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        $lastPush = strtotime($raw);
+        if ($lastPush === false) {
+            return null;
+        }
+
+        $cooldownUntil = $lastPush + 300; // 5 minutes
+        if ($cooldownUntil <= time()) {
+            return null;
+        }
+
+        return $cooldownUntil;
     }
 
     /**
@@ -4825,6 +4855,514 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                 'error' => $e->getMessage()
             ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
+    }
+
+    /**
+     * Re-push an existing pending order to Infor LN to regenerate AO number.
+     */
+    public function rePushOrder()
+    {
+        $refno = trim((string) ($_POST['refno'] ?? $_POST['refNo'] ?? ''));
+        if ($refno === '') {
+            return json_encode([
+                'status' => 'error',
+                'message' => 'Order reference is required.',
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        }
+
+        try {
+            admin_refresh_session_role($this->obconn);
+            $seeAll = is_system_admin() || is_management_user();
+
+            $linesStmt = $this->obconn->prepare("
+                SELECT *
+                FROM plexecom_customer_units
+                WHERE refno = :refno
+                ORDER BY oid ASC
+            ");
+            $linesStmt->bindValue(':refno', $refno);
+            $linesStmt->execute();
+            $rows = $linesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($rows)) {
+                return json_encode([
+                    'status' => 'error',
+                    'message' => 'Order not found.',
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            $header = $rows[0];
+            $orderCuno = trim((string) ($header['cuno'] ?? ''));
+
+            if (!$seeAll && $orderCuno !== '' && $orderCuno !== (string) $this->customer_code) {
+                return json_encode([
+                    'status' => 'error',
+                    'message' => 'You do not have access to re-push this order.',
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            $orderNumber = trim((string) ($header['order_number'] ?? ''));
+            if ($orderNumber !== '') {
+                return json_encode([
+                    'status' => 'ao_generated',
+                    'message' => 'AO Number has already been generated for this order.',
+                    'order_number' => $orderNumber,
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            $statusLabel = $this->resolveRecentOrderStatusLabel($orderNumber, $orderCuno);
+            if (strcasecmp($statusLabel, 'Pending') !== 0) {
+                return json_encode([
+                    'status' => 'error',
+                    'message' => 'Re-Push is only allowed for Pending orders.',
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            $cooldownUntil = $this->resolveRecentOrderRepushCooldownUntil($header['ediprocessdt'] ?? null);
+            if ($cooldownUntil !== null) {
+                $remaining = max(1, $cooldownUntil - time());
+                return json_encode([
+                    'status' => 'error',
+                    'message' => 'Please wait ' . ceil($remaining / 60) . ' minute(s) before trying Re-Push again.',
+                    'cooldown_until' => $cooldownUntil,
+                    'cooldown_remaining' => $remaining,
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            $bearerToken = $this->getBearerTokenLN();
+            if ($bearerToken === '') {
+                return json_encode([
+                    'status' => 'error',
+                    'message' => 'Unable to authenticate with LN API.',
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            $xml = $this->buildProcessSalesOrderXmlForRepush($rows);
+            if ($xml === '') {
+                return json_encode([
+                    'status' => 'error',
+                    'message' => 'Unable to build sales order payload for re-push.',
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            $ionResult = $this->sendIonSalesOrderMessage($xml, $bearerToken);
+            if (empty($ionResult['success'])) {
+                return json_encode([
+                    'status' => 'error',
+                    'message' => (string) ($ionResult['message'] ?? 'Re-Push request failed.'),
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            $upd = $this->obconn->prepare("
+                UPDATE plexecom_customer_units
+                SET ediprocessdt = CURRENT_TIMESTAMP
+                WHERE refno = :refno
+            ");
+            $upd->bindValue(':refno', $refno);
+            $upd->execute();
+
+            $newCooldownUntil = time() + 300;
+
+            return json_encode([
+                'status' => 'success',
+                'message' => 'Re-Push request submitted successfully. Please wait 5 minutes before trying again.',
+                'cooldown_until' => $newCooldownUntil,
+                'refno' => $refno,
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        } catch (Throwable $e) {
+            error_log('rePushOrder: ' . $e->getMessage() . ' @ ' . $e->getLine());
+            return json_encode([
+                'status' => 'error',
+                'message' => 'Unable to re-push order. Please try again later.',
+            ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        }
+    }
+
+    /**
+     * Rebuild Process.SalesOrder XML from stored plexecom_customer_units rows.
+     */
+    private function buildProcessSalesOrderXmlForRepush(array $rows): string
+    {
+        if ($rows === []) {
+            return '';
+        }
+
+        $header = $rows[0];
+        $refno = trim((string) ($header['refno'] ?? ''));
+        $cuno = trim((string) ($header['cuno'] ?? ''));
+        if ($refno === '' || $cuno === '') {
+            return '';
+        }
+
+        $datetime = gmdate('Y-m-d\TH:i:s\Z');
+
+        $cmp = (int) ($header['company'] ?? 401);
+        if ($cmp <= 0) {
+            $cmp = 401;
+        }
+        $dpst = trim((string) ($header['dpst'] ?? ''));
+        if ($dpst === '') {
+            $dpst = ($cmp === 490) ? 'Y0011' : 'Y0001';
+        }
+        $warehouseDefault = trim((string) ($header['warehouse'] ?? ''));
+        if ($warehouseDefault === '') {
+            $warehouseDefault = ($cmp === 490) ? '102' : 'Y57';
+        }
+        $paycode = trim((string) ($header['paycode'] ?? '301'));
+        if ($paycode === '') {
+            $paycode = '301';
+        }
+        $delterms = trim((string) ($header['delterms_code'] ?? 'CIF'));
+        if ($delterms === '') {
+            $delterms = 'CIF';
+        }
+        $state = trim((string) ($header['state'] ?? 'TN'));
+        if ($state === '') {
+            $state = 'TN';
+        }
+        $country = trim((string) ($header['country'] ?? 'IND'));
+        $indcatLabel = 'Normal Order';
+
+        $shipTo = $this->resolveRepushShipToAddress($header);
+        $cuname = $this->xmlEscape((string) ($shipTo['cuname'] ?? ''));
+        $street1 = $this->xmlEscape((string) ($shipTo['street1'] ?? ''));
+        $street2 = $this->xmlEscape((string) ($shipTo['street2'] ?? ''));
+        $city = $this->xmlEscape((string) ($shipTo['city'] ?? ''));
+        $shipState = $this->xmlEscape((string) ($shipTo['state'] ?? $state));
+        $pincode = $this->xmlEscape((string) ($shipTo['pincode'] ?? ''));
+
+        $usrName = trim((string) ($header['usr_name'] ?? $this->userId));
+        $userEmail = '';
+        try {
+            $emailStmt = $this->obconn->prepare("SELECT email FROM user_master WHERE username = :username LIMIT 1");
+            $emailStmt->bindValue(':username', $usrName);
+            $emailStmt->execute();
+            $userEmail = preg_replace('/^\s+|\s+$/u', '', (string) ($emailStmt->fetchColumn() ?: ''));
+        } catch (Throwable $e) {
+            $userEmail = '';
+        }
+        $userEmail = $this->xmlEscape($userEmail);
+        $safeRef = $this->xmlEscape($refno);
+        $safeCuno = $this->xmlEscape($cuno);
+        $safeDpst = $this->xmlEscape($dpst);
+        $safePay = $this->xmlEscape($paycode);
+        $safeDelterms = $this->xmlEscape($delterms);
+        $safeState = $this->xmlEscape($state);
+        $salesPerson = $this->xmlEscape($usrName !== '' ? $usrName : (string) $this->userId);
+
+        $xml = "<?xml version='1.0' encoding='UTF-8'?>
+                <messageRequest>
+                    <documentName>Process.SalesOrder</documentName>
+                    <fromLogicalId>lid://infor.ims.ho_mscrm</fromLogicalId>
+                    <toLogicalId>lid://default</toLogicalId>
+                    <messageId>lid://infor.ims.mscrm_sync_salesorder_" . $datetime . "</messageId>
+                    <document>
+                    <value>
+                    <![CDATA[
+                <ProcessSalesOrder xmlns='http://schema.infor.com/InforOAGIS/2'
+                    xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
+                    xsi:schemaLocation='http://schema.infor.com/InforOAGIS/2 http://schema.infor.com/trunk/InforOAGIS/BODs/Developer/ProcessSalesOrder.xsd'
+                    xmlns:xsd='http://www.w3.org/2001/XMLSchema'
+                    releaseID='9.2'
+                    versionID='2.5.0'>
+                    <ApplicationArea>
+                    <Sender>
+                            <LogicalID>lid://infor.ims.mscrm</LogicalID>
+                            <ComponentID>crm</ComponentID>
+                            <ConfirmationCode>OnError</ConfirmationCode>
+                        </Sender><CreationDateTime>" . $datetime . "</CreationDateTime><BODID>infor-nid:infor.ln:" . $cmp . "::" . $safeRef . ":?SalesOrder&amp;verb=Sync</BODID>
+                    </ApplicationArea>
+                    <DataArea>
+                        <Process>
+                            <TenantID>ELGI2_PRD</TenantID>
+                            <AccountingEntityID>" . $cmp . "</AccountingEntityID>
+                            <LocationID>S_" . $cmp . "</LocationID>
+                            <ActionCriteria>
+                                <ActionExpression actionCode='Add' />
+                            </ActionCriteria>
+                        </Process>
+                <SalesOrder>
+                <SalesOrderHeader>
+                    <DocumentID agencyRole='Supplier'>
+                        <ID>" . $safeRef . "</ID>
+                    </DocumentID>
+                    <AlternateDocumentID agencyRole='Customer'><ID>" . $safeRef . "</ID></AlternateDocumentID>
+                    <DocumentDateTime>" . $datetime . "</DocumentDateTime><Status><Code>Open</Code></Status>
+                    <SupplierParty>
+                    <Location type='Office'>
+                        <ID>" . $safeDpst . "</ID>
+                    </Location>
+                    </SupplierParty>
+                    <CustomerParty>
+                        <PartyIDs><ID>" . $safeCuno . "</ID></PartyIDs>
+                    </CustomerParty>
+                    <ShipToParty>
+                            <PartyIDs>
+                                <ID>" . $safeCuno . "</ID>
+                            </PartyIDs>
+                            <Location>
+                            <Address type='Discrete'>
+                            <AttentionOfName>" . $cuname . "</AttentionOfName>
+                            <StreetName>" . $street1 . "</StreetName>
+                            <BuildingName>" . $street2 . "</BuildingName>
+                            <Floor></Floor>
+                            <CityName>" . $city . "</CityName>
+                            <CountrySubDivisionCode>" . $shipState . "</CountrySubDivisionCode>
+                            <CountryCode>IN</CountryCode>
+                            <PostalCode>" . $pincode . "</PostalCode>
+                            </Address>
+                            </Location>
+                    </ShipToParty>
+                    <TransportationTerm>
+                        <IncotermsCode>" . $safeDelterms . "</IncotermsCode>
+                    </TransportationTerm>
+                    <PaymentTerm>
+                        <IDs><ID>" . $safePay . "</ID></IDs>
+                    </PaymentTerm>
+                    <RequestedShipDateTime>" . $datetime . "</RequestedShipDateTime>
+                    <UserArea>
+                        <Property>
+                        <NameValue name='ln.Area' type='StringType'>051</NameValue>
+                        </Property>
+                         <Property>
+                        <NameValue name='ln.SalesPriceList' type='StringType'>VAY</NameValue>
+                        </Property>
+                        <Property>
+                        <NameValue name='Ln.CRMMAIL' type='StringType'>" . $userEmail . "</NameValue>
+                        </Property>
+                        <Property>
+                        <NameValue name='ln.CRMID' type='StringType'>" . $safeRef . "</NameValue>
+                        </Property>
+                        <Property>
+                        <NameValue name='crm.PriceOverride' type='StringType'>N</NameValue></Property>
+                        <Property>
+                        <NameValue name='crm.AccountType' type='StringType'>C</NameValue>
+                        </Property>
+                        <Property>
+                        <NameValue name='crm.OrderCategory' type='StringType'>" . $this->xmlEscape($indcatLabel) . "</NameValue>
+                        </Property>
+                        <Property>
+                        <NameValue name='crm.OrderType' type='StringType'>" . $this->xmlEscape($indcatLabel) . "</NameValue>
+                        </Property>
+                        <Property>
+                        <NameValue name='crm.TODApplicable' type='StringType'>N</NameValue>
+                        </Property>
+                        <Property>
+                        <NameValue name='crm.CustomerState' type='StringType'>" . $safeState . "</NameValue>
+                        </Property>
+                    </UserArea>
+                    <SalesPersonReference>
+                        <IDs><ID>" . $salesPerson . "</ID></IDs>
+                    <SalesPersonRole>Internal</SalesPersonRole>
+                </SalesPersonReference>
+                </SalesOrderHeader>";
+
+        $lineNo = 10;
+        $lineCount = 0;
+        foreach ($rows as $item) {
+            $tplcode = trim((string) ($item['tplcode'] ?? ''));
+            if ($tplcode === '') {
+                continue;
+            }
+            $qty = (float) ($item['qty'] ?? 0);
+            $price = (float) ($item['price'] ?? 0);
+            $warehouse = trim((string) ($item['warehouse'] ?? ''));
+            if ($warehouse === '') {
+                $warehouse = $warehouseDefault;
+            }
+
+            $xml .= "<SalesOrderLine>
+                    <LineNumber>" . $lineNo . "</LineNumber>
+                    <Item>
+                        <ItemID><ID>" . $this->xmlEscape($tplcode) . "</ID></ItemID>
+                    </Item>
+                    <Quantity unitCode='NOS'>" . $qty . "</Quantity>
+                    <UnitPrice>
+                        <Amount>" . $price . "</Amount>
+                        <PerQuantity unitCode='NOS'>" . $qty . "</PerQuantity>
+                    </UnitPrice>
+                    <UserArea>
+                        <Property>
+                        <NameValue name='ln.HSNCode' type='StringType'>80:11</NameValue>
+                        </Property>
+                        <Property><NameValue name='ln.Motor' type='StringType'>ELGI</NameValue>
+                        </Property>
+                    </UserArea>
+                    <CarrierParty>
+                        <PartyIDs>
+                            <ID>TC3</ID>
+                        </PartyIDs>
+                    </CarrierParty>
+                    <ShipFromParty>
+                        <Location type='Warehouse'>
+                            <ID>W_" . $this->xmlEscape($warehouse) . "</ID>
+                        </Location>
+                    </ShipFromParty>
+                    </SalesOrderLine>";
+
+            $lineNo += 10;
+            $lineCount++;
+        }
+
+        if ($lineCount === 0) {
+            return '';
+        }
+
+        $xml .= " </SalesOrder>
+                </DataArea>
+                </ProcessSalesOrder>]]>
+                </value>
+                <encoding>NONE</encoding>
+                <characterSet>UTF-8</characterSet>
+                </document>
+                </messageRequest>";
+
+        return $xml;
+    }
+
+    /**
+     * Resolve ship-to fields for re-push from stored order header.
+     */
+    private function resolveRepushShipToAddress(array $header): array
+    {
+        $result = [
+            'cuname' => trim((string) ($header['cuname'] ?? '')),
+            'street1' => '',
+            'street2' => '',
+            'city' => '',
+            'state' => trim((string) ($header['state'] ?? 'TN')),
+            'pincode' => trim((string) ($header['pincode'] ?? '')),
+        ];
+
+        $deliveryCode = trim((string) ($header['delivery_code'] ?? ''));
+        if ($deliveryCode !== '') {
+            try {
+                $addrStmt = $this->dpconn->prepare(
+                    "SELECT cuname, st1, st2, city, pin, state FROM customer_address WHERE adr_code = :code LIMIT 1"
+                );
+                $addrStmt->execute([':code' => $deliveryCode]);
+                $addrRow = $addrStmt->fetch(PDO::FETCH_ASSOC);
+                if ($addrRow) {
+                    $result['cuname'] = trim((string) ($addrRow['cuname'] ?? $result['cuname']));
+                    $result['street1'] = trim((string) ($addrRow['st1'] ?? ''));
+                    $result['street2'] = trim((string) ($addrRow['st2'] ?? ''));
+                    $result['city'] = trim((string) ($addrRow['city'] ?? ''));
+                    $result['state'] = trim((string) ($addrRow['state'] ?? $result['state']));
+                    $result['pincode'] = trim((string) ($addrRow['pin'] ?? $result['pincode']));
+                }
+            } catch (Throwable $e) {
+                // Keep fallback values.
+            }
+            return $result;
+        }
+
+        // End-customer: parse street/city from deladdr blob when present.
+        $rawAddr = trim((string) ($header['deladdr'] ?? ''));
+        if ($rawAddr !== '' && stripos($rawAddr, '<br') !== false) {
+            $normalized = preg_replace('/<br\s*\/?>\s*-\s*<br\s*\/?>/i', '||', $rawAddr);
+            $normalized = preg_replace('/<br\s*\/?>/i', "\n", (string) $normalized);
+            $normalized = html_entity_decode(strip_tags((string) $normalized), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $parts = array_map(
+                static fn($part) => trim((string) $part, " \t\n\r\0\x0B-"),
+                explode('||', (string) $normalized)
+            );
+            $result['street1'] = $parts[0] ?? '';
+            $result['street2'] = $parts[1] ?? '';
+            $result['city'] = $parts[2] ?? '';
+            if (trim((string) ($parts[3] ?? '')) !== '' && strlen(trim((string) $parts[3])) <= 5) {
+                // Often state code; prefer stored state code already in $result['state'].
+            }
+            if (trim((string) ($parts[5] ?? '')) !== '' && $result['pincode'] === '') {
+                $result['pincode'] = trim((string) $parts[5]);
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * POST Process.SalesOrder XML to Infor ION messaging API.
+     */
+    private function sendIonSalesOrderMessage(string $xml, string $bearerToken): array
+    {
+        $url = 'https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_TST/IONSERVICES/api/ion/messaging/service/v2/message';
+        $maxRetries = 3;
+        $retryDelay = 1;
+        $response = false;
+        $errno = 0;
+        $error = '';
+        $httpCode = 0;
+
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL            => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => $xml,
+                CURLOPT_HTTPHEADER     => [
+                    'Content-Type: application/xml; charset=UTF-8',
+                    'Authorization: Bearer ' . $bearerToken,
+                ],
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_CONNECTTIMEOUT => 30,
+                CURLOPT_TIMEOUT        => 60,
+                CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
+            ]);
+
+            $response = curl_exec($ch);
+            $errno = curl_errno($ch);
+            $error = curl_error($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($errno === 0) {
+                break;
+            }
+
+            error_log("rePushOrder ION attempt {$attempt}: cURL Error {$errno} - {$error}");
+            if ($errno === CURLE_COULDNT_CONNECT && $attempt < $maxRetries) {
+                sleep($retryDelay);
+                continue;
+            }
+
+            return [
+                'success' => false,
+                'message' => "cURL Error {$errno}: {$error}",
+            ];
+        }
+
+        if ($errno !== 0) {
+            return [
+                'success' => false,
+                'message' => "cURL Error {$errno}: {$error}",
+            ];
+        }
+
+        $data = json_decode((string) $response, true);
+        if ($httpCode === 201 && is_array($data) && (($data['status'] ?? '') === 'OK')) {
+            return [
+                'success' => true,
+                'message' => 'OK',
+                'http_code' => $httpCode,
+            ];
+        }
+
+        $message = is_array($data)
+            ? (string) ($data['message'] ?? 'Unknown error from LN API')
+            : 'Unexpected response from LN API';
+
+        return [
+            'success' => false,
+            'message' => $message,
+            'http_code' => $httpCode,
+        ];
+    }
+
+    private function xmlEscape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
     }
 
     private function getBearerTokenLN()

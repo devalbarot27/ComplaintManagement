@@ -194,8 +194,11 @@ $orderDateColumnIndex = $showAddedByColumn ? 9 : 8;
                     $('#orderTable tbody button[onclick*="openLineItems"]').remove();
                     $('#orderTable tbody a[href*="recent_order_details.php"]').remove();
                 }
+                initRepushCooldowns(table);
             }
         });
+
+        window.recentOrdersTable = table;
 
         if (recentOrderRefNo !== '') {
             table.search(recentOrderRefNo).draw();
@@ -222,7 +225,129 @@ $orderDateColumnIndex = $showAddedByColumn ? 9 : 8;
         })
     }
 
-    function rePushOrder(refNo) {
-        alert('Coming Soon');
+    function rePushOrder(refNo, btn) {
+        if (!refNo) {
+            return;
+        }
+
+        var $btn = btn ? $(btn) : $('.btn-repush').filter(function() {
+            return String($(this).attr('onclick') || '').indexOf(refNo) !== -1;
+        }).first();
+
+        if ($btn.length && $btn.prop('disabled')) {
+            return;
+        }
+
+        if ($btn.length) {
+            $btn.prop('disabled', true);
+        }
+
+        $.ajax({
+            url: 'orderRequest.php',
+            type: 'POST',
+            dataType: 'json',
+            data: {
+                action: 'rePushOrder',
+                refno: refNo
+            },
+            success: function(res) {
+                if (!res || typeof res !== 'object') {
+                    alert('Re-Push failed. Please try again.');
+                    if ($btn.length) {
+                        $btn.prop('disabled', false);
+                    }
+                    return;
+                }
+
+                if (res.status === 'success') {
+                    alert(res.message || 'Re-Push request submitted successfully. Please wait 5 minutes before trying again.');
+                    if ($btn.length) {
+                        startRepushCooldown($btn, res.cooldown_until || (Math.floor(Date.now() / 1000) + 300));
+                    }
+                    return;
+                }
+
+                if (res.status === 'ao_generated') {
+                    alert(res.message || 'AO Number has already been generated for this order.');
+                    if ($btn.length) {
+                        $btn.remove();
+                    }
+                    if (window.recentOrdersTable) {
+                        window.recentOrdersTable.ajax.reload(null, false);
+                    }
+                    return;
+                }
+
+                alert(res.message || 'Re-Push failed. Please try again.');
+                if ($btn.length) {
+                    if (res.cooldown_until) {
+                        startRepushCooldown($btn, res.cooldown_until);
+                    } else {
+                        $btn.prop('disabled', false);
+                    }
+                }
+            },
+            error: function() {
+                alert('Re-Push failed. Please try again.');
+                if ($btn.length) {
+                    $btn.prop('disabled', false);
+                }
+            }
+        });
+    }
+
+    function startRepushCooldown($btn, untilTs) {
+        if (!$btn || !$btn.length) {
+            return;
+        }
+
+        untilTs = parseInt(untilTs, 10);
+        if (!untilTs) {
+            $btn.prop('disabled', false);
+            return;
+        }
+
+        $btn.attr('data-repush-until', untilTs);
+        $btn.prop('disabled', true);
+
+        if ($btn.data('repushTimer')) {
+            clearTimeout($btn.data('repushTimer'));
+        }
+
+        var tick = function() {
+            var now = Math.floor(Date.now() / 1000);
+            if (now >= untilTs) {
+                $btn.removeAttr('data-repush-until');
+                $btn.data('repushTimer', null);
+                if (window.recentOrdersTable) {
+                    window.recentOrdersTable.ajax.reload(null, false);
+                } else {
+                    $btn.prop('disabled', false);
+                }
+                return;
+            }
+            $btn.prop('disabled', true);
+            var timerId = setTimeout(tick, 1000);
+            $btn.data('repushTimer', timerId);
+        };
+
+        tick();
+    }
+
+    function initRepushCooldowns(table) {
+        $('.btn-repush[data-repush-until]').each(function() {
+            var $btn = $(this);
+            var untilTs = parseInt($btn.attr('data-repush-until'), 10);
+            if (!untilTs) {
+                return;
+            }
+            var now = Math.floor(Date.now() / 1000);
+            if (now >= untilTs) {
+                $btn.removeAttr('data-repush-until');
+                $btn.prop('disabled', false);
+                return;
+            }
+            startRepushCooldown($btn, untilTs);
+        });
     }
 </script>
