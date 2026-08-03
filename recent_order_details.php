@@ -1,6 +1,7 @@
 <?php
 session_start();
 
+
 include __DIR__ . '/pdo_obconn.php';
 require_once __DIR__ . '/includes/admin_access_helpers.php';
 require_once __DIR__ . '/includes/rbac_page_guard.php';
@@ -18,6 +19,7 @@ $orderService = new orderClass($obconn, $dpconn);
 $details = $orderService->getRecentOrderDetails($refno);
 
 $header = $details['header'] ?? [];
+
 $lines = $details['lines'] ?? [];
 $loadOk = !empty($details['success']);
 $errorText = (string) ($details['error'] ?? 'Invalid or missing order reference.');
@@ -41,6 +43,7 @@ $safe = [
     'error' => htmlspecialchars($errorText, ENT_QUOTES, 'UTF-8'),
     'refno' => htmlspecialchars((string) ($header['refno'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'order_date' => htmlspecialchars((string) ($header['order_date'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+    'order_time' => htmlspecialchars((string) ($header['order_time'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'order_status' => htmlspecialchars((string) ($header['order_status'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'order_number' => htmlspecialchars((string) ($header['order_number'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'customer' => htmlspecialchars($customerLabel, ENT_QUOTES, 'UTF-8'),
@@ -203,6 +206,7 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
                                 <div class="oad-meta-card">
                                     <span class="oad-meta-label">Order Date</span>
                                     <div class="oad-meta-value"><?php echo $safe['order_date']; ?></div>
+<div class="d-none"><?php echo $safe['order_time'];?></div>
                                 </div>
                                 <div class="oad-meta-card">
                                     <span class="oad-meta-label">Customer</span>

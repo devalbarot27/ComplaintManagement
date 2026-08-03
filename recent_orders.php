@@ -49,8 +49,12 @@ $orderDateColumnIndex = $showAddedByColumn ? 9 : 8;
     <link href="css/order_acknowledge_style.css" rel="stylesheet" />
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <style>
-
-    </style>
+button.btn.btn-repush:disabled,
+        button.btn.btn-repush[disabled] {
+            pointer-events: auto !important;
+            cursor: not-allowed !important;
+            opacity: 0.65;
+        }    </style>
 </head>
 
 <body>

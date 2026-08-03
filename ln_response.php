@@ -43,13 +43,11 @@ try {
         UPDATE plexecom_customer_units
         SET
             order_number = :orderNo,
-            order_date = :orderDate,
             erpln = :erpln
         WHERE refno = :refno
     ");
 
     $upd->bindValue(':orderNo', $aoNumber);
-    $upd->bindValue(':orderDate', $orderDate);
     $upd->bindValue(':erpln', $erpln);
     $upd->bindValue(':refno', $orderNumber);
 

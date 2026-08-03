@@ -21,7 +21,7 @@ class orderClass
         $this->dpconn = $dpconn;
         $this->userId = $_SESSION['usr_name'];
         //$this->customer_code = $_SESSION['customer_number_vayu'];
-        $this->customer_code = @$_SESSION['customer_number_vayu']??'10001';
+        $this->customer_code = @$_SESSION['customer_number_vayu']?? '10001';
     }
 
 
@@ -310,7 +310,7 @@ class orderClass
 
     private function computeCartLineGstAmounts(float $unitPrice, float $qty): array
     {
-        // Total Price = unit � qty (excludes freight). Freight = 4% of Total Price.
+        // Total Price = unit   qty (excludes freight). Freight = 4% of Total Price.
         $lineBase = round($unitPrice * $qty, 2);
         $freight = round(($lineBase * $this->freightPercentage()) / 100, 2);
         $cgstRate = 9.0;
@@ -3562,6 +3562,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
         }
     }
 
+
     public function getRecentOrders_bk_14_07()
 
     {
@@ -3869,10 +3870,11 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
             return false;
         }
 
+
         return $placedAt <= (time() - 1800);
     }
 
-    /**
+ /**
      * Returns unix timestamp when Re-Push cooldown ends, or null if not in cooldown.
      */
     private function resolveRecentOrderRepushCooldownUntil($ediprocessdt): ?int
@@ -3894,6 +3896,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
 
         return $cooldownUntil;
     }
+
 
     /**
      * Build a unix timestamp for when the order was placed.
@@ -4208,6 +4211,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                     a.pono,
                     a.indent_date,
                     a.order_date,
+                    a.order_time,
                     a.delivery_date,
                     a.currency,
                     a.invaddr,
@@ -4331,6 +4335,9 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
             $cuno = trim((string) ($headerRow['cuno'] ?? $this->customer_code));
             $orderDateRaw = $headerRow['order_date'] ?? $headerRow['indent_date'] ?? null;
             $orderDate = !empty($orderDateRaw) ? date('d-m-Y', strtotime((string) $orderDateRaw)) : '-';
+ 	  $orderTime = $headerRow['order_time'] ?? null;
+
+
 
             $deliveryCode = trim((string) ($headerRow['delivery_code'] ?? ''));
             $storedEmail = trim((string) ($headerRow['email'] ?? ''));
@@ -4346,6 +4353,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                     ? trim((string) $headerRow['pono'])
                     : '-',
                 'order_date' => $orderDate,
+                'order_time' => $orderTime,
                 'currency' => trim((string) ($headerRow['currency'] ?? '')) !== ''
                     ? trim((string) $headerRow['currency'])
                     : 'INR',
@@ -4857,7 +4865,8 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
         }
     }
 
-    /**
+
+  /**
      * Re-push an existing pending order to Infor LN to regenerate AO number.
      */
     public function rePushOrder()
