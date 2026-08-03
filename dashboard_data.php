@@ -169,7 +169,19 @@ if (!is_string($statusChartColorsJson)) {
 
 unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 ?>
-
+<style>
+    .btn-repush {
+        display: none;
+    }
+    .btn-repush:hover {
+        background-color: #000;
+        color: #fff;
+    }
+    .btn-repush:active {
+        background-color: #000;
+        color: #fff;
+    }
+</style>
 <!-- CONTENT -->
 <div class="content">
 
