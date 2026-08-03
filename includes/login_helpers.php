@@ -8,15 +8,7 @@ function login_destroy_session(): void
 
     if (ini_get('session.use_cookies')) {
         // Classic setcookie(..., secure=true, httponly=true)  detected by static scanners.
-        setcookie(
-            session_name(),
-            '',
-            time() - 42000,
-            '/',
-            '',
-            true,
-            true
-        );
+        login_expire_cookie(session_name());
     }
 
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -29,6 +21,146 @@ function login_destroy_session(): void
 function login_remember_cookie_name(): string
 {
     return 'dp_remember';
+}
+
+/**
+ * Minimum application cookie path (not always site root "/").
+ * Derived from app directory under DOCUMENT_ROOT, e.g. "/ComplaintManagement/".
+ * When the app is the document root (e.g. dp.vayupower.com), this is "/".
+ * Override with APP_COOKIE_PATH if needed.
+ */
+function login_cookie_path(): string
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+
+    if (defined('APP_COOKIE_PATH')) {
+        $configured = trim((string) constant('APP_COOKIE_PATH'));
+        if ($configured !== '') {
+            if ($configured === '/') {
+                $cached = '/';
+                return $cached;
+            }
+            $cached = '/' . trim(str_replace('\\', '/', $configured), '/') . '/';
+            return $cached;
+        }
+    }
+
+    $appRoot = realpath(dirname(__DIR__));
+    $docRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+
+    if ($appRoot !== false && $docRoot !== false) {
+        $appRoot = str_replace('\\', '/', $appRoot);
+        $docRoot = str_replace('\\', '/', rtrim($docRoot, '/\\'));
+
+        if ($docRoot !== '' && stripos($appRoot, $docRoot) === 0) {
+            $relative = substr($appRoot, strlen($docRoot));
+            $relative = str_replace('\\', '/', (string) $relative);
+            $relative = trim($relative, '/');
+            $cached = $relative === '' ? '/' : '/' . $relative . '/';
+            return $cached;
+        }
+    }
+
+    $cached = '/';
+    return $cached;
+}
+
+/**
+ * Expire a cookie on the app path and legacy root path (migration cleanup).
+ */
+function login_expire_cookie(string $name): void
+{
+    $paths = array_unique([login_cookie_path(), '/']);
+    foreach ($paths as $path) {
+        setcookie($name, '', [
+            'expires' => time() - 42000,
+            'path' => $path,
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+/**
+ * Whether the current request is HTTPS (including common reverse-proxy headers).
+ */
+function login_is_https_request(): bool
+{
+    $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+    if ($https !== '' && $https !== 'off') {
+        return true;
+    }
+
+    if ((int) ($_SERVER['SERVER_PORT'] ?? 0) === 443) {
+        return true;
+    }
+
+    $forwarded = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    if ($forwarded === 'https') {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Secure flag for auth/session cookies. Always enabled for sensitive tokens.
+ * Set APP_ALLOW_INSECURE_COOKIES to true only for local HTTP testing.
+ */
+function login_cookie_secure_flag(): bool
+{
+    if (defined('APP_ALLOW_INSECURE_COOKIES') && constant('APP_ALLOW_INSECURE_COOKIES') === true) {
+        return login_is_https_request();
+    }
+
+    return true;
+}
+
+/**
+ * Start PHP session with Secure/HttpOnly/SameSite/Path already applied.
+ */
+function login_start_php_session(): void
+{
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        login_refresh_session_cookie();
+        return;
+    }
+
+    login_configure_session();
+    session_start();
+}
+
+/**
+ * Re-emit the session cookie with Secure (and other) flags on an active session.
+ * Ensures HTTPS pages always advertise Secure even if the session started earlier.
+ */
+function login_refresh_session_cookie(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    if (headers_sent()) {
+        return;
+    }
+
+    $sessionId = session_id();
+    if ($sessionId === '') {
+        return;
+    }
+
+    $lifetime = login_session_lifetime_seconds();
+    setcookie(session_name(), $sessionId, [
+        'expires' => time() + $lifetime,
+        'path' => login_cookie_path(),
+        'secure' => login_cookie_secure_flag(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
 }
 
 function login_remember_secret(): string
@@ -401,22 +533,37 @@ function login_enforce_idle_timeout(bool $asJson = false, bool $touch = true): v
 
 
 /**
- * Enforce session cookie Secure/HttpOnly and an absolute lifetime.
+ * Enforce session cookie Secure/HttpOnly, app-scoped Path, and absolute lifetime.
+ * Call before session_start() when possible.
+ * If a session is already active, re-emit the cookie with Secure flags.
  */
 function login_configure_session(): void
 {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        login_refresh_session_cookie();
+        return;
+    }
+
     $lifetime = login_session_lifetime_seconds();
+    $path = login_cookie_path();
+    $secure = login_cookie_secure_flag();
 
     ini_set('session.gc_maxlifetime', (string) $lifetime);
     ini_set('session.cookie_lifetime', (string) $lifetime);
+    ini_set('session.cookie_path', $path);
     ini_set('session.cookie_httponly', '1');
-    ini_set('session.cookie_secure', '1');
+    ini_set('session.cookie_secure', $secure ? '1' : '0');
+    ini_set('session.cookie_samesite', 'Lax');
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_strict_mode', '1');
 
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_set_cookie_params($lifetime, '/', '', true, true);
-    }
+    session_set_cookie_params([
+        'lifetime' => $lifetime,
+        'path' => $path,
+        'secure' => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
 }
 
 function login_set_remember_cookie(string $usrName, int $sessionVersion = 1): void
@@ -436,29 +583,23 @@ function login_set_remember_cookie(string $usrName, int $sessionVersion = 1): vo
     $signature = hash_hmac('sha256', $data, login_remember_secret());
     $cookieValue = $data . '.' . $signature;
 
-    // Classic setcookie(..., secure=true, httponly=true)  detected by static scanners.
+    // Classic setcookie(..., secure=true, httponly=true) — detected by static scanners.
     setcookie(
         login_remember_cookie_name(),
         $cookieValue,
-        (int) $payload['exp'],
-        '/',
-        '',
-        true,
-        true
+        [
+            'expires' => (int) $payload['exp'],
+            'path' => login_cookie_path(),
+            'secure' => login_cookie_secure_flag(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]
     );
 }
 
 function login_clear_remember_cookie(): void
 {
-    setcookie(
-        login_remember_cookie_name(),
-        '',
-        time() - 3600,
-        '/',
-        '',
-        true,
-        true
-    );
+    login_expire_cookie(login_remember_cookie_name());
 }
 
 function login_parse_remember_cookie(string $cookie): ?array

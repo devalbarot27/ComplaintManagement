@@ -1,25 +1,7 @@
 <?php
 // Configure session cookie flags + expiration before session_start().
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    $sessionLifetime = 8 * 60 * 60; // 8 hours
-
-    ini_set('session.gc_maxlifetime', (string) $sessionLifetime);
-    ini_set('session.cookie_lifetime', (string) $sessionLifetime);
-    ini_set('session.cookie_secure', '1');
-    ini_set('session.cookie_httponly', '1');
-    ini_set('session.cookie_samesite', 'Lax');
-    ini_set('session.use_only_cookies', '1');
-    ini_set('session.use_strict_mode', '1');
-
-    session_set_cookie_params([
-        'lifetime' => $sessionLifetime,
-        'path' => '/',
-        'secure' => true,
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
-    session_start();
-}
+require_once dirname(__DIR__) . '/includes/login_helpers.php';
+login_start_php_session();
 
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';

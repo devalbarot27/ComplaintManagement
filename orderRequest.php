@@ -1,9 +1,9 @@
 
 <?php
-session_start();
+require_once __DIR__ . '/includes/login_helpers.php';
+login_start_php_session();
 
 include('pdo_obconn.php');
-require_once __DIR__ . '/includes/login_helpers.php';
 login_enforce_idle_timeout(true, false);
 login_enforce_session_version($obconn, true);
 include('orderClass.php');

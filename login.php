@@ -1,9 +1,9 @@
 <!doctype html>
 <?php
-session_start();
+require_once __DIR__ . '/includes/login_helpers.php';
+login_start_php_session();
 
 include 'pdo_obconn.php';
-include 'includes/login_helpers.php';
 require_once __DIR__ . '/includes/login_lockout_helpers.php';
 require_once __DIR__ . '/includes/login_transport_crypto_helpers.php';
 require_once __DIR__ . '/includes/sso/bootstrap.php';

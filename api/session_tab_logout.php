@@ -1,10 +1,7 @@
 <?php
 
 require_once dirname(__DIR__) . '/includes/login_helpers.php';
-
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+login_start_php_session();
 
 if (!empty($_SESSION['usr_name'])) {
     login_destroy_session();

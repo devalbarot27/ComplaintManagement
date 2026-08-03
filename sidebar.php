@@ -1,7 +1,6 @@
   <?php
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
+    require_once __DIR__ . '/includes/login_helpers.php';
+    login_start_php_session();
     include("session_check.php");
    
     require_once __DIR__ . '/includes/admin_access_helpers.php';

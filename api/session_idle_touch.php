@@ -1,9 +1,9 @@
 <?php
 
-session_start();
+require_once dirname(__DIR__) . '/includes/login_helpers.php';
+login_start_php_session();
 
 require_once dirname(__DIR__) . '/pdo_obconn.php';
-require_once dirname(__DIR__) . '/includes/login_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
