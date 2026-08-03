@@ -55,6 +55,26 @@ function userPasswordStrengthError(password) {
     return null;
 }
 
+function isBlockedEmailDomain(email) {
+    const value = String(email || '').trim().toLowerCase();
+    const atPos = value.lastIndexOf('@');
+    if (atPos === -1) {
+        return false;
+    }
+    const domain = value.slice(atPos + 1);
+    const blocked = Array.isArray(window.BLOCKED_EMAIL_DOMAINS) ? window.BLOCKED_EMAIL_DOMAINS : [];
+    if (blocked.indexOf(domain) !== -1) {
+        return true;
+    }
+    for (let i = 0; i < blocked.length; i += 1) {
+        const suffix = '.' + blocked[i];
+        if (domain.length > suffix.length && domain.slice(-suffix.length) === suffix) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function initUsersFormValidation() {
     const form = document.getElementById('userForm');
     if (!form || typeof validate === 'undefined') {
@@ -80,7 +100,25 @@ function initUsersFormValidation() {
 
     validate.validators.userUsernameFormat = function (value) {
         if (!/^[A-Za-z0-9_]+$/.test(String(value || ''))) {
-            return '^Username may only contain letters, numbers, and underscore';
+            return '^Username may only contain letters, numbers, and underscore. Special characters are not allowed';
+        }
+        return null;
+    };
+
+    validate.validators.userNameFormat = function (value) {
+        if (!/^[A-Za-z]+(?:[ .'\-][A-Za-z]+)*$/.test(String(value || '').trim())) {
+            return '^Name may only contain letters, spaces, dots, hyphens, and apostrophes. Special characters are not allowed';
+        }
+        return null;
+    };
+
+    validate.validators.userEmailFormat = function (value) {
+        const email = String(value || '').trim();
+        if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
+            return '^Please enter a valid email address without special characters';
+        }
+        if (isBlockedEmailDomain(email)) {
+            return '^Open or disposable email addresses are not allowed. Please use a valid personal or business email';
         }
         return null;
     };
@@ -105,11 +143,14 @@ function initUsersFormValidation() {
             userUsernameFormat: true
         },
         name: {
-            presence: { allowEmpty: false, message: '^Name is required' }
+            presence: { allowEmpty: false, message: '^Name is required' },
+            length: { maximum: 255, message: '^Name cannot exceed 255 characters' },
+            userNameFormat: true
         },
         email: {
             presence: { allowEmpty: false, message: '^Email is required' },
-            email: { message: '^Please enter a valid email address' }
+            email: { message: '^Please enter a valid email address' },
+            userEmailFormat: true
         },
         mobile_number: {
             presence: { allowEmpty: false, message: '^Mobile Number is required' },
@@ -123,6 +164,39 @@ function initUsersFormValidation() {
             userSalesCoordinatorRequired: true
         }
     };
+
+    function bindSpecialCharacterRestrictions() {
+        const usernameInput = form.querySelector('[name="username"]');
+        const nameInput = form.querySelector('[name="name"]');
+        const mobileInput = form.querySelector('[name="mobile_number"]');
+        const emailInput = form.querySelector('[name="email"]');
+
+        if (usernameInput) {
+            usernameInput.addEventListener('input', function () {
+                usernameInput.value = usernameInput.value.replace(/[^A-Za-z0-9_]/g, '');
+            });
+        }
+
+        if (nameInput) {
+            nameInput.addEventListener('input', function () {
+                nameInput.value = nameInput.value.replace(/[^A-Za-z .'\-]/g, '');
+            });
+        }
+
+        if (mobileInput) {
+            mobileInput.addEventListener('input', function () {
+                mobileInput.value = mobileInput.value.replace(/\D/g, '').slice(0, 10);
+            });
+        }
+
+        if (emailInput) {
+            emailInput.addEventListener('input', function () {
+                emailInput.value = emailInput.value.replace(/[^A-Za-z0-9._%+\-@]/g, '');
+            });
+        }
+    }
+
+    bindSpecialCharacterRestrictions();
 
     function clearValidationState() {
         form.querySelectorAll('.validation-msg').forEach(function (msg) {

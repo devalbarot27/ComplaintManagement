@@ -59,6 +59,8 @@ $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole)
         </label>
         <input type="text" class="form-control" name="username" maxlength="100"
             placeholder="Unique login username" autocomplete="off"
+            pattern="[A-Za-z0-9_]+"
+            title="Letters, numbers, and underscore only. Special characters are not allowed."
             value="<?php echo htmlspecialchars((string) ($formRecord['username'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         <div class="text-danger validation-msg" data-field="username"></div>
     </div>
@@ -68,6 +70,8 @@ $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole)
         </label>
         <input type="text" class="form-control" name="name" maxlength="255"
             placeholder="Full name"
+            pattern="[A-Za-z]+([ .'\-][A-Za-z]+)*"
+            title="Letters, spaces, dots, hyphens, and apostrophes only. Special characters are not allowed."
             value="<?php echo htmlspecialchars((string) ($formRecord['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         <div class="text-danger validation-msg" data-field="name"></div>
     </div>
@@ -77,6 +81,8 @@ $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole)
         </label>
         <input type="email" class="form-control" name="email" maxlength="255"
             placeholder="user@example.com" autocomplete="off"
+            pattern="[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"
+            title="Enter a valid email address without special characters."
             value="<?php echo htmlspecialchars((string) ($formRecord['email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         <div class="text-danger validation-msg" data-field="email"></div>
     </div>
@@ -86,6 +92,9 @@ $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole)
         </label>
         <input type="text" class="form-control" name="mobile_number" maxlength="10"
             placeholder="10-digit mobile number"
+            pattern="[1-9][0-9]{9}"
+            inputmode="numeric"
+            title="Enter a valid 10-digit mobile number."
             value="<?php echo htmlspecialchars((string) ($formRecord['mobile_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         <div class="text-danger validation-msg" data-field="mobile_number"></div>
     </div>

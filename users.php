@@ -188,6 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     <script src="js/users.js"></script>
     <script>
     window.USER_ROLES_REQUIRING_SALES_COORDINATOR = <?php echo json_encode(user_roles_requiring_sales_coordinator()); ?>;
+    window.BLOCKED_EMAIL_DOMAINS = <?php echo json_encode(disposable_email_blocked_domains(), JSON_UNESCAPED_SLASHES); ?>;
     $(document).ready(function () {
         document.getElementById('cancelUserForm').addEventListener('click', closeUserFormPanel);
         document.getElementById('closeUserForm').addEventListener('click', closeUserFormPanel);

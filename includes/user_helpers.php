@@ -4,6 +4,7 @@ require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/password_reset_helpers.php';
 require_once __DIR__ . '/role_helpers.php';
 require_once __DIR__ . '/admin_access_helpers.php';
+require_once __DIR__ . '/disposable_email_helpers.php';
 
 /**
  * @return array<int, int>
@@ -323,6 +324,30 @@ function user_from_post(array $post): array
     ];
 }
 
+/**
+ * Username: letters, numbers, underscore only.
+ */
+function user_username_pattern(): string
+{
+    return '/^[A-Za-z0-9_]+$/';
+}
+
+/**
+ * Display name: letters, spaces, dot, apostrophe, hyphen only (no XSS/special chars).
+ */
+function user_name_pattern(): string
+{
+    return '/^[A-Za-z]+(?:[ .\'-][A-Za-z]+)*$/';
+}
+
+/**
+ * Email: conservative ASCII email shape (no angle brackets / script-friendly chars).
+ */
+function user_email_pattern(): string
+{
+    return '/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/';
+}
+
 function user_validate(array $data, bool $isEdit, PDO $conn): ?string
 {
     $roles = array_keys(user_role_options($conn));
@@ -335,8 +360,8 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
         return 'Username is required.';
     }
 
-    if (!preg_match('/^[A-Za-z0-9_]+$/', $data['username'])) {
-        return 'Username may only contain letters, numbers, and underscore.';
+    if (!preg_match(user_username_pattern(), $data['username'])) {
+        return 'Username may only contain letters, numbers, and underscore. Special characters are not allowed.';
     }
 
     if (strlen($data['username']) > 100) {
@@ -347,12 +372,31 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
         return 'Name is required.';
     }
 
+    if (strlen($data['name']) > 255) {
+        return 'Name cannot exceed 255 characters.';
+    }
+
+    if (!preg_match(user_name_pattern(), $data['name'])) {
+        return 'Name may only contain letters, spaces, dots, hyphens, and apostrophes. Special characters are not allowed.';
+    }
+
     if ($data['email'] === '') {
         return 'Email is required.';
     }
 
-    if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-        return 'Please enter a valid email address.';
+    if (strlen($data['email']) > 255) {
+        return 'Email cannot exceed 255 characters.';
+    }
+
+    if (
+        !filter_var($data['email'], FILTER_VALIDATE_EMAIL)
+        || !preg_match(user_email_pattern(), $data['email'])
+    ) {
+        return 'Please enter a valid email address without special characters.';
+    }
+
+    if (disposable_email_is_blocked($data['email'])) {
+        return disposable_email_blocked_message();
     }
 
     if ($data['mobile_number'] === '') {
