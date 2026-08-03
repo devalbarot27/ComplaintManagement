@@ -51,11 +51,62 @@ function initLoginFormValidation() {
         });
     }
 
+    function pemToArrayBuffer(pem) {
+        const b64 = String(pem || '')
+            .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+            .replace(/-----END PUBLIC KEY-----/g, '')
+            .replace(/\s+/g, '');
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    function bufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 1) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    async function encryptPasswordForTransport(plainPassword) {
+        const pem = window.LOGIN_TRANSPORT_PUBLIC_KEY || '';
+        if (!pem || !window.crypto || !window.crypto.subtle) {
+            throw new Error('Secure password encryption is unavailable in this browser.');
+        }
+
+        // RSA-OAEP with SHA-1 matches PHP openssl_private_decrypt(OPENSSL_PKCS1_OAEP_PADDING).
+        const key = await window.crypto.subtle.importKey(
+            'spki',
+            pemToArrayBuffer(pem),
+            {
+                name: 'RSA-OAEP',
+                hash: 'SHA-1'
+            },
+            false,
+            ['encrypt']
+        );
+
+        const encoded = new TextEncoder().encode(plainPassword);
+        const cipherBuffer = await window.crypto.subtle.encrypt(
+            { name: 'RSA-OAEP' },
+            key,
+            encoded
+        );
+
+        return bufferToBase64(cipherBuffer);
+    }
+
     let isSubmitting = false;
 
     form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
         if (isSubmitting) {
-            e.preventDefault();
             return;
         }
 
@@ -63,15 +114,40 @@ function initLoginFormValidation() {
         showErrors(errors);
 
         if (errors) {
-            e.preventDefault();
             return;
         }
 
-        isSubmitting = true;
+        const passwordInput = form.querySelector('#password');
+        const encryptedInput = form.querySelector('#password_encrypted');
         const submitButton = form.querySelector('[type="submit"]');
+        const plainPassword = passwordInput ? String(passwordInput.value || '') : '';
+
+        isSubmitting = true;
         if (submitButton) {
             submitButton.disabled = true;
         }
+
+        encryptPasswordForTransport(plainPassword)
+            .then(function (encrypted) {
+                if (encryptedInput) {
+                    encryptedInput.value = encrypted;
+                }
+                // Do not transmit plaintext password.
+                if (passwordInput) {
+                    passwordInput.value = '';
+                    passwordInput.removeAttribute('name');
+                }
+                form.submit();
+            })
+            .catch(function () {
+                isSubmitting = false;
+                if (submitButton) {
+                    submitButton.disabled = false;
+                }
+                showErrors({
+                    password: ['Unable to secure password for transmission. Please try again.']
+                });
+            });
     });
 
     const passwordInput = form.querySelector('#password');

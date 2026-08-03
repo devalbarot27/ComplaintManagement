@@ -155,7 +155,7 @@ function initUsersFormValidation() {
     function checkUserUniqueFields(recordId) {
         return $.ajax({
             url: 'api/users_check_unique.php',
-            type: 'GET',
+            type: 'POST',
             dataType: 'json',
             data: {
                 record_id: recordId || 0,

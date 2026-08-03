@@ -5,6 +5,7 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/login_helpers.php';
 require_once __DIR__ . '/includes/login_lockout_helpers.php';
+require_once __DIR__ . '/includes/login_transport_crypto_helpers.php';
 require_once __DIR__ . '/includes/sso/bootstrap.php';
 
 $error_message = '';
@@ -12,6 +13,14 @@ $success_message = '';
 $username_value = '';
 $ssoAvailable = sso_is_available();
 $ssoProviderName = sso_provider_display_name();
+$loginPublicKeyPem = '';
+
+try {
+    $loginPublicKeyPem = login_transport_public_key_pem();
+} catch (Throwable $e) {
+    $loginPublicKeyPem = '';
+    error_log('login transport key: ' . $e->getMessage());
+}
 
 if (!empty($_SESSION['success_message'])) {
     $success_message = (string) $_SESSION['success_message'];
@@ -39,10 +48,13 @@ if (login_attempt_remember($obconn)) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username_value = trim($_POST['usr_name'] ?? '');
-    $password = (string) ($_POST['password'] ?? '');
+    $passwordEncrypted = trim((string) ($_POST['password_encrypted'] ?? ''));
     $rememberMe = isset($_POST['remember_me']);
 
-    if ($username_value === '' || $password === '') {
+    // Prefer RSA-OAEP ciphertext from the browser; never accept plaintext password over the wire.
+    $password = login_decrypt_transport_password($passwordEncrypted);
+
+    if ($username_value === '' || $password === null || $password === '') {
         $error_message = 'Invalid username or password';
     } else {
         try {
@@ -509,6 +521,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <i class="bi bi-eye" id="passwordToggleIcon"></i>
                             </button>
                         </div>
+                        <input type="hidden" name="password_encrypted" id="password_encrypted" value="">
                         <div class="validation-msg" data-field="password"></div>
 
                     </div>
@@ -556,6 +569,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
+    <script>
+        window.LOGIN_TRANSPORT_PUBLIC_KEY = <?php echo json_encode($loginPublicKeyPem, JSON_UNESCAPED_SLASHES); ?>;
+    </script>
     <script src="js/login_validation.js"></script>
 
 </body>
