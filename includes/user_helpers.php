@@ -541,7 +541,17 @@ function user_insert(PDO $conn, array $data, string $createdBy): void
 
 function user_update(PDO $conn, int $id, array $data): void
 {
-    if ($data['password'] !== '') {
+    $existing = user_get_by_id($conn, $id);
+    $passwordChanged = $data['password'] !== '';
+    $roleChanged = $existing !== null
+        && (int) $data['role'] !== (int) ($existing['role'] ?? 0);
+    $emailChanged = $existing !== null
+        && strcasecmp(
+            trim((string) $data['email']),
+            trim((string) ($existing['email'] ?? ''))
+        ) !== 0;
+
+    if ($passwordChanged) {
         $stmt = $conn->prepare('
             UPDATE user_master SET
                 role = :role,
@@ -579,4 +589,9 @@ function user_update(PDO $conn, int $id, array $data): void
     user_bind_sales_coordinator_id($stmt, $data);
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
+
+    // Password, role, or email change invalidates sessions for this user.
+    if ($passwordChanged || $roleChanged || $emailChanged) {
+        login_bump_session_version_by_id($conn, $id);
+    }
 }

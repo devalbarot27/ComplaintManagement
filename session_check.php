@@ -6,6 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/pdo_obconn.php';
 require_once __DIR__ . '/includes/login_helpers.php';
 login_enforce_idle_timeout();
+login_enforce_session_version($obconn);
 require_once __DIR__ . '/includes/admin_access_helpers.php';
 admin_refresh_session_role($obconn);
 require_once __DIR__ . '/includes/rbac_access_helpers.php';

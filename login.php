@@ -17,6 +17,10 @@ if (!empty($_SESSION['success_message'])) {
     unset($_SESSION['success_message']);
 }
 
+if ($error_message === '' && ($_GET['reason'] ?? '') === 'session_revoked') {
+    $error_message = 'Your account details were updated. Please sign in again.';
+}
+
 $ssoFlashError = (new SsoSessionManager())->pullFlashError();
 if ($ssoFlashError !== '') {
     $error_message = $ssoFlashError;

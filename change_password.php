@@ -84,11 +84,18 @@ $result = change_password_process(
 );
 
 if ($result['success']) {
-    $_SESSION['success_message'] = $result['message'];
-} else {
-    $_SESSION['error_message'] = $result['error'] ?? 'Failed to change password.';
-    $_SESSION['open_change_password_modal'] = true;
+    // Password change invalidates all sessions; force re-login on this browser too.
+    login_destroy_session();
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+    $_SESSION['success_message'] = $result['message'] ?? 'Password changed successfully. Please sign in again.';
+    header('Location: login.php');
+    exit;
 }
+
+$_SESSION['error_message'] = $result['error'] ?? 'Failed to change password.';
+$_SESSION['open_change_password_modal'] = true;
 
 // Emit Location using only allowlisted string literals (open-redirect safe).
 switch ($redirect) {

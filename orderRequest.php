@@ -3,6 +3,9 @@
 session_start();
 
 include('pdo_obconn.php');
+require_once __DIR__ . '/includes/login_helpers.php';
+login_enforce_idle_timeout(true, false);
+login_enforce_session_version($obconn, true);
 include('orderClass.php');
 
 $ordInstance = new orderClass($obconn, $dpconn);

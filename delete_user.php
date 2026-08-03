@@ -21,10 +21,14 @@ try {
         exit;
     }
 
+    require_once __DIR__ . '/includes/login_helpers.php';
+    login_ensure_session_version_column($obconn);
+
     $stmt = $obconn->prepare('
         UPDATE user_master
         SET deleted_at = CURRENT_TIMESTAMP,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = CURRENT_TIMESTAMP,
+            session_version = COALESCE(session_version, 1) + 1
         WHERE id = :id
           AND deleted_at IS NULL
     ');

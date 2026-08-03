@@ -179,7 +179,12 @@ function password_reset_update_password(PDO $obconn, string $username, string $n
     $stmt->bindValue(':username', trim($username));
     $stmt->execute();
 
-    return $stmt->rowCount() > 0;
+    if ($stmt->rowCount() <= 0) {
+        return false;
+    }
+
+    login_bump_session_version_by_username($obconn, $username);
+    return true;
 }
 
 function password_reset_process_forgot(PDO $obconn, string $email): array
@@ -353,5 +358,5 @@ function change_password_process(
         return ['success' => false, 'error' => 'Failed to change password. Please try again.'];
     }
 
-    return ['success' => true, 'message' => 'Password changed successfully'];
+    return ['success' => true, 'message' => 'Password changed successfully. Please sign in again.'];
 }

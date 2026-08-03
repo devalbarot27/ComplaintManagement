@@ -7,7 +7,7 @@ function login_destroy_session(): void
     $_SESSION = [];
 
     if (ini_get('session.use_cookies')) {
-        // Classic setcookie(..., secure=true, httponly=true) — detected by static scanners.
+        // Classic setcookie(..., secure=true, httponly=true)  detected by static scanners.
         setcookie(
             session_name(),
             '',
@@ -56,13 +56,33 @@ function login_normalize_user_master_row(array $row): array
         'email' => trim((string) ($row['email'] ?? '')),
         'mobile' => trim((string) ($row['mobile_number'] ?? '')),
         'role' => (int) ($row['role'] ?? 0),
+        'session_version' => (int) ($row['session_version'] ?? 1),
     ];
+}
+
+/**
+ * Ensure user_master.session_version exists (PostgreSQL).
+ */
+function login_ensure_session_version_column(PDO $conn): void
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+
+    $conn->exec('
+        ALTER TABLE user_master
+        ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 1
+    ');
+    $ensured = true;
 }
 
 function login_fetch_user_master(PDO $conn, string $username): ?array
 {
+    login_ensure_session_version_column($conn);
+
     $sql = "
-        SELECT id, username, name, email, password, mobile_number, role
+        SELECT id, username, name, email, password, mobile_number, role, session_version
         FROM user_master
         WHERE TRIM(username) = :username
           AND deleted_at IS NULL
@@ -85,8 +105,10 @@ function login_fetch_user_by_email(PDO $conn, string $email): ?array
         return null;
     }
 
+    login_ensure_session_version_column($conn);
+
     $sql = "
-        SELECT id, username, name, email, password, mobile_number, role
+        SELECT id, username, name, email, password, mobile_number, role, session_version
         FROM user_master
         WHERE LOWER(TRIM(email)) = LOWER(TRIM(:email))
           AND deleted_at IS NULL
@@ -100,6 +122,161 @@ function login_fetch_user_by_email(PDO $conn, string $email): ?array
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $user ? login_normalize_user_master_row($user) : null;
+}
+
+/**
+ * Invalidate all active sessions for a user (other browsers must log in again).
+ */
+function login_bump_session_version_by_id(PDO $conn, int $userId): void
+{
+    if ($userId <= 0) {
+        return;
+    }
+
+    login_ensure_session_version_column($conn);
+
+    $stmt = $conn->prepare('
+        UPDATE user_master
+        SET session_version = COALESCE(session_version, 1) + 1
+        WHERE id = :id
+    ');
+    $stmt->bindValue(':id', $userId, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+function login_bump_session_version_by_username(PDO $conn, string $username): void
+{
+    $username = trim($username);
+    if ($username === '') {
+        return;
+    }
+
+    login_ensure_session_version_column($conn);
+
+    $stmt = $conn->prepare('
+        UPDATE user_master
+        SET session_version = COALESCE(session_version, 1) + 1
+        WHERE TRIM(username) = :username
+    ');
+    $stmt->bindValue(':username', $username);
+    $stmt->execute();
+}
+
+function login_fetch_session_version_by_id(PDO $conn, int $userId): ?int
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    login_ensure_session_version_column($conn);
+
+    $stmt = $conn->prepare('
+        SELECT session_version
+        FROM user_master
+        WHERE id = :id
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $userId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return null;
+    }
+
+    return (int) ($row['session_version'] ?? 1);
+}
+
+/**
+ * After the current user changes their own password, keep this browser logged in
+ * while other browsers (and remember-me cookies) are invalidated.
+ */
+function login_restamp_current_session_version(PDO $conn): void
+{
+    $userId = (int) ($_SESSION['user_id'] ?? 0);
+    if ($userId <= 0) {
+        $username = trim((string) ($_SESSION['usr_name'] ?? ''));
+        if ($username === '') {
+            return;
+        }
+        $user = login_fetch_user_master($conn, $username);
+        if ($user === null) {
+            return;
+        }
+        $_SESSION['user_id'] = (int) $user['id'];
+        $_SESSION['session_version'] = (int) ($user['session_version'] ?? 1);
+    } else {
+        $version = login_fetch_session_version_by_id($conn, $userId);
+        if ($version === null) {
+            return;
+        }
+        $_SESSION['session_version'] = $version;
+    }
+
+    // Keep remember-me in sync so this browser stays logged in after self password change.
+    $cookie = trim((string) ($_COOKIE[login_remember_cookie_name()] ?? ''));
+    if ($cookie !== '' && login_parse_remember_cookie($cookie) !== null) {
+        login_set_remember_cookie(
+            (string) $_SESSION['usr_name'],
+            (int) $_SESSION['session_version']
+        );
+    }
+}
+
+/**
+ * Force logout when DB session_version no longer matches this PHP session.
+ *
+ * @param bool $asJson When true, respond with JSON 401 instead of redirecting.
+ */
+function login_enforce_session_version(PDO $conn, bool $asJson = false): void
+{
+    if (empty($_SESSION['usr_name'])) {
+        return;
+    }
+
+    login_ensure_session_version_column($conn);
+
+    $username = trim((string) $_SESSION['usr_name']);
+    $user = login_fetch_user_master($conn, $username);
+
+    // Soft-deleted / missing user: terminate session.
+    if ($user === null) {
+        login_destroy_session();
+        login_session_version_exit($asJson);
+    }
+
+    $dbVersion = (int) ($user['session_version'] ?? 1);
+
+    // Soft rollout: adopt version on first request after deploy.
+    if (!isset($_SESSION['session_version'])) {
+        $_SESSION['session_version'] = $dbVersion;
+        if ((int) ($_SESSION['user_id'] ?? 0) <= 0 && (int) ($user['id'] ?? 0) > 0) {
+            $_SESSION['user_id'] = (int) $user['id'];
+        }
+        return;
+    }
+
+    if ((int) $_SESSION['session_version'] !== $dbVersion) {
+        login_destroy_session();
+        login_session_version_exit($asJson);
+    }
+}
+
+function login_session_version_exit(bool $asJson): void
+{
+    if ($asJson) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'error' => 'Your account details were updated. Please log in again.',
+            'reason' => 'session_revoked',
+        ]);
+        exit;
+    }
+
+    header('Location: login.php?reason=session_revoked');
+    exit;
 }
 
 function login_display_name(array $user): string
@@ -145,13 +322,17 @@ function login_start_session(array $user, bool $remember = false): void
     $_SESSION['display_name'] = login_display_name($user);
     $_SESSION['role'] = (int) ($user['role'] ?? 0);
     $_SESSION['user_id'] = (int) ($user['id'] ?? 0);
+    $_SESSION['session_version'] = (int) ($user['session_version'] ?? 1);
     $_SESSION['login_at'] = time();
     $_SESSION['login_expires_at'] = time() + $lifetime;
     $_SESSION['last_activity_at'] = time();
     unset($_SESSION['rbac_permissions']);
 
     if ($remember) {
-        login_set_remember_cookie($_SESSION['usr_name']);
+        login_set_remember_cookie(
+            $_SESSION['usr_name'],
+            (int) $_SESSION['session_version']
+        );
     } else {
         login_clear_remember_cookie();
     }
@@ -238,7 +419,7 @@ function login_configure_session(): void
     }
 }
 
-function login_set_remember_cookie(string $usrName): void
+function login_set_remember_cookie(string $usrName, int $sessionVersion = 1): void
 {
     $usrName = trim($usrName);
     // Restrict cookie identity to safe username characters (XSS / cookie injection).
@@ -248,13 +429,14 @@ function login_set_remember_cookie(string $usrName): void
 
     $payload = [
         'usr_name' => $usrName,
+        'session_version' => max(1, $sessionVersion),
         'exp' => time() + (30 * 24 * 60 * 60),
     ];
     $data = base64_encode(json_encode($payload));
     $signature = hash_hmac('sha256', $data, login_remember_secret());
     $cookieValue = $data . '.' . $signature;
 
-    // Classic setcookie(..., secure=true, httponly=true) — detected by static scanners.
+    // Classic setcookie(..., secure=true, httponly=true)  detected by static scanners.
     setcookie(
         login_remember_cookie_name(),
         $cookieValue,
@@ -298,6 +480,11 @@ function login_parse_remember_cookie(string $cookie): ?array
         return null;
     }
 
+    // Reject legacy cookies without session_version so a version bump cannot be bypassed.
+    if (!isset($payload['session_version'])) {
+        return null;
+    }
+
     if (time() > (int) $payload['exp']) {
         return null;
     }
@@ -320,6 +507,13 @@ function login_attempt_remember(PDO $obconn): bool
 
     $user = login_fetch_user_auth($obconn, (string) $payload['usr_name']);
     if ($user === null) {
+        login_clear_remember_cookie();
+        return false;
+    }
+
+    $cookieVersion = (int) ($payload['session_version'] ?? 0);
+    $dbVersion = (int) ($user['session_version'] ?? 1);
+    if ($cookieVersion <= 0 || $cookieVersion !== $dbVersion) {
         login_clear_remember_cookie();
         return false;
     }

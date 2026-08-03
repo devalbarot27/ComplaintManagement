@@ -4,6 +4,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 // Check assigned permission
 include('pdo_obconn.php');
+require_once __DIR__ . '/includes/login_helpers.php';
 require_once __DIR__ . '/includes/admin_access_helpers.php';
 require_once __DIR__ . '/includes/rbac_access_helpers.php';
 require_once __DIR__ . '/includes/dashboard_helpers.php';
@@ -13,6 +14,9 @@ if (empty($_SESSION['usr_name'])) {
     header('Location: login.php');
     exit;
 }
+
+login_enforce_idle_timeout();
+login_enforce_session_version($obconn);
 
 admin_ensure_session_role($obconn);
 

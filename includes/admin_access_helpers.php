@@ -74,6 +74,8 @@ function is_ccs_admin_user(): bool
 function require_system_admin(?PDO $conn = null): void
 {
     if ($conn !== null) {
+        require_once __DIR__ . '/login_helpers.php';
+        login_enforce_session_version($conn);
         admin_ensure_session_role($conn);
     }
 
