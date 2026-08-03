@@ -1,8 +1,7 @@
 <?php
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/login_helpers.php';
+login_start_php_session();
 
 if (!isset($scmType) || $scmType === '') {
     die('System configuration page type is not defined.');

@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/login_helpers.php';
+login_start_php_session();
 
 require_once __DIR__ . '/pdo_obconn.php';
 require_once __DIR__ . '/includes/admin_access_helpers.php';

@@ -125,6 +125,9 @@ function login_cookie_secure_flag(): bool
  */
 function login_start_php_session(): void
 {
+    require_once __DIR__ . '/security_headers_helpers.php';
+    security_send_http_headers();
+
     if (session_status() === PHP_SESSION_ACTIVE) {
         login_refresh_session_cookie();
         return;
@@ -583,7 +586,7 @@ function login_set_remember_cookie(string $usrName, int $sessionVersion = 1): vo
     $signature = hash_hmac('sha256', $data, login_remember_secret());
     $cookieValue = $data . '.' . $signature;
 
-    // Classic setcookie(..., secure=true, httponly=true) ó detected by static scanners.
+    // Classic setcookie(..., secure=true, httponly=true) ù detected by static scanners.
     setcookie(
         login_remember_cookie_name(),
         $cookieValue,
