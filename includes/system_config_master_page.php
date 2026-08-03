@@ -1,10 +1,12 @@
 <?php
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (!isset($scmType) || $scmType === '') {
     die('System configuration page type is not defined.');
 }
-
-session_start();
 
 include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';

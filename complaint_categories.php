@@ -5,6 +5,7 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/complaint_category_helpers.php';
+require_once __DIR__ . '/includes/module_create_guards/complaint_categories_create_guard.php';
 
 require_system_admin($obconn);
 
@@ -17,8 +18,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_complaint_cate
     $data = complaint_category_from_post($_POST);
     $isEdit = $recordId > 0;
     $validationError = complaint_category_validate($data);
+    $abuseError = null;
 
-    if ($validationError !== null) {
+    if (!$isEdit) {
+        $abuseError = complaint_categories_enforce_create_request($_POST);
+    }
+
+    if ($abuseError !== null) {
+        $error_message = $abuseError;
+    } elseif ($validationError !== null) {
         $error_message = $validationError;
     } elseif (complaint_category_name_exists($obconn, $data['name'], $recordId)) {
         $error_message = 'Category name already exists. Please choose a different name.';

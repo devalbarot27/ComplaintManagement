@@ -5,6 +5,7 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/product_helpers.php';
+require_once __DIR__ . '/includes/module_create_guards/products_create_guard.php';
 
 require_system_admin($obconn);
 
@@ -20,8 +21,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
     $isEdit = $recordId > 0;
     $validationError = product_validate($data);
     $orderType = (int) ($data['order_type'] ?? 0);
+    $abuseError = null;
 
-    if ($validationError !== null) {
+    if (!$isEdit) {
+        $abuseError = products_enforce_create_request($_POST);
+    }
+
+    if ($abuseError !== null) {
+        $error_message = $abuseError;
+    } elseif ($validationError !== null) {
         $error_message = $validationError;
     } elseif (product_tplcode_exists($obconn, $data['tplcode'], $orderType, $recordId)) {
         $error_message = 'TPL Code already exists for this Order Type. Please choose a different TPL Code.';
