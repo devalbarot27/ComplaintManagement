@@ -39,6 +39,16 @@ class SsoUserAuthenticator
             throw new SsoException('Local user record is incomplete.', 'user_incomplete');
         }
 
+        require_once dirname(__DIR__) . '/login_lockout_helpers.php';
+        $lockout = login_get_lockout_status($this->conn, $username);
+        if ($lockout !== null && !empty($lockout['locked'])) {
+            throw new SsoException(
+                (string) ($lockout['message'] ?? 'Your account is locked. Please try again later.'),
+                'account_locked'
+            );
+        }
+
+        login_clear_failed_attempts($this->conn, $username);
         login_update_last_login_at($this->conn, $username);
         login_start_session($user, false);
 

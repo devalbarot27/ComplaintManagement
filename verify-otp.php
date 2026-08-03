@@ -4,6 +4,7 @@ session_start();
 
 include 'pdo_obconn.php';
 include 'includes/login_helpers.php';
+require_once __DIR__ . '/includes/login_lockout_helpers.php';
 
 $error_message = '';
 $success_message = '';
@@ -21,6 +22,15 @@ if (login_attempt_remember($obconn)) {
 
 $otpUser = login_user_from_otp_session($obconn);
 if ($otpUser === null) {
+    header('Location: login-otp.php');
+    exit;
+}
+
+$otpUsername = trim((string) ($otpUser['usr_name'] ?? ''));
+$lockout = login_get_lockout_status($obconn, $otpUsername);
+if ($lockout !== null && !empty($lockout['locked'])) {
+    login_clear_otp_session();
+    $_SESSION['error_message'] = (string) $lockout['message'];
     header('Location: login-otp.php');
     exit;
 }
@@ -49,9 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rememberMe = isset($_POST['remember_me']);
 
         if (!login_verify_otp($enteredOtp)) {
+            $fail = login_register_failed_attempt($obconn, $otpUsername);
+            if (!empty($fail['locked']) && !empty($fail['message'])) {
+                login_clear_otp_session();
+                $_SESSION['error_message'] = (string) $fail['message'];
+                header('Location: login-otp.php');
+                exit;
+            }
             $error_message = 'Invalid or expired OTP. Please try again.';
         } else {
-            login_update_last_login_at($obconn, (string) $otpUser['usr_name']);
+            login_clear_failed_attempts($obconn, $otpUsername);
+            login_update_last_login_at($obconn, $otpUsername);
             login_start_session($otpUser, $rememberMe);
             login_clear_otp_session();
             header('Location: index.php');

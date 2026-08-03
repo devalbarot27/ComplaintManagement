@@ -518,6 +518,13 @@ function login_attempt_remember(PDO $obconn): bool
         return false;
     }
 
+    require_once __DIR__ . '/login_lockout_helpers.php';
+    if (login_is_account_locked($obconn, (string) $user['usr_name'])) {
+        login_clear_remember_cookie();
+        return false;
+    }
+
+    login_clear_failed_attempts($obconn, (string) $user['usr_name']);
     login_start_session($user, true);
     return true;
 }

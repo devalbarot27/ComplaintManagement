@@ -4,10 +4,16 @@ session_start();
 
 include 'pdo_obconn.php';
 include 'includes/login_helpers.php';
+require_once __DIR__ . '/includes/login_lockout_helpers.php';
 
 $error_message = '';
 $success_message = '';
 $username_value = '';
+
+if (!empty($_SESSION['error_message'])) {
+    $error_message = (string) $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
+}
 
 if (!empty($_SESSION['usr_name'])) {
     header('Location: index.php');
@@ -26,14 +32,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = 'Username is required.';
     } else {
         try {
-            $result = login_issue_otp($obconn, $username_value);
+            $lockout = login_get_lockout_status($obconn, $username_value);
+            if ($lockout !== null && !empty($lockout['locked'])) {
+                $error_message = (string) $lockout['message'];
+            } else {
+                $result = login_issue_otp($obconn, $username_value);
 
-            if ($result['success']) {
-                header('Location: verify-otp.php');
-                exit;
+                if ($result['success']) {
+                    header('Location: verify-otp.php');
+                    exit;
+                }
+
+                $error_message = $result['error'] ?? 'Failed to send OTP. Please try again.';
             }
-
-            $error_message = $result['error'] ?? 'Failed to send OTP. Please try again.';
         } catch (PDOException $e) {
             $error_message = 'Failed to send OTP. Please try again.';
         }

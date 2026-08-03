@@ -4,6 +4,7 @@ session_start();
 
 include 'pdo_obconn.php';
 include 'includes/login_helpers.php';
+require_once __DIR__ . '/includes/login_lockout_helpers.php';
 require_once __DIR__ . '/includes/sso/bootstrap.php';
 
 $error_message = '';
@@ -45,16 +46,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = 'Invalid username or password';
     } else {
         try {
-            $user = login_fetch_user_auth($obconn, $username_value);
+            $lockout = login_get_lockout_status($obconn, $username_value);
+            if ($lockout !== null && !empty($lockout['locked'])) {
+                $error_message = (string) $lockout['message'];
+            } else {
+                $user = login_fetch_user_auth($obconn, $username_value);
 
-            if ($user && login_verify_password($user, $password)) {
-                login_update_last_login_at($obconn, $username_value);
-                login_start_session($user, $rememberMe);
-                header('Location: index.php');
-                exit;
+                if ($user && login_verify_password($user, $password)) {
+                    login_clear_failed_attempts($obconn, $username_value);
+                    login_update_last_login_at($obconn, $username_value);
+                    login_start_session($user, $rememberMe);
+                    header('Location: index.php');
+                    exit;
+                }
+
+                if ($user) {
+                    $fail = login_register_failed_attempt($obconn, $username_value);
+                    $error_message = !empty($fail['locked']) && !empty($fail['message'])
+                        ? (string) $fail['message']
+                        : 'Invalid username or password';
+                } else {
+                    $error_message = 'Invalid username or password';
+                }
             }
-
-            $error_message = 'Invalid username or password';
         } catch (PDOException $e) {
             $error_message = 'Invalid username or password';
         }
