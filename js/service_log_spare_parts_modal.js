@@ -159,7 +159,9 @@ function fillServiceLogSparePartsForm(data) {
     ['order_id', 'fab_number', 'serial_number', 'running_hours'].forEach(function (field) {
         const input = form.querySelector('[name="' + field + '"]');
         if (input) {
-            input.value = data[field] ?? '';
+            input.value = data[field] != null && data[field] !== ''
+                ? String(data[field])
+                : '';
         }
     });
 
@@ -347,7 +349,7 @@ function initServiceLogSparePartsValidation() {
         })
             .done(function (response) {
                 if (window.installedBaseTable) {
-                    window.location.reload();
+                    window.location.replace('installed_base.php?spare_parts_added=1');
                     return;
                 }
 

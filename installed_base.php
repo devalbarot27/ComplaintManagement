@@ -21,6 +21,10 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
     $success_message = 'Service Log Capture added successfully.';
 }
 
+if (isset($_GET['spare_parts_added']) && (string) $_GET['spare_parts_added'] === '1') {
+    $success_message = 'Spare Parts Consumption added successfully.';
+}
+
 if (isset($_GET['ib_saved']) && (string) $_GET['ib_saved'] === '1') {
     $success_message = 'Installed base record saved successfully.';
 }

@@ -43,7 +43,8 @@ $stmt = $obconn->prepare('
         sl.running_hours,
         sl.remarks,
         ib.customer_name,
-        ib.dealer_name
+        ib.dealer_name,
+        ib.running_hours AS ib_running_hours
     FROM service_logs sl
     INNER JOIN installed_base ib
         ON ib.id = sl.installed_base_id
@@ -70,6 +71,13 @@ $installedBaseLabel = '#' . $installedBaseId
 $serviceLogLabel = '#' . $serviceLogId
     . ' - ' . ($row['serial_number'] ?? '');
 
+// Prefer service-log hours; fall back to installed-base machine hours
+// (service log hours are often empty when Part Replaced is No).
+$runningHours = trim((string) ($row['running_hours'] ?? ''));
+if ($runningHours === '') {
+    $runningHours = trim((string) ($row['ib_running_hours'] ?? ''));
+}
+
 echo json_encode([
     'service_log_id' => $serviceLogId,
     'service_log_label' => $serviceLogLabel,
@@ -88,6 +96,6 @@ echo json_encode([
     'visit_date' => service_log_format_input_date($row['visit_date'] ?? null),
     'action_taken' => $row['action_taken'] ?? '',
     'closure_date' => service_log_format_input_date($row['closure_date'] ?? null),
-    'running_hours' => $row['running_hours'] ?? '',
+    'running_hours' => $runningHours,
     'service_remarks' => $row['remarks'] ?? '',
 ]);
