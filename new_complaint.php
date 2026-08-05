@@ -252,7 +252,6 @@ if(isset($_POST['submit_complaint']))
     <link href="css/complaint_buttons.css" rel="stylesheet" />
     <link href="css/orderbook_style.css" rel="stylesheet" /> 
     <link href="css/complaint_status_cards.css" rel="stylesheet" />
-    <link href="css/complaint_botton.css" rel="stylesheet" />
     <link href="css/complaint_form.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link href="css/select2_change.css" rel="stylesheet" />
