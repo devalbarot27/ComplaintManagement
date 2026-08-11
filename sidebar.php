@@ -89,7 +89,7 @@
     } else if ($currentPage == 'product_details.php') {
         $pageName = "Product Details";
     } else if ($currentPage == 'customers.php') {
-        $pageName = "Customers";
+        $pageName = "Customer Master";
     } else if ($currentPage == 'customer_details.php') {
         $pageName = "Customer Details";
     } else if ($currentPage == 'access_denied.php') {
@@ -336,7 +336,7 @@
                   <a href="customers.php"
                       class="menu-item <?= in_array($currentPage, ['customers.php', 'customer_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-person-badge"></i>
-                      Customers
+                      Customer Master
                   </a>
 
                   <a href="complaint_categories.php"
