@@ -1,0 +1,31 @@
+erDiagram
+  pendingordersnew {
+    VARCHAR cuno
+    VARCHAR cuname
+    VARCHAR ordno
+    DATE orddt
+    VARCHAR posno
+    VARCHAR itemcode
+    VARCHAR itemdesc
+    NUMERIC qty
+    NUMERIC unitvalue
+    VARCHAR pono
+    DATE delydt
+    VARCHAR indentno
+    INT company
+  }
+
+  plexecom_customer_units {
+    VARCHAR refno
+    VARCHAR order_number
+    VARCHAR cuno
+    VARCHAR pono
+  }
+
+  despatch {
+    VARCHAR ordno
+    VARCHAR cuno
+  }
+
+  pendingordersnew ||--o| plexecom_customer_units : "ordno to order_number"
+  pendingordersnew ||--o| despatch : "status badge"

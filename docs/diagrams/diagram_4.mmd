@@ -1,0 +1,22 @@
+sequenceDiagram
+  actor User
+  participant Page as installed_base.php
+  participant Val as Client Validation
+  participant API as fab_availability / LN helpers
+  participant Hel as installed_base_helpers
+  participant DB as installed_base
+
+  User->>Page: Open New / Edit form
+  User->>Page: Select FAB
+  Page->>API: fab_prefill + invoice date
+  API-->>Page: Prefill fields
+  User->>Val: Submit
+  Val->>API: fab_availability
+  API-->>Val: available / blocked
+  Val->>Page: POST submit_installed_base
+  Page->>Hel: from_post + ownership + validate
+  Hel->>API: ln_invoice_resolve_invoice_date_for_fab
+  Hel->>DB: INSERT or UPDATE
+  DB-->>Hel: id / ok
+  Hel-->>Page: Redirect ?ib_saved|ib_updated=1
+  Page-->>User: Success alert

@@ -1,0 +1,6 @@
+flowchart TD
+  A[DataTables POST getDespatchDetails] --> B[Bind cuno from session]
+  B --> C[SELECT DISTINCT ON despatch with LR and dpst joins]
+  C --> D[Build packing string and action HTML]
+  D --> E[DataTables JSON]
+  E --> F[Render list]

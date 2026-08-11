@@ -1,0 +1,16 @@
+sequenceDiagram
+  actor User
+  participant JS as dashboard_data inline JS
+  participant Req as orderRequest.php
+  participant OC as orderClass
+  participant DB as plexecom_customer_units
+
+  User->>JS: DataTable init
+  JS->>Req: POST getRecentOrders length 10
+  Req->>OC: getRecentOrders
+  OC->>DB: SELECT recent orders
+  OC-->>JS: DataTables JSON
+  User->>JS: Open line modal
+  JS->>Req: POST getRecentOrderLine
+  Req->>OC: getRecentOrderLine
+  OC-->>JS: HTML lines

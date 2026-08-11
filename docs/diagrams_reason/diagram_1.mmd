@@ -1,0 +1,22 @@
+flowchart LR
+  UI["reasons.php<br/>reason_details.php"]
+  SCM["system_config_master_page.php"]
+  JS["js/system_config_master.js"]
+  API["system_config_datatable<br/>system_config_get"]
+  HEL["system_config_master_helpers.php"]
+  GRD["reasons_create_guard.php"]
+  GATE["require_system_admin"]
+  DB[("reason_masters")]
+  SP["spare_parts.php"]
+  MOD["SL / IB Spare Parts modal"]
+
+  UI --> GRD
+  UI --> SCM
+  SCM --> GATE
+  SCM --> JS
+  JS --> API
+  SCM --> HEL
+  API --> GATE
+  HEL --> DB
+  SP -->|active names| HEL
+  MOD -->|active names| HEL

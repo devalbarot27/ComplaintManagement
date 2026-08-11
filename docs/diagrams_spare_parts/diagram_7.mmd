@@ -1,0 +1,40 @@
+flowchart TB
+  subgraph Pages
+    SPP[spare_parts_consumption.php]
+    SPD[spare_parts_consumption_details.php]
+    DEL[delete_spare_parts_consumption.php]
+  end
+
+  subgraph APIs
+    DT[spare_parts_datatable]
+    GET[spare_parts_get]
+    CR[spare_parts_create]
+    IBP[installed_base_spare_parts_prefill]
+    SLP[service_log_spare_parts_prefill]
+  end
+
+  subgraph Domain
+    SPH[spare_parts_helpers]
+    AMA[after_market_access_helpers]
+    SCM[system_config_master_helpers]
+    RBAC[rbac_access_helpers]
+  end
+
+  subgraph UI_JS
+    SPjs[spare_parts.js]
+    Val[spare_parts_validation.js]
+    Items[spare_parts_items.js]
+    Sel2[spare_parts_select2.js]
+    Modal[service_log_spare_parts_modal.js]
+  end
+
+  SPP --> SPH
+  SPP --> AMA
+  APIs --> SPH
+  APIs --> AMA
+  SPH --> SCM
+  SPP --> SPjs
+  SPjs --> Val
+  SPjs --> Items
+  SPjs --> Sel2
+  Modal --> Items

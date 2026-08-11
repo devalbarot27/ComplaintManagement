@@ -1,0 +1,39 @@
+flowchart TB
+  subgraph Wrappers
+    R[reasons.php]
+    RD[reason_details.php]
+    DEL[delete_reason.php]
+  end
+
+  subgraph SharedSCM
+    PAGE[system_config_master_page]
+    DET[system_config_master_details_page]
+    SDEL[system_config_master_delete]
+    HEL[system_config_master_helpers]
+    JS[system_config_master.js]
+  end
+
+  subgraph APIs
+    DT[system_config_datatable]
+    GET[system_config_get]
+  end
+
+  subgraph Guard
+    CG[reasons_create_guard]
+  end
+
+  subgraph Consumers
+    SP[spare_parts_reasons]
+    SPI[spare_parts_items.js]
+  end
+
+  R --> CG
+  R --> PAGE
+  RD --> DET
+  DEL --> SDEL
+  PAGE --> HEL
+  PAGE --> JS
+  JS --> DT
+  JS --> GET
+  SP --> HEL
+  SPI --> SP

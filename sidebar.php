@@ -88,6 +88,10 @@
         $pageName = "Products";
     } else if ($currentPage == 'product_details.php') {
         $pageName = "Product Details";
+    } else if ($currentPage == 'customers.php') {
+        $pageName = "Customers";
+    } else if ($currentPage == 'customer_details.php') {
+        $pageName = "Customer Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     } else if ($currentPage == 'notifications.php') {
@@ -327,6 +331,12 @@
                       class="menu-item <?= in_array($currentPage, ['products.php', 'product_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-box-seam"></i>
                       Products
+                  </a>
+
+                  <a href="customers.php"
+                      class="menu-item <?= in_array($currentPage, ['customers.php', 'customer_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-person-badge"></i>
+                      Customers
                   </a>
 
                   <a href="complaint_categories.php"

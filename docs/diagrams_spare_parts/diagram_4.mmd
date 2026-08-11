@@ -1,0 +1,19 @@
+sequenceDiagram
+  actor User
+  participant Page as spare_parts_consumption.php
+  participant Val as Client Validation
+  participant API as spare_parts_get / helpers
+  participant Hel as spare_parts_helpers
+  participant DB as spare_parts_consumption
+
+  User->>Page: New Record / Edit
+  User->>Page: Select Machine (+ optional SL)
+  Page->>API: link_search / get
+  API-->>Page: Prefill fab / hours / items
+  User->>Val: Submit
+  Val->>Page: POST submit_spare_parts
+  Page->>Hel: validate + save/update
+  Hel->>DB: INSERT/UPDATE parent + items
+  DB-->>Hel: ok
+  Hel-->>Page: Success flash
+  Page-->>User: Alert + list refresh

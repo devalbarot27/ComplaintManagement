@@ -1,0 +1,20 @@
+flowchart LR
+  Shell["dashboard.php / index.php"]
+  Data["dashboard_data.php"]
+  Hel["dashboard_helpers.php"]
+  Scope["dashboard_scope_helpers.php"]
+  RBAC["rbac_access_helpers"]
+  AJAX["orderRequest.php"]
+  OC["orderClass.php"]
+  OB[("plexecom_customer_units")]
+  DP[("despatch")]
+
+  Shell --> Data
+  Data --> RBAC
+  Data --> Hel
+  Hel --> Scope
+  Hel --> OB
+  Hel --> DP
+  Data --> AJAX
+  AJAX --> OC
+  OC --> OB

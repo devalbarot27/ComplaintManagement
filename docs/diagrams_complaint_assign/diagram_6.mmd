@@ -1,0 +1,21 @@
+flowchart TD
+  Start([Open Complaint Entry]) --> Auth{view?}
+  Auth -->|No| Deny[Access denied]
+  Auth -->|Yes| Home[History and New form]
+
+  Home --> Path{Action}
+  Path -->|New Complaint| Form[Fill FAB customer category]
+  Form --> Opt{Assign now?}
+  Opt -->|Yes| NeedPerm{assign-complaint?}
+  NeedPerm -->|No| ErrPerm[Error]
+  NeedPerm -->|Yes| Val[Validate]
+  Opt -->|No| Val
+  Val -->|fail| Form
+  Val -->|ok| SaveCreate[(Insert Open or In Progress)]
+  SaveCreate --> Home
+
+  Path -->|Assign Open row| Modal[Assign modal]
+  Modal --> ValAssign{Open and valid engineer?}
+  ValAssign -->|No| ErrA[Error]
+  ValAssign -->|Yes| SaveAssign[(Assignment + In Progress)]
+  SaveAssign --> Home

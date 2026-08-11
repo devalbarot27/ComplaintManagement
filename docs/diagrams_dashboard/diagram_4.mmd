@@ -1,0 +1,16 @@
+sequenceDiagram
+  actor User
+  participant Page as dashboard_data.php
+  participant RBAC as rbac_access_helpers
+  participant Hel as dashboard_helpers
+  participant OB as plexecom_customer_units
+  participant DP as despatch
+
+  User->>Page: GET period
+  Page->>RBAC: dashboard view
+  RBAC-->>Page: allow or deny
+  Page->>Hel: dashboard_fetch_stats
+  Hel->>OB: Pipeline and monthly queries
+  Hel->>DP: Dispatched and alert queries
+  Hel-->>Page: Stats payload
+  Page-->>User: HTML cards charts table

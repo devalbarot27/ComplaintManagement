@@ -1,0 +1,32 @@
+erDiagram
+  despatch {
+    VARCHAR invno
+    DATE invdate
+    VARCHAR invref
+    VARCHAR dpst
+    VARCHAR ordno
+    DATE ord_date
+    INT cmp
+    VARCHAR cuno
+    VARCHAR cuname
+    VARCHAR posno
+  }
+
+  lr_details {
+    VARCHAR invref
+    VARCHAR invno
+    INT company
+    VARCHAR tname
+    VARCHAR lrno
+    DATE lrdate
+    NUMERIC weight
+    VARCHAR w_unit
+  }
+
+  dpst_master {
+    VARCHAR dpst_code
+    VARCHAR dpst_desc
+  }
+
+  despatch ||--o| lr_details : "invref invno cmp"
+  despatch }o--o| dpst_master : "dpst"

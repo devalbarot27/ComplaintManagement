@@ -1,0 +1,16 @@
+flowchart TD
+  A[POST create / submit_service_log] --> B[from_post + ACL]
+  B --> C{Draft or Final?}
+  C -->|Draft| D[service_log_validate_draft]
+  C -->|Final| E[service_log_validate]
+  D -->|fail| X[Error]
+  E -->|fail| X
+  D --> F[Allocate serial if new]
+  E --> F
+  F --> G[INSERT service_logs]
+  G --> H{Part Replaced Yes?}
+  H -->|Yes| I[INSERT part_replacements]
+  H -->|No| J[Skip / clear parts]
+  I --> K[Optional complaint_service_logs mapping]
+  J --> K
+  K --> L[Success flash / JSON]

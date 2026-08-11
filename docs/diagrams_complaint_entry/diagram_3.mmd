@@ -1,0 +1,12 @@
+flowchart TD
+  A[POST submit_complaint] --> B[Permission add / optional assign]
+  B --> C[Validate address + FAB LN + customer + category]
+  C -->|fail| X[Error]
+  C --> D[BEGIN transaction]
+  D --> E[INSERT complaints status Open or In Progress]
+  E --> F[Activity Created]
+  F --> G{Assignee set?}
+  G -->|Yes| H[INSERT complaint_assignments + Activity Assignment + email]
+  G -->|No| I[COMMIT]
+  H --> I
+  I --> J[Success flash]

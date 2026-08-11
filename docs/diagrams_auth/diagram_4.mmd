@@ -1,0 +1,22 @@
+sequenceDiagram
+  actor User
+  participant Page as login.php
+  participant JS as login_validation.js
+  participant Hel as login_helpers
+  participant Crypto as transport crypto
+  participant DB as user_master
+
+  User->>JS: Enter username and password
+  JS->>JS: RSA-OAEP encrypt password
+  JS->>Page: POST password_encrypted
+  Page->>Crypto: Decrypt
+  Page->>Hel: Lockout check
+  Page->>DB: Fetch user and password_verify
+  alt Success
+    Hel->>DB: Clear failures set last_login_at
+    Hel->>Hel: login_start_session
+    Page-->>User: Redirect index.php
+  else Failure
+    Hel->>DB: Register failed attempt maybe lock
+    Page-->>User: Invalid username or password
+  end

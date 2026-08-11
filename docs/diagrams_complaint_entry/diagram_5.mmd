@@ -1,0 +1,14 @@
+sequenceDiagram
+  actor User
+  participant Page as new_complaint.php
+  participant AssignPage as assign_complaint.php
+  participant Hel as assignment helpers
+  participant DB as DB
+
+  User->>Page: Click Assign on Open complaint
+  Page-->>User: Assign modal
+  User->>AssignPage: POST assignee + remarks
+  AssignPage->>Hel: Validate Open and engineer rules
+  Hel->>DB: INSERT assignment set In Progress log activity send email
+  Hel-->>Page: Redirect success
+  Page-->>User: Complaint assigned successfully

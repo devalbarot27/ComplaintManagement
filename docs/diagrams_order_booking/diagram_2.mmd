@@ -1,0 +1,35 @@
+erDiagram
+  tbl_vayu_cartitems {
+    INT id PK
+    VARCHAR item_code
+    VARCHAR item_name
+    NUMERIC price
+    INT qty
+    NUMERIC total_amount
+    VARCHAR created_by
+    VARCHAR dpst
+    INT order_type
+    INT status
+  }
+
+  plexecom_customer_units {
+    VARCHAR refno
+    VARCHAR cuno
+    VARCHAR cuname
+    VARCHAR pono
+    DATE indent_date
+    VARCHAR tplcode
+    NUMERIC qty
+    NUMERIC price
+    VARCHAR order_number
+    VARCHAR status
+    VARCHAR edistatus
+    INT seqid
+  }
+
+  product_master_vayu {
+    VARCHAR tplcode
+    VARCHAR dpst
+    NUMERIC cos
+    INT order_type
+  }

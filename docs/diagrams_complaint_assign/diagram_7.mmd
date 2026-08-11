@@ -1,0 +1,30 @@
+flowchart TB
+  subgraph Pages
+    NC[new_complaint.php]
+    ASN[assign_complaint.php]
+    DET[complaint_details.php]
+  end
+
+  subgraph APIs
+    DT[complaints_datatable]
+    FABP[complaint_fab_prefill]
+    OPT[complaint_assign_options]
+    PIN[postcode_search]
+    LN[ln_invoice_fabno_search]
+  end
+
+  subgraph Domain
+    ADDR[complaint_address_helpers]
+    CAT[complaint_category_helpers]
+    ACT[complaint_activity_helpers]
+    ASNH[complaint_assignment_helpers]
+    MAIL[complaint_assignment_mail_helpers]
+  end
+
+  NC --> ADDR
+  NC --> CAT
+  NC --> ACT
+  NC --> ASNH
+  ASN --> ASNH
+  ASN --> MAIL
+  ASN --> ACT

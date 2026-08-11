@@ -1,0 +1,32 @@
+flowchart TB
+  subgraph Pages
+    CC[complaint_categories.php]
+    CD[complaint_category_details.php]
+    DEL[delete_complaint_category.php]
+  end
+
+  subgraph APIs
+    DT[complaint_categories_datatable]
+    GET[complaint_categories_get]
+  end
+
+  subgraph Domain
+    CH[complaint_category_helpers]
+    CG[complaint_categories_create_guard]
+    ADM[admin_access_helpers]
+    RH[rbac_helpers status]
+  end
+
+  subgraph Consumer
+    NC[new_complaint.php]
+  end
+
+  CC --> ADM
+  CC --> CH
+  CC --> CG
+  CD --> CH
+  DEL --> CH
+  APIs --> ADM
+  APIs --> CH
+  CH --> RH
+  NC --> CH

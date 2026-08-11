@@ -1,0 +1,16 @@
+erDiagram
+  plexecom_customer_units ||--o{ despatch : "AO order_number to ordno"
+
+  plexecom_customer_units {
+    VARCHAR refno
+    DATE indent_date
+    VARCHAR order_number
+    VARCHAR cuno
+    VARCHAR created_by
+  }
+
+  despatch {
+    VARCHAR ordno
+    DATE invdate
+    INT cmp
+  }

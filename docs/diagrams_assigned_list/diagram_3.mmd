@@ -1,0 +1,13 @@
+flowchart TD
+  A[POST service_update_complaint] --> B[Permission + ACL + status]
+  B --> C[Validate date action files]
+  C --> D[Validate IB + non-draft current-cycle SL]
+  D -->|fail| X[Error flash]
+  D --> E[Store uploads under uploads/service_reports]
+  E --> F[BEGIN transaction]
+  F --> G[INSERT complaint_service_updates]
+  G --> H[UPDATE assignment is_service_updated=1]
+  H --> I[UPDATE complaints status=3 Pending With HO]
+  I --> J[Activity Service Update]
+  J --> K[COMMIT]
+  K --> L[Success flash + redirect list]

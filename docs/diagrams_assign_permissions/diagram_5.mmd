@@ -1,0 +1,14 @@
+sequenceDiagram
+  actor Admin as System Admin
+  participant Page as assign_permissions.php
+  participant JS as assign_permissions.js
+  participant Hel as role_permission_helpers
+  participant DB as role_permissions
+
+  Admin->>JS: Toggle checkboxes
+  Admin->>Page: POST submit_role_permissions
+  Page->>Page: Validate role selected and exists
+  Page->>Hel: role_permission_save
+  Hel->>DB: INSERT or undelete or soft-delete
+  Page-->>Admin: Permissions assigned successfully
+  Note over JS: Success alert fades after 3s

@@ -1,0 +1,8 @@
+flowchart TD
+  A[POST submit_user record_id=0] --> B[System Admin]
+  B --> C[user_validate]
+  C --> D[Uniqueness checks]
+  D -->|fail| X[Error]
+  D --> E[Hash password]
+  E --> F[INSERT user_master]
+  F --> G[Success flash]

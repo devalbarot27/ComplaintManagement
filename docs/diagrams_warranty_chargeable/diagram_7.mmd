@@ -1,0 +1,15 @@
+flowchart TD
+  Start([Open Warranty / Chargeable]) --> Admin{System Admin?}
+  Admin -->|No| Deny[Access denied]
+  Admin -->|Yes| List[SCM DataTable]
+  List --> Act{Action}
+  Act -->|Add| Create[Guard validate unique insert]
+  Act -->|Edit| Edit[Load get validate unique update]
+  Act -->|View| Details[warranty_chargeable_details.php]
+  Act -->|Delete| Confirm{Confirm?}
+  Confirm -->|Yes| Soft[Soft-delete]
+  Confirm -->|No| List
+  Create --> List
+  Edit --> List
+  Soft --> List
+  Details --> List

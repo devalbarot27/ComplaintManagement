@@ -1,0 +1,12 @@
+flowchart TD
+  Start([Open Despatch Details]) --> Auth{Logged in?}
+  Auth -->|No| Login[login.php]
+  Auth -->|Yes| Perm{list?}
+  Perm -->|No| Deny[access_denied.php]
+  Perm -->|Yes| List[DataTable load]
+  List --> Act{Action}
+  Act -->|Search/page| List
+  Act -->|View| Dead[invoice.php missing]
+  Act -->|Export| Wrong[exportOrders Acknowledgement]
+  Dead --> List
+  Wrong --> List

@@ -1,0 +1,37 @@
+erDiagram
+  user_master ||--o{ password_reset_tokens : "usr_name"
+  user_master ||--o{ password_history : "user_id"
+
+  user_master {
+    INT id PK
+    VARCHAR username
+    VARCHAR name
+    VARCHAR email
+    VARCHAR password
+    INT role
+    TIMESTAMP deleted_at
+    TIMESTAMP last_login_at
+    INT session_version
+    INT failed_login_attempts
+    TIMESTAMP locked_until
+    TIMESTAMP account_unlocked_at
+    TIMESTAMP unlock_email_due_at
+    TIMESTAMP unlock_email_sent_at
+  }
+
+  password_reset_tokens {
+    INT id PK
+    VARCHAR usr_name
+    VARCHAR token_hash
+    TIMESTAMP expires_at
+    TIMESTAMP used_at
+    TIMESTAMP created_at
+  }
+
+  password_history {
+    INT id PK
+    INT user_id FK
+    VARCHAR username
+    VARCHAR password
+    TIMESTAMP created_at
+  }

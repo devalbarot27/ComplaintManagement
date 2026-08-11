@@ -1,0 +1,17 @@
+sequenceDiagram
+  actor Admin as System Admin
+  participant Del as delete_warranty_chargeable.php
+  participant Hel as scm_soft_delete
+  participant DB as warranty_chargeable_types
+  actor User as SL or SP user
+  participant Form as service_log or spare_parts
+
+  Admin->>Del: GET id base64 confirm
+  Del->>Hel: soft_delete
+  Hel->>DB: SET deleted_at
+  Del-->>Admin: Flash success to list
+  User->>Form: Open form
+  Form->>Hel: scm_get_active_names
+  Hel->>DB: active and deleted_at IS NULL
+  Note over Form: Soft-deleted name not offered
+  Note over DB: Existing SL or SP rows keep old name string

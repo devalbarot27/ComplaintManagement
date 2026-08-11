@@ -1,0 +1,44 @@
+erDiagram
+  roles ||--o{ role_permissions : "role_id"
+  permissions ||--o{ role_permissions : "permission_id"
+  modules ||--o{ permissions : "module_id"
+  user_master }o--|| roles : "role"
+
+  roles {
+    INT id PK
+    VARCHAR role_name
+    VARCHAR status
+    TIMESTAMP deleted_at
+  }
+
+  modules {
+    INT id PK
+    VARCHAR module_name
+    VARCHAR module_slug
+    INT ordering
+    VARCHAR status
+    TIMESTAMP deleted_at
+  }
+
+  permissions {
+    INT id PK
+    INT module_id FK
+    VARCHAR permission_name
+    VARCHAR permission_slug
+    VARCHAR status
+    TIMESTAMP deleted_at
+  }
+
+  role_permissions {
+    INT id PK
+    INT role_id FK
+    INT permission_id FK
+    VARCHAR created_by
+    TIMESTAMP created_at
+    TIMESTAMP deleted_at
+  }
+
+  user_master {
+    INT id PK
+    INT role FK
+  }

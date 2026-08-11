@@ -1,0 +1,16 @@
+flowchart TD
+  A[POST submit_installed_base] --> B[installed_base_from_post]
+  B --> C[FAB ownership validate]
+  C -->|blocked| X[Show error]
+  C --> D{Accessible FAB exists?}
+  D -->|yes| E[Resolve as UPDATE if edit/upsert]
+  D -->|no| F[INSERT path]
+  E --> G[Permission edit + can_use]
+  F --> H[Permission add]
+  G --> I[installed_base_validate]
+  H --> I
+  I -->|fail| X
+  I --> J[Resolve invoice_date from LN]
+  J -->|fail| X
+  J --> K[INSERT or UPDATE]
+  K --> L[Redirect success flash]

@@ -1,0 +1,19 @@
+flowchart TD
+  A[POST save_closure] --> B[CCS + complaint-closure]
+  B --> C{Yes or No?}
+  C -->|Yes| D[Validate remarks + feedback 1-10]
+  C -->|No| E[Require reassign-complaint + Assign To]
+  D --> F[Prereq: Pending With HO + service update]
+  E --> F
+  F -->|fail| X[Error flash]
+  F --> G[BEGIN]
+  G --> H[INSERT complaint_closures]
+  H --> I{Yes?}
+  I -->|Yes| J[UPDATE complaints status=Resolved]
+  I -->|No| K[INSERT complaint_assignments]
+  K --> L[UPDATE complaints status=Re-Open]
+  K --> M[Activity Reassignment]
+  J --> N[Activity Closure]
+  M --> N
+  N --> O[COMMIT + email]
+  O --> P[Success flash]

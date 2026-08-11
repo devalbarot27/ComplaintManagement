@@ -1,0 +1,16 @@
+sequenceDiagram
+  actor User
+  participant Page as order_acknowledgement.php
+  participant Req as orderRequest.php
+  participant OC as orderClass
+  participant DP as maintdealer
+  participant OB as plexecom_customer_units
+
+  User->>Page: Open AO list
+  Page->>Page: Check list permission
+  Page->>Req: POST getOrderAcknowledgeList
+  Req->>OC: getOrderAcknowledgeList
+  OC->>DP: SELECT DISTINCT AO rows
+  OC->>OB: Map ordno to refno
+  OC-->>Page: DataTables JSON
+  Page-->>User: Render table

@@ -1,0 +1,6 @@
+flowchart LR
+  PM[product_master_vayu]
+  OB[Order booking / orderClass]
+  MM[machine_model_helpers]
+  PM -.->|tplcode order_type dpst| OB
+  PM -.->|tplcode| MM

@@ -1,0 +1,23 @@
+sequenceDiagram
+  actor User
+  participant Host as IB or SL page
+  participant JS as service_log_spare_parts_modal.js
+  participant Prefill as IB/SL spare_parts_prefill
+  participant CreateApi as spare_parts_create.php
+  participant DB as DB
+
+  User->>Host: Click Add Spare Parts
+  Host->>JS: data-id + prefill source
+  JS->>Prefill: GET ?id=
+  Prefill->>DB: Load IB and/or SL
+  Prefill-->>JS: JSON fields
+  JS-->>User: Modal filled
+  User->>JS: Submit items
+  JS->>CreateApi: POST
+  CreateApi->>DB: INSERT consumption + items
+  CreateApi-->>JS: success + message
+  alt From Installed Base
+    JS->>Host: Redirect ?spare_parts_added=1
+  else From Service Log
+    JS->>Host: Alert + reload DataTable
+  end

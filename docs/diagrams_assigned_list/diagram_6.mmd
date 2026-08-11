@@ -1,0 +1,21 @@
+flowchart TD
+  Start([Open Assigned Complaint List]) --> Auth{view?}
+  Auth -->|No| Deny[Access denied]
+  Auth -->|Yes| List[Scoped DataTable]
+  List --> Act{Action}
+
+  Act -->|View| Details[Details from=list]
+  Act -->|Service Update| Modal[Open SU modal]
+  Modal --> Sum{IB and final SL ready?}
+  Sum -->|No IB| IBFlow[Create Installed Base then return]
+  Sum -->|Draft or missing SL| SLFlow[Add or submit Service Log]
+  Sum -->|Ready| Fill[Visit date action reports]
+  Fill --> Val{Client and server OK?}
+  Val -->|No| Err[Error]
+  Err --> Fill
+  Val -->|Yes| Save[(SU insert Pending With HO)]
+  Save --> Gone[Row leaves Assigned List]
+  IBFlow --> Modal
+  SLFlow --> Modal
+  Details --> List
+  Gone --> List

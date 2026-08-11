@@ -1,0 +1,37 @@
+flowchart TB
+  subgraph Wrappers
+    IS[industry_segments.php]
+    ISD[industry_segment_details.php]
+    DEL[delete_industry_segment.php]
+  end
+
+  subgraph SharedSCM
+    PAGE[system_config_master_page]
+    DET[system_config_master_details_page]
+    SDEL[system_config_master_delete]
+    HEL[system_config_master_helpers]
+    JS[system_config_master.js]
+  end
+
+  subgraph APIs
+    DT[system_config_datatable]
+    GET[system_config_get]
+  end
+
+  subgraph Guard
+    CG[industry_segments_create_guard]
+  end
+
+  subgraph Consumer
+    IB[installed_base helpers]
+  end
+
+  IS --> CG
+  IS --> PAGE
+  ISD --> DET
+  DEL --> SDEL
+  PAGE --> HEL
+  PAGE --> JS
+  JS --> DT
+  JS --> GET
+  IB --> HEL

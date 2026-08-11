@@ -1,0 +1,10 @@
+flowchart TD
+  A[POST submit_reason record_id=0] --> B[reasons_enforce_create_request]
+  B -->|fail| X[Session error flash]
+  B --> C[require_system_admin via SCM page]
+  C --> D[scm_validate]
+  D -->|fail| Y[Validation error]
+  D --> E[scm_name_exists]
+  E -->|duplicate| Z[Unique error]
+  E --> F[scm_insert into reason_masters]
+  F --> G[Reason saved successfully]

@@ -1,0 +1,14 @@
+flowchart LR
+  UI["users.php / user_edit.php<br/>user_details.php"]
+  JS["js/users.js"]
+  API["users_datatable<br/>users_check_unique<br/>users_get"]
+  HEL["user_helpers.php<br/>disposable_email_helpers.php"]
+  GATE["require_system_admin"]
+  DB[("user_master<br/>roles")]
+
+  UI --> GATE
+  UI --> JS
+  JS --> API
+  UI -->|POST submit_user / delete| HEL
+  API --> GATE
+  HEL --> DB

@@ -1,0 +1,11 @@
+sequenceDiagram
+  actor User
+  participant Page as pending_order.php
+  participant Det as order_data.php
+  participant MD as maintdealer
+
+  User->>Page: Click eye link
+  Page->>Det: GET order cuno reference
+  Note over Det: Queries maintdealer not pendingordersnew
+  Det->>MD: Header and lines
+  Det-->>User: Read-only detail

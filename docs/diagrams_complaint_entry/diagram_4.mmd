@@ -1,0 +1,19 @@
+sequenceDiagram
+  actor User
+  participant Page as new_complaint.php
+  participant Val as Client Validation
+  participant Prefill as complaint_fab_prefill / LN / postcodes
+  participant Hel as complaint helpers
+  participant DB as complaints
+
+  User->>Page: Open New Complaint
+  User->>Page: Select FAB
+  Page->>Prefill: FAB search + prefill address
+  Prefill-->>Page: Customer / address fields
+  User->>Val: Submit
+  Val->>Page: POST submit_complaint
+  Page->>Hel: Validate + insert
+  Hel->>DB: INSERT complaints (+ assignment)
+  DB-->>Hel: id
+  Hel-->>Page: Success flash
+  Page-->>User: Alert + history refresh

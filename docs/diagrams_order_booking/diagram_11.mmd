@@ -1,0 +1,15 @@
+flowchart TB
+  OB[orderbooking.php]
+  OR[orderRequest.php]
+  OC[orderClass]
+  RBAC[rbac_access_helpers]
+  CART[tbl_vayu_cartitems]
+  PCU[plexecom_customer_units]
+  PM[product_master_vayu]
+
+  OB --> RBAC
+  OB --> OR
+  OR --> OC
+  OC --> CART
+  OC --> PCU
+  OC --> PM

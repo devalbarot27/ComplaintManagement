@@ -1,0 +1,27 @@
+flowchart TB
+  subgraph Pages
+    P[products.php]
+    PD[product_details.php]
+    DEL[delete_product.php]
+  end
+
+  subgraph APIs
+    DT[products_datatable]
+    GET[products_get]
+  end
+
+  subgraph Domain
+    PH[product_helpers]
+    CG[products_create_guard]
+    ADM[admin_access_helpers]
+    RDL[record_details_layout]
+  end
+
+  P --> ADM
+  P --> PH
+  P --> CG
+  PD --> PH
+  PD --> RDL
+  DEL --> PH
+  APIs --> ADM
+  APIs --> PH

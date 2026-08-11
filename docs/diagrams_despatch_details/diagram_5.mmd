@@ -1,0 +1,16 @@
+sequenceDiagram
+  actor User
+  participant Page as despatch_details.php
+  participant Req as orderRequest.php
+  participant OC as orderClass
+  participant DP as despatch
+  participant LR as lr_details
+
+  User->>Page: Open Despatch Details
+  Page->>Page: Check list permission
+  Page->>Req: POST getDespatchDetails
+  Req->>OC: getDespatchDetails
+  OC->>DP: SELECT scoped despatch rows
+  OC->>LR: LEFT JOIN packing and LR
+  OC-->>Page: DataTables JSON
+  Page-->>User: Render table

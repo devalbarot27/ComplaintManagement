@@ -1,0 +1,19 @@
+sequenceDiagram
+  actor User
+  participant Page as installed_base.php
+  participant JS as service_log_spare_parts_modal.js
+  participant Prefill as installed_base_spare_parts_prefill.php
+  participant CreateApi as spare_parts_create.php
+  participant DB as DB
+
+  User->>Page: Click Add Spare Parts
+  Page->>JS: data-id + prefill=installed_base
+  JS->>Prefill: GET ?id=
+  Prefill->>DB: IB + latest service_log
+  Prefill-->>JS: JSON fields (incl. running_hours)
+  JS-->>User: Modal filled
+  User->>JS: Submit spare parts
+  JS->>CreateApi: POST
+  CreateApi->>DB: INSERT spare_parts_consumption (+ items)
+  CreateApi-->>JS: success + message
+  JS->>Page: Redirect ?spare_parts_added=1

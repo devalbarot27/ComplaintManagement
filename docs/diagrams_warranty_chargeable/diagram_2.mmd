@@ -1,0 +1,20 @@
+erDiagram
+  warranty_chargeable_types {
+    INT id PK
+    VARCHAR name
+    VARCHAR status
+    VARCHAR created_by
+    TIMESTAMP created_at
+    TIMESTAMP updated_at
+    TIMESTAMP deleted_at
+  }
+
+  service_logs {
+    INT id PK
+    VARCHAR warranty_chargeable
+  }
+
+  spare_parts_consumption {
+    INT id PK
+    VARCHAR warranty_chargeable
+  }

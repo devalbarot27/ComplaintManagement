@@ -1,0 +1,15 @@
+flowchart TD
+  Start([Open Order Booking]) --> Auth{Logged in?}
+  Auth -->|No| Login[login.php]
+  Auth -->|Yes| Perm{create-order?}
+  Perm -->|No| Deny[access_denied.php]
+  Perm -->|Yes| Form[Fill header and cart]
+  Form --> Act{Action}
+  Act -->|Add/Update/Delete| Cart[Mutate cart]
+  Cart --> Form
+  Act -->|Submit| Valid{Client validation}
+  Valid -->|Fail| Form
+  Valid -->|OK| Book[Insert lines clear cart]
+  Book --> EDI[ION submitCartApi]
+  EDI --> OK[Success modal]
+  OK --> Recent[recent_orders.php]

@@ -1,0 +1,16 @@
+flowchart LR
+  UI["service_log.php<br/>Details / Modals"]
+  IBUI["installed_base.php<br/>IB Service Log Modal"]
+  CMP["Complaint Service Update<br/>SL Modal"]
+  JS["js/service_log*.js"]
+  API["api/service_log_*.php"]
+  HEL["includes/service_log_helpers.php<br/>draft / after_market / complaint helpers"]
+  DB[("service_logs<br/>part_replacements<br/>complaint_service_logs")]
+
+  UI --> JS
+  IBUI --> JS
+  CMP --> JS
+  JS --> API
+  UI -->|POST save / draft / delete| HEL
+  API --> HEL
+  HEL --> DB

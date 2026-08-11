@@ -1,0 +1,29 @@
+flowchart TB
+  subgraph Pages
+    RO[recent_orders.php]
+    ROD[recent_order_details.php]
+  end
+
+  subgraph AJAX
+    OR[orderRequest.php]
+  end
+
+  subgraph Domain
+    OC[orderClass]
+    RBAC[rbac_access_helpers]
+    ADM[admin_access_helpers]
+  end
+
+  subgraph Data
+    PCU[plexecom_customer_units]
+    DSP[despatch]
+  end
+
+  RO --> RBAC
+  RO --> ADM
+  RO --> OR
+  ROD --> RBAC
+  ROD --> OC
+  OR --> OC
+  OC --> PCU
+  OC --> DSP

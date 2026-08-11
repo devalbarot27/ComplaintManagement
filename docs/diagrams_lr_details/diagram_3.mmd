@@ -1,0 +1,6 @@
+flowchart TD
+  A[DataTables POST getLrDetails] --> B[Bind cuno from session]
+  B --> C[SELECT DISTINCT lrdetails with dpst join]
+  C --> D[Build HTML links for AO and invoice]
+  D --> E[DataTables JSON]
+  E --> F[Render list with key mismatch risk]

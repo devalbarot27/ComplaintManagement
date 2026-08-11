@@ -1,0 +1,10 @@
+flowchart TD
+  A[POST submit_industry_segment record_id=0] --> B[industry_segments_enforce_create_request]
+  B -->|fail| X[Session error flash]
+  B --> C[require_system_admin via SCM page]
+  C --> D[scm_validate]
+  D -->|fail| Y[Validation error]
+  D --> E[scm_name_exists]
+  E -->|duplicate| Z[Unique error]
+  E --> F[scm_insert into industry_segments]
+  F --> G[Industry Segment saved successfully]

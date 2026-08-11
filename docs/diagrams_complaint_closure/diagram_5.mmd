@@ -1,0 +1,18 @@
+sequenceDiagram
+  actor Admin as CCS Admin
+  participant Page as new_complaint.php
+  participant Clo as closure_complaint.php
+  participant Hel as helpers
+  participant DB as DB
+  participant Mail as reassignment email
+
+  Admin->>Page: Closure No and select Assign To
+  Admin->>Clo: POST call_closure No reassign fields
+  Clo->>Hel: Validate reassign-complaint and assignee
+  Hel->>DB: INSERT complaint_closures
+  Hel->>DB: INSERT complaint_assignments
+  Hel->>DB: UPDATE complaints status Re-Open
+  Hel->>DB: Activity Reassignment then Closure
+  Hel->>Mail: Notify new assignee
+  Clo-->>Page: Redirect success
+  Page-->>Admin: Complaint closed with No Reassigned successfully

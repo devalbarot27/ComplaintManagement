@@ -1,0 +1,18 @@
+sequenceDiagram
+  actor User
+  participant Page as orderbooking.php
+  participant Req as orderRequest.php
+  participant OC as orderClass
+  participant DB as plexecom_customer_units
+  participant ION as ION API
+  participant RO as recent_orders.php
+
+  User->>Page: Submit Order Api
+  Page->>Req: POST submitCartApi
+  Req->>OC: submitCartApi
+  OC->>DB: INSERT lines shared refno
+  OC->>DB: DELETE cart
+  OC->>ION: ProcessSalesOrder XML
+  OC-->>Page: status refno JSON
+  Page-->>User: SuccessModal
+  Page->>RO: Redirect order_no refno

@@ -1,0 +1,19 @@
+erDiagram
+  user_master ||--o{ complaint_categories : "created_by"
+  complaint_categories ||--o{ complaints : "complaint_category_id"
+
+  complaint_categories {
+    INT id PK
+    VARCHAR name
+    VARCHAR status
+    INT created_by FK
+    TIMESTAMP created_at
+    TIMESTAMP updated_at
+    TIMESTAMP deleted_at
+  }
+
+  complaints {
+    INT id PK
+    INT complaint_category_id
+    VARCHAR complaint_category_name
+  }

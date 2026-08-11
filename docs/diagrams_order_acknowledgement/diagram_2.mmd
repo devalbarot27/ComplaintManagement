@@ -1,0 +1,23 @@
+erDiagram
+  maintdealer {
+    VARCHAR ordno
+    DATE ord_date
+    VARCHAR purno
+    VARCHAR cuno
+    VARCHAR dpst
+    INT company
+  }
+
+  dpst_master {
+    VARCHAR dpst_code
+    VARCHAR dpst_desc
+  }
+
+  plexecom_customer_units {
+    VARCHAR refno
+    VARCHAR order_number
+    VARCHAR cuno
+    DATE indent_date
+  }
+
+  maintdealer ||--o| plexecom_customer_units : "ordno to order_number"

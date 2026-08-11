@@ -1,0 +1,46 @@
+flowchart TB
+  subgraph Pages
+    IB[installed_base.php]
+    IBD[installed_base_details.php]
+    DEL[delete_installed_base.php]
+  end
+
+  subgraph APIs
+    DT[installed_base_datatable]
+    GET[installed_base_get]
+    FABP[fab_prefill / fab_availability]
+    LINK[link_search]
+    SLP[service_log_prefill / draft]
+    SPP[spare_parts_prefill]
+  end
+
+  subgraph Domain
+    IBH[installed_base_helpers]
+    AMA[after_market_access_helpers]
+    ADDR[complaint_address_helpers]
+    LN[ln_invoice_helpers]
+    RBAC[rbac_access_helpers]
+  end
+
+  subgraph UI_JS
+    IBjs[installed_base.js]
+    IBval[installed_base_validation.js]
+    Prefilljs[installed_base_fab_prefill.js]
+    Sel2[fab / pincode / machine Select2]
+    Modals[service_log / spare_parts modals]
+  end
+
+  IB --> IBH
+  IB --> AMA
+  IB --> RBAC
+  IBD --> IBH
+  DEL --> AMA
+  APIs --> IBH
+  APIs --> AMA
+  APIs --> RBAC
+  IBH --> ADDR
+  IBH --> LN
+  IB --> IBjs
+  IBjs --> Sel2
+  IBjs --> IBval
+  IB --> Modals

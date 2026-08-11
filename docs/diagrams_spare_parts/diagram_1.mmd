@@ -1,0 +1,16 @@
+flowchart LR
+  UI["spare_parts_consumption.php<br/>Details"]
+  IBUI["installed_base.php<br/>Add Spare Parts Modal"]
+  SLUI["service_log.php<br/>Add Spare Parts Modal"]
+  JS["js/spare_parts*.js<br/>service_log_spare_parts_modal.js"]
+  API["api/spare_parts_*.php<br/>IB/SL prefill"]
+  HEL["includes/spare_parts_helpers.php<br/>after_market_access_helpers.php"]
+  DB[("spare_parts_consumption<br/>spare_parts_consumption_items")]
+
+  UI --> JS
+  IBUI --> JS
+  SLUI --> JS
+  JS --> API
+  UI -->|POST save / delete| HEL
+  API --> HEL
+  HEL --> DB

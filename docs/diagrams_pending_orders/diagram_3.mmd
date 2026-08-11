@@ -1,0 +1,6 @@
+flowchart TD
+  A[DataTables POST getPendingOrderList] --> B[Count pendingordersnew rows]
+  B --> C[Select page of line rows]
+  C --> D[Enrich refno and status]
+  D --> E[Build JSON with view link]
+  E --> F[DataTables render]

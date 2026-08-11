@@ -1,0 +1,39 @@
+flowchart TB
+  subgraph Wrappers
+    WC[warranty_chargeable.php]
+    WCD[warranty_chargeable_details.php]
+    DEL[delete_warranty_chargeable.php]
+  end
+
+  subgraph SharedSCM
+    PAGE[system_config_master_page]
+    DET[system_config_master_details_page]
+    SDEL[system_config_master_delete]
+    HEL[system_config_master_helpers]
+    JS[system_config_master.js]
+  end
+
+  subgraph APIs
+    DT[system_config_datatable]
+    GET[system_config_get]
+  end
+
+  subgraph Guard
+    CG[warranty_chargeable_create_guard]
+  end
+
+  subgraph Consumers
+    SL[service_log_warranty_types]
+    SP[spare_parts_warranty_types]
+  end
+
+  WC --> CG
+  WC --> PAGE
+  WCD --> DET
+  DEL --> SDEL
+  PAGE --> HEL
+  PAGE --> JS
+  JS --> DT
+  JS --> GET
+  SL --> HEL
+  SP --> HEL

@@ -1,0 +1,14 @@
+flowchart LR
+  UI["new_complaint.php<br/>Details / Assign / Closure"]
+  JS["Inline validation + Select2<br/>fab / pincode / assign"]
+  API["api/complaints_datatable.php<br/>complaint_fab_prefill.php<br/>assign_options"]
+  HEL["complaint_* helpers<br/>address / activity / assignment / closure"]
+  DB[("complaints<br/>assignments / activity / closures")]
+  EXT[("LN Invoice FAB<br/>postcodes")]
+
+  UI --> JS
+  JS --> API
+  UI -->|POST create / assign / closure / delete| HEL
+  API --> HEL
+  HEL --> DB
+  HEL --> EXT

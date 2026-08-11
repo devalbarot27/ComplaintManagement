@@ -1,0 +1,10 @@
+flowchart TD
+  A[POST submit_part_replaced record_id=0] --> B[part_replaced_enforce_create_request]
+  B -->|fail| X[Session error flash]
+  B --> C[require_system_admin via SCM page]
+  C --> D[scm_validate]
+  D -->|fail| Y[Validation error]
+  D --> E[scm_name_exists]
+  E -->|duplicate| Z[Unique error]
+  E --> F[scm_insert into part_replaced_masters]
+  F --> G[Part Replaced saved successfully]

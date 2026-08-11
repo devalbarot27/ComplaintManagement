@@ -1,0 +1,23 @@
+flowchart TD
+  Start([Auth entry]) --> Mode{Flow}
+  Mode -->|Password| P[Decrypt and verify]
+  Mode -->|OTP| O[Issue then verify OTP]
+  Mode -->|Forgot| F[Email reset token]
+  Mode -->|Reset| R[Token + new password]
+  Mode -->|Change| C[Current + new password]
+
+  P --> Lock{Locked?}
+  O --> Lock
+  Lock -->|Yes| Wait[Show lock message]
+  Lock -->|No| AuthOK{Credentials OK?}
+  AuthOK -->|Yes| Sess[Start session]
+  AuthOK -->|No| Fail[Fail and maybe lock]
+  Sess --> App[index.php]
+
+  F --> Link[Email link]
+  Link --> R
+  R --> Hist{History OK?}
+  C --> Hist
+  Hist -->|No| Err[Error]
+  Hist -->|Yes| Upd[Update hash bump session_version]
+  Upd --> Relogin[Force login again]

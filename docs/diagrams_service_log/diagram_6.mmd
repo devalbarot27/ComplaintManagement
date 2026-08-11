@@ -1,0 +1,28 @@
+flowchart TD
+  Start([User opens Service Log Capture]) --> Auth{Authenticated + view?}
+  Auth -->|No| Deny[Access denied]
+  Auth -->|Yes| List[View DataTable]
+  List --> Act{Choose action}
+
+  Act -->|New Record| Form[Open form + select IB]
+  Act -->|Edit| Load[GET service_log_get]
+  Load --> Form
+  Act -->|View| Details[Details page]
+  Act -->|Delete| Confirm{Confirm?}
+  Confirm -->|Yes| SoftDel[Soft-delete]
+  Confirm -->|No| List
+  SoftDel --> List
+
+  Form --> Mode{Save Draft or Submit?}
+  Mode -->|Draft| DraftVal{Draft validation OK?}
+  Mode -->|Submit| FinalVal{Final validation OK?}
+  DraftVal -->|No| Form
+  FinalVal -->|No| Form
+  DraftVal -->|Yes| SaveDraft[(Persist is_draft=1)]
+  FinalVal -->|Yes| SaveFinal[(Persist is_draft=0)]
+  SaveDraft --> Flash[Success flash]
+  SaveFinal --> Flash
+  Flash --> List
+
+  Act -->|Add Spare Parts| SP[Spare Parts modal flow]
+  SP --> List

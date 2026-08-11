@@ -1,0 +1,34 @@
+erDiagram
+  installed_base ||--o{ spare_parts_consumption : "installed_base_id"
+  service_logs ||--o{ spare_parts_consumption : "service_log_id"
+  user_master ||--o{ spare_parts_consumption : "created_by"
+  spare_parts_consumption ||--o{ spare_parts_consumption_items : "spare_parts_consumption_id"
+
+  spare_parts_consumption {
+    INT id PK
+    INT installed_base_id FK
+    INT service_log_id FK
+    VARCHAR serial_number
+    VARCHAR fab_number
+    DATE consumption_date
+    VARCHAR warranty_chargeable
+    DECIMAL running_hours
+    TEXT remarks
+    INT created_by FK
+    VARCHAR username
+    TIMESTAMP created_at
+    TIMESTAMP updated_at
+    TIMESTAMP deleted_at
+  }
+
+  spare_parts_consumption_items {
+    INT id PK
+    INT spare_parts_consumption_id FK
+    VARCHAR spare_kit_number
+    VARCHAR reason
+    DECIMAL quantity
+    DECIMAL order_value
+    TIMESTAMP created_at
+    TIMESTAMP updated_at
+    TIMESTAMP deleted_at
+  }

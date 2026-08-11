@@ -1,0 +1,18 @@
+sequenceDiagram
+  actor Admin as CCS Admin
+  participant Page as new_complaint.php
+  participant Clo as closure_complaint.php
+  participant Hel as helpers
+  participant DB as DB
+  participant Mail as closure email
+
+  Admin->>Page: Click Complaint Closure
+  Page-->>Admin: Closure modal
+  Admin->>Clo: POST call_closure Yes remarks feedback
+  Clo->>Hel: Validate CCS and prerequisites
+  Hel->>DB: INSERT complaint_closures
+  Hel->>DB: UPDATE complaints status Resolved
+  Hel->>DB: Activity Closure
+  Hel->>Mail: Notify latest assignee
+  Clo-->>Page: Redirect success
+  Page-->>Admin: Complaint closed successfully

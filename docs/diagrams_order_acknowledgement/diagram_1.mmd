@@ -1,0 +1,14 @@
+flowchart LR
+  UI["order_acknowledgement.php"]
+  REQ["orderRequest.php"]
+  OC["orderClass.php"]
+  MD[("maintdealer")]
+  PCU[("plexecom_customer_units")]
+  DET["order_data.php"]
+
+  UI -->|getOrderAcknowledgeList| REQ
+  REQ --> OC
+  OC --> MD
+  OC -->|refno map| PCU
+  UI -->|eye link| DET
+  DET --> MD

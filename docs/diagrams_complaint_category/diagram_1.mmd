@@ -1,0 +1,18 @@
+flowchart LR
+  UI["complaint_categories.php<br/>complaint_category_details.php"]
+  JS["js/complaint_categories.js"]
+  API["complaint_categories_datatable<br/>complaint_categories_get"]
+  HEL["complaint_category_helpers.php"]
+  GRD["complaint_categories_create_guard.php"]
+  GATE["require_system_admin"]
+  DB[("complaint_categories")]
+  CE["new_complaint.php"]
+
+  UI --> GATE
+  UI --> JS
+  JS --> API
+  UI -->|POST submit| HEL
+  UI -->|create only| GRD
+  API --> GATE
+  HEL --> DB
+  CE -->|active options| HEL

@@ -1,0 +1,47 @@
+flowchart TB
+  subgraph Pages
+    SLP[service_log.php]
+    SLD[service_log_details.php]
+    DEL[delete_service_log.php]
+  end
+
+  subgraph APIs
+    DT[service_log_datatable]
+    GET[service_log_get]
+    CR[service_log_create / update]
+    SER[service_log_next_serial]
+    IBP[IB prefill / draft]
+    SPP[spare_parts_prefill]
+    CMP[complaint_service_log_*]
+  end
+
+  subgraph Domain
+    SLH[service_log_helpers]
+    DRF[service_log_draft_helpers]
+    AMA[after_market_access_helpers]
+    CFB[customer_feedback_rating_helpers]
+    CSH[complaint_service_log_helpers]
+    RBAC[rbac_access_helpers]
+  end
+
+  subgraph UI_JS
+    SLjs[service_log.js]
+    Val[service_log_validation / draft]
+    Parts[service_log_part_replacement.js]
+    IBSel[service_log_installed_base_select2.js]
+    Modals[IB / complaint / spare-parts modals]
+  end
+
+  SLP --> SLH
+  SLP --> DRF
+  SLP --> AMA
+  APIs --> SLH
+  APIs --> DRF
+  APIs --> AMA
+  APIs --> CSH
+  SLH --> CFB
+  SLP --> SLjs
+  SLjs --> Val
+  SLjs --> Parts
+  SLjs --> IBSel
+  SLP --> Modals

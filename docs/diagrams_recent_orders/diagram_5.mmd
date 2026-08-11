@@ -1,0 +1,16 @@
+sequenceDiagram
+  actor User
+  participant Book as orderbooking.php
+  participant Page as recent_orders.php
+  participant Req as orderRequest.php
+  participant OC as orderClass
+  participant DB as plexecom_customer_units
+
+  Book-->>Page: Redirect order_no refno
+  User->>Page: Open list
+  Page->>Page: Check list permission
+  Page->>Req: POST getRecentOrders
+  Req->>OC: getRecentOrders
+  OC->>DB: DISTINCT ON refno
+  OC-->>Page: DataTables JSON
+  Page->>Page: search order_no and draw

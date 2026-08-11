@@ -1,0 +1,27 @@
+flowchart TB
+  subgraph UI
+    NC[new_complaint.php modal]
+    DT[complaints_datatable can_close]
+  end
+
+  subgraph Endpoint
+    CLO[closure_complaint.php]
+  end
+
+  subgraph Domain
+    CH[complaint_closure_helpers]
+    DH[complaint_datatable_helpers]
+    AH[complaint_activity_helpers]
+    ASN[complaint_assignment_helpers]
+    MAIL[complaint_assignment_mail_helpers]
+    ADM[admin_access_helpers]
+  end
+
+  NC --> CLO
+  DT --> NC
+  CLO --> CH
+  CLO --> DH
+  CLO --> AH
+  CLO --> ASN
+  CLO --> MAIL
+  CLO --> ADM

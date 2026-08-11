@@ -1,0 +1,16 @@
+sequenceDiagram
+  actor Admin as System Admin
+  participant Page as part_replaced.php
+  participant Guard as create_guard
+  participant SCM as system_config_master_page
+  participant Hel as system_config_master_helpers
+  participant DB as part_replaced_masters
+
+  Admin->>Page: POST submit_part_replaced
+  Page->>Guard: enforce create request
+  Guard-->>Page: allow or session error
+  Page->>SCM: Include SCM page
+  SCM->>SCM: require_system_admin
+  SCM->>Hel: validate uniqueness insert
+  Hel->>DB: INSERT
+  SCM-->>Admin: Part Replaced saved successfully

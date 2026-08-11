@@ -1,0 +1,20 @@
+flowchart LR
+  UI["industry_segments.php<br/>industry_segment_details.php"]
+  SCM["system_config_master_page.php"]
+  JS["js/system_config_master.js"]
+  API["system_config_datatable<br/>system_config_get"]
+  HEL["system_config_master_helpers.php"]
+  GRD["industry_segments_create_guard.php"]
+  GATE["require_system_admin"]
+  DB[("industry_segments")]
+  IB["installed_base.php"]
+
+  UI --> GRD
+  UI --> SCM
+  SCM --> GATE
+  SCM --> JS
+  JS --> API
+  SCM --> HEL
+  API --> GATE
+  HEL --> DB
+  IB -->|active names| HEL
