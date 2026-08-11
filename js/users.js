@@ -156,6 +156,9 @@ function initUsersFormValidation() {
             presence: { allowEmpty: false, message: '^Mobile Number is required' },
             userMobileNumber: true
         },
+        customer_code: {
+            presence: { allowEmpty: false, message: '^Customer Code is required' }
+        },
         password: {
             presence: { allowEmpty: false, message: '^Password is required' },
             userPasswordStrength: true
@@ -205,6 +208,9 @@ function initUsersFormValidation() {
         form.querySelectorAll('.form-control').forEach(function (input) {
             input.classList.remove('is-invalid');
         });
+        if (window.jQuery) {
+            window.jQuery('#userCustomerCodeSelect').next('.select2-container').find('.select2-selection').removeClass('is-invalid');
+        }
     }
 
     function showErrors(errors) {
@@ -217,6 +223,9 @@ function initUsersFormValidation() {
             const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
             if (input) {
                 input.classList.add('is-invalid');
+            }
+            if (field === 'customer_code' && window.jQuery) {
+                window.jQuery('#userCustomerCodeSelect').next('.select2-container').find('.select2-selection').addClass('is-invalid');
             }
             if (msg && errors[field]) {
                 msg.textContent = errors[field][0];
@@ -234,7 +243,8 @@ function initUsersFormValidation() {
             data: {
                 record_id: recordId || 0,
                 email: form.querySelector('[name="email"]').value.trim(),
-                mobile_number: form.querySelector('[name="mobile_number"]').value.trim()
+                mobile_number: form.querySelector('[name="mobile_number"]').value.trim(),
+                customer_code: form.querySelector('[name="customer_code"]').value.trim()
             }
         });
     }
@@ -329,6 +339,7 @@ function initUsersDatatable() {
             { data: 'role' },
             { data: 'username' },
             { data: 'name' },
+            { data: 'customer_code' },
             { data: 'email' },
             { data: 'mobile_number' },
             { data: 'last_login_at' },
@@ -340,6 +351,51 @@ function initUsersDatatable() {
             zeroRecords: 'No matching users found.'
         }
     });
+}
+
+function initUserCustomerCodeSelect2() {
+    const $select = $('#userCustomerCodeSelect');
+    if (!$select.length || typeof $select.select2 !== 'function') {
+        return;
+    }
+
+    if ($select.hasClass('select2-hidden-accessible')) {
+        return;
+    }
+
+    $select.select2({
+        placeholder: 'Search customer code',
+        allowClear: false,
+        width: '100%',
+        ajax: {
+            url: 'api/user_customer_search.php',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return { q: params.term || '' };
+            },
+            processResults: function (data) {
+                return { results: (data && data.results) ? data.results : [] };
+            },
+            cache: true
+        }
+    });
+}
+
+function setUserCustomerCodeSelect2Value(id, text) {
+    const $select = $('#userCustomerCodeSelect');
+    if (!$select.length) {
+        return;
+    }
+
+    $select.find('option').remove();
+    $select.append(new Option('', '', false, false));
+    if (id) {
+        const option = new Option(text || id, id, true, true);
+        $select.append(option).trigger('change');
+    } else {
+        $select.val(null).trigger('change');
+    }
 }
 
 function fillUserForm(record) {
@@ -361,6 +417,10 @@ function fillUserForm(record) {
     form.querySelector('[name="email"]').value = record.email || '';
     form.querySelector('[name="mobile_number"]').value = record.mobile_number || '';
     form.querySelector('[name="password"]').value = '';
+    setUserCustomerCodeSelect2Value(
+        record.customer_code || '',
+        record.customer_code_text || record.customer_code || ''
+    );
 
     const passwordHint = document.getElementById('userPasswordHint');
     const passwordRequired = document.getElementById('userPasswordRequired');
@@ -382,6 +442,7 @@ function resetUserForm() {
     form.reset();
     document.getElementById('userRecordId').value = '';
     toggleSalesCoordinatorField('');
+    setUserCustomerCodeSelect2Value('', '');
     document.getElementById('userFormModeLabel').textContent = 'Add User';
     document.getElementById('submitUserBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save User';
     const passwordHint = document.getElementById('userPasswordHint');
@@ -435,6 +496,8 @@ function closeUserFormPanel() {
 }
 
 function bootUserEditPage() {
+    initUserCustomerCodeSelect2();
+
     const roleSelect = document.getElementById('userRoleSelect');
     if (roleSelect) {
         roleSelect.addEventListener('change', function () {
@@ -453,6 +516,7 @@ function bootUserEditPage() {
 }
 
 function bootUsersPage() {
+    initUserCustomerCodeSelect2();
     initUsersFormValidation();
 
     if (window.USER_FORM_PAGE === 'edit') {

@@ -81,6 +81,10 @@ $encodedId = base64_encode((string) $record['id']);
             record_details_field('Name', user_display_value($record['name']));
             record_details_field('Email', user_display_value($record['email']));
             record_details_field('Mobile Number', user_display_value($record['mobile_number']));
+            record_details_field(
+                'Customer Code',
+                user_customer_code_label($obconn, trim((string) ($record['customer_code'] ?? '')))
+            );
             if ($showSalesCoordinator) {
                 record_details_field('Sales Coordinator', $salesCoordinatorLabel);
             }

@@ -29,6 +29,10 @@ $safeName = (string) ($row['name'] ?? '');
 $safeEmail = (string) ($row['email'] ?? '');
 $safeMobile = (string) ($row['mobile_number'] ?? '');
 $safeSalesCoordinatorId = isset($row['sales_coordinator_id']) ? (int) $row['sales_coordinator_id'] : 0;
+$safeCustomerCode = trim((string) ($row['customer_code'] ?? ''));
+$safeCustomerLabel = $safeCustomerCode !== ''
+    ? user_customer_code_label($obconn, $safeCustomerCode)
+    : '';
 unset($row);
 
 api_json_echo([
@@ -39,4 +43,6 @@ api_json_echo([
     'email' => $safeEmail,
     'mobile_number' => $safeMobile,
     'sales_coordinator_id' => $safeSalesCoordinatorId,
+    'customer_code' => $safeCustomerCode,
+    'customer_code_text' => $safeCustomerLabel,
 ]);

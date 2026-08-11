@@ -22,12 +22,14 @@ $formRecord = [
     'email' => '',
     'mobile_number' => '',
     'sales_coordinator_id' => 0,
+    'customer_code' => '',
 ];
 $createdBy = current_username();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = user_from_post($_POST);
+    $formRecord = user_form_record_from_post($data, $recordId);
     $isEdit = $recordId > 0;
     $validationError = user_validate($data, $isEdit, $obconn);
 
@@ -39,6 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
         $error_message = 'Email address already exists';
     } elseif (user_mobile_exists($obconn, $data['mobile_number'], $recordId)) {
         $error_message = 'Mobile number already exists';
+    } elseif (user_customer_code_exists($obconn, $data['customer_code'], $recordId)) {
+        $error_message = 'Customer Code already exists. Please choose a different Customer Code.';
     } else {
         try {
             if ($isEdit) {
@@ -70,6 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     <link href="css/complaint_buttons.css" rel="stylesheet" />
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link href="css/complaint_form.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="css/select2_change.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
     <link href="css/datatable_custom.css" rel="stylesheet" />
@@ -77,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
 </head>
 
@@ -168,14 +175,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
                         <thead>
                             <tr>
                                 <th width="5%">ID</th>
-                                <th width="12%">Role</th>
-                                <th width="12%">Username</th>
-                                <th width="14%">Name</th>
-                                <th width="16%">Email</th>
-                                <th width="10%">Mobile</th>
-                                <th width="12%">Last Login</th>
-                                <th width="12%">Created At</th>
-                                <th width="8%">Action</th>
+                                <th width="10%">Role</th>
+                                <th width="10%">Username</th>
+                                <th width="12%">Name</th>
+                                <th width="12%">Customer Code</th>
+                                <th width="14%">Email</th>
+                                <th width="9%">Mobile</th>
+                                <th width="11%">Last Login</th>
+                                <th width="10%">Created At</th>
+                                <th width="7%">Action</th>
                             </tr>
                         </thead>
                         <tbody></tbody>

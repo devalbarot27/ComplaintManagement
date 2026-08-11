@@ -127,6 +127,7 @@ function user_form_record_from_row(array $row): array
         'email' => (string) ($row['email'] ?? ''),
         'mobile_number' => (string) ($row['mobile_number'] ?? ''),
         'sales_coordinator_id' => isset($row['sales_coordinator_id']) ? (int) $row['sales_coordinator_id'] : 0,
+        'customer_code' => trim((string) ($row['customer_code'] ?? '')),
     ];
 }
 
@@ -143,7 +144,94 @@ function user_form_record_from_post(array $data, int $id): array
         'email' => (string) ($data['email'] ?? ''),
         'mobile_number' => (string) ($data['mobile_number'] ?? ''),
         'sales_coordinator_id' => (int) ($data['sales_coordinator_id'] ?? 0),
+        'customer_code' => trim((string) ($data['customer_code'] ?? '')),
     ];
+}
+
+function user_customer_code_format_label(array $row): string
+{
+    $cuno = trim((string) ($row['cuno'] ?? ''));
+    $cuname = trim((string) ($row['cuname'] ?? ''));
+
+    if ($cuno === '') {
+        return '-';
+    }
+
+    return $cuname !== '' ? ($cuno . ' - ' . $cuname) : $cuno;
+}
+
+function user_customer_code_get(PDO $conn, string $cuno): ?array
+{
+    $cuno = trim($cuno);
+    if ($cuno === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT cuno, cuname
+        FROM customer_master
+        WHERE TRIM(cuno) = :cuno
+        LIMIT 1
+    ');
+    $stmt->bindValue(':cuno', $cuno);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+function user_customer_code_label(PDO $conn, string $cuno): string
+{
+    $row = user_customer_code_get($conn, $cuno);
+    if ($row === null) {
+        return $cuno !== '' ? $cuno : '-';
+    }
+
+    return user_customer_code_format_label($row);
+}
+
+/**
+ * @return array<int, array{id: string, text: string}>
+ */
+function user_customer_code_search(PDO $conn, string $search, int $limit = 50): array
+{
+    $limit = max(1, min(100, $limit));
+    $sql = '
+        SELECT cuno, cuname
+        FROM customer_master
+        WHERE length(TRIM(cuno)) > 0
+    ';
+    $params = [];
+
+    if ($search !== '') {
+        $sql .= ' AND (
+            LOWER(cuno) LIKE LOWER(:search)
+            OR LOWER(COALESCE(cuname, \'\')) LIKE LOWER(:search)
+        )';
+        $params[':search'] = '%' . $search . '%';
+    }
+
+    $sql .= ' ORDER BY cuno ASC LIMIT ' . (int) $limit;
+
+    $stmt = $conn->prepare($sql);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    $stmt->execute();
+
+    $results = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $cuno = trim((string) ($row['cuno'] ?? ''));
+        if ($cuno === '') {
+            continue;
+        }
+        $results[] = [
+            'id' => $cuno,
+            'text' => user_customer_code_format_label($row),
+        ];
+    }
+
+    return $results;
 }
 
 function user_sales_coordinator_option_label(array $user): string
@@ -290,7 +378,7 @@ function user_search_filter(PDO $conn, string $searchValue): array
     $parts = [];
     $params = [':search' => '%' . $searchValue . '%'];
 
-    foreach (['username', 'name', 'email', 'mobile_number'] as $column) {
+    foreach (['username', 'name', 'email', 'mobile_number', 'customer_code'] as $column) {
         $parts[] = "{$column} ILIKE :search";
     }
 
@@ -321,6 +409,7 @@ function user_from_post(array $post): array
         'password' => (string) ($post['password'] ?? ''),
         'mobile_number' => trim((string) ($post['mobile_number'] ?? '')),
         'sales_coordinator_id' => trim((string) ($post['sales_coordinator_id'] ?? '')),
+        'customer_code' => trim((string) ($post['customer_code'] ?? '')),
     ];
 }
 
@@ -424,6 +513,17 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
         }
     }
 
+    $customerCode = trim((string) ($data['customer_code'] ?? ''));
+    if ($customerCode === '') {
+        return 'Customer Code is required.';
+    }
+    if (strlen($customerCode) > 9) {
+        return 'Customer Code cannot exceed 9 characters.';
+    }
+    if (user_customer_code_get($conn, $customerCode) === null) {
+        return 'Selected Customer Code is invalid.';
+    }
+
     return null;
 }
 
@@ -488,6 +588,29 @@ function user_mobile_exists(PDO $conn, string $mobileNumber, int $excludeId = 0)
 
     $stmt = $conn->prepare($sql);
     $stmt->bindValue(':mobile_number', $mobileNumber);
+    if ($excludeId > 0) {
+        $stmt->bindValue(':exclude_id', $excludeId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+
+    return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function user_customer_code_exists(PDO $conn, string $customerCode, int $excludeId = 0): bool
+{
+    $sql = '
+        SELECT id
+        FROM user_master
+        WHERE LOWER(TRIM(customer_code)) = LOWER(TRIM(:customer_code))
+          AND deleted_at IS NULL
+    ';
+    if ($excludeId > 0) {
+        $sql .= ' AND id != :exclude_id';
+    }
+    $sql .= ' LIMIT 1';
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bindValue(':customer_code', $customerCode);
     if ($excludeId > 0) {
         $stmt->bindValue(':exclude_id', $excludeId, PDO::PARAM_INT);
     }
@@ -563,13 +686,23 @@ function user_bind_sales_coordinator_id(PDOStatement $stmt, array $data): void
     }
 }
 
+function user_bind_customer_code(PDOStatement $stmt, array $data): void
+{
+    $customerCode = trim((string) ($data['customer_code'] ?? ''));
+    if ($customerCode === '') {
+        $stmt->bindValue(':customer_code', null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(':customer_code', $customerCode);
+    }
+}
+
 function user_insert(PDO $conn, array $data, string $createdBy): void
 {
     $stmt = $conn->prepare('
         INSERT INTO user_master (
-            role, username, name, email, password, mobile_number, sales_coordinator_id, created_by, created_at
+            role, username, name, email, password, mobile_number, sales_coordinator_id, customer_code, created_by, created_at
         ) VALUES (
-            :role, :username, :name, :email, :password, :mobile_number, :sales_coordinator_id, :created_by, CURRENT_TIMESTAMP
+            :role, :username, :name, :email, :password, :mobile_number, :sales_coordinator_id, :customer_code, :created_by, CURRENT_TIMESTAMP
         )
     ');
     $stmt->bindValue(':role', (int) $data['role'], PDO::PARAM_INT);
@@ -579,6 +712,7 @@ function user_insert(PDO $conn, array $data, string $createdBy): void
     $stmt->bindValue(':password', user_password_hash($data['password']));
     $stmt->bindValue(':mobile_number', $data['mobile_number']);
     user_bind_sales_coordinator_id($stmt, $data);
+    user_bind_customer_code($stmt, $data);
     $stmt->bindValue(':created_by', $createdBy);
     $stmt->execute();
 }
@@ -605,6 +739,7 @@ function user_update(PDO $conn, int $id, array $data): void
                 password = :password,
                 mobile_number = :mobile_number,
                 sales_coordinator_id = :sales_coordinator_id,
+                customer_code = :customer_code,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
               AND deleted_at IS NULL
@@ -619,6 +754,7 @@ function user_update(PDO $conn, int $id, array $data): void
                 email = :email,
                 mobile_number = :mobile_number,
                 sales_coordinator_id = :sales_coordinator_id,
+                customer_code = :customer_code,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
               AND deleted_at IS NULL
@@ -631,6 +767,7 @@ function user_update(PDO $conn, int $id, array $data): void
     $stmt->bindValue(':email', $data['email']);
     $stmt->bindValue(':mobile_number', $data['mobile_number']);
     user_bind_sales_coordinator_id($stmt, $data);
+    user_bind_customer_code($stmt, $data);
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
 

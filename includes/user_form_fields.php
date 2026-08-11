@@ -16,11 +16,17 @@ $formRecord = $formRecord ?? [
     'email' => '',
     'mobile_number' => '',
     'sales_coordinator_id' => 0,
+    'customer_code' => '',
 ];
 
 $isEditForm = !empty($formRecord['id']);
 $selectedRole = (int) ($formRecord['role'] ?? 0);
 $selectedSalesCoordinatorId = (int) ($formRecord['sales_coordinator_id'] ?? 0);
+$selectedCustomerCode = trim((string) ($formRecord['customer_code'] ?? ''));
+$selectedCustomerLabel = '';
+if ($selectedCustomerCode !== '' && isset($obconn) && $obconn instanceof PDO) {
+    $selectedCustomerLabel = user_customer_code_label($obconn, $selectedCustomerCode);
+}
 $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole);
 ?>
 <div class="row g-3">
@@ -52,6 +58,20 @@ $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole)
             <?php } ?>
         </select>
         <div class="text-danger validation-msg" data-field="sales_coordinator_id"></div>
+    </div>
+    <div class="col-md-6 form-group">
+        <label class="form-label" for="userCustomerCodeSelect">
+            <i class="bi bi-building"></i> Customer Code <span class="text-danger">*</span>
+        </label>
+        <select class="form-control" name="customer_code" id="userCustomerCodeSelect" style="width:100%;">
+            <option value=""></option>
+            <?php if ($selectedCustomerCode !== '') { ?>
+            <option value="<?php echo htmlspecialchars($selectedCustomerCode, ENT_QUOTES, 'UTF-8'); ?>" selected>
+                <?php echo htmlspecialchars($selectedCustomerLabel !== '' ? $selectedCustomerLabel : $selectedCustomerCode, ENT_QUOTES, 'UTF-8'); ?>
+            </option>
+            <?php } ?>
+        </select>
+        <div class="text-danger validation-msg" data-field="customer_code"></div>
     </div>
     <div class="col-md-6 form-group">
         <label class="form-label">
