@@ -8,13 +8,13 @@ require_once dirname(__DIR__) . '/includes/customer_helpers.php';
 
 admin_api_require_system_admin($obconn);
 
-$allowedOrderColumns = ['id', 'cust_code', 'cust_name', 'cust_addr', 'created_at'];
-$req = dt_parse_request($allowedOrderColumns, 'id');
+$allowedOrderColumns = ['cuno', 'cuname', 'adr_code', 'status'];
+$req = dt_parse_request($allowedOrderColumns, 'cuno');
 
-$baseWhere = 'deleted_at IS NULL';
+$baseWhere = '1=1';
 $filterParams = [];
 
-$recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM customers WHERE {$baseWhere}");
+$recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM customer_master WHERE {$baseWhere}");
 $recordsTotalStmt->execute();
 $recordsTotal = (int) $recordsTotalStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
@@ -26,7 +26,7 @@ if ($req['searchValue'] !== '') {
     $filterParams = array_merge($filterParams, $searchFilter['params']);
 }
 
-$countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM customers WHERE {$filterWhere}");
+$countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total FROM customer_master WHERE {$filterWhere}");
 foreach ($filterParams as $key => $value) {
     $countFilteredStmt->bindValue($key, $value);
 }
@@ -34,8 +34,8 @@ $countFilteredStmt->execute();
 $recordsFiltered = (int) $countFilteredStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
 $dataQuery = "
-    SELECT id, cust_code, cust_name, cust_addr, created_at
-    FROM customers
+    SELECT cuno, cuname, adr_code, status
+    FROM customer_master
     WHERE {$filterWhere}
     ORDER BY {$req['orderColumn']} {$req['orderDir']}
     LIMIT :limit OFFSET :offset
@@ -50,22 +50,22 @@ $dataStmt->bindValue(':offset', $req['start'], PDO::PARAM_INT);
 $dataStmt->execute();
 
 $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
-$addrCodes = array_column($rows, 'cust_addr');
-$addrLabels = customer_address_labels($dpconn, $addrCodes);
+$addrCodes = array_column($rows, 'adr_code');
+$addrLabels = customer_address_labels($obconn, $addrCodes);
 
 $data = [];
 
 foreach ($rows as $row) {
-    $addrCode = trim((string) ($row['cust_addr'] ?? ''));
+    $cuno = trim((string) ($row['cuno'] ?? ''));
+    $addrCode = trim((string) ($row['adr_code'] ?? ''));
     $addrText = $addrLabels[$addrCode] ?? ($addrCode !== '' ? $addrCode : '-');
 
     $data[] = [
-        'id' => '#' . (int) $row['id'],
-        'cust_code' => htmlspecialchars((string) $row['cust_code'], ENT_QUOTES, 'UTF-8'),
-        'cust_name' => htmlspecialchars((string) $row['cust_name'], ENT_QUOTES, 'UTF-8'),
-        'cust_addr' => htmlspecialchars($addrText, ENT_QUOTES, 'UTF-8'),
-        'created_at' => rbac_format_datetime($row['created_at']),
-        'actions' => customer_entry_actions((int) $row['id']),
+        'cuno' => htmlspecialchars($cuno, ENT_QUOTES, 'UTF-8'),
+        'cuname' => htmlspecialchars(trim((string) ($row['cuname'] ?? '')), ENT_QUOTES, 'UTF-8'),
+        'adr_code' => htmlspecialchars($addrText, ENT_QUOTES, 'UTF-8'),
+        'status' => htmlspecialchars((string) ($row['status'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'actions' => customer_entry_actions($cuno),
     ];
 }
 

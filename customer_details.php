@@ -8,19 +8,19 @@ include 'includes/customer_helpers.php';
 
 require_system_admin($obconn);
 
-$id = (int) base64_decode($_GET['id'] ?? '', true);
+$cuno = trim((string) base64_decode($_GET['id'] ?? '', true));
 
-if ($id <= 0) {
+if ($cuno === '') {
     die('Invalid record.');
 }
 
-$record = customer_get_by_id($obconn, $id);
+$record = customer_get_by_cuno($obconn, $cuno);
 
 if (!$record) {
     die('Customer not found.');
 }
 
-$addrLabel = customer_address_label($dpconn, (string) ($record['cust_addr'] ?? ''));
+$addrLabel = customer_address_label($obconn, trim((string) ($record['adr_code'] ?? '')));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -28,7 +28,7 @@ $addrLabel = customer_address_label($dpconn, (string) ($record['cust_addr'] ?? '
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
+    <title>Customer Details - <?php echo htmlspecialchars(trim((string) $record['cuno']), ENT_QUOTES, 'UTF-8'); ?></title>
     <?php include 'header_css.php'; ?>
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -42,7 +42,7 @@ $addrLabel = customer_address_label($dpconn, (string) ($record['cust_addr'] ?? '
         <div class="content">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
-                    <h5 class="mb-1">Customer #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></h5>
+                    <h5 class="mb-1">Customer - <?php echo htmlspecialchars(trim((string) $record['cuno']), ENT_QUOTES, 'UTF-8'); ?></h5>
                 </div>
                 <div>
                     <a href="customers.php" class="btn btn-light border">Back to List</a>
@@ -50,16 +50,15 @@ $addrLabel = customer_address_label($dpconn, (string) ($record['cust_addr'] ?? '
             </div>
 
             <div class="booking-card">
-                
                 <div class="p-3">
                     <div class="row g-3">
-                        <div class="col-md-6"><strong>Customer Code:</strong><br><?php echo htmlspecialchars((string) $record['cust_code']); ?></div>
-                        <div class="col-md-6"><strong>Customer Name:</strong><br><?php echo htmlspecialchars((string) $record['cust_name']); ?></div>
+                        <div class="col-md-6"><strong>Customer Code:</strong><br><?php echo htmlspecialchars(trim((string) $record['cuno'])); ?></div>
+                        <div class="col-md-6"><strong>Customer Name:</strong><br><?php echo htmlspecialchars(trim((string) $record['cuname'])); ?></div>
                         <div class="col-md-12"><strong>Customer Address:</strong><br><?php echo htmlspecialchars($addrLabel); ?></div>
-                        <div class="col-md-6"><strong>Created By:</strong><br><?php echo htmlspecialchars(rbac_display_value($record['created_by'] ?? null)); ?></div>
-                        <div class="col-md-6"><strong>Updated By:</strong><br><?php echo htmlspecialchars(rbac_display_value($record['updated_by'] ?? null)); ?></div>
-                        <div class="col-md-6"><strong>Created At:</strong><br><?php echo htmlspecialchars(rbac_format_datetime($record['created_at'] ?? null), ENT_QUOTES, 'UTF-8'); ?></div>
-                        <div class="col-md-6"><strong>Updated At:</strong><br><?php echo htmlspecialchars(rbac_format_datetime($record['updated_at'] ?? null), ENT_QUOTES, 'UTF-8'); ?></div>
+                        <div class="col-md-6"><strong>City:</strong><br><?php echo htmlspecialchars(rbac_display_value(trim((string) ($record['city'] ?? '')))); ?></div>
+                        <div class="col-md-6"><strong>State:</strong><br><?php echo htmlspecialchars(rbac_display_value(trim((string) ($record['state'] ?? '')))); ?></div>
+                        <div class="col-md-6"><strong>Country:</strong><br><?php echo htmlspecialchars(rbac_display_value(trim((string) ($record['country'] ?? '')))); ?></div>
+                        <div class="col-md-6"><strong>Status:</strong><br><?php echo htmlspecialchars((string) ($record['status'] ?? '-')); ?></div>
                     </div>
                 </div>
             </div>

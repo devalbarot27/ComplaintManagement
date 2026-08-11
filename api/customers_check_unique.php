@@ -21,17 +21,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     exit;
 }
 
-$recordId = (int) ($_POST['record_id'] ?? 0);
+$excludeCuno = trim((string) ($_POST['original_cuno'] ?? ''));
 $custCode = trim((string) ($_POST['cust_code'] ?? ''));
 $custName = trim((string) ($_POST['cust_name'] ?? ''));
 
 $errors = [];
 
-if ($custCode !== '' && customer_code_exists($obconn, $custCode, $recordId)) {
+if ($custCode !== '' && customer_code_exists($obconn, $custCode, $excludeCuno)) {
     $errors['cust_code'] = ['Customer code already exists. Please choose a different code.'];
 }
 
-if ($custName !== '' && customer_name_exists($obconn, $custName, $recordId)) {
+if ($custName !== '' && customer_name_exists($obconn, $custName, $excludeCuno)) {
     $errors['cust_name'] = ['Customer name already exists. Please choose a different name.'];
 }
 

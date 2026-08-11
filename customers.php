@@ -5,39 +5,38 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/customer_helpers.php';
-require_once __DIR__ . '/includes/current_username_helpers.php';
 
 require_system_admin($obconn);
 
 $success_message = '';
 $error_message = '';
-$actorUsername = current_username();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
-    $recordId = (int) ($_POST['record_id'] ?? 0);
+    $originalCuno = trim((string) ($_POST['original_cuno'] ?? ''));
     $data = customer_from_post($_POST);
-    $isEdit = $recordId > 0;
+    $isEdit = $originalCuno !== '';
     $validationError = customer_validate($data);
 
     if ($validationError !== null) {
         $error_message = $validationError;
-    } elseif (customer_address_get_by_code($dpconn, $data['cust_addr']) === null) {
+    } elseif (customer_address_get_by_code($obconn, $data['adr_code']) === null) {
         $error_message = 'Selected customer address is invalid.';
-    } elseif (customer_code_exists($obconn, $data['cust_code'], $recordId)) {
+    } elseif (!$isEdit && customer_code_exists($obconn, $data['cuno'])) {
         $error_message = 'Customer code already exists. Please choose a different code.';
-    } elseif (customer_name_exists($obconn, $data['cust_name'], $recordId)) {
+    } elseif (customer_name_exists($obconn, $data['cuname'], $isEdit ? $originalCuno : '')) {
         $error_message = 'Customer name already exists. Please choose a different name.';
     } else {
         try {
+            $addrFields = customer_resolve_address_fields($obconn, $data['adr_code']);
             if ($isEdit) {
-                if (!customer_get_by_id($obconn, $recordId)) {
+                if (!customer_get_by_cuno($obconn, $originalCuno)) {
                     $error_message = 'Customer not found or already deleted.';
                 } else {
-                    customer_update($obconn, $recordId, $data, $actorUsername);
+                    customer_update($obconn, $originalCuno, $data, $addrFields);
                     $success_message = 'Customer updated successfully.';
                 }
             } else {
-                customer_insert($obconn, $data, $actorUsername);
+                customer_insert($obconn, $data, $addrFields);
                 $success_message = 'Customer saved successfully.';
             }
         } catch (PDOException $e) {
@@ -127,20 +126,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
                 </div>
 
                 <form method="POST" id="customerForm" novalidate>
-                    <input type="hidden" name="record_id" id="customerRecordId" value="">
+                    <input type="hidden" name="original_cuno" id="customerOriginalCuno" value="">
                     <input type="hidden" name="submit_customer" value="1">
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
                             <div class="row g-3">
                                 <div class="col-md-6 form-group">
                                     <label class="form-label">Customer Code <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="cust_code" maxlength="50"
-                                        placeholder="e.g. CUST001" maxlength="20">
+                                    <input type="text" class="form-control" name="cust_code" maxlength="9"
+                                        placeholder="e.g. CI1G03095">
                                     <div class="text-danger validation-msg" data-field="cust_code"></div>
                                 </div>
                                 <div class="col-md-6 form-group">
                                     <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="cust_name" maxlength="255"
+                                    <input type="text" class="form-control" name="cust_name" maxlength="120"
                                         placeholder="e.g. Acme Industries">
                                     <div class="text-danger validation-msg" data-field="cust_name"></div>
                                 </div>
@@ -171,12 +170,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
                     <table class="table table-hover booking-table w-100" id="customersTable">
                         <thead>
                             <tr>
-                                <th width="8%">ID</th>
                                 <th width="15%">Code</th>
-                                <th width="22%">Name</th>
-                                <th width="30%">Address</th>
-                                <th width="15%">Created At</th>
-                                <th width="10%">Action</th>
+                                <th width="30%">Name</th>
+                                <th width="40%">Address</th>
+                                <th width="15%">Action</th>
                             </tr>
                         </thead>
                         <tbody></tbody>

@@ -7,11 +7,11 @@ function initCustomerFormValidation() {
     const constraints = {
         cust_code: {
             presence: { allowEmpty: false, message: '^Customer code is required' },
-            length: { maximum: 50, message: '^Customer code cannot exceed 50 characters' }
+            length: { maximum: 9, message: '^Customer code cannot exceed 9 characters' }
         },
         cust_name: {
             presence: { allowEmpty: false, message: '^Customer name is required' },
-            length: { maximum: 255, message: '^Customer name cannot exceed 255 characters' }
+            length: { maximum: 120, message: '^Customer name cannot exceed 120 characters' }
         },
         cust_addr: {
             presence: { allowEmpty: false, message: '^Customer address is required' }
@@ -33,8 +33,8 @@ function initCustomerFormValidation() {
             return;
         }
         Object.keys(errors).forEach(function (field) {
-            const input = form.querySelector('[name="' + field + '"]');
-            const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
+            var input = form.querySelector('[name="' + field + '"]');
+            var msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
             if (input) {
                 input.classList.add('is-invalid');
             }
@@ -48,8 +48,8 @@ function initCustomerFormValidation() {
     }
 
     function showFieldError(field, message) {
-        const input = form.querySelector('[name="' + field + '"]');
-        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
+        var input = form.querySelector('[name="' + field + '"]');
+        var msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
         if (input) {
             input.classList.add('is-invalid');
         }
@@ -62,8 +62,8 @@ function initCustomerFormValidation() {
     }
 
     function clearFieldError(field) {
-        const input = form.querySelector('[name="' + field + '"]');
-        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
+        var input = form.querySelector('[name="' + field + '"]');
+        var msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
         if (input) {
             input.classList.remove('is-invalid');
         }
@@ -79,7 +79,7 @@ function initCustomerFormValidation() {
         if (!input || !input.name || !constraints[input.name]) {
             return;
         }
-        const fieldErrors = validate.single(input.value, constraints[input.name]);
+        var fieldErrors = validate.single(input.value, constraints[input.name]);
         if (fieldErrors) {
             showFieldError(input.name, fieldErrors[0]);
         } else {
@@ -87,18 +87,18 @@ function initCustomerFormValidation() {
         }
     }
 
-    function getRecordId() {
-        const recordId = document.getElementById('customerRecordId');
-        return recordId && recordId.value !== '' ? parseInt(recordId.value, 10) : 0;
+    function getOriginalCuno() {
+        var el = document.getElementById('customerOriginalCuno');
+        return el ? el.value.trim() : '';
     }
 
-    function checkCustomerUniqueFields(recordId) {
+    function checkCustomerUniqueFields(originalCuno) {
         return $.ajax({
             url: 'api/customers_check_unique.php',
             type: 'POST',
             dataType: 'json',
             data: {
-                record_id: recordId || 0,
+                original_cuno: originalCuno,
                 cust_code: form.querySelector('[name="cust_code"]').value.trim(),
                 cust_name: form.querySelector('[name="cust_name"]').value.trim()
             }
@@ -111,7 +111,7 @@ function initCustomerFormValidation() {
             if (input.classList.contains('is-invalid')) {
                 return;
             }
-            checkCustomerUniqueFields(getRecordId())
+            checkCustomerUniqueFields(getOriginalCuno())
                 .done(function (response) {
                     if (response && response.errors && response.errors[input.name]) {
                         showFieldError(input.name, response.errors[input.name][0]);
@@ -124,8 +124,8 @@ function initCustomerFormValidation() {
         validateSingleField(form.querySelector('[name="cust_addr"]'));
     });
 
-    let isSubmitting = false;
-    const submitButton = document.getElementById('submitCustomerBtn');
+    var isSubmitting = false;
+    var submitButton = document.getElementById('submitCustomerBtn');
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -134,14 +134,14 @@ function initCustomerFormValidation() {
             return;
         }
 
-        const errors = validate(form, constraints);
+        var errors = validate(form, constraints);
         showErrors(errors);
 
         if (errors) {
             return;
         }
 
-        checkCustomerUniqueFields(getRecordId())
+        checkCustomerUniqueFields(getOriginalCuno())
             .done(function (response) {
                 if (response && response.errors && Object.keys(response.errors).length > 0) {
                     showErrors(response.errors);
@@ -163,7 +163,7 @@ function initCustomerFormValidation() {
 }
 
 function initCustomerAddrSelect2() {
-    const $select = $('#customerAddrSelect');
+    var $select = $('#customerAddrSelect');
     if (!$select.length || typeof $select.select2 !== 'function') {
         return;
     }
@@ -188,14 +188,14 @@ function initCustomerAddrSelect2() {
 }
 
 function setCustomerAddrSelect2Value(id, text) {
-    const $select = $('#customerAddrSelect');
+    var $select = $('#customerAddrSelect');
     if (!$select.length) {
         return;
     }
 
     $select.find('option').remove();
     if (id) {
-        const option = new Option(text || id, id, true, true);
+        var option = new Option(text || id, id, true, true);
         $select.append(option).trigger('change');
     } else {
         $select.val(null).trigger('change');
@@ -203,7 +203,7 @@ function setCustomerAddrSelect2Value(id, text) {
 }
 
 function initCustomersDatatable() {
-    const $table = $('#customersTable');
+    var $table = $('#customersTable');
     if (!$table.length) {
         return null;
     }
@@ -215,47 +215,54 @@ function initCustomersDatatable() {
             url: 'api/customers_datatable.php',
             type: 'POST'
         },
-        order: [[0, 'desc']],
+        order: [[0, 'asc']],
         pageLength: 10,
         columns: [
-            { data: 'id' },
-            { data: 'cust_code' },
-            { data: 'cust_name' },
-            { data: 'cust_addr', orderable: false },
-            { data: 'created_at' },
+            { data: 'cuno' },
+            { data: 'cuname' },
+            { data: 'adr_code', orderable: false },
             { data: 'actions', orderable: false, searchable: false }
         ]
     });
 }
 
 function fillCustomerForm(record) {
-    const form = document.getElementById('customerForm');
+    var form = document.getElementById('customerForm');
     if (!form || !record) {
         return;
     }
 
-    document.getElementById('customerRecordId').value = record.id || '';
-    document.getElementById('customerFormModeLabel').textContent = record.id
+    var isEdit = record.cuno && record.cuno !== '';
+    document.getElementById('customerOriginalCuno').value = record.cuno || '';
+    document.getElementById('customerFormModeLabel').textContent = isEdit
         ? 'Edit Customer'
         : 'Add Customer';
-    document.getElementById('submitCustomerBtn').innerHTML = record.id
+    document.getElementById('submitCustomerBtn').innerHTML = isEdit
         ? '<i class="bi bi-check-lg"></i> Update Customer'
         : '<i class="bi bi-check-lg"></i> Save Customer';
 
-    form.querySelector('[name="cust_code"]').value = record.cust_code || '';
-    form.querySelector('[name="cust_name"]').value = record.cust_name || '';
-    setCustomerAddrSelect2Value(record.cust_addr || '', record.cust_addr_text || record.cust_addr || '');
+    var codeInput = form.querySelector('[name="cust_code"]');
+    codeInput.value = record.cuno || '';
+    if (isEdit) {
+        codeInput.setAttribute('readonly', 'readonly');
+    } else {
+        codeInput.removeAttribute('readonly');
+    }
+
+    form.querySelector('[name="cust_name"]').value = record.cuname || '';
+    setCustomerAddrSelect2Value(record.adr_code || '', record.adr_code_text || record.adr_code || '');
 }
 
 function resetCustomerForm() {
-    const form = document.getElementById('customerForm');
+    var form = document.getElementById('customerForm');
     if (!form) {
         return;
     }
     form.reset();
-    document.getElementById('customerRecordId').value = '';
+    document.getElementById('customerOriginalCuno').value = '';
     document.getElementById('customerFormModeLabel').textContent = 'Add Customer';
     document.getElementById('submitCustomerBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save Customer';
+    form.querySelector('[name="cust_code"]').removeAttribute('readonly');
     setCustomerAddrSelect2Value('', '');
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
@@ -282,7 +289,7 @@ function closeCustomerFormPanel() {
 function bootCustomersPage() {
     initCustomerAddrSelect2();
     initCustomerFormValidation();
-    initCustomersDatatable();
+    var table = initCustomersDatatable();
 
     document.getElementById('cancelCustomerForm').addEventListener('click', closeCustomerFormPanel);
     document.getElementById('closeCustomerForm').addEventListener('click', closeCustomerFormPanel);
@@ -292,12 +299,12 @@ function bootCustomersPage() {
     });
 
     document.addEventListener('click', function (e) {
-        const editBtn = e.target.closest('.edit-customer-btn');
+        var editBtn = e.target.closest('.edit-customer-btn');
         if (!editBtn) {
             return;
         }
-        const id = editBtn.getAttribute('data-id');
-        $.getJSON('api/customers_get.php', { id: id })
+        var cuno = editBtn.getAttribute('data-cuno');
+        $.getJSON('api/customers_get.php', { cuno: cuno })
             .done(function (record) {
                 resetCustomerForm();
                 fillCustomerForm(record);
