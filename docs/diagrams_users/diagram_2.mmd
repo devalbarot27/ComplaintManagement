@@ -11,6 +11,7 @@ erDiagram
     VARCHAR password
     VARCHAR mobile_number
     INT sales_coordinator_id FK
+    VARCHAR customer_code
     VARCHAR created_by
     TIMESTAMP created_at
     TIMESTAMP updated_at
@@ -25,3 +26,21 @@ erDiagram
     VARCHAR status
     TIMESTAMP deleted_at
   }
+
+  customer_master_sync {
+    INT id PK
+    VARCHAR customer_code
+    VARCHAR added_by
+    VARCHAR updated_by
+    TIMESTAMP created_at
+    TIMESTAMP updated_at
+    TIMESTAMP deleted_at
+  }
+
+  customer_master {
+    VARCHAR cuno PK
+    VARCHAR cuname
+  }
+
+  customer_master_sync ||--|| customer_master : "customer_code = cuno"
+  user_master }o--|| customer_master_sync : "customer_code"

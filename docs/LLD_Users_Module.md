@@ -8,7 +8,7 @@
 | Application | Complaint / Dealer Portal |
 | Stack (target) | Core PHP + MySQL (PDO) |
 | Stack (current repo) | Core PHP + **PostgreSQL** via PDO |
-| Document version | 1.0 |
+| Document version | 1.1 |
 | Access | **System Admin only** (role id `6`) — no RBAC module slug |
 
 ---
@@ -17,7 +17,7 @@
 
 ### 1.1 Purpose
 
-System Administrators manage portal accounts in `user_master`: create/edit users, assign roles, link Sales Coordinators where required, set credentials, enforce uniqueness and email quality rules, soft-delete accounts, and revoke active sessions via `session_version` when password, role, or email changes.
+System Administrators manage portal accounts in `user_master`: create/edit users, assign roles, link Sales Coordinators where required, assign a Customer Code from `customer_master_sync`, set credentials, enforce uniqueness and email quality rules, soft-delete accounts, and revoke active sessions via `session_version` when password, role, or email changes.
 
 ### 1.2 Scope
 
@@ -25,9 +25,10 @@ System Administrators manage portal accounts in `user_master`: create/edit users
 |----------|--------------|
 | List / Add / Edit / Details / Soft-delete | Self-service change password (Auth module) |
 | Role + Sales Coordinator linkage | Role master CRUD (Roles module) |
-| Unique username / email / mobile | Lockout counters (Auth; columns shared) |
+| Unique username / email / mobile / customer_code | Lockout counters (Auth; columns shared) |
+| Customer Code assignment via Select2 from `customer_master_sync` | Customer Master Sync CRUD (separate module) |
 | Disposable email block | Password history on admin-set password |
-| `session_version` bump on critical edits | Select2 (native selects used) |
+| `session_version` bump on critical edits | |
 
 ### 1.3 High-level architecture
 
@@ -35,10 +36,10 @@ System Administrators manage portal accounts in `user_master`: create/edit users
 flowchart LR
   UI["users.php / user_edit.php<br/>user_details.php"]
   JS["js/users.js"]
-  API["users_datatable<br/>users_check_unique<br/>users_get"]
+  API["users_datatable<br/>users_check_unique<br/>users_get<br/>user_customer_search"]
   HEL["user_helpers.php<br/>disposable_email_helpers.php"]
   GATE["require_system_admin"]
-  DB[("user_master<br/>roles")]
+  DB[("user_master<br/>roles<br/>customer_master_sync<br/>customer_master")]
 
   UI --> GATE
   UI --> JS
@@ -55,7 +56,7 @@ flowchart LR
 | ID | Requirement | Priority |
 |----|-------------|----------|
 | FR-01 | System Admin can open Users list (DataTables) | Must |
-| FR-02 | Create user with role, identity, password, optional SC | Must |
+| FR-02 | Create user with role, identity, password, customer code, optional SC | Must |
 | FR-03 | Edit user on `user_edit.php` (password optional) | Must |
 | FR-04 | Soft-delete user; hide from list | Must |
 | FR-05 | Unique username, email, mobile among active users | Must |
@@ -63,8 +64,11 @@ flowchart LR
 | FR-07 | Block disposable/open email domains | Must |
 | FR-08 | Password strength on create; on edit if non-blank | Must |
 | FR-09 | Bump `session_version` on password/role/email change and soft-delete | Must |
-| FR-10 | Client uniqueness check for email/mobile before submit | Should |
-| FR-11 | View read-only details | Should |
+| FR-10 | Client uniqueness check for email/mobile/customer_code before submit | Should |
+| FR-11 | View read-only details (including Customer Code) | Should |
+| FR-12 | Customer Code required; unique among active users | Must |
+| FR-13 | Customer Code Select2 dropdown sourced from `customer_master_sync` | Must |
+| FR-14 | Customer Code shown in Users grid (resolved as `cuno - cuname`) | Must |
 
 ---
 
@@ -108,8 +112,11 @@ N/A for Users UI. Sales Coordinator linkage on users feeds `sales_coordinator_ac
 | BR-03 | Roles requiring SC: **1, 2, 3** (Dealer User / Dealer Engineer / ELGi Engineer). |
 | BR-04 | SC must be active user whose role name is `Sales Coordinator`. |
 | BR-05 | If role does not require SC → store `sales_coordinator_id = NULL`. |
-| BR-06 | Username / email unique case-insensitive among non-deleted. |
+| BR-06 | Username / email / customer_code unique case-insensitive among non-deleted. |
 | BR-07 | Mobile unique among non-deleted (TRIM). |
+| BR-07a | Customer Code required; must exist in `customer_master_sync` (active). |
+| BR-07b | Customer Code max 9 characters (matches `customer_master.cuno` CHAR(9)). |
+| BR-07c | When a `customer_master_sync` record is deleted, users with that code are reset to `customer_code = NULL`. |
 | BR-08 | Password required on create; blank on edit keeps existing hash. |
 | BR-09 | No password-history check on admin create/update. |
 | BR-10 | Disposable email domains blocked (exact + subdomain). |
@@ -139,6 +146,7 @@ erDiagram
     VARCHAR password
     VARCHAR mobile_number
     INT sales_coordinator_id FK
+    VARCHAR customer_code
     VARCHAR created_by
     TIMESTAMP created_at
     TIMESTAMP updated_at
@@ -153,6 +161,24 @@ erDiagram
     VARCHAR status
     TIMESTAMP deleted_at
   }
+
+  customer_master_sync {
+    INT id PK
+    VARCHAR customer_code
+    VARCHAR added_by
+    VARCHAR updated_by
+    TIMESTAMP created_at
+    TIMESTAMP updated_at
+    TIMESTAMP deleted_at
+  }
+
+  customer_master {
+    VARCHAR cuno PK
+    VARCHAR cuname
+  }
+
+  customer_master_sync ||--|| customer_master : "customer_code = cuno"
+  user_master }o--|| customer_master_sync : "customer_code"
 ```
 
 ### 5.2 Table: `user_master` (Users-relevant)
@@ -222,7 +248,7 @@ DataTables server-side. Search: username/name/email/mobile + role name.
 
 #### `POST api/users_check_unique.php`
 
-Body: `record_id`, `email`, `mobile_number`.
+Body: `record_id`, `email`, `mobile_number`, `customer_code`.
 
 ```json
 { "valid": true, "errors": {} }
@@ -231,18 +257,20 @@ Body: `record_id`, `email`, `mobile_number`.
 or
 
 ```json
-{ "valid": false, "errors": { "email": ["Email address already exists"] } }
+{ "valid": false, "errors": { "email": ["Email address already exists"], "customer_code": ["Customer Code already exists."] } }
 ```
 
-Does **not** check username (server checks on form POST).
+Checks email, mobile, and customer_code uniqueness. Username checked server-side on POST.
 
 #### `GET api/users_get.php?id=`
 
-Returns user fields for edit helpers (no password). **Security gap:** missing System Admin guard.
+Returns user fields for edit (no password). Includes `customer_code` and `customer_code_text` (resolved label).
 
 ### 6.3 Supporting lookup APIs
 
-N/A (roles/SC loaded server-side into HTML).
+#### `GET api/user_customer_search.php?q=`
+
+Select2 source. Searches `customer_master_sync` (active, non-deleted) joined with `customer_master` for name. Returns `[{ id, text }]`.
 
 ### 6.4 Core PHP responsibilities
 
@@ -277,7 +305,8 @@ N/A (roles/SC loaded server-side into HTML).
 ### 7.2 Client-side (`js/users.js`)
 
 - validate.js constraints + live input filtering
-- Pre-submit `POST api/users_check_unique.php` for email/mobile
+- Pre-submit `POST api/users_check_unique.php` for email/mobile/customer_code
+- Customer Code Select2 with async search from `api/user_customer_search.php`
 - SC show/hide from `USER_ROLES_REQUIRING_SALES_COORDINATOR`
 - Disposable check via `BLOCKED_EMAIL_DOMAINS`
 
@@ -291,18 +320,19 @@ N/A (roles/SC loaded server-side into HTML).
 |---------|------|
 | Subtitle | Manage application users, roles, and credentials. |
 | CTA | Add User / Cancel |
-| Grid | ID, Role, Username, Name, Email, Mobile, Last Login, Created At, Action |
+| Grid | ID, Role, Username, Name, Customer Code, Email, Mobile, Last Login, Created At, Action |
 | Empty | `No users found.` / `No matching users found.` |
 | Actions | View / Edit / Delete |
 
 ### 8.2 Form panel
 
-Fields: Role*, Sales Coordinator (conditional)*, Username*, Name*, Email*, Mobile*, Password* (optional on edit).  
+Fields: Role*, Sales Coordinator (conditional)*, Customer Code* (Select2), Username*, Name*, Email*, Mobile*, Password* (optional on edit).  
+Customer Code uses Select2 (`api/user_customer_search.php`) showing `cuno - cuname`. Required field.  
 Hints: create strength text; edit “Leave blank to keep the current password.”
 
 ### 8.3 Details — `user_details.php`
 
-Account Information + Activity (created/last login); SC when applicable.
+Account Information + Activity (created/last login); Customer Code (resolved label); SC when applicable.
 
 ### 8.4 Modals
 
@@ -479,7 +509,8 @@ ComplaintManagement/
 ├── api/
 │   ├── users_datatable.php
 │   ├── users_check_unique.php
-│   └── users_get.php
+│   ├── users_get.php
+│   └── user_customer_search.php
 ├── includes/
 │   ├── user_helpers.php
 │   ├── user_form_fields.php
@@ -491,7 +522,8 @@ ComplaintManagement/
 ├── js/
 │   └── users.js
 ├── sql/
-│   └── add_user_master_session_version.sql
+│   ├── add_user_master_session_version.sql
+│   └── add_user_master_customer_code.sql
 └── docs/
     └── LLD_Users_Module.md
 ```
@@ -567,6 +599,10 @@ ComplaintManagement/
 | TC-09 | Soft-delete | Hidden from list; session bumped |
 | TC-10 | DataTable search by role name | Filtered |
 | TC-11 | Edit user whose SC inactive | Selected SC still shown (prepended) |
+| TC-12 | Create with duplicate customer_code | Rejected (unique) |
+| TC-13 | Create with customer_code not in sync | Rejected (invalid) |
+| TC-14 | Delete sync record | User customer_code set to NULL |
+| TC-15 | Customer Code shown in grid | Resolved as `cuno - cuname` |
 
 ---
 
@@ -604,7 +640,11 @@ ComplaintManagement/
 
 ## Appendix B — Select2 control map
 
-**N/A.** Role (`#userRoleSelect`) and Sales Coordinator (`#salesCoordinatorSelect`) are native HTML selects.
+| Control | Source API | Display format |
+|---------|-----------|----------------|
+| `#userCustomerCodeSelect` | `api/user_customer_search.php` | `cuno - cuname` |
+
+Role (`#userRoleSelect`) and Sales Coordinator (`#salesCoordinatorSelect`) are native HTML selects.
 
 ---
 
