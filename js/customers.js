@@ -130,10 +130,6 @@ function initCustomerCodeSelect2() {
         setCustomerNameDisplay(data.cuname || '');
     });
 
-    $select.on('select2:clear', function () {
-        setCustomerNameDisplay('');
-    });
-
     $select.on('change', function () {
         if (!$select.val()) {
             setCustomerNameDisplay('');

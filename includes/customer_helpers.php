@@ -107,16 +107,6 @@ function customer_master_format_label(array $row): string
     return $cuname !== '' ? ($cuno . ' - ' . $cuname) : $cuno;
 }
 
-function customer_master_label(PDO $conn, string $cuno): string
-{
-    $row = customer_master_get_by_code($conn, $cuno);
-    if ($row === null) {
-        return $cuno !== '' ? $cuno : '-';
-    }
-
-    return customer_master_format_label($row);
-}
-
 /**
  * @return array<int, array{id: string, text: string, cuname: string}>
  */
@@ -202,22 +192,44 @@ function customer_insert(PDO $conn, array $data, string $username): void
 
 function customer_update(PDO $conn, int $id, array $data, string $username): void
 {
-    $stmt = $conn->prepare('
-        UPDATE customer_master_sync SET
-            customer_code = :customer_code,
-            updated_by = :updated_by,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = :id
-          AND deleted_at IS NULL
-    ');
-    $stmt->bindValue(':customer_code', $data['customer_code']);
-    if ($username === '') {
-        $stmt->bindValue(':updated_by', null, PDO::PARAM_NULL);
-    } else {
-        $stmt->bindValue(':updated_by', $username);
+    $existing = customer_get_by_id($conn, $id);
+    if ($existing === null) {
+        return;
     }
-    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $stmt->execute();
+
+    $oldCustomerCode = trim((string) ($existing['customer_code'] ?? ''));
+    $newCustomerCode = trim((string) ($data['customer_code'] ?? ''));
+
+    $conn->beginTransaction();
+    try {
+        $stmt = $conn->prepare('
+            UPDATE customer_master_sync SET
+                customer_code = :customer_code,
+                updated_by = :updated_by,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+              AND deleted_at IS NULL
+        ');
+        $stmt->bindValue(':customer_code', $data['customer_code']);
+        if ($username === '') {
+            $stmt->bindValue(':updated_by', null, PDO::PARAM_NULL);
+        } else {
+            $stmt->bindValue(':updated_by', $username);
+        }
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        if ($oldCustomerCode !== '' && strcasecmp($oldCustomerCode, $newCustomerCode) !== 0) {
+            customer_clear_users_customer_code($conn, $oldCustomerCode);
+        }
+
+        $conn->commit();
+    } catch (Throwable $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        throw $e;
+    }
 }
 
 function customer_clear_users_customer_code(PDO $conn, string $customerCode): int
