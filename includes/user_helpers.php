@@ -150,8 +150,8 @@ function user_form_record_from_post(array $data, int $id): array
 
 function user_customer_code_format_label(array $row): string
 {
-    $cuno = trim((string) ($row['cuno'] ?? ''));
-    $cuname = trim((string) ($row['cuname'] ?? ''));
+    $cuno = trim((string) ($row['cuno'] ?? $row['customer_code'] ?? ''));
+    $cuname = trim((string) ($row['cuname'] ?? $row['customer_name'] ?? ''));
 
     if ($cuno === '') {
         return '-';
@@ -168,9 +168,13 @@ function user_customer_code_get(PDO $conn, string $cuno): ?array
     }
 
     $stmt = $conn->prepare('
-        SELECT cuno, cuname
-        FROM customer_master
-        WHERE TRIM(cuno) = :cuno
+        SELECT
+            TRIM(cms.customer_code) AS cuno,
+            TRIM(cm.cuname) AS cuname
+        FROM customer_master_sync cms
+        LEFT JOIN customer_master cm ON TRIM(cm.cuno) = TRIM(cms.customer_code)
+        WHERE TRIM(cms.customer_code) = :cuno
+          AND cms.deleted_at IS NULL
         LIMIT 1
     ');
     $stmt->bindValue(':cuno', $cuno);
@@ -197,21 +201,25 @@ function user_customer_code_search(PDO $conn, string $search, int $limit = 50): 
 {
     $limit = max(1, min(100, $limit));
     $sql = '
-        SELECT cuno, cuname
-        FROM customer_master
-        WHERE length(TRIM(cuno)) > 0
+        SELECT
+            TRIM(cms.customer_code) AS cuno,
+            TRIM(cm.cuname) AS cuname
+        FROM customer_master_sync cms
+        LEFT JOIN customer_master cm ON TRIM(cm.cuno) = TRIM(cms.customer_code)
+        WHERE cms.deleted_at IS NULL
+          AND length(TRIM(cms.customer_code)) > 0
     ';
     $params = [];
 
     if ($search !== '') {
         $sql .= ' AND (
-            LOWER(cuno) LIKE LOWER(:search)
-            OR LOWER(COALESCE(cuname, \'\')) LIKE LOWER(:search)
+            LOWER(cms.customer_code) LIKE LOWER(:search)
+            OR LOWER(COALESCE(cm.cuname, \'\')) LIKE LOWER(:search)
         )';
         $params[':search'] = '%' . $search . '%';
     }
 
-    $sql .= ' ORDER BY cuno ASC LIMIT ' . (int) $limit;
+    $sql .= ' ORDER BY cms.customer_code ASC LIMIT ' . (int) $limit;
 
     $stmt = $conn->prepare($sql);
     foreach ($params as $key => $value) {

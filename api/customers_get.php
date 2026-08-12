@@ -10,15 +10,15 @@ admin_api_require_system_admin($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 
-$cuno = trim((string) ($_GET['cuno'] ?? ''));
+$id = (int) ($_GET['id'] ?? 0);
 
-if ($cuno === '') {
+if ($id <= 0) {
     http_response_code(400);
-    api_json_echo(['error' => 'Invalid customer code.']);
+    api_json_echo(['error' => 'Invalid record id.']);
     exit;
 }
 
-$row = customer_get_by_cuno($obconn, $cuno);
+$row = customer_get_by_id($obconn, $id);
 
 if ($row === null) {
     http_response_code(404);
@@ -26,12 +26,14 @@ if ($row === null) {
     exit;
 }
 
-$addrCode = trim((string) ($row['adr_code'] ?? ''));
-$addrLabel = customer_address_label($obconn, $addrCode);
+$customerCode = trim((string) ($row['customer_code'] ?? ''));
+$customerName = trim((string) ($row['customer_name'] ?? ''));
 
 api_json_echo([
-    'cuno' => trim((string) ($row['cuno'] ?? '')),
-    'cuname' => trim((string) ($row['cuname'] ?? '')),
-    'adr_code' => $addrCode,
-    'adr_code_text' => $addrLabel,
+    'id' => (int) ($row['id'] ?? 0),
+    'customer_code' => $customerCode,
+    'customer_name' => $customerName,
+    'customer_code_text' => $customerCode !== ''
+        ? ($customerName !== '' ? ($customerCode . ' - ' . $customerName) : $customerCode)
+        : '',
 ]);

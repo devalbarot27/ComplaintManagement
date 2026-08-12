@@ -11,6 +11,6 @@ admin_api_require_system_admin($obconn);
 header('Content-Type: application/json; charset=utf-8');
 
 $search = trim((string) ($_GET['q'] ?? $_GET['term'] ?? $_POST['q'] ?? $_POST['term'] ?? ''));
-$results = customer_address_search($obconn, $search, 50);
+$results = customer_master_search($obconn, $search, 50);
 
 api_json_echo(['results' => $results]);

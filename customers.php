@@ -5,42 +5,41 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/customer_helpers.php';
+require_once __DIR__ . '/includes/current_username_helpers.php';
 
 require_system_admin($obconn);
 
 $success_message = '';
 $error_message = '';
+$actorUsername = current_username();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
-    $originalCuno = trim((string) ($_POST['original_cuno'] ?? ''));
+    $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = customer_from_post($_POST);
-    $isEdit = $originalCuno !== '';
+    $isEdit = $recordId > 0;
     $validationError = customer_validate($data);
 
     if ($validationError !== null) {
         $error_message = $validationError;
-    } elseif (customer_address_get_by_code($obconn, $data['adr_code']) === null) {
-        $error_message = 'Selected customer address is invalid.';
-    } elseif (!$isEdit && customer_code_exists($obconn, $data['cuno'])) {
-        $error_message = 'Customer code already exists. Please choose a different code.';
-    } elseif (customer_name_exists($obconn, $data['cuname'], $isEdit ? $originalCuno : '')) {
-        $error_message = 'Customer name already exists. Please choose a different name.';
+    } elseif (customer_master_get_by_code($obconn, $data['customer_code']) === null) {
+        $error_message = 'Selected customer code is invalid.';
+    } elseif (customer_code_exists($obconn, $data['customer_code'], $recordId)) {
+        $error_message = 'Customer code already exists in sync list. Please choose a different code.';
     } else {
         try {
-            $addrFields = customer_resolve_address_fields($obconn, $data['adr_code']);
             if ($isEdit) {
-                if (!customer_get_by_cuno($obconn, $originalCuno)) {
-                    $error_message = 'Customer not found or already deleted.';
+                if (!customer_get_by_id($obconn, $recordId)) {
+                    $error_message = 'Record not found or already deleted.';
                 } else {
-                    customer_update($obconn, $originalCuno, $data, $addrFields);
-                    $success_message = 'Customer updated successfully.';
+                    customer_update($obconn, $recordId, $data, $actorUsername);
+                    $success_message = 'Customer sync record updated successfully.';
                 }
             } else {
-                customer_insert($obconn, $data, $addrFields);
-                $success_message = 'Customer saved successfully.';
+                customer_insert($obconn, $data, $actorUsername);
+                $success_message = 'Customer sync record saved successfully.';
             }
         } catch (PDOException $e) {
-            $error_message = $isEdit ? 'Failed to update customer.' : 'Failed to save customer.';
+            $error_message = $isEdit ? 'Failed to update customer sync record.' : 'Failed to save customer sync record.';
         }
     }
 }
@@ -51,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customers</title>
+    <title>Customer Master</title>
     <?php include 'header_css.php'; ?>
     <link href="css/new_complaint.css" rel="stylesheet" />
     <link href="css/complaint_buttons.css" rel="stylesheet" />
@@ -102,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
 
             <div class="page-header">
                 <div>
-                    <div class="page-subtitle">Manage customer master records.</div>
+                    <div class="page-subtitle">Sync customer codes from customer master.</div>
                 </div>
                 <div class="header-btn-group">
                     <button class="new-order-btn btn-complaint-primary" id="openCustomerForm" type="button">
@@ -117,38 +116,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
             <div class="complaint-form-card" id="customerFormCard">
                 <div class="complaint-form-header">
                     <div class="complaint-form-header__main">
-                        <div class="complaint-form-header__icon"><i class="bi bi-person-badge"></i></div>
+                        <div class="complaint-form-header__icon"><i class="bi bi-arrow-repeat"></i></div>
                         <div>
                             <h2 class="complaint-form-header__title" id="customerFormModeLabel">Add Customer</h2>
-                            <p class="complaint-form-header__subtitle">Enter customer code, name, and address.</p>
+                            <p class="complaint-form-header__subtitle">Select a customer code from customer master.</p>
                         </div>
                     </div>
                 </div>
 
                 <form method="POST" id="customerForm" novalidate>
-                    <input type="hidden" name="original_cuno" id="customerOriginalCuno" value="">
+                    <input type="hidden" name="record_id" id="customerRecordId" value="">
                     <input type="hidden" name="submit_customer" value="1">
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
                             <div class="row g-3">
                                 <div class="col-md-6 form-group">
                                     <label class="form-label">Customer Code <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="cust_code" maxlength="9"
-                                        placeholder="e.g. CI1G03095">
-                                    <div class="text-danger validation-msg" data-field="cust_code"></div>
-                                </div>
-                                <div class="col-md-6 form-group">
-                                    <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="cust_name" maxlength="120"
-                                        placeholder="e.g. Acme Industries">
-                                    <div class="text-danger validation-msg" data-field="cust_name"></div>
-                                </div>
-                                <div class="col-md-12 form-group">
-                                    <label class="form-label">Customer Address <span class="text-danger">*</span></label>
-                                    <select class="form-control" name="cust_addr" id="customerAddrSelect" style="width:100%;">
+                                    <select class="form-control" name="customer_code" id="customerCodeSelect" style="width:100%;">
                                         <option value=""></option>
                                     </select>
-                                    <div class="text-danger validation-msg" data-field="cust_addr"></div>
+                                    <div class="text-danger validation-msg" data-field="customer_code"></div>
+                                </div>
+                                <div class="col-md-6 form-group">
+                                    <label class="form-label">Customer Name</label>
+                                    <input type="text" class="form-control" id="customerNameDisplay" 
+                                        placeholder="Auto-filled from selected customer code" readonly style="background-color: #f8f9fa;">
                                 </div>
                             </div>
                         </section>
@@ -164,15 +156,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
 
             <div class="booking-card">
                 <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div class="booking-title">Customer List</div>
+                    <div class="booking-title">Customer Master List</div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover booking-table w-100" id="customersTable">
                         <thead>
                             <tr>
-                                <th width="15%">Code</th>
-                                <th width="30%">Name</th>
-                                <th width="40%">Address</th>
+                                <th width="10%">ID</th>
+                                <th width="20%">Customer Code</th>
+                                <th width="35%">Customer Name</th>
+                                <th width="20%">Created At</th>
                                 <th width="15%">Action</th>
                             </tr>
                         </thead>

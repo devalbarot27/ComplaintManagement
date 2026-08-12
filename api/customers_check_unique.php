@@ -15,24 +15,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     echo json_encode([
         'valid' => false,
         'errors' => [
-            'cust_code' => ['Method not allowed. Use POST.'],
+            'customer_code' => ['Method not allowed. Use POST.'],
         ],
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-$excludeCuno = trim((string) ($_POST['original_cuno'] ?? ''));
-$custCode = trim((string) ($_POST['cust_code'] ?? ''));
-$custName = trim((string) ($_POST['cust_name'] ?? ''));
+$recordId = (int) ($_POST['record_id'] ?? 0);
+$customerCode = trim((string) ($_POST['customer_code'] ?? ''));
 
 $errors = [];
 
-if ($custCode !== '' && customer_code_exists($obconn, $custCode, $excludeCuno)) {
-    $errors['cust_code'] = ['Customer code already exists. Please choose a different code.'];
-}
-
-if ($custName !== '' && customer_name_exists($obconn, $custName, $excludeCuno)) {
-    $errors['cust_name'] = ['Customer name already exists. Please choose a different name.'];
+if ($customerCode !== '' && customer_code_exists($obconn, $customerCode, $recordId)) {
+    $errors['customer_code'] = ['Customer code already exists in sync list. Please choose a different code.'];
 }
 
 echo json_encode([

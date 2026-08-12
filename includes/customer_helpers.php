@@ -6,79 +6,40 @@ require_once __DIR__ . '/current_username_helpers.php';
 function customer_from_post(array $post): array
 {
     return [
-        'cuno' => trim((string) ($post['cust_code'] ?? '')),
-        'cuname' => trim((string) ($post['cust_name'] ?? '')),
-        'adr_code' => trim((string) ($post['cust_addr'] ?? '')),
+        'customer_code' => trim((string) ($post['customer_code'] ?? '')),
     ];
 }
 
 function customer_validate(array $data): ?string
 {
-    if ($data['cuno'] === '') {
+    if ($data['customer_code'] === '') {
         return 'Customer code is required.';
     }
 
-    if (strlen($data['cuno']) > 9) {
+    if (strlen($data['customer_code']) > 9) {
         return 'Customer code cannot exceed 9 characters.';
-    }
-
-    if ($data['cuname'] === '') {
-        return 'Customer name is required.';
-    }
-
-    if (strlen($data['cuname']) > 120) {
-        return 'Customer name cannot exceed 120 characters.';
-    }
-
-    if ($data['adr_code'] === '') {
-        return 'Customer address is required.';
-    }
-
-    if (strlen($data['adr_code']) > 9) {
-        return 'Customer address code cannot exceed 9 characters.';
     }
 
     return null;
 }
 
-function customer_code_exists(PDO $conn, string $cuno, string $excludeCuno = ''): bool
+function customer_code_exists(PDO $conn, string $customerCode, int $excludeId = 0): bool
 {
     $sql = '
-        SELECT cuno
-        FROM customer_master
-        WHERE LOWER(TRIM(cuno)) = LOWER(TRIM(:cuno))
+        SELECT id
+        FROM customer_master_sync
+        WHERE LOWER(TRIM(customer_code)) = LOWER(TRIM(:customer_code))
+          AND deleted_at IS NULL
     ';
-    if ($excludeCuno !== '') {
-        $sql .= ' AND TRIM(cuno) != TRIM(:exclude_cuno)';
+    if ($excludeId > 0) {
+        $sql .= ' AND id != :exclude_id';
     }
     $sql .= ' LIMIT 1';
 
     $stmt = $conn->prepare($sql);
-    $stmt->bindValue(':cuno', $cuno);
-    if ($excludeCuno !== '') {
-        $stmt->bindValue(':exclude_cuno', $excludeCuno);
-    }
-    $stmt->execute();
-
-    return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
-}
-
-function customer_name_exists(PDO $conn, string $cuname, string $excludeCuno = ''): bool
-{
-    $sql = '
-        SELECT cuno
-        FROM customer_master
-        WHERE LOWER(TRIM(cuname)) = LOWER(TRIM(:cuname))
-    ';
-    if ($excludeCuno !== '') {
-        $sql .= ' AND TRIM(cuno) != TRIM(:exclude_cuno)';
-    }
-    $sql .= ' LIMIT 1';
-
-    $stmt = $conn->prepare($sql);
-    $stmt->bindValue(':cuname', $cuname);
-    if ($excludeCuno !== '') {
-        $stmt->bindValue(':exclude_cuno', $excludeCuno);
+    $stmt->bindValue(':customer_code', $customerCode);
+    if ($excludeId > 0) {
+        $stmt->bindValue(':exclude_id', $excludeId, PDO::PARAM_INT);
     }
     $stmt->execute();
 
@@ -88,12 +49,32 @@ function customer_name_exists(PDO $conn, string $cuname, string $excludeCuno = '
 function customer_search_filter(string $searchValue): array
 {
     return [
-        'sql' => '(cuno ILIKE :search OR cuname ILIKE :search OR adr_code ILIKE :search)',
+        'sql' => '(cms.customer_code ILIKE :search OR cm.cuname ILIKE :search)',
         'params' => [':search' => '%' . $searchValue . '%'],
     ];
 }
 
-function customer_get_by_cuno(PDO $conn, string $cuno): ?array
+function customer_get_by_id(PDO $conn, int $id): ?array
+{
+    $stmt = $conn->prepare('
+        SELECT
+            cms.*,
+            TRIM(cm.cuname) AS customer_name
+        FROM customer_master_sync cms
+        LEFT JOIN customer_master cm ON TRIM(cm.cuno) = TRIM(cms.customer_code)
+        WHERE cms.id = :id
+          AND cms.deleted_at IS NULL
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+function customer_master_get_by_code(PDO $conn, string $cuno): ?array
 {
     $cuno = trim($cuno);
     if ($cuno === '') {
@@ -101,7 +82,7 @@ function customer_get_by_cuno(PDO $conn, string $cuno): ?array
     }
 
     $stmt = $conn->prepare('
-        SELECT *
+        SELECT TRIM(cuno) AS cuno, TRIM(cuname) AS cuname
         FROM customer_master
         WHERE TRIM(cuno) = :cuno
         LIMIT 1
@@ -114,128 +95,50 @@ function customer_get_by_cuno(PDO $conn, string $cuno): ?array
     return $row ?: null;
 }
 
-function customer_address_format_label(array $row): string
+function customer_master_format_label(array $row): string
 {
-    $code = trim((string) ($row['adr_code'] ?? ''));
-    if ($code === '') {
+    $cuno = trim((string) ($row['cuno'] ?? ''));
+    $cuname = trim((string) ($row['cuname'] ?? ''));
+
+    if ($cuno === '') {
         return '-';
     }
 
-    $st1 = trim((string) ($row['st1'] ?? ''));
-    $st2 = trim((string) ($row['st2'] ?? ''));
-    $city2 = trim((string) ($row['city2'] ?? ''));
-    $pin = trim((string) ($row['pin'] ?? ''));
-    $street = trim($st1 . ' ' . $st2);
-
-    return $code !== '' ? $code . ($street !== '' ? ' - ' . $street . ($city2 !== '' ? ', ' . $city2 : '') . ($pin !== '' ? ' - ' . $pin : '') : '') : '-';
+    return $cuname !== '' ? ($cuno . ' - ' . $cuname) : $cuno;
 }
 
-function customer_address_get_by_code(PDO $conn, string $adrCode): ?array
+function customer_master_label(PDO $conn, string $cuno): string
 {
-    $adrCode = trim($adrCode);
-    if ($adrCode === '') {
-        return null;
-    }
-
-    $stmt = $conn->prepare('
-        SELECT adr_code, cuno, st1, st2, city2, pin, city, state, country
-        FROM customer_address
-        WHERE TRIM(adr_code) = :adr_code
-        LIMIT 1
-    ');
-    $stmt->bindValue(':adr_code', $adrCode);
-    $stmt->execute();
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return $row ?: null;
-}
-
-function customer_address_label(PDO $conn, string $adrCode): string
-{
-    $row = customer_address_get_by_code($conn, $adrCode);
+    $row = customer_master_get_by_code($conn, $cuno);
     if ($row === null) {
-        return $adrCode !== '' ? $adrCode : '-';
+        return $cuno !== '' ? $cuno : '-';
     }
 
-    return customer_address_format_label($row);
+    return customer_master_format_label($row);
 }
 
-function customer_address_labels(PDO $conn, array $adrCodes): array
-{
-    $codes = [];
-    foreach ($adrCodes as $code) {
-        $code = trim((string) $code);
-        if ($code !== '') {
-            $codes[$code] = $code;
-        }
-    }
-
-    if ($codes === []) {
-        return [];
-    }
-
-    $placeholders = [];
-    $params = [];
-    $i = 0;
-    foreach ($codes as $code) {
-        $key = ':c' . $i;
-        $placeholders[] = $key;
-        $params[$key] = $code;
-        $i++;
-    }
-
-    $sql = '
-        SELECT adr_code, st1, st2, city2, pin
-        FROM customer_address
-        WHERE TRIM(adr_code) IN (' . implode(', ', $placeholders) . ')
-    ';
-    $stmt = $conn->prepare($sql);
-    foreach ($params as $key => $value) {
-        $stmt->bindValue($key, $value);
-    }
-    $stmt->execute();
-
-    $labels = [];
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $code = trim((string) ($row['adr_code'] ?? ''));
-        if ($code === '') {
-            continue;
-        }
-        $label = customer_address_format_label($row);
-        $labels[$code] = $label;
-        foreach ($codes as $requested) {
-            if (trim((string) $requested) === $code) {
-                $labels[trim((string) $requested)] = $label;
-            }
-        }
-    }
-
-    return $labels;
-}
-
-function customer_address_search(PDO $conn, string $search, int $limit = 50): array
+/**
+ * @return array<int, array{id: string, text: string, cuname: string}>
+ */
+function customer_master_search(PDO $conn, string $search, int $limit = 50): array
 {
     $limit = max(1, min(100, $limit));
     $sql = '
-        SELECT adr_code, st1, st2, city2, pin
-        FROM customer_address
-        WHERE length(TRIM(adr_code)) > 0
+        SELECT TRIM(cuno) AS cuno, TRIM(cuname) AS cuname
+        FROM customer_master
+        WHERE length(TRIM(cuno)) > 0
     ';
     $params = [];
 
     if ($search !== '') {
         $sql .= ' AND (
-            LOWER(adr_code) LIKE LOWER(:search)
-            OR LOWER(COALESCE(st1, \'\')) LIKE LOWER(:search)
-            OR LOWER(COALESCE(st2, \'\')) LIKE LOWER(:search)
-            OR LOWER(COALESCE(city2, \'\')) LIKE LOWER(:search)
-            OR LOWER(COALESCE(pin, \'\')) LIKE LOWER(:search)
+            LOWER(cuno) LIKE LOWER(:search)
+            OR LOWER(COALESCE(cuname, \'\')) LIKE LOWER(:search)
         )';
         $params[':search'] = '%' . $search . '%';
     }
 
-    $sql .= ' ORDER BY adr_code ASC LIMIT ' . (int) $limit;
+    $sql .= ' ORDER BY cuno ASC LIMIT ' . (int) $limit;
 
     $stmt = $conn->prepare($sql);
     foreach ($params as $key => $value) {
@@ -245,95 +148,130 @@ function customer_address_search(PDO $conn, string $search, int $limit = 50): ar
 
     $results = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $code = trim((string) ($row['adr_code'] ?? ''));
-        if ($code === '') {
+        $cuno = trim((string) ($row['cuno'] ?? ''));
+        if ($cuno === '') {
             continue;
         }
         $results[] = [
-            'id' => $code,
-            'text' => customer_address_format_label($row),
+            'id' => $cuno,
+            'text' => customer_master_format_label($row),
+            'cuname' => trim((string) ($row['cuname'] ?? '')),
         ];
     }
 
     return $results;
 }
 
-function customer_entry_actions(string $cuno): string
+function customer_entry_actions(int $id): string
 {
-    $cuno = trim($cuno);
-    $encodedCuno = base64_encode($cuno);
+    $encodedId = base64_encode((string) $id);
 
     return '
         <div class="d-flex gap-1">
-            <a href="customer_details.php?id=' . htmlspecialchars($encodedCuno, ENT_QUOTES, 'UTF-8') . '"
+            <a href="customer_details.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark" title="View">
                 <i class="bi bi-eye"></i>
             </a>
             <button type="button" class="btn btn-sm btn-outline-dark edit-customer-btn"
-                data-cuno="' . htmlspecialchars($cuno, ENT_QUOTES, 'UTF-8') . '" title="Edit">
+                data-id="' . $id . '" title="Edit">
                 <i class="bi bi-pencil"></i>
             </button>
-            <a href="delete_customer.php?id=' . htmlspecialchars($encodedCuno, ENT_QUOTES, 'UTF-8') . '"
+            <a href="delete_customer.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
-                onclick="return confirm(\'Delete this customer?\');" title="Delete">
+                onclick="return confirm(\'Delete this customer sync record?\');" title="Delete">
                 <i class="bi bi-trash"></i>
             </a>
         </div>
     ';
 }
 
-function customer_resolve_address_fields(PDO $conn, string $adrCode): array
-{
-    $row = customer_address_get_by_code($conn, $adrCode);
-
-    return [
-        'city' => trim((string) ($row['city'] ?? '')),
-        'state' => trim((string) ($row['state'] ?? '')),
-        'country' => trim((string) ($row['country'] ?? '')),
-    ];
-}
-
-function customer_insert(PDO $conn, array $data, array $addrFields): void
+function customer_insert(PDO $conn, array $data, string $username): void
 {
     $stmt = $conn->prepare('
-        INSERT INTO customer_master (cuno, cuname, adr_code, city, state, country)
-        VALUES (:cuno, :cuname, :adr_code, :city, :state, :country)
+        INSERT INTO customer_master_sync (customer_code, added_by, created_at)
+        VALUES (:customer_code, :added_by, CURRENT_TIMESTAMP)
     ');
-    $stmt->bindValue(':cuno', $data['cuno']);
-    $stmt->bindValue(':cuname', $data['cuname']);
-    $stmt->bindValue(':adr_code', $data['adr_code']);
-    $stmt->bindValue(':city', $addrFields['city']);
-    $stmt->bindValue(':state', $addrFields['state']);
-    $stmt->bindValue(':country', $addrFields['country']);
+    $stmt->bindValue(':customer_code', $data['customer_code']);
+    if ($username === '') {
+        $stmt->bindValue(':added_by', null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(':added_by', $username);
+    }
     $stmt->execute();
 }
 
-function customer_update(PDO $conn, string $cuno, array $data, array $addrFields): void
+function customer_update(PDO $conn, int $id, array $data, string $username): void
 {
     $stmt = $conn->prepare('
-        UPDATE customer_master SET
-            cuname = :cuname,
-            adr_code = :adr_code,
-            city = :city,
-            state = :state,
-            country = :country
-        WHERE TRIM(cuno) = :cuno
+        UPDATE customer_master_sync SET
+            customer_code = :customer_code,
+            updated_by = :updated_by,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+          AND deleted_at IS NULL
     ');
-    $stmt->bindValue(':cuname', $data['cuname']);
-    $stmt->bindValue(':adr_code', $data['adr_code']);
-    $stmt->bindValue(':city', $addrFields['city']);
-    $stmt->bindValue(':state', $addrFields['state']);
-    $stmt->bindValue(':country', $addrFields['country']);
-    $stmt->bindValue(':cuno', trim($cuno));
+    $stmt->bindValue(':customer_code', $data['customer_code']);
+    if ($username === '') {
+        $stmt->bindValue(':updated_by', null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(':updated_by', $username);
+    }
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
 }
 
-function customer_delete(PDO $conn, string $cuno): void
+function customer_clear_users_customer_code(PDO $conn, string $customerCode): int
 {
+    $customerCode = trim($customerCode);
+    if ($customerCode === '') {
+        return 0;
+    }
+
     $stmt = $conn->prepare('
-        DELETE FROM customer_master
-        WHERE TRIM(cuno) = :cuno
+        UPDATE user_master
+        SET customer_code = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE LOWER(TRIM(customer_code)) = LOWER(TRIM(:customer_code))
+          AND deleted_at IS NULL
     ');
-    $stmt->bindValue(':cuno', trim($cuno));
+    $stmt->bindValue(':customer_code', $customerCode);
     $stmt->execute();
+
+    return $stmt->rowCount();
+}
+
+function customer_soft_delete(PDO $conn, int $id, string $username = ''): void
+{
+    $record = customer_get_by_id($conn, $id);
+    if ($record === null) {
+        return;
+    }
+
+    $customerCode = trim((string) ($record['customer_code'] ?? ''));
+
+    $conn->beginTransaction();
+    try {
+        $stmt = $conn->prepare('
+            UPDATE customer_master_sync
+            SET deleted_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP,
+                updated_by = COALESCE(NULLIF(:updated_by, \'\'), updated_by)
+            WHERE id = :id
+              AND deleted_at IS NULL
+        ');
+        $stmt->bindValue(':updated_by', $username);
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+
+        if ($customerCode !== '') {
+            customer_clear_users_customer_code($conn, $customerCode);
+        }
+
+        $conn->commit();
+    } catch (Throwable $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        throw $e;
+    }
 }
