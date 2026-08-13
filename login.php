@@ -52,7 +52,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rememberMe = isset($_POST['remember_me']);
 
     // Prefer RSA-OAEP ciphertext from the browser; never accept plaintext password over the wire.
-    $password = login_decrypt_transport_password($passwordEncrypted);
+    //$password = login_decrypt_transport_password($passwordEncrypted); // HTTPS / encrypt enabled.
+    if ($password === null || $password === '') { // HTTPS / encrypt disabled.
+        $password = (string) ($_POST['password'] ?? '');
+    }
 
     if ($username_value === '' || $password === null || $password === '') {
         $error_message = 'Invalid username or password';

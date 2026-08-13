@@ -127,6 +127,7 @@ function initLoginFormValidation() {
             submitButton.disabled = true;
         }
 
+        /* HTTPS / encrypt enabled.
         encryptPasswordForTransport(plainPassword)
             .then(function (encrypted) {
                 if (encryptedInput) {
@@ -148,6 +149,8 @@ function initLoginFormValidation() {
                     password: ['Unable to secure password for transmission. Please try again.']
                 });
             });
+            */
+        form.submit(); // HTTP / encrypt disabled.
     });
 
     const passwordInput = form.querySelector('#password');
