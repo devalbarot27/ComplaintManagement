@@ -28,6 +28,20 @@
 
 Assigned via Assign Permissions. Non-admin users see only their customer's orders; Admin/Management/CCS Admin can see broader scope (including Added By).
 
+### Tables used
+
+| Table | Database | Purpose |
+|-------|----------|---------|
+| `plexecom_customer_units` | OB | Primary list, details, and Re-Push source |
+| `despatch` | DP | Despatched status check |
+| `tbl_vayu_delivery_term` | OB | Delivery term label |
+| `tbl_vayu_order_category` | OB | Category label |
+| `spp_payterm_master` | OB | Payment term description |
+| `transporter_master` | OB | Transporter name |
+| `user_master` | OB | Added By column (admin roles) |
+| `area` | OB | Details page enrichment |
+| `customer_address` | DP | Re-Push / address helpers |
+
 ### Data sources
 
 - `plexecom_customer_units` — booked orders (Ref No, lines, header fields)
@@ -68,6 +82,25 @@ Assigned via Assign Permissions. Non-admin users see only their customer's order
 - Unauthenticated → login; no permission → access denied
 - Order is scoped to session customer (`customer_number_vayu`, fallback `10001`)
 
+### Tables used
+
+| Table | Database | Purpose |
+|-------|----------|---------|
+| `tbl_vayu_cartitems` | OB | Draft cart (`status = 0`, per user) |
+| `plexecom_customer_units` | OB | Booked order lines (shared Ref No on submit) |
+| `product_master_vayu` | OB | Product search, price, order type |
+| `tbl_vayu_order_category` | OB | Order category dropdown |
+| `area` | OB | Area dropdown |
+| `transporter_master` | OB | Transporter dropdown |
+| `dealercode_and_transportercode` | OB | Transporter mapping |
+| `customer_master` | OB/DP | Customer / dealer lookup |
+| `customer_address` | OB/DP | Delivery address Select2 |
+| `dpst_master` | OB | Product group (DPST) |
+| `gst_hsn` | OB | HSN / tax on submit |
+| `user_master` | OB | EDI email lookup on submit |
+
+**OB** = order booking DB (`$obconn`) · **DP** = dealer portal DB (`$dpconn`)
+
 ### Data sources
 
 - `tbl_vayu_cartitems` — draft cart (`status = 0`, per user)
@@ -107,6 +140,16 @@ Assigned via Assign Permissions. Non-admin users see only their customer's order
 - `order-acknowledgement` / **export-excel:** Export (UI disabled)
 
 Assigned via Assign Permissions. List scoped to logged-in user (`usr_name` as customer). Read-only — no create/edit.
+
+### Tables used
+
+| Table | Database | Purpose |
+|-------|----------|---------|
+| `maintdealer` | DP | Primary AO list and detail header/lines |
+| `plexecom_customer_units` | OB | Ref No bridge via `order_number` |
+| `dpst_master` | DP | Product group description |
+| `customer_master` | DP | Detail page customer name |
+| `cust_delivery_address` | DP | Detail page delivery address |
 
 ### Data sources
 
@@ -150,6 +193,17 @@ Assigned via Assign Permissions. List scoped to logged-in user (`usr_name` as cu
 
 Assigned via Assign Permissions. List scoped to logged-in user (`usr_name`). Read-only — no create/edit.
 
+### Tables used
+
+| Table | Database | Purpose |
+|-------|----------|---------|
+| `pendingordersnew` | DP | Primary open pending order lines |
+| `plexecom_customer_units` | OB | Ref No and status enrichment |
+| `despatch` | DP | Despatched status badge |
+| `dpst_master` | DP | Product group description |
+| `tbl_commitment` | DP | Commitment / delivery date lookup |
+| `maintdealer` | DP | Detail page header/lines (shared with AO) |
+
 ### Data sources
 
 - `pendingordersnew` — open ERP pending order lines (dealer portal DB)
@@ -183,6 +237,14 @@ Assigned via Assign Permissions. List scoped to logged-in user (`usr_name`). Rea
 
 Assigned via Assign Permissions. Scoped to session customer (`customer_number_vayu`, fallback `10001`). Read-only — no create/edit.
 
+### Tables used
+
+| Table | Database | Purpose |
+|-------|----------|---------|
+| `despatch` | DP | Primary despatched invoice/shipment list |
+| `lr_details` | DP | LR number, packing, transporter, weight (join) |
+| `dpst_master` | DP | Product group description |
+
 ### Data sources
 
 - `despatch` — despatched invoice/shipment records (dealer portal DB)
@@ -212,6 +274,15 @@ Assigned via Assign Permissions. Scoped to session customer (`customer_number_va
 - `lr-details` / **list:** Open the list
 
 Assigned via Assign Permissions. Scoped to session customer (`customer_number_vayu`, fallback `10001`). Read-only — no create/edit.
+
+### Tables used
+
+| Table | Database | Purpose |
+|-------|----------|---------|
+| `lrdetails` | DP | Primary LR list source |
+| `dpst_master` | DP | Product group description |
+
+**Note:** Despatch Details uses a separate table `lr_details` (packing join); LR Details uses `lrdetails`.
 
 ### Data sources
 

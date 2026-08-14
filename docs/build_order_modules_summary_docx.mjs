@@ -19,8 +19,8 @@ import remarkGfm from 'remark-gfm';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const mdPath = path.join(__dirname, 'Order_Modules_Summary.md');
-const outPath = path.join(__dirname, 'Order_Modules_Summary.docx');
-const tmpPath = path.join(__dirname, 'Order_Modules_Summary_new.docx');
+const outPath = path.join(__dirname, 'Order_Modules_Summary_new.docx');
+const fallbackPath = path.join(__dirname, 'Order_Modules_Summary.docx');
 
 const markdown = fs.readFileSync(mdPath, 'utf8');
 
@@ -166,8 +166,8 @@ try {
   console.log('Wrote', outPath, `(${buffer.length} bytes)`);
 } catch (err) {
   if (err && err.code === 'EBUSY') {
-    fs.writeFileSync(tmpPath, buffer);
-    console.log('Target locked; wrote', tmpPath, `(${buffer.length} bytes)`);
+    fs.writeFileSync(fallbackPath, buffer);
+    console.log('Target locked; wrote', fallbackPath, `(${buffer.length} bytes)`);
   } else {
     throw err;
   }
