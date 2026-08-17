@@ -320,7 +320,7 @@ function ibServiceLogCreatePartReplacementEntry(defaults) {
         + '<div class="row g-2">'
         + '<div class="col-md-8 form-group">'
         + '<label class="form-label">Machine Model / Part <span class="text-danger">*</span></label>'
-        + '<select class="form-control ib-part-model-select" name="part_replacement_entries[' + index + '][machine_model_code]" data-placeholder="Search machine model"><option value=""></option></select>'
+        + '<select class="form-control ib-part-model-select" name="part_replacement_entries[' + index + '][machine_model_code]" data-placeholder="Search or select machine model"><option value=""></option></select>'
         + '<input type="hidden" class="ib-part-model-desc" name="part_replacement_entries[' + index + '][machine_model]">'
         + '<div class="text-danger validation-msg" data-field="part_replacement_entries.' + index + '.machine_model_code"></div>'
         + '</div>'
@@ -335,15 +335,24 @@ function ibServiceLogCreatePartReplacementEntry(defaults) {
     $select.select2({
         width: '100%',
         dropdownParent: $('#installedBaseServiceLogModal'),
-        placeholder: 'Search machine model',
+        placeholder: $select.data('placeholder') || 'Search or select machine model',
         allowClear: true,
-        minimumInputLength: 1,
+        minimumInputLength: 0,
         ajax: {
             url: 'api/machine_model_search.php',
             dataType: 'json',
             delay: 250,
             data: function (params) { return { q: params.term || '' }; },
-            processResults: function (data) { return data; }
+            processResults: function (data) { return data; },
+            cache: true
+        },
+        language: {
+            noResults: function () {
+                return 'No machine model found';
+            },
+            searching: function () {
+                return 'Searching...';
+            }
         }
     });
     if (defaults.machine_model_code) {

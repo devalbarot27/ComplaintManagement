@@ -7,11 +7,6 @@ header('Content-Type: application/json; charset=utf-8');
 
 $term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? ''));
 
-if ($term === '') {
-    echo json_encode(['results' => []]);
-    exit;
-}
-
 $results = [];
 
 foreach (ln_invoice_search_fabno($dpconn, $term) as $row) {

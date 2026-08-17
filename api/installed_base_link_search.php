@@ -12,17 +12,16 @@ header('Content-Type: application/json; charset=utf-8');
 
 $term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? ''));
 
-if ($term === '') {
-    echo json_encode(['results' => []]);
-    exit;
-}
-
 $scope = after_market_list_scope($obconn);
 
-$stmt = $obconn->prepare("
+$sql = "
     SELECT id, order_ref_id, order_id, fab_number, customer_name, machine_model, machine_model_code, running_hours
     FROM installed_base
     WHERE {$scope['where']}
+";
+
+if ($term !== '') {
+    $sql .= "
       AND (
             order_id ILIKE :term
          OR fab_number ILIKE :term
@@ -30,13 +29,21 @@ $stmt = $obconn->prepare("
          OR machine_model ILIKE :term
          OR machine_model_code ILIKE :term
       )
+    ";
+}
+
+$sql .= '
     ORDER BY id DESC
     LIMIT 25
-");
+';
+
+$stmt = $obconn->prepare($sql);
 foreach ($scope['params'] as $key => $value) {
     $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
 }
-$stmt->bindValue(':term', '%' . $term . '%');
+if ($term !== '') {
+    $stmt->bindValue(':term', '%' . $term . '%');
+}
 $stmt->execute();
 
 $results = [];

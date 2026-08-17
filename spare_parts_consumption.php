@@ -188,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_spare_parts'])
                                         <i class="bi bi-hdd-stack"></i> Machine <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control" name="installed_base_id" id="sparePartsMachineSelect"
-                                        data-placeholder="Search installed base / serial number">
+                                        data-placeholder="Search or select machine">
                                         <option value=""></option>
                                     </select>
                                     <div class="text-danger validation-msg" data-field="installed_base_id"></div>

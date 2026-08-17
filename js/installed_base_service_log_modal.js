@@ -121,9 +121,9 @@ function ibServiceLogInitPartModelSelect2(entry, index) {
 
     const select2Options = {
         width: '100%',
-        placeholder: 'Search machine model',
+        placeholder: $select.data('placeholder') || 'Search or select machine model',
         allowClear: true,
-        minimumInputLength: 1,
+        minimumInputLength: 0,
         ajax: {
             url: 'api/machine_model_search.php',
             dataType: 'json',
@@ -137,9 +137,6 @@ function ibServiceLogInitPartModelSelect2(entry, index) {
             cache: true
         },
         language: {
-            inputTooShort: function () {
-                return 'Type to search machine model';
-            },
             noResults: function () {
                 return 'No machine model found';
             },
@@ -220,7 +217,7 @@ function ibServiceLogCreatePartReplacementEntry(defaults) {
         + '  <div class="col-md-6 form-group">'
         + '    <label class="form-label"><i class="bi bi-cpu"></i> Machine Model / Part <span class="text-danger">*</span></label>'
         + '    <select class="form-control ib-part-model-select" id="ibServiceLogPartModelSelect_' + index + '"'
-        + '      name="part_replacement_entries[' + index + '][machine_model_code]" data-placeholder="Search machine model">'
+        + '      name="part_replacement_entries[' + index + '][machine_model_code]" data-placeholder="Search or select machine model">'
         + '      <option value=""></option>'
         + '    </select>'
         + '    <input type="hidden" class="ib-part-model-desc" name="part_replacement_entries[' + index + '][machine_model]">'

@@ -1,37 +1,36 @@
 <?php
 function machine_model_search_product_master(PDO $conn, string $term, string $dpst, int $limit = 25): array
 {
-    /*
-    $stmt = $conn->prepare("
-        SELECT tplcode, tpldesc
-        FROM product_master
-        WHERE dpst = :dpst
-          AND (
-                tplcode ILIKE :term
-             OR tpldesc ILIKE :term
-          )
-        ORDER BY tplcode
-        LIMIT :limit
-    ");
-    $stmt->bindValue(':term', '%' . $term . '%');
-    $stmt->bindValue(':dpst', $dpst);
-    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-    $stmt->execute();
-    */
-        $stmt = $conn->prepare("
+    $term = trim($term);
+    $limit = max(1, min(50, $limit));
+
+    $sql = '
         SELECT tplcode, tpldesc
         FROM product_master_vayu
-        WHERE (
-                tplcode ILIKE :term
-            OR tpldesc ILIKE :term
-        )
+    ';
+
+    if ($term !== '') {
+        $sql .= '
+            WHERE (
+                    tplcode ILIKE :term
+                 OR tpldesc ILIKE :term
+            )
+        ';
+    }
+
+    $sql .= '
         ORDER BY tplcode
         LIMIT :limit
-    ");   
-    $stmt->bindValue(':term', '%' . $term . '%');
+    ';
+
+    $stmt = $conn->prepare($sql);
+    if ($term !== '') {
+        $stmt->bindValue(':term', '%' . $term . '%');
+    }
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
-   return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 function machine_model_search_plexecom_customer_units(PDO $conn, string $term, string $dpst, int $limit = 25): array
@@ -74,10 +73,7 @@ function machine_model_normalize_row(array $row): ?array
 function machine_model_search(PDO $conn, string $term, string $dpst = '90092', int $limit = 25): array
 {
     $term = trim($term);
-
-   if ($term === '') {
-        return [];
-    }
+    $limit = max(1, min(50, $limit));
 
    $combined = [];
 

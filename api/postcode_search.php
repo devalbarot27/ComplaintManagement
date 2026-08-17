@@ -6,20 +6,29 @@ header('Content-Type: application/json; charset=utf-8');
 
 $term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? ''));
 
-if ($term === '' || !preg_match('/^\d{1,6}$/', $term)) {
+if ($term !== '' && !preg_match('/^\d{1,6}$/', $term)) {
     echo json_encode(['results' => []]);
     exit;
 }
 
-$stmt = $obconn->prepare("
-    SELECT postcode, city, district, state,state_code
+$sql = '
+    SELECT postcode, city, district, state, state_code
     FROM postcodes
-    WHERE postcode LIKE :term
+';
+
+if ($term !== '') {
+    $sql .= ' WHERE postcode LIKE :term';
+}
+
+$sql .= '
     ORDER BY postcode, city
     LIMIT 25
-");
+';
 
-$stmt->bindValue(':term', $term . '%');
+$stmt = $obconn->prepare($sql);
+if ($term !== '') {
+    $stmt->bindValue(':term', $term . '%');
+}
 $stmt->execute();
 
 $result_arr = [];

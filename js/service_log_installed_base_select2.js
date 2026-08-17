@@ -59,9 +59,9 @@ function initServiceLogInstalledBaseSelect2() {
 
     $select.select2({
         width: '100%',
-        placeholder: 'Search installed base record',
+        placeholder: $select.data('placeholder') || 'Search or select installed base',
         allowClear: true,
-        minimumInputLength: 1,
+        minimumInputLength: 0,
         ajax: {
             url: 'api/installed_base_link_search.php',
             dataType: 'json',
@@ -75,9 +75,6 @@ function initServiceLogInstalledBaseSelect2() {
             cache: true
         },
         language: {
-            inputTooShort: function () {
-                return 'Type to search installed base';
-            },
             noResults: function () {
                 return 'No installed base record found';
             },

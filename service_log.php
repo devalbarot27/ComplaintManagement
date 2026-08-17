@@ -297,7 +297,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                         <i class="bi bi-link-45deg"></i> Installed Base <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control" name="installed_base_id" id="installedBaseLinkSelect"
-                                        data-placeholder="Search installed base record">
+                                        data-placeholder="Search or select installed base">
                                         <option value=""></option>
                                     </select>
                                     <div class="text-danger validation-msg" data-field="installed_base_id"></div>

@@ -108,9 +108,9 @@ function initInstalledBaseMachineModelSelect2() {
 
     $select.select2({
         width: '100%',
-        placeholder: $select.data('placeholder') || 'Search machine model',
+        placeholder: $select.data('placeholder') || 'Search or select machine model',
         allowClear: true,
-        minimumInputLength: 1,
+        minimumInputLength: 0,
         ajax: {
             url: 'api/machine_model_search.php',
             dataType: 'json',
@@ -124,9 +124,6 @@ function initInstalledBaseMachineModelSelect2() {
             cache: true
         },
         language: {
-            inputTooShort: function () {
-                return 'Type to search machine model';
-            },
             noResults: function () {
                 return 'No machine model found';
             },

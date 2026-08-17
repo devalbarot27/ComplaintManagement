@@ -10,9 +10,9 @@ function initFabnoSelect2(formId, selectId, options) {
 
     $fab.select2({
         width: '100%',
-        placeholder: 'Search fab number',
+        placeholder: $fab.data('placeholder') || 'Search or select fab number',
         allowClear: true,
-        minimumInputLength: 1,
+        minimumInputLength: 0,
         ajax: {
             url: 'api/ln_invoice_fabno_search.php',
             dataType: 'json',
@@ -26,9 +26,6 @@ function initFabnoSelect2(formId, selectId, options) {
             cache: true
         },
         language: {
-            inputTooShort: function () {
-                return 'Type to search fab number';
-            },
             noResults: function () {
                 return 'No fab number found';
             },

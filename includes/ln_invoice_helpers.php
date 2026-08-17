@@ -34,11 +34,9 @@ function ln_invoice_resolve_invoice_date_for_fab(PDO $conn, string $fabno): ?str
 function ln_invoice_search_fabno(PDO $conn, string $term, int $limit = 25): array
 {
     $term = trim($term);
-    if ($term === '') {
-        return [];
-    }
+    $limit = max(1, min(50, $limit));
 
-    $stmt = $conn->prepare('
+    $sql = '
         SELECT DISTINCT ON (TRIM(fabno))
             fabno,
             inv_dt,
@@ -47,11 +45,21 @@ function ln_invoice_search_fabno(PDO $conn, string $term, int $limit = 25): arra
         FROM ln_invoice_details
         WHERE fabno IS NOT NULL
           AND TRIM(fabno) <> \'\'
-          AND fabno ILIKE :term
+    ';
+
+    if ($term !== '') {
+        $sql .= ' AND fabno ILIKE :term';
+    }
+
+    $sql .= '
         ORDER BY TRIM(fabno), inv_dt DESC NULLS LAST
         LIMIT :limit
-    ');
-    $stmt->bindValue(':term', '%' . $term . '%');
+    ';
+
+    $stmt = $conn->prepare($sql);
+    if ($term !== '') {
+        $stmt->bindValue(':term', '%' . $term . '%');
+    }
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
 

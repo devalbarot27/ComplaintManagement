@@ -308,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                         Fab Number <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control" name="fab_number" id="fabNumberSelect"
-                                        data-placeholder="Search fab number">
+                                        data-placeholder="Search or select fab number">
                                         <option value=""></option>
                                     </select>
                                     <div class="text-danger validation-msg" data-field="fab_number"></div>
@@ -319,7 +319,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                         Machine Model <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control" name="machine_model_code" id="machineModelSelect"
-                                        data-placeholder="Search machine model">
+                                        data-placeholder="Search or select machine model">
                                         <option value=""></option>
                                     </select>
                                     <input type="hidden" name="machine_model" id="machineModelDesc">
@@ -406,7 +406,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                         Pincode <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control" name="pincode" id="installedBasePincodeSelect"
-                                        data-placeholder="Search pincode">
+                                        data-placeholder="Search or select pincode">
                                         <option value=""></option>
                                     </select>
                                     <div class="text-danger validation-msg" data-field="pincode"></div>

@@ -126,9 +126,9 @@ function initSparePartsMachineSelect2() {
 
     $select.select2({
         width: '100%',
-        placeholder: 'Search machine by serial / order / customer',
+        placeholder: $select.data('placeholder') || 'Search or select machine',
         allowClear: true,
-        minimumInputLength: 1,
+        minimumInputLength: 0,
         ajax: {
             url: 'api/installed_base_link_search.php',
             dataType: 'json',
@@ -142,9 +142,6 @@ function initSparePartsMachineSelect2() {
             cache: true
         },
         language: {
-            inputTooShort: function () {
-                return 'Type to search machine';
-            },
             noResults: function () {
                 return 'No machine found';
             },
