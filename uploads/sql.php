@@ -1,59 +1,28 @@
 <?php
 include '../pdo_obconn.php';
 
-try {
-    // 1. Get table structure
-    $stmt = $obconn->prepare("
-        SELECT 
-            column_name,
-            data_type,
-            character_maximum_length,
-            is_nullable,
-            column_default
-        FROM information_schema.columns
-        WHERE table_name = 'plexecom_customer_units'
-        ORDER BY ordinal_position
-    ");
-    
-    $stmt->execute();
-    $structure = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // 2. Get sample data
-    $stmt = $obconn->prepare("
-        SELECT *
-        FROM plexecom_customer_units
-where refno = 'E/UNITS/2607318797'
-order by order_date DESC
-        LIMIT 10
-    ");
-
-    $stmt->execute();
-    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // 3. Merge output
-    echo "<pre>";
-    print_r([
-        //"structure" => $structure,
-        "data" => $data
-    ]);
-
-} catch (PDOException $e) {
-    echo "Error: " . $e->getMessage();
-}
-die();
 
 
-$sql = "SELECT COUNT(*) AS total_records FROM elgi_item_master";
+
+
+
+$sql = "CREATE TABLE IF NOT EXISTS customer_master_sync (
+    id SERIAL PRIMARY KEY,
+    customer_code VARCHAR(9) NOT NULL,
+    added_by VARCHAR(100),
+    updated_by VARCHAR(100),
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);";
+
 $stmt = $obconn->prepare($sql);
 
-if (!$stmt->execute()) {
+if ($stmt->execute()) {
+    echo "Column added successfully (or already exists).";
+} else {
     print_r($stmt->errorInfo());
-    die();
 }
-
-$result = $stmt->fetch(PDO::FETCH_ASSOC);
-
-echo "Total Records: " . $result['total_records'];
 die();
 
 $sql = "SELECT * FROM elgi_item_master Limit 10";

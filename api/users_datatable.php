@@ -89,13 +89,9 @@ if ($customerCodes !== []) {
         $i++;
     }
     $labelStmt = $obconn->prepare('
-        SELECT
-            TRIM(cms.customer_code) AS cuno,
-            TRIM(cm.cuname) AS cuname
-        FROM customer_master_sync cms
-        LEFT JOIN customer_master cm ON TRIM(cm.cuno) = TRIM(cms.customer_code)
-        WHERE cms.deleted_at IS NULL
-          AND TRIM(cms.customer_code) IN (' . implode(', ', $placeholders) . ')
+        SELECT cuno, cuname
+        FROM customer_master
+        WHERE TRIM(cuno) IN (' . implode(', ', $placeholders) . ')
     ');
     foreach ($params as $key => $value) {
         $labelStmt->bindValue($key, $value);

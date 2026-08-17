@@ -4,9 +4,9 @@
  * Account lockout after consecutive failed login attempts.
  *
  * Rules:
- * - 5 consecutive failures → lock for 15 minutes
- * - After 15 minutes → automatically unlock
- * - 30 minutes after unlock → email user that the account was unlocked
+ * - 5 consecutive failures ? lock for 15 minutes
+ * - After 15 minutes ? automatically unlock
+ * - 30 minutes after unlock ? email user that the account was unlocked
  */
 
 require_once __DIR__ . '/login_helpers.php';

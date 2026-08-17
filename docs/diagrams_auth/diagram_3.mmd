@@ -1,9 +1,0 @@
-flowchart TD
-  A[Validate strength and history] --> B[password_hash new password]
-  B --> C[UPDATE user_master password]
-  C --> D[Bump session_version]
-  D --> E[INSERT password_history trim to 3]
-  E --> F{Reset token?}
-  F -->|Yes| G[Mark token used invalidate others]
-  F -->|No| H[Done]
-  G --> H

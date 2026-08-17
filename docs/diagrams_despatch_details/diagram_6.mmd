@@ -1,8 +1,0 @@
-sequenceDiagram
-  actor User
-  participant Page as despatch_details.php
-  participant Inv as invoice.php
-
-  User->>Page: Click action View
-  Page->>Inv: GET invno invref
-  Note over Inv: File missing in repo today

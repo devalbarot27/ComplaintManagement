@@ -1,8 +1,7 @@
   <?php
     require_once __DIR__ . '/includes/login_helpers.php';
     login_start_php_session();
-    include("session_check.php");
-   
+    include("session_check.php");   
     require_once __DIR__ . '/includes/admin_access_helpers.php';
     require_once __DIR__ . '/includes/rbac_access_helpers.php';
     if (!isset($obconn)) {
@@ -91,7 +90,7 @@
     } else if ($currentPage == 'customers.php') {
         $pageName = "Customer Master";
     } else if ($currentPage == 'customer_details.php') {
-        $pageName = "Customer Master Details";
+        $pageName = "Customer Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     } else if ($currentPage == 'notifications.php') {
@@ -333,9 +332,9 @@
                       Products
                   </a>
 
-                  <a href="customers.php"
+                 <a href="customers.php"
                       class="menu-item <?= in_array($currentPage, ['customers.php', 'customer_details.php'], true) ? 'active' : '' ?>">
-                      <i class="bi bi-arrow-repeat"></i>
+                      <i class="bi bi-person-badge"></i>
                       Customer Master
                   </a>
 

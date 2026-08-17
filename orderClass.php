@@ -20,8 +20,8 @@ class orderClass
         $this->obconn = $obconn;
         $this->dpconn = $dpconn;
         $this->userId = $_SESSION['usr_name'];
-        //$this->customer_code = $_SESSION['customer_number_vayu'];
-        $this->customer_code = @$_SESSION['customer_number_vayu']?? '10001';
+       //$this->customer_code = $_SESSION['customer_number_vayu'];
+       $this->customer_code = $_SESSION['customer_number_vayu']??'10001';
     }
 
 
@@ -3507,15 +3507,15 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                     . '<i class="fa fa-eye"></i></a>';
 
                 if ($this->canShowRecentOrderRepush($orderNumber, $orderStatusLabel, $orderDateRaw, $orderTimeRaw)) {
-                         $cooldownUntil = $this->resolveRecentOrderRepushCooldownUntil($row['ediprocessdt'] ?? null);
-                        $disabledAttr = $cooldownUntil !== null ? ' disabled' : '';
-                        $untilAttr = $cooldownUntil !== null
-                            ? ' data-repush-until="' . (int) $cooldownUntil . '"'
-                            : '';
-                        $linesHtml .= ' <button type="button" class="btn btn-sm btn-outline-dark mt-2 btn-repush"'
-                            . $disabledAttr . $untilAttr
-                            . ' title="Re-Push" onclick="rePushOrder(\'' . $safeRef . '\', this)">'
-                            . '<i class="fa fa-refresh"></i></button>';
+                    $cooldownUntil = $this->resolveRecentOrderRepushCooldownUntil($row['ediprocessdt'] ?? null);
+                    $disabledAttr = $cooldownUntil !== null ? ' disabled' : '';
+                    $untilAttr = $cooldownUntil !== null
+                        ? ' data-repush-until="' . (int) $cooldownUntil . '"'
+                        : '';
+                    $linesHtml .= ' <button type="button" class="btn btn-sm btn-outline-dark mt-2 btn-repush"'
+                        . $disabledAttr . $untilAttr
+                        . ' title="Re-Push" onclick="rePushOrder(\'' . $safeRef . '\', this)">'
+                        . '<i class="fa fa-refresh"></i></button>';
                 }
 
                 $rowData = [

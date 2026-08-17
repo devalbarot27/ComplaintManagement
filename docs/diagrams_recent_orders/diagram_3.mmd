@@ -1,6 +1,0 @@
-flowchart TD
-  A[DataTables POST getRecentOrders] --> B[Apply seeAll or cuno scope]
-  B --> C[DISTINCT ON refno + joins]
-  C --> D[Resolve status badges]
-  D --> E[Build actions eye and re-push]
-  E --> F[DataTables JSON]

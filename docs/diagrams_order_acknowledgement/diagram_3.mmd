@@ -1,6 +1,0 @@
-flowchart TD
-  A[DataTables POST getOrderAcknowledgeList] --> B[Count distinct AO rows]
-  B --> C[Select page of maintdealer rows]
-  C --> D[fetchPendingOrderRefMap for ordnos]
-  D --> E[Build JSON with ref_no and view link]
-  E --> F[DataTables render]

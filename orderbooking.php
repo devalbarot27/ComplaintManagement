@@ -139,7 +139,8 @@ $freightPercentage = 4;
                         <label>Delivery Term <span class="text-danger">*</span></label>
                         <select class="form-control" id="deliveryTerm">
                             <option value="CIF">CIF</option>
-                            <?php /* <option value="">Select</option>
+                            <?php /*
+                            <option value="">Select</option>
                             <option value="ACP">EX-WORKS,FRIGHT BY ELGi</option>
                             <option value='CFR'>FREIGHT PAID - D/D AGST. C/C</option>
                             <option value='CIF'>FREIGHT PAID - D/D AGST. C/C</option>

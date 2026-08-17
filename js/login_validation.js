@@ -127,7 +127,7 @@ function initLoginFormValidation() {
             submitButton.disabled = true;
         }
 
-        /* HTTPS / encrypt enabled.
+        /* // HTTPS / encrypt enabled.
         encryptPasswordForTransport(plainPassword)
             .then(function (encrypted) {
                 if (encryptedInput) {
@@ -150,8 +150,8 @@ function initLoginFormValidation() {
                 });
             });
             */
-        form.submit(); // HTTP / encrypt disabled.
-    });
+        form.submit(); // HTTP / encrypt disabled.    
+});
 
     const passwordInput = form.querySelector('#password');
     const passwordToggle = document.getElementById('passwordToggle');
