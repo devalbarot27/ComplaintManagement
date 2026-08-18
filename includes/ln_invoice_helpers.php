@@ -44,6 +44,8 @@ function ln_invoice_search_fabno(PDO $conn, string $term, int $limit = 25): arra
             tpl_desc
         FROM ln_invoice_details
         WHERE fabno IS NOT NULL
+          AND inv_dt IS NOT NULL 
+          AND inv_dt > \'2020-01-01\'
           AND TRIM(fabno) <> \'\'
     ';
 
@@ -78,12 +80,17 @@ function ln_invoice_get_invoice_date_by_fabno(PDO $conn, string $fabno): ?string
         SELECT MAX(inv_dt) AS inv_dt
         FROM ln_invoice_details
         WHERE fabno = :fabno
+        AND inv_dt IS NOT NULL 
+          AND inv_dt > \'2020-01-01\'
+
     ');
     */
     $stmt = $conn->prepare('
         SELECT MAX(inv_dt) AS inv_dt
         FROM ln_invoice_details
         WHERE fabno = :fabno
+        AND inv_dt IS NOT NULL 
+          AND inv_dt > \'2020-01-01\'
         Order by inv_dt desc
         Limit 1
     ');
@@ -125,6 +132,8 @@ function ln_invoice_get_machine_model_by_fabno(PDO $conn, string $fabno): ?array
         SELECT tpl, tpl_desc
         FROM ln_invoice_details
         WHERE fabno = :fabno
+        AND inv_dt IS NOT NULL 
+          AND inv_dt > \'2020-01-01\'
           AND TRIM(COALESCE(tpl, \'\')) <> \'\'
         ORDER BY inv_dt DESC NULLS LAST, inv_dt DESC
         LIMIT 1
@@ -160,6 +169,8 @@ function ln_invoice_fabno_exists(PDO $conn, string $fabno): bool
         SELECT 1
         FROM ln_invoice_details
         WHERE fabno = :fabno
+        AND inv_dt IS NOT NULL 
+          AND inv_dt > \'2020-01-01\'
         LIMIT 1
     ');
     $stmt->bindValue(':fabno', $fabno);
