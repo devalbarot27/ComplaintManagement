@@ -53,6 +53,8 @@ $freightPercentage = 4;
 
         .delivery-date-group {
             position: relative;
+            overflow: visible;
+            z-index: 5;
         }
 
          .delivery-date-note {
@@ -76,6 +78,52 @@ $freightPercentage = 4;
             font-size: 13px;
             color: #721c24;
             flex-shrink: 0;
+        }
+
+        #ui-datepicker-div {
+            z-index: 3000 !important;
+        }
+
+        .ui-datepicker {
+            width: 17em !important;
+            padding: 8px;
+            background: #fff;
+            border: 1px solid #dbe2ea;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+        }
+
+        .ui-datepicker table {
+            width: 100% !important;
+            table-layout: fixed !important;
+            margin: 0;
+            border-collapse: collapse;
+        }
+
+        .ui-datepicker th,
+        .ui-datepicker td {
+            width: 14.28% !important;
+            padding: 1px !important;
+        }
+
+        .ui-datepicker td span,
+        .ui-datepicker td a {
+            display: block;
+            text-align: center;
+            line-height: 2em;
+            padding: 0;
+        }
+
+        .ui-datepicker .ui-datepicker-header {
+            padding: 6px 0;
+            background: #f8fafc;
+            border: 0;
+        }
+
+        .ui-datepicker .ui-datepicker-prev,
+        .ui-datepicker .ui-datepicker-next {
+            top: 6px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -493,7 +541,17 @@ $freightPercentage = 4;
     $(document).ready(function() {
         $("#dDate").datepicker({
             dateFormat: "dd.mm.yy",
-            minDate: 0
+            minDate: 0,
+            changeMonth: true,
+            changeYear: true,
+            showAnim: "fadeIn",
+            beforeShow: function (input, inst) {
+                setTimeout(function () {
+                    inst.dpDiv.css({
+                        zIndex: 3000
+                    });
+                }, 0);
+            }
         });
 
     
