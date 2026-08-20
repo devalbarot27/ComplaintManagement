@@ -12,7 +12,8 @@ class orderClass
     private $userId;
     private $obconn;
     private $dpconn;
-    private $customer_code;
+    //private $customer_code;
+    private @$customer_code??'10001';
 
     public function __construct($obconn, $dpconn)
     {
@@ -20,8 +21,7 @@ class orderClass
         $this->obconn = $obconn;
         $this->dpconn = $dpconn;
         $this->userId = $_SESSION['usr_name'];
-       //$this->customer_code = $_SESSION['customer_number_vayu'];
-       $this->customer_code = $_SESSION['customer_number_vayu']??'10001';
+        $this->customer_code = $_SESSION['customer_number_vayu'];
     }
 
 
@@ -874,14 +874,14 @@ class orderClass
 
         $getEmail = $this->obconn->prepare("SELECT email FROM user_master WHERE username=:username limit 1");
 
-            $getEmail->bindParam(":username", $this->userId);
+        $getEmail->bindParam(":username", $this->userId);
 
-            $getEmail->execute();
+        $getEmail->execute();
 
-            $fetchEmail = $getEmail->fetch(PDO::FETCH_ASSOC);
+        $fetchEmail = $getEmail->fetch(PDO::FETCH_ASSOC);
 
         $userEmail = preg_replace('/^\s+|\s+$/u', '', $fetchEmail['email'] ?? '');
-$userEmail = ($userEmail !== '') ? $userEmail : null;
+        $userEmail = ($userEmail !== '') ? $userEmail : null;
 
 
 
@@ -1007,7 +1007,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                     throw new Exception("Cart is empty.");
                 }
 
-             
+
 
                 $stmt = $this->obconn->prepare("SELECT max(substr(indent_number,7,9)) AS maxindno FROM 
                 plexecom_customer_units15062026 WHERE areacode = :area AND indent_date >= '01.04.2022'");
@@ -1055,7 +1055,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
 
                 $invaddr = pg_escape_string($customer['custaddr']);
 
-        
+
                 $dpstStmt = $this->obconn->prepare("SELECT product_group FROM dpst_master WHERE dpst_code = :dpst");
 
                 $dpstStmt->execute([':dpst' => $dpst]);
@@ -1180,7 +1180,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                 </SalesOrderHeader>";
 
                 $line = 10;
-              
+
                 foreach ($cartItems as $item) {
 
                     $tplcode = $item['item_code'];
@@ -1361,7 +1361,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
 
                     ]);
 
-                    
+
                     if (!$success) {
 
                         $this->obconn->rollBack();
@@ -1382,7 +1382,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                 </document>
                 </messageRequest>";
 
-    
+
                 $url = "https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_TST/IONSERVICES/api/ion/messaging/service/v2/message";
 
                 $maxRetries = 3;
@@ -1468,7 +1468,6 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
                 } else {
                     return json_encode(["status" => ($data['message'] ?? 'Unknown error')], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                 }
-                   
             } catch (Exception $e) {
 
                 if ($this->obconn->inTransaction()) {
@@ -3874,7 +3873,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
         return $placedAt <= (time() - 1800);
     }
 
- /**
+    /**
      * Returns unix timestamp when Re-Push cooldown ends, or null if not in cooldown.
      */
     private function resolveRecentOrderRepushCooldownUntil($ediprocessdt): ?int
@@ -4248,7 +4247,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
 
             $headerStmt = $this->obconn->prepare($headerSql);
             $headerStmt->bindValue(':refno', $refno);
-           /*
+            /*
             if (!$seeAll) {
                 $headerStmt->bindValue(':cuno', $this->userId);
             }
@@ -4284,7 +4283,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
 
             $linesStmt = $this->obconn->prepare($linesSql);
             $linesStmt->bindValue(':refno', $refno);
-/*
+            /*
             if (!$seeAll) {
                 $linesStmt->bindValue(':cuno', $this->customer_code);
             }
@@ -4335,7 +4334,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
             $cuno = trim((string) ($headerRow['cuno'] ?? $this->customer_code));
             $orderDateRaw = $headerRow['order_date'] ?? $headerRow['indent_date'] ?? null;
             $orderDate = !empty($orderDateRaw) ? date('d-m-Y', strtotime((string) $orderDateRaw)) : '-';
- 	  $orderTime = $headerRow['order_time'] ?? null;
+            $orderTime = $headerRow['order_time'] ?? null;
 
 
 
@@ -4866,7 +4865,7 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
     }
 
 
-  /**
+    /**
      * Re-push an existing pending order to Infor LN to regenerate AO number.
      */
     public function rePushOrder()
@@ -5447,4 +5446,140 @@ $userEmail = ($userEmail !== '') ? $userEmail : null;
 
         return json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
+
+   public function getComplaintItems()
+{
+    try {
+        $complaintNo = trim(filter_input(INPUT_POST, 'complaintNo', FILTER_SANITIZE_SPECIAL_CHARS) ?? '');
+        if (empty($complaintNo)) {
+            return json_encode(['status' => false, 'message' => 'Complaint number is required']);
+        }
+
+        // "Complaint Number" as typed by the dealer may be the numeric complaints.id
+        // or the fab_number business reference - match whichever fits.
+        $where = ctype_digit($complaintNo) ? 'c.id = :complaintNo' : 'c.fab_number = :complaintNo';
+        
+        $sql = "SELECT c.id AS complaint_id, spr.id AS part_id, spr.machine_model_code, spr.machine_model, spr.quantity FROM complaints c
+                INNER JOIN complaint_service_logs csl ON csl.complaint_id = c.id
+                INNER JOIN service_log_part_replacements spr ON spr.service_log_id = csl.service_log_id
+                WHERE $where
+                  AND c.deleted_at IS NULL
+                  AND spr.deleted_at IS NULL
+                ORDER BY spr.created_at DESC";
+
+        $stmt = $this->obconn->prepare($sql);
+        $stmt->bindValue(':complaintNo', $complaintNo);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$rows) {
+            return json_encode(['status' => false, 'message' => 'No items found for this complaint number']);
+        }
+
+        $items = [];
+        foreach ($rows as $row) {
+            $itemCode = $row['machine_model_code'];
+            $itemName = $row['machine_model'];
+            $price = 0;
+
+            // Look up the master description + cost for this part code, if it exists there.
+            $getMaster = $this->obconn->prepare("SELECT tpldesc, cos FROM product_master_vayu WHERE tplcode = :tplcode LIMIT 1");
+            $getMaster->bindValue(':tplcode', $itemCode);
+            $getMaster->execute();
+            $master = $getMaster->fetch(PDO::FETCH_ASSOC);
+
+            if ($master) {
+                if (!empty($master['tpldesc'])) {
+                    $itemName = $master['tpldesc'];
+                }
+                $price = $master['cos'] ?? 0;
+            }
+
+            $items[] = [
+                'id' => $row['part_id'],
+                'item_code' => $itemCode,
+                'item_name' => $itemName,
+                'qty' => $row['quantity'],
+                'price' => $price
+            ];
+        }
+
+        return json_encode([
+            'status' => true,
+            'complaint_id' => $rows[0]['complaint_id'],
+            'items' => $items
+        ]);
+    } catch (PDOException $e) {
+        error_log($e->getMessage());
+        return json_encode(['status' => false, 'message' => 'Unable to fetch complaint items']);
+    }
+}
+
+    public function submitFocComplaintItems()
+{
+    try {
+        $items = json_decode(filter_input(INPUT_POST, 'items', FILTER_UNSAFE_RAW) ?? '[]', true);
+
+        if (empty($items) || !is_array($items)) {
+            return json_encode(['status' => false, 'message' => 'No items selected']);
+        }
+
+        $orderType = 3; // FOC
+        $price = 0;     // Free of charge
+
+        $this->obconn->beginTransaction();
+
+        foreach ($items as $item) {
+            $itemCode = filter_var($item['item_code'] ?? '', FILTER_SANITIZE_SPECIAL_CHARS);
+            $itemName = filter_var($item['item_name'] ?? '', FILTER_SANITIZE_SPECIAL_CHARS);
+            $qty = filter_var($item['qty'] ?? 0, FILTER_VALIDATE_FLOAT);
+
+            if (empty($itemCode) || $qty <= 0) {
+                continue;
+            }
+
+            $getDpst = $this->obconn->prepare("SELECT dpst FROM product_master_vayu WHERE tplcode = :tplcode LIMIT 1");
+            $getDpst->bindValue(':tplcode', $itemCode);
+            $getDpst->execute();
+            $dpstRow = $getDpst->fetch(PDO::FETCH_ASSOC);
+            $dpst = $dpstRow['dpst'] ?? '-';
+
+            $stmt = $this->obconn->prepare("SELECT qty FROM tbl_vayu_cartitems WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code AND order_type = :orderType");
+            $stmt->bindValue(':createdBy', $this->userId);
+            $stmt->bindValue(':item_code', $itemCode);
+            $stmt->bindValue(':orderType', $orderType);
+            $stmt->execute();
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$existing) {
+                $insert = $this->obconn->prepare("INSERT INTO tbl_vayu_cartitems(item_code,item_name,price,qty,total_amount,created_by,dpst,order_type) VALUES (:item_code,:item_name,:price,:qty,:total_amount,:created_by,:dpst,:order_type)");
+                $insert->bindValue(':item_code', $itemCode);
+                $insert->bindValue(':item_name', $itemName);
+                $insert->bindValue(':price', $price);
+                $insert->bindValue(':qty', $qty);
+                $insert->bindValue(':total_amount', 0);
+                $insert->bindValue(':created_by', $this->userId);
+                $insert->bindValue(':dpst', $dpst);
+                $insert->bindValue(':order_type', $orderType);
+                $insert->execute();
+            } else {
+                $updatedQty = $existing['qty'] + $qty;
+                $update = $this->obconn->prepare("UPDATE tbl_vayu_cartitems SET qty = :qty, total_amount = :totalAmount WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code AND order_type = :orderType");
+                $update->bindValue(':qty', $updatedQty);
+                $update->bindValue(':totalAmount', 0);
+                $update->bindValue(':createdBy', $this->userId);
+                $update->bindValue(':item_code', $itemCode);
+                $update->bindValue(':orderType', $orderType);
+                $update->execute();
+            }
+        }
+
+        $this->obconn->commit();
+        return json_encode(['status' => true]);
+    } catch (PDOException $e) {
+        $this->obconn->rollBack();
+        error_log($e->getMessage());
+        return json_encode(['status' => false, 'message' => 'Unable to submit complaint items']);
+    }
+}
 }

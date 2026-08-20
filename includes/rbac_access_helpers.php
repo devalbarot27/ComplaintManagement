@@ -42,6 +42,9 @@ function rbac_admin_pages(): array
         'products.php',
         'product_details.php',
         'delete_product.php',
+        'foc_parts.php',
+        'service_claims.php',
+        'approvals.php',
     ];
 }
 
@@ -70,9 +73,11 @@ function rbac_page_access_rules(): array
         'delete_complaint.php' => ['module' => 'complaint-entry', 'permission' => 'delete'],
         'dse_lse_complaint_list.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
         'service_update_complaint.php' => ['module' => 'assigned-complaint-list', 'permission' => 'service-update'],
+        'foc_parts.php' => ['module' => 'foc-parts','permission' => 'create-foc'],
+        'service_claims.php' => ['module' => 'service-claims','permission' => 'view'],
+        'approvals.php' => ['module' => 'approvals','permission' => 'view'],
         'access_denied.php' => null,
-        'notifications.php' => null,
-    ];
+        'notifications.php' => null,    ];
 }
 
 function rbac_api_access_rules(): array
@@ -120,6 +125,9 @@ function rbac_sidebar_modules(): array
         'spare_parts_consumption.php' => ['module' => 'spare-parts-consumption', 'permission' => 'view'],
         'new_complaint.php' => ['module' => 'complaint-entry', 'permission' => 'view'],
         'dse_lse_complaint_list.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
+        'foc_parts.php' => ['module' => 'foc-parts', 'permission' => 'create-foc'],
+        'service_claims.php' => ['module' => 'service-claims','permission' => 'view'],
+        'approvals.php' => ['module' => 'approvals','permission' => 'view'],
     ];
 }
 

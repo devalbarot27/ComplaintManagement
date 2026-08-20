@@ -99,9 +99,9 @@ function initPincodeSelect2(formId, pincodeSelectId) {
 
   $pincode.select2({
     width: "100%",
-    placeholder: $pincode.data("placeholder") || "Search or select pincode",
+    placeholder: "Search pincode",
     allowClear: true,
-    minimumInputLength: 0,
+    minimumInputLength: 2,
     ajax: {
       url: "api/postcode_search.php",
       dataType: "json",
@@ -117,6 +117,9 @@ function initPincodeSelect2(formId, pincodeSelectId) {
       cache: true,
     },
     language: {
+      inputTooShort: function () {
+        return "Type at least 2 digits";
+      },
       noResults: function () {
         return "No pincode found";
       },

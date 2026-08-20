@@ -53,8 +53,8 @@ switch ($_POST['action']) {
           echo $ordInstance->getPendingOrderList();
           break;
      case 'getPendingOrderListNew':
-               echo $ordInstance->getPendingOrderListNew();
-               break;
+          echo $ordInstance->getPendingOrderListNew();
+          break;
      case 'getPendingOrderPriceBreakup':
           echo $ordInstance->getPendingOrderPriceBreakup();
           break;
@@ -81,6 +81,12 @@ switch ($_POST['action']) {
           break;
      case 'search_dealer':
           echo $ordInstance->search_dealer();
+          break;
+     case 'getComplaintItems':
+          echo $ordInstance->getComplaintItems();
+          break;
+     case 'submitFocComplaintItems':
+          echo $ordInstance->submitFocComplaintItems();
           break;
      default:
           echo json_encode([

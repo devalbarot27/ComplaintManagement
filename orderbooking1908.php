@@ -34,8 +34,7 @@ $freightPercentage = 4;
     <link href="css/success_modal.css" rel="stylesheet" />
     <link href="css/select2_change.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-    <php /* <link rel="stylesheet" href="https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.css"> */ ?>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery-ui@1.14.1/dist/themes/base/jquery-ui.min.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.css">
     <style>
         .select2-selection__rendered {
             font-size: 14px !important;
@@ -54,8 +53,6 @@ $freightPercentage = 4;
 
         .delivery-date-group {
             position: relative;
-            overflow: visible;
-            z-index: 5;
         }
 
          .delivery-date-note {
@@ -303,25 +300,15 @@ $freightPercentage = 4;
                     </div>
                     <div class="form-group">
                         <label>Order Type <span class="text-danger">*</span></label>
-                        <select class="form-control" name="orderType" id="orderType" onchange="toggleFocFields()">
+                        <select class="form-control" name="orderType" id="orderType">
                             <option value=1>Units</option>
                             <option value=2>Spares</option>
-                            <option value=3>FOC</option>
                         </select>
 
                     </div>
-                    <div class="form-group" id="complaintNumberGroup" style="display:none;">
-                        <label>Complaint Number <span class="text-danger">*</span></label>
-                        <div class="foc-complaint-row">
-                            <input type="text" class="form-control" id="complaintNumber" placeholder="Complaint Number" />
-                            <button type="button" class="add-item-btn" id="btnLoadComplaintItems" onclick="loadComplaintItems()">
-                                <i class="bi bi-search"></i> Load Items
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
-            <div class="order-form-card" id="productEntryCard">
+            <div class="order-form-card" id="orderFormCard">
                 <div class="order-form-grid">
                     <div class="form-group">
                         <label>Product <span class="text-danger">*</span></label>
@@ -347,31 +334,6 @@ $freightPercentage = 4;
                     </button>
                 </div>
             </div>
-            <!-- FOC COMPLAINT ITEMS (inline, shown after "Load Items") -->
-            <div class="booking-card cart-section" id="divFocHeader" style="display:none;">
-                <div class="cart-section__header">
-                    <div class="cart-section__title-wrap">
-                        <div class="cart-section__title">
-                            <i class="bi bi-cart3"></i>
-                            <span>FOC Item(s)</span>
-                        </div>
-                    </div>
-                    <p class="cart-section__subtitle" id="focSectionSubtitle">Select the items to include for this complaint.</p>
-                </div>
-
-                <div class="cart-section__bodyFoc divFoc"></div>
-
-                <div class="cart-section__footer">
-                    <div class="cart-section__actions">
-                        <button type="button" class="btn btn-secondary" onclick="cancelFocSelection()">Cancel</button>
-                        <button type="button" class="add-item-btn cart-submit-btn" onclick="submitFocComplaint()">
-                            <i class="bi bi-check2-circle"></i> Submit
-                        </button>
-                    </div>
-                </div>
-                <input type="hidden" id="focComplaintNumberHidden" />
-            </div>
-
             <!-- CART ITEM -->
             <div class="booking-card cart-section" id="divCartHeader">
                 <div class="cart-section__header">
@@ -474,7 +436,6 @@ $freightPercentage = 4;
             </div>
         </div>
     </div>
-
 </body>
 
 </html>
@@ -529,201 +490,12 @@ $freightPercentage = 4;
         setEndCustomerRequired(true);
     }
 
-    // ---- FOC (Free of Charge) order type handling ----
-
-    function toggleFocFields() {
-        var orderType = $('#orderType').val();
-        if (orderType == '3') {
-            // FOC selected: hide the manual product-entry card, show complaint number field
-            $('#complaintNumberGroup').show();
-            $('#productEntryCard').hide();
-        } else {
-            $('#complaintNumberGroup').hide();
-            $('#productEntryCard').show();
-            $('#complaintNumber').val('');
-            cancelFocSelection();
-        }
-    }
-
-    function loadComplaintItems() {
-        var complaintNo = $('#complaintNumber').val().trim();
-        if (!complaintNo) {
-            alert('Please enter a complaint number');
-            return;
-        }
-
-        $('#btnLoadComplaintItems').prop('disabled', true);
-
-        $.ajax({
-            url: 'orderRequest.php',
-            type: 'POST',
-            data: {
-                action: 'getComplaintItems',
-                complaintNo: complaintNo
-            },
-            dataType: 'json',
-            success: function(res) {
-                if (!res || !res.status) {
-                    alert((res && res.message) ? res.message : 'No items found for this complaint number.');
-                    return;
-                }
-                renderFocItemsSection(complaintNo, res.items || []);
-            },
-            error: function() {
-                alert('Unable to fetch complaint items.');
-            },
-            complete: function() {
-                $('#btnLoadComplaintItems').prop('disabled', false);
-            }
-        });
-    }
-
-    function renderFocItemsSection(complaintNo, items) {
-        var $body = $('.divFoc');
-        $body.empty();
-
-        if (!items.length) {
-            $body.html('<p class="text-muted">No items found for complaint number ' + $('<div>').text(complaintNo).html() + '.</p>');
-            $('#focSectionSubtitle').text('No items found for this complaint number.');
-        } else {
-            var $table = $('<table class="table foc-items-table"></table>');
-            var $thead = $(
-                '<thead><tr>' +
-                '<th style="width:36px;"></th>' +
-                '<th>Item Code</th>' +
-                '<th>Item Name</th>' +
-                '<th style="width:100px;">Qty</th>' +
-                '<th style="width:120px;">Price (&#8377;)</th>' +
-                '</tr></thead>'
-            );
-            var $tbody = $('<tbody></tbody>');
-
-            items.forEach(function(item) {
-                var itemCode = item.item_code || '';
-                var itemName = item.item_name || '';
-                var qty = item.qty || 0;
-                var price = parseFloat(item.price) || 0;
-
-                var $checkbox = $('<input>', {
-                    type: 'checkbox',
-                    class: 'form-check-input foc-item-checkbox',
-                    id: 'focItem' + item.id,
-                    value: item.id
-                });
-                $checkbox.data('item-code', itemCode);
-                $checkbox.data('item-name', itemName);
-                $checkbox.data('price', price);
-
-                var $qtyInput = $('<input>', {
-                    type: 'number',
-                    class: 'form-control foc-item-qty',
-                    id: 'focQty' + item.id,
-                    value: qty,
-                    min: 1,
-                    step: 1
-                });
-
-                // Editing qty implies the item is selected.
-                $qtyInput.on('input', function() {
-                    $checkbox.prop('checked', true);
-                });
-
-                var $row = $('<tr></tr>');
-                $row.append($('<td></td>').append($checkbox));
-                $row.append($('<td></td>').text(itemCode));
-                $row.append($('<td></td>').text(itemName));
-                $row.append($('<td></td>').append($qtyInput));
-                $row.append($('<td></td>').text(formatCartAmount(price)));
-
-                $tbody.append($row);
-            });
-
-            $table.append($thead).append($tbody);
-            $body.append($table);
-            $('#focSectionSubtitle').text('Select the items to include for this complaint.');
-        }
-
-        $('#focComplaintNumberHidden').val(complaintNo);
-        $('#divFocHeader').show();
-
-        // Scroll the section into view since it's appended lower on the page
-        document.getElementById('divFocHeader').scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest'
-        });
-    }
-
-    function cancelFocSelection() {
-        $('.divFoc').empty();
-        $('#focComplaintNumberHidden').val('');
-        $('#divFocHeader').hide();
-    }
-
-    function submitFocComplaint() {
-        var complaintNo = $('#focComplaintNumberHidden').val();
-        var selected = [];
-        var hasInvalidQty = false;
-
-        $('.foc-item-checkbox:checked').each(function() {
-            var itemId = $(this).val();
-            var $qtyInput = $('#focQty' + itemId);
-            var qty = parseFloat($qtyInput.val());
-
-            if (!Number.isFinite(qty) || qty <= 0) {
-                hasInvalidQty = true;
-                return;
-            }
-
-            selected.push({
-                id: itemId,
-                item_code: $(this).data('item-code'),
-                item_name: $(this).data('item-name'),
-                price: $(this).data('price'),
-                qty: qty
-            });
-        });
-
-        if (hasInvalidQty) {
-            alert('Please enter a valid quantity for each selected item.');
-            return;
-        }
-
-        if (!selected.length) {
-            alert('Please select at least one item.');
-            return;
-        }
-
-        $.ajax({
-            url: 'orderRequest.php',
-            type: 'POST',
-            data: {
-                action: 'submitFocComplaintItems',
-                complaintNo: complaintNo,
-                orderType: $('#orderType').val(),
-                items: JSON.stringify(selected)
-            },
-            dataType: 'json',
-            success: function(res) {
-                if (res && res.status) {
-                    alert('Complaint items added to cart successfully.');
-                    cancelFocSelection();
-                    $('#complaintNumber').val('');
-                    getItems();
-                } else {
-                    alert((res && res.message) ? res.message : 'Unable to submit complaint items.');
-                }
-            },
-            error: function() {
-                alert('Unable to submit complaint items.');
-            }
-        });
-    }
-
     $(document).ready(function() {
         $("#dDate").datepicker({
             dateFormat: "dd.mm.yy",
             minDate: 0
         });
+
     
         setTimeout(function() {
             $(".alert-info").hide();
@@ -809,7 +581,6 @@ $freightPercentage = 4;
 
         initPincodeSelect2('orderBookingForm', 'orderBookingPincodeSelect');
         changeAddressType($('#deliveryAddressType').val() || '1');
-        toggleFocFields();
 
         // Manual Freight Amount field   separate from per-line 4% freight calculation
         $('#fAmount').on('input', function() {

@@ -95,6 +95,8 @@
         $pageName = "Access Denied";
     } else if ($currentPage == 'notifications.php') {
         $pageName = "Notifications";
+    } else if ($currentPage == 'foc_parts.php') {
+        $pageName = "FOC Part & Service Claim";
     }
 
     ?>
@@ -260,7 +262,39 @@
             $canComplaintEntry = rbac_can_access_menu($obconn, 'new_complaint.php');
             $canAssignedComplaintList = rbac_can_access_menu($obconn, 'dse_lse_complaint_list.php');
             $showSupport = $canComplaintEntry || $canAssignedComplaintList;
+            $canFocParts = rbac_can_access_menu($obconn, 'foc_parts.php');
+            $canServiceClaims = rbac_can_access_menu($obconn, 'service_claims.php');
+            $canShowApprovals = rbac_can_access_menu($obconn, 'approvals.php');
+            $showWarrantyManagement = $canFocParts || $canServiceClaims || $canShowApprovals;
             ?>
+          <?php if ($showWarrantyManagement) { ?>
+              <div class="menu-section">
+                  <div class="menu-heading">WARRANTY MANAGEMENT</div>
+
+                  <?php if ($canFocParts) { ?>
+                      <a href="foc_parts.php"
+                          class="menu-item <?= ($currentPage == 'foc_parts.php') ? 'active' : '' ?>">
+                          <i class="bi bi-shield-check"></i>
+                          FOC Parts
+                      </a>
+                  <?php } ?>
+                  <?php if ($canServiceClaims) { ?>
+                      <a href="service_claims.php"
+                          class="menu-item <?= ($currentPage == 'service_claims.php') ? 'active' : '' ?>">
+                          <i class="bi bi-clipboard-check"></i>
+                          Service Claims
+                      </a>
+                  <?php } ?>
+                  <?php if ($canShowApprovals) { ?>
+                      <a href="approvals.php"
+                          class="menu-item <?= ($currentPage == 'approvals.php') ? 'active' : '' ?>">
+                          <i class="bi bi-check2-circle"></i>
+                          Approvals
+                      </a>
+                  <?php } ?>
+              </div>
+          <?php } ?>
+
           <?php if ($canComplaintEntry || $canAssignedComplaintList) { ?>
               <div class="menu-section">
                   <div class="menu-heading">SUPPORT</div>
