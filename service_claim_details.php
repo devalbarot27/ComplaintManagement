@@ -7,6 +7,8 @@ require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
 require_once 'includes/record_details_layout.php';
 
+warranty_claims_ensure_schema($obconn);
+
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
 if ($id <= 0) {

@@ -12,6 +12,8 @@ admin_ensure_session_role($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 
+warranty_claims_ensure_schema($obconn);
+
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
 switch ($action) {

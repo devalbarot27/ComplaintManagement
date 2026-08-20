@@ -7,6 +7,7 @@ require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
 
+warranty_claims_ensure_schema($obconn);
 distance_wise_price_ensure_schema($obconn);
 
 $success_message = '';

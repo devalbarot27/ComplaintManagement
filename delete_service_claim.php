@@ -5,6 +5,8 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/warranty_claims_helpers.php';
 
+warranty_claims_ensure_schema($obconn);
+
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
 if ($id <= 0) {
