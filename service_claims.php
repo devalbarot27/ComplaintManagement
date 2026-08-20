@@ -318,7 +318,7 @@ try {
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
         WHERE sc.deleted_at IS NULL
-        ORDER BY sc.created_at DESC
+        ORDER BY sc.created_at ASC
     ");
     $claims = $claimStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -510,101 +510,105 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
         <!-- ── End Form ───────────────────────────────────────────────────── -->
 
         <!-- ── Claims List ────────────────────────────────────────────────── -->
-        <div class="card mt-3" id="claimTableCard">
-            <div class="card-header d-flex align-items-center gap-2">
-                <i class="bi bi-list-ul"></i>
-                <strong>Warranty Service Claims</strong>
+        <div class="complaint-form-card show" id="claimTableCard">
+            <div class="complaint-form-header">
+                <div class="complaint-form-header__main">
+                    <div class="complaint-form-header__icon">
+                        <i class="bi bi-clipboard-check"></i>
+                    </div>
+                    <div>
+                        <h2 class="complaint-form-header__title">Warranty Service Claims</h2>
+                        <p class="complaint-form-header__subtitle">
+                            Track call closures, CCS review, L1 approval and visit-charge status.
+                        </p>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
+            <div class="complaint-form-body">
                 <div class="table-responsive">
-                    <table id="serviceClaimsTable" class="table table-hover mb-0 datatable-standard">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Call Ticket</th>
-                                <th>Fab Number</th>
-                                <th>Customer</th>
-                                <th>KM</th>
-                                <th>Service Date</th>
-                                <th>Warranty (CCS)</th>
-                                <th>L1 (Lock-in Engineer)</th>
-                                <th>Invoice</th>
-                                <th>Settlement</th>
-                                <th>Overall Status</th>
-                                <th>Submitted By</th>
-                                <?php if ($canMarkCcs || $canApproveL1 || $canRaiseInvoice || $canSettle): ?>
-                                <th>Actions</th>
+                <table id="serviceClaimsTable" class="table table-hover booking-table w-100">
+                    <thead>
+                        <tr>
+                            <th width="6%">ID</th>
+                            <th width="16%">Call Ticket</th>
+                            <th width="14%">Customer</th>
+                            <th width="12%">Visit</th>
+                            <th width="12%">Service Date</th>
+                            <th width="10%">CCS</th>
+                            <th width="10%">L1</th>
+                            <th width="14%">Status</th>
+                            <th width="10%">Submitted By</th>
+                            <th width="8%">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($claims as $row): ?>
+                        <?php
+                            $claimId = (int) $row['id'];
+                            $complaintId = (int) $row['complaint_id'];
+                            $encodedClaimId = rawurlencode(base64_encode((string) $claimId));
+                            $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
+                            $serviceDate = trim((string) ($row['service_date'] ?? ''));
+                            $serviceDateLabel = $serviceDate !== '' ? date('d M Y', strtotime($serviceDate)) : '-';
+                            $kmLabel = distance_wise_price_format_number($row['km_travelled'] ?? '');
+                            $priceValue = $row['visit_charge_price'] ?? '';
+                            $priceLabel = ($priceValue === null || $priceValue === '')
+                                ? ''
+                                : distance_wise_price_format_number($priceValue);
+                            $ccsClaim = trim((string) ($row['ccs_warranty_claim'] ?? ''));
+                            $overallStatus = trim((string) ($row['overall_status'] ?? ''));
+                        ?>
+                        <tr>
+                            <td><?= $claimId ?></td>
+                            <td>
+                                <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">
+                                    #<?= $complaintId ?>
+                                </a>
+                                <div class="text-muted small"><?= htmlspecialchars((string) ($row['fab_number'] ?? '-')) ?></div>
+                            </td>
+                            <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
+                            <td>
+                                <div class="fw-semibold"><?= htmlspecialchars($kmLabel === '-' ? '' : $kmLabel) ?><?= $kmLabel !== '-' ? ' KM' : '-' ?></div>
+                                <?php /* if ($priceLabel !== ''): ?>
+                                <div class="text-muted small"><?=  '&#8377;'.htmlspecialchars($priceLabel) ?></div>
+                                <?php endif; */ ?>
+                            </td>
+                            <td><?= htmlspecialchars($serviceDateLabel) ?></td>
+                            <td>
+                                <?php if ($ccsClaim !== ''): ?>
+                                    <span class="badge <?= $ccsClaim === 'Yes' ? 'bg-success' : 'bg-secondary' ?>"><?= htmlspecialchars($ccsClaim) ?></span>
+                                <?php else: ?>
+                                    <span class="badge bg-warning text-dark">Pending</span>
                                 <?php endif; ?>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($claims as $i => $row): ?>
-                            <tr>
-                                <td><?= $i + 1 ?></td>
-                                <td>
-                                    <a href="complaint_details.php?id=<?= rawurlencode(base64_encode((string) $row['complaint_id'])) ?>" target="_blank" rel="noopener">
-                                        #<?= (int) $row['complaint_id'] ?>
+                            </td>
+                            <td>
+                                <span class="badge <?= foc_stage_badge_class((string) ($row['l1_status'] ?? '')) ?>">
+                                    <?= htmlspecialchars((string) ($row['l1_status'] ?? '-')) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge <?= service_claim_overall_badge_class($overallStatus) ?>">
+                                    <?= htmlspecialchars($overallStatus !== '' ? $overallStatus : '-') ?>
+                                </span>
+                            </td>
+                            <td><?= htmlspecialchars((string) ($row['created_by_username'] ?? '-')) ?></td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    <a href="service_claim_details.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"
+                                        class="btn btn-sm btn-outline-dark" title="View">
+                                        <i class="bi bi-eye"></i>
                                     </a>
-                                </td>
-                                <td><?= htmlspecialchars($row['fab_number']) ?></td>
-                                <td><?= htmlspecialchars($row['customer_name']) ?></td>
-                                <td><?= htmlspecialchars($row['km_travelled']) ?></td>
-                                <td><?= htmlspecialchars($row['service_date']) ?></td>
-                                <td>
-                                    <?php if (!empty($row['ccs_warranty_claim'])): ?>
-                                        <span class="badge <?= $row['ccs_warranty_claim'] === 'Yes' ? 'bg-success' : 'bg-secondary' ?>"><?= htmlspecialchars($row['ccs_warranty_claim']) ?></span>
-                                    <?php else: ?>
-                                        <span class="badge bg-warning text-dark">Pending</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><span class="badge <?= foc_stage_badge_class($row['l1_status']) ?>"><?= htmlspecialchars($row['l1_status']) ?></span></td>
-                                <td><?= !empty($row['invoice_number']) ? htmlspecialchars($row['invoice_number']) . ' (₹' . htmlspecialchars($row['invoice_amount']) . ')' : '—' ?></td>
-                                <td><?= !empty($row['settlement_type']) ? htmlspecialchars($row['settlement_type']) . ' - ' . htmlspecialchars($row['settlement_reference']) : '—' ?></td>
-                                <td><?= htmlspecialchars($row['overall_status']) ?></td>
-                                <td><?= htmlspecialchars($row['created_by_username']) ?></td>
-                                <?php if ($canMarkCcs || $canApproveL1 || $canRaiseInvoice || $canSettle): ?>
-                                <td>
-                                    <?php if ($canMarkCcs && $row['overall_status'] === 'Pending CCS Review'): ?>
-                                        <form method="POST" class="d-flex gap-1">
-                                            <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                            <input type="text" name="ccs_remarks" class="form-control form-control-sm" placeholder="CCS remarks">
-                                            <button type="submit" name="mark_warranty" value="Yes" class="btn btn-sm btn-success">Warranty: Yes</button>
-                                            <button type="submit" name="mark_warranty" value="No" class="btn btn-sm btn-secondary">Warranty: No</button>
-                                        </form>
-                                    <?php elseif ($canApproveL1 && $row['overall_status'] === 'Pending L1 Approval'): ?>
-                                        <form method="POST" class="d-flex gap-1">
-                                            <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                            <input type="text" name="l1_remarks" class="form-control form-control-sm" placeholder="Remarks">
-                                            <button type="submit" name="l1_decision" value="Approved" class="btn btn-sm btn-success">Approve</button>
-                                            <button type="submit" name="l1_decision" value="Rejected" class="btn btn-sm btn-danger">Reject</button>
-                                        </form>
-                                    <?php elseif ($canRaiseInvoice && $row['overall_status'] === 'Approved - Pending Invoice'): ?>
-                                        <form method="POST" class="d-flex gap-1">
-                                            <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                            <input type="text" name="invoice_number" class="form-control form-control-sm" placeholder="Invoice #" required>
-                                            <input type="number" step="0.01" min="0.01" name="invoice_amount" class="form-control form-control-sm" placeholder="Amount" required>
-                                            <button type="submit" name="raise_invoice" value="1" class="btn btn-sm btn-primary">Raise Invoice</button>
-                                        </form>
-                                    <?php elseif ($canSettle && $row['overall_status'] === 'Invoice Raised - Pending Settlement'): ?>
-                                        <form method="POST" class="d-flex gap-1">
-                                            <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                            <select name="settlement_type" class="form-control form-control-sm" required>
-                                                <option value="">Type</option>
-                                                <option value="Reimbursement">Reimbursement</option>
-                                                <option value="Credit Note">Credit Note</option>
-                                            </select>
-                                            <input type="text" name="settlement_reference" class="form-control form-control-sm" placeholder="Reference #" required>
-                                            <button type="submit" name="settle_claim" value="1" class="btn btn-sm btn-primary">Settle</button>
-                                        </form>
-                                    <?php else: ?>
-                                        <span class="text-muted">—</span>
-                                    <?php endif; ?>
-                                </td>
-                                <?php endif; ?>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                                    <a href="delete_service_claim.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"
+                                        class="btn btn-sm btn-outline-dark"
+                                        onclick="return confirm('Delete this service claim?');" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
                 </div>
             </div>
         </div>
@@ -674,7 +678,10 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
     if (typeof $.fn.DataTable !== 'undefined') {
         $('#serviceClaimsTable').DataTable({
             order: [[0, 'desc']],
-            pageLength: 25,
+            pageLength: 10,
+            columnDefs: [
+                { orderable: false, targets: -1 }
+            ],
             language: { emptyTable: 'No warranty service claims submitted yet.' }
         });
     }
