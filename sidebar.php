@@ -91,6 +91,10 @@
         $pageName = "Customer Master";
     } else if ($currentPage == 'customer_details.php') {
         $pageName = "Customer Details";
+    } else if ($currentPage == 'distance_wise_prices.php') {
+        $pageName = "Distance Wise Price Management";
+    } else if ($currentPage == 'distance_wise_price_details.php') {
+        $pageName = "Distance Wise Price Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     } else if ($currentPage == 'notifications.php') {
@@ -406,6 +410,12 @@
                       class="menu-item <?= in_array($currentPage, ['reasons.php', 'reason_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-list-check"></i>
                       Reason
+                  </a>
+
+                  <a href="distance_wise_prices.php"
+                      class="menu-item <?= in_array($currentPage, ['distance_wise_prices.php', 'distance_wise_price_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-signpost-split"></i>
+                      Distance Wise Price
                   </a>
 
                 
