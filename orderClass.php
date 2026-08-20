@@ -12,8 +12,7 @@ class orderClass
     private $userId;
     private $obconn;
     private $dpconn;
-    //private $customer_code;
-    private @$customer_code??'10001';
+    private $customer_code;
 
     public function __construct($obconn, $dpconn)
     {

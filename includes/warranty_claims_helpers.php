@@ -28,6 +28,9 @@ const SERVICE_CLAIM_L1_PENDING = 'Pending';
 const SERVICE_CLAIM_L1_APPROVED = 'Approved';
 const SERVICE_CLAIM_L1_REJECTED = 'Rejected';
 
+/** Fallback approver user_master.id assigned to new claims until a real assignment UI exists. */
+const DEFAULT_APPROVER_USER_ID = 102464;
+
 function warranty_claims_ensure_schema(PDO $conn): void
 {
     static $ensured = false;
@@ -83,6 +86,8 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 l2_by_username VARCHAR(150) NULL,
                 l2_at TIMESTAMP NULL,
                 l2_remarks VARCHAR(500) NULL,
+                l1_approver_user_id INTEGER NULL,
+                l2_approver_user_id INTEGER NULL,
                 overall_status VARCHAR(40) NOT NULL DEFAULT 'Pending L1 Approval',
                 ln_order_number VARCHAR(100) NULL,
                 created_by_username VARCHAR(150) NOT NULL,
@@ -95,6 +100,13 @@ function warranty_claims_ensure_schema(PDO $conn): void
         // Upgrade from the single-item version: part_number/qty now live in foc_claim_items.
         $conn->exec("ALTER TABLE foc_claims ALTER COLUMN part_number DROP NOT NULL");
         $conn->exec("ALTER TABLE foc_claims ALTER COLUMN qty DROP NOT NULL");
+    }
+
+    if (!$columnExists($conn, 'foc_claims', 'l1_approver_user_id')) {
+        $conn->exec("ALTER TABLE foc_claims ADD COLUMN l1_approver_user_id INTEGER NULL");
+    }
+    if (!$columnExists($conn, 'foc_claims', 'l2_approver_user_id')) {
+        $conn->exec("ALTER TABLE foc_claims ADD COLUMN l2_approver_user_id INTEGER NULL");
     }
 
     if (!$tableExists($conn, 'foc_claim_items')) {
@@ -123,6 +135,7 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 km_travelled NUMERIC(8,2) NOT NULL,
                 service_date DATE NOT NULL,
                 resolution_notes VARCHAR(1000) NULL,
+                visit_charge_price NUMERIC(12,2) NULL,
                 ccs_warranty_claim VARCHAR(5) NULL,
                 ccs_remarks VARCHAR(500) NULL,
                 ccs_marked_by_username VARCHAR(150) NULL,
@@ -131,6 +144,7 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 l1_by_username VARCHAR(150) NULL,
                 l1_at TIMESTAMP NULL,
                 l1_remarks VARCHAR(500) NULL,
+                l1_approver_user_id INTEGER NULL,
                 invoice_number VARCHAR(100) NULL,
                 invoice_amount NUMERIC(12,2) NULL,
                 invoice_raised_by_username VARCHAR(150) NULL,
@@ -146,6 +160,14 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 deleted_at TIMESTAMP NULL
             )
         ");
+    }
+
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'l1_approver_user_id')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN l1_approver_user_id INTEGER NULL");
+    }
+
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'visit_charge_price')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN visit_charge_price NUMERIC(12,2) NULL");
     }
 
     $ensured = true;

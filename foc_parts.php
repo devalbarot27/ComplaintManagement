@@ -64,6 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
                     warranty_status,
                     l1_status,
                     l2_status,
+                    l1_approver_user_id,
+                    l2_approver_user_id,
                     overall_status,
                     created_by_username
                 )
@@ -74,6 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
                     :warranty_status,
                     :l1_status,
                     :l2_status,
+                    :l1_approver_user_id,
+                    :l2_approver_user_id,
                     :overall_status,
                     :created_by_username
                 )
@@ -84,6 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
             $stmt->bindValue(':warranty_status',      $warrantyStatus);
             $stmt->bindValue(':l1_status',             FOC_STAGE_PENDING);
             $stmt->bindValue(':l2_status',             FOC_STAGE_PENDING);
+            $stmt->bindValue(':l1_approver_user_id',  DEFAULT_APPROVER_USER_ID, PDO::PARAM_INT);
+            $stmt->bindValue(':l2_approver_user_id',  DEFAULT_APPROVER_USER_ID, PDO::PARAM_INT);
             $stmt->bindValue(':overall_status',        'Pending L1 Approval');
             $stmt->bindValue(':created_by_username',  $userName);
             $stmt->execute();
@@ -119,11 +125,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
     $level    = trim($_POST['level'] ?? '');
     $decision = trim($_POST['foc_decision'] ?? '');
     $remarks  = trim($_POST['approval_remarks'] ?? '');
+    // Send the user back to the Approvals dashboard if that's where the decision was submitted from.
+    $redirectTo = ($_POST['return_to'] ?? '') === 'approvals.php' ? 'approvals.php' : 'foc_parts.php';
 
     $canActOnLevel = ($level === 'l1' && $canApproveL1) || ($level === 'l2' && $canApproveL2);
 
     if (!$canActOnLevel || !in_array($decision, [FOC_STAGE_APPROVED, FOC_STAGE_REJECTED], true) || $claimId <= 0) {
         header('Location: access_denied.php');
+        exit;
+    }
+
+    if ($decision === FOC_STAGE_REJECTED && $remarks === '') {
+        $_SESSION['error_message'] = 'Remarks are required to reject a claim.';
+        header('Location: ' . $redirectTo);
         exit;
     }
 
@@ -134,19 +148,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
 
     if ($claim === false) {
         $_SESSION['error_message'] = 'FOC claim not found.';
-        header('Location: foc_parts.php');
+        header('Location: ' . $redirectTo);
         exit;
     }
 
     if ($level === 'l1' && $claim['l1_status'] !== FOC_STAGE_PENDING) {
         $_SESSION['error_message'] = 'This claim has already been actioned at L1.';
-        header('Location: foc_parts.php');
+        header('Location: ' . $redirectTo);
         exit;
     }
 
     if ($level === 'l2' && ($claim['l1_status'] !== FOC_STAGE_APPROVED || $claim['l2_status'] !== FOC_STAGE_PENDING)) {
         $_SESSION['error_message'] = 'This claim is not ready for L2 approval.';
-        header('Location: foc_parts.php');
+        header('Location: ' . $redirectTo);
+        exit;
+    }
+
+    // A claim assigned to a specific approver can only be actioned by that user (null = unassigned/legacy claim).
+    $approverColumn = $level === 'l1' ? 'l1_approver_user_id' : 'l2_approver_user_id';
+    if ($claim[$approverColumn] !== null && (int) $claim[$approverColumn] !== current_user_id($obconn)) {
+        header('Location: access_denied.php');
         exit;
     }
 
@@ -193,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
     }
 
     $_SESSION['success_message'] = 'FOC claim #' . $claimId . ' has been ' . strtolower($decision) . ' at ' . strtoupper($level) . '.';
-    header('Location: foc_parts.php');
+    header('Location: ' . $redirectTo);
     exit;
 }
 
@@ -208,10 +229,20 @@ try {
             fc.overall_status, fc.ln_order_number, fc.created_by_username, fc.created_at,
             c.fab_number, c.customer_name,
             (
-                SELECT STRING_AGG(fci.part_number || ' x' || fci.qty, ', ' ORDER BY fci.id)
+                SELECT STRING_AGG(fci.part_number, E'\\n' ORDER BY fci.id)
                 FROM foc_claim_items fci
                 WHERE fci.foc_claim_id = fc.id
-            ) AS items_summary
+            ) AS part_numbers,
+            (
+                SELECT STRING_AGG(COALESCE(fci.part_description, ''), E'\\n' ORDER BY fci.id)
+                FROM foc_claim_items fci
+                WHERE fci.foc_claim_id = fc.id
+            ) AS part_names,
+            (
+                SELECT STRING_AGG(fci.qty::text, E'\\n' ORDER BY fci.id)
+                FROM foc_claim_items fci
+                WHERE fci.foc_claim_id = fc.id
+            ) AS part_qtys
         FROM foc_claims fc
         INNER JOIN complaints c ON c.id = fc.complaint_id
         WHERE fc.deleted_at IS NULL
@@ -487,60 +518,32 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Call Ticket</th>
                                 <th>Fab Number</th>
                                 <th>Customer</th>
-                                <th>Parts</th>
+                                <th>Part Number</th>
+                                <th>Part Name</th>
+                                <th>Qty</th>
                                 <th>Warranty</th>
-                                <th>L1 (Lock-in Engineer)</th>
-                                <th>L2 (Business Head)</th>
+                                <th>Lock-in Engineer</th>
+                                <th>Business Head</th>
                                 <th>Overall Status</th>
                                 <th>Submitted By</th>
-                                <?php if ($canApproveL1 || $canApproveL2): ?>
-                                <th>Actions</th>
-                                <?php endif; ?>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($claims as $i => $row): ?>
                             <tr>
                                 <td><?= $i + 1 ?></td>
-                                <td>
-                                    <a href="complaint_details.php?id=<?= rawurlencode(base64_encode((string) $row['complaint_id'])) ?>" target="_blank" rel="noopener">
-                                        #<?= (int) $row['complaint_id'] ?>
-                                    </a>
-                                </td>
                                 <td><?= htmlspecialchars($row['fab_number']) ?></td>
                                 <td><?= htmlspecialchars($row['customer_name']) ?></td>
-                                <td><?= htmlspecialchars($row['items_summary'] ?? '') ?></td>
+                                <td><?= nl2br(htmlspecialchars($row['part_numbers'] ?? '')) ?></td>
+                                <td><?= nl2br(htmlspecialchars($row['part_names'] ?? '')) ?></td>
+                                <td><?= nl2br(htmlspecialchars($row['part_qtys'] ?? '')) ?></td>
                                 <td><span class="badge <?= warranty_status_badge_class($row['warranty_status']) ?>"><?= htmlspecialchars($row['warranty_status']) ?></span></td>
                                 <td><span class="badge <?= foc_stage_badge_class($row['l1_status']) ?>"><?= htmlspecialchars($row['l1_status']) ?></span></td>
                                 <td><span class="badge <?= foc_stage_badge_class($row['l2_status']) ?>"><?= htmlspecialchars($row['l2_status']) ?></span></td>
                                 <td><?= htmlspecialchars($row['overall_status']) ?></td>
                                 <td><?= htmlspecialchars($row['created_by_username']) ?></td>
-                                <?php if ($canApproveL1 || $canApproveL2): ?>
-                                <td>
-                                    <?php if ($canApproveL1 && $row['l1_status'] === FOC_STAGE_PENDING): ?>
-                                        <form method="POST" class="d-flex gap-1">
-                                            <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                            <input type="hidden" name="level" value="l1">
-                                            <input type="text" name="approval_remarks" class="form-control form-control-sm" placeholder="Remarks">
-                                            <button type="submit" name="foc_decision" value="Approved" class="btn btn-sm btn-success">Approve</button>
-                                            <button type="submit" name="foc_decision" value="Rejected" class="btn btn-sm btn-danger">Reject</button>
-                                        </form>
-                                    <?php elseif ($canApproveL2 && $row['l1_status'] === FOC_STAGE_APPROVED && $row['l2_status'] === FOC_STAGE_PENDING): ?>
-                                        <form method="POST" class="d-flex gap-1">
-                                            <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                            <input type="hidden" name="level" value="l2">
-                                            <input type="text" name="approval_remarks" class="form-control form-control-sm" placeholder="Remarks">
-                                            <button type="submit" name="foc_decision" value="Approved" class="btn btn-sm btn-success">Approve</button>
-                                            <button type="submit" name="foc_decision" value="Rejected" class="btn btn-sm btn-danger">Reject</button>
-                                        </form>
-                                    <?php else: ?>
-                                        <span class="text-muted">—</span>
-                                    <?php endif; ?>
-                                </td>
-                                <?php endif; ?>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -783,6 +786,21 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
         });
     }
 })();
+</script>
+<script>
+// Require remarks before a Reject decision can be submitted (Approve stays optional).
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('button[value="Rejected"]');
+    if (!btn) return;
+    const form = btn.closest('form');
+    const remarksInput = form && form.querySelector('input[name="approval_remarks"], input[name="l1_remarks"]');
+    if (remarksInput && remarksInput.value.trim() === '') {
+        e.preventDefault();
+        remarksInput.classList.add('is-invalid');
+        remarksInput.focus();
+        alert('Please enter remarks before rejecting.');
+    }
+});
 </script>
 </body>
 </html>

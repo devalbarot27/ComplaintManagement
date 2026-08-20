@@ -260,7 +260,7 @@ function distance_wise_price_format_rupees($value): string
         return '-';
     }
 
-    return '₹' . $formatted;
+    return  html_entity_decode('&#8377;') . $formatted;
 }
 
 function distance_wise_price_range_label(array $row): string
@@ -368,4 +368,85 @@ function distance_wise_price_soft_delete(PDO $conn, int $id): void
     ');
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
+}
+
+function distance_wise_price_km_matches(float $km, array $row): bool
+{
+    $interval = distance_wise_price_interval($row);
+
+    if ($interval['start'] !== null) {
+        if ($interval['start_inclusive']) {
+            if ($km < $interval['start']) {
+                return false;
+            }
+        } elseif ($km <= $interval['start']) {
+            return false;
+        }
+    }
+
+    if ($interval['end'] !== null) {
+        if ($interval['end_inclusive']) {
+            if ($km > $interval['end']) {
+                return false;
+            }
+        } elseif ($km >= $interval['end']) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function distance_wise_price_get_active_slabs(PDO $conn): array
+{
+    distance_wise_price_ensure_schema($conn);
+
+    $stmt = $conn->query("
+        SELECT id, range_type, from_km, to_km, price
+        FROM distance_wise_prices
+        WHERE deleted_at IS NULL
+          AND status = 'active'
+        ORDER BY COALESCE(from_km, to_km) ASC, id ASC
+    ");
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function distance_wise_price_find_for_km(PDO $conn, float $km): ?array
+{
+    $matches = [];
+    foreach (distance_wise_price_get_active_slabs($conn) as $row) {
+        if (distance_wise_price_km_matches($km, $row)) {
+            $matches[] = $row;
+        }
+    }
+
+    if ($matches === []) {
+        return null;
+    }
+
+    usort($matches, static function (array $left, array $right): int {
+        $leftStart = $left['from_km'] === null || $left['from_km'] === '' ? -INF : (float) $left['from_km'];
+        $rightStart = $right['from_km'] === null || $right['from_km'] === '' ? -INF : (float) $right['from_km'];
+
+        return $leftStart <=> $rightStart;
+    });
+
+    return $matches[count($matches) - 1];
+}
+
+function distance_wise_price_slabs_for_js(array $slabs): array
+{
+    $payload = [];
+    foreach ($slabs as $row) {
+        $payload[] = [
+            'range_type' => (string) ($row['range_type'] ?? 'between'),
+            'from_km' => $row['from_km'] === null || $row['from_km'] === '' ? null : (float) $row['from_km'],
+            'to_km' => $row['to_km'] === null || $row['to_km'] === '' ? null : (float) $row['to_km'],
+            'price' => (float) ($row['price'] ?? 0),
+            'price_label' => distance_wise_price_format_rupees($row['price'] ?? ''),
+        ];
+    }
+
+    return $payload;
 }

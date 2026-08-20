@@ -101,6 +101,10 @@
         $pageName = "Notifications";
     } else if ($currentPage == 'foc_parts.php') {
         $pageName = "FOC Part & Service Claim";
+    } else if ($currentPage == 'service_claims.php') {
+        $pageName = "Service Claims";
+    } else if ($currentPage == 'approvals.php') {
+        $pageName = "Approvals";
     }
 
     ?>
@@ -268,8 +272,8 @@
             $showSupport = $canComplaintEntry || $canAssignedComplaintList;
             $canFocParts = rbac_can_access_menu($obconn, 'foc_parts.php');
             $canServiceClaims = rbac_can_access_menu($obconn, 'service_claims.php');
-            $canShowApprovals = rbac_can_access_menu($obconn, 'approvals.php');
-            $showWarrantyManagement = $canFocParts || $canServiceClaims || $canShowApprovals;
+            $canshowApprovals = rbac_can_access_menu($obconn, 'approvals.php');
+            $showWarrantyManagement = $canFocParts;
             ?>
           <?php if ($showWarrantyManagement) { ?>
               <div class="menu-section">
@@ -282,17 +286,17 @@
                           FOC Parts
                       </a>
                   <?php } ?>
-                  <?php if ($canServiceClaims) { ?>
+                    <?php if ($canServiceClaims) { ?>
                       <a href="service_claims.php"
                           class="menu-item <?= ($currentPage == 'service_claims.php') ? 'active' : '' ?>">
-                          <i class="bi bi-clipboard-check"></i>
+                          <i class="bi bi-shield-check"></i>
                           Service Claims
                       </a>
                   <?php } ?>
-                  <?php if ($canShowApprovals) { ?>
+                   <?php if ($canshowApprovals) { ?>
                       <a href="approvals.php"
                           class="menu-item <?= ($currentPage == 'approvals.php') ? 'active' : '' ?>">
-                          <i class="bi bi-check2-circle"></i>
+                          <i class="bi bi-shield-check"></i>
                           Approvals
                       </a>
                   <?php } ?>

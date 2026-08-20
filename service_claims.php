@@ -5,8 +5,10 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
+require_once 'includes/distance_wise_price_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
+distance_wise_price_ensure_schema($obconn);
 
 $success_message = '';
 $error_message   = '';
@@ -37,16 +39,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
         $error_message = 'Resolution notes cannot exceed 1000 characters.';
     } else {
         try {
+            $visitCharge = distance_wise_price_find_for_km($obconn, (float) $kmTravelled);
+
             $stmt = $obconn->prepare("
                 INSERT INTO service_claims
                 (
                     complaint_id, km_travelled, service_date, resolution_notes,
-                    overall_status, created_by_username
+                    visit_charge_price, overall_status, created_by_username
                 )
                 VALUES
                 (
                     :complaint_id, :km_travelled, :service_date, :resolution_notes,
-                    :overall_status, :created_by_username
+                    :visit_charge_price, :overall_status, :created_by_username
                 )
                 RETURNING id
             ");
@@ -54,6 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
             $stmt->bindValue(':km_travelled', (float) $kmTravelled);
             $stmt->bindValue(':service_date', $serviceDate);
             $stmt->bindValue(':resolution_notes', $resolutionNotes !== '' ? $resolutionNotes : null);
+            if ($visitCharge === null) {
+                $stmt->bindValue(':visit_charge_price', null, PDO::PARAM_NULL);
+            } else {
+                $stmt->bindValue(':visit_charge_price', number_format((float) $visitCharge['price'], 2, '.', ''));
+            }
             $stmt->bindValue(':overall_status', 'Pending CCS Review');
             $stmt->bindValue(':created_by_username', $userName);
             $stmt->execute();
@@ -144,9 +153,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['l1_decision'])) {
     $claimId  = (int) ($_POST['claim_id'] ?? 0);
     $decision = trim($_POST['l1_decision'] ?? '');
     $remarks  = trim($_POST['l1_remarks'] ?? '');
+    // Send the user back to the Approvals dashboard if that's where the decision was submitted from.
+    $redirectTo = ($_POST['return_to'] ?? '') === 'approvals.php' ? 'approvals.php' : 'service_claims.php';
 
     if ($claimId <= 0 || !in_array($decision, [SERVICE_CLAIM_L1_APPROVED, SERVICE_CLAIM_L1_REJECTED], true)) {
         header('Location: access_denied.php');
+        exit;
+    }
+
+    if ($decision === SERVICE_CLAIM_L1_REJECTED && $remarks === '') {
+        $_SESSION['error_message'] = 'Remarks are required to reject a claim.';
+        header('Location: ' . $redirectTo);
         exit;
     }
 
@@ -157,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['l1_decision'])) {
 
     if ($claim === false || $claim['overall_status'] !== 'Pending L1 Approval') {
         $_SESSION['error_message'] = 'This claim is not pending L1 approval.';
-        header('Location: service_claims.php');
+        header('Location: ' . $redirectTo);
         exit;
     }
 
@@ -187,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['l1_decision'])) {
     }
 
     $_SESSION['success_message'] = 'Service claim #' . $claimId . ' has been ' . strtolower($decision) . ' at L1.';
-    header('Location: service_claims.php');
+    header('Location: ' . $redirectTo);
     exit;
 }
 
@@ -309,6 +326,7 @@ try {
 }
 
 $recentComplaints = warranty_claims_recent_complaints($obconn);
+$distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_get_active_slabs($obconn));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -447,6 +465,15 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                     placeholder="e.g. 42.5"
                                     value="<?= htmlspecialchars($_POST['km_travelled'] ?? '') ?>">
                                 <div class="text-danger validation-msg" data-field="km_travelled"></div>
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label" for="visitChargePriceDisplay">
+                                    <i class="bi bi-currency-rupee"></i> Price
+                                </label>
+                                <input type="text" class="form-control" id="visitChargePriceDisplay" value="" readonly
+                                    placeholder="Auto from KM slab" style="background-color:#f8f9fa;">
+                                <input type="hidden" name="visit_charge_price" id="visitChargePrice" value="">
+                                <div class="form-text" id="visitChargePriceHint"></div>
                             </div>
                             <div class="col-md-4 form-group">
                                 <label class="form-label" for="serviceDate">
@@ -651,7 +678,85 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
             language: { emptyTable: 'No warranty service claims submitted yet.' }
         });
     }
+
+    const kmInput = document.getElementById('kmTravelled');
+    const priceDisplay = document.getElementById('visitChargePriceDisplay');
+    const priceHidden = document.getElementById('visitChargePrice');
+    const priceHint = document.getElementById('visitChargePriceHint');
+    const slabs = <?= json_encode($distanceWisePriceSlabs, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?> || [];
+
+    function slabMatchesKm(slab, km) {
+        const type = slab.range_type || 'between';
+        if (type === 'lt') {
+            return slab.to_km !== null && km < Number(slab.to_km);
+        }
+        if (type === 'gt') {
+            return slab.from_km !== null && km > Number(slab.from_km);
+        }
+        return slab.from_km !== null && slab.to_km !== null
+            && km >= Number(slab.from_km)
+            && km <= Number(slab.to_km);
+    }
+
+    function findPriceForKm(km) {
+        const matches = slabs.filter(function (slab) {
+            return slabMatchesKm(slab, km);
+        });
+        if (!matches.length) {
+            return null;
+        }
+        matches.sort(function (a, b) {
+            const aStart = a.from_km === null ? Number.NEGATIVE_INFINITY : Number(a.from_km);
+            const bStart = b.from_km === null ? Number.NEGATIVE_INFINITY : Number(b.from_km);
+            return aStart - bStart;
+        });
+        return matches[matches.length - 1];
+    }
+
+    function updateVisitChargePrice() {
+        if (!kmInput || !priceDisplay) {
+            return;
+        }
+        const km = parseFloat(kmInput.value);
+        if (!kmInput.value || isNaN(km) || km <= 0) {
+            priceDisplay.value = '';
+            if (priceHidden) priceHidden.value = '';
+            if (priceHint) priceHint.textContent = '';
+            return;
+        }
+        const match = findPriceForKm(km);
+        if (!match) {
+            priceDisplay.value = '';
+            if (priceHidden) priceHidden.value = '';
+            if (priceHint) priceHint.textContent = 'No matching distance slab found.';
+            return;
+        }
+        priceDisplay.value = match.price;
+        if (priceHidden) priceHidden.value = match.price;
+        if (priceHint) priceHint.textContent = '';
+    }
+
+    if (kmInput) {
+        kmInput.addEventListener('input', updateVisitChargePrice);
+        kmInput.addEventListener('change', updateVisitChargePrice);
+        updateVisitChargePrice();
+    }
 })();
+</script>
+<script>
+// Require remarks before a Reject decision can be submitted (Approve stays optional).
+document.addEventListener('click', function (e) {
+    const btn = e.target.closest('button[value="Rejected"]');
+    if (!btn) return;
+    const form = btn.closest('form');
+    const remarksInput = form && form.querySelector('input[name="approval_remarks"], input[name="l1_remarks"]');
+    if (remarksInput && remarksInput.value.trim() === '') {
+        e.preventDefault();
+        remarksInput.classList.add('is-invalid');
+        remarksInput.focus();
+        alert('Please enter remarks before rejecting.');
+    }
+});
 </script>
 </body>
 </html>

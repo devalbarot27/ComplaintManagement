@@ -12,21 +12,24 @@ $canApproveL1Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
 $canApproveL2Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
 $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
 
-// ─── FOC Parts claims awaiting an action this user can take ─────────────────
-$focClaims = [];
+// ─── Combined list: every FOC/Service claim awaiting an action this user can take ──
+$approvalItems = [];
+
 if ($canApproveL1Foc || $canApproveL2Foc) {
+    $currentUserId = current_user_id($obconn);
     $stageConditions = [];
     if ($canApproveL1Foc) {
-        $stageConditions[] = "fc.l1_status = 'Pending'";
+        $stageConditions[] = "(fc.l1_status = 'Pending' AND (fc.l1_approver_user_id = :uid_l1 OR fc.l1_approver_user_id IS NULL))";
     }
     if ($canApproveL2Foc) {
-        $stageConditions[] = "(fc.l1_status = 'Approved' AND fc.l2_status = 'Pending')";
+        $stageConditions[] = "(fc.l1_status = 'Approved' AND fc.l2_status = 'Pending' AND (fc.l2_approver_user_id = :uid_l2 OR fc.l2_approver_user_id IS NULL))";
     }
 
     try {
-        $stmt = $obconn->query("
+        $stmt = $obconn->prepare("
             SELECT
-                fc.id, fc.complaint_id, fc.warranty_status, fc.l1_status, fc.l2_status,
+                fc.id, fc.complaint_id, fc.warranty_status, fc.justification, fc.l1_status, fc.l2_status,
+                fc.l1_approver_user_id, fc.l2_approver_user_id,
                 fc.overall_status, fc.created_by_username, fc.created_at,
                 c.fab_number, c.customer_name,
                 (
@@ -40,29 +43,94 @@ if ($canApproveL1Foc || $canApproveL2Foc) {
               AND (" . implode(' OR ', $stageConditions) . ")
             ORDER BY fc.created_at DESC
         ");
-        $focClaims = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($canApproveL1Foc) {
+            $stmt->bindValue(':uid_l1', $currentUserId, PDO::PARAM_INT);
+        }
+        if ($canApproveL2Foc) {
+            $stmt->bindValue(':uid_l2', $currentUserId, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            // Each row can only be actionable at exactly one stage for this approver.
+            $level = null;
+            if ($canApproveL1Foc && $row['l1_status'] === FOC_STAGE_PENDING
+                && ($row['l1_approver_user_id'] === null || (int) $row['l1_approver_user_id'] === $currentUserId)) {
+                $level = 'l1';
+            } elseif ($canApproveL2Foc && $row['l1_status'] === FOC_STAGE_APPROVED && $row['l2_status'] === FOC_STAGE_PENDING
+                && ($row['l2_approver_user_id'] === null || (int) $row['l2_approver_user_id'] === $currentUserId)) {
+                $level = 'l2';
+            }
+            if ($level === null) {
+                continue;
+            }
+            $approvalItems[] = [
+                'claim_type'     => 'foc',
+                'id'             => (int) $row['id'],
+                'complaint_id'   => (int) $row['complaint_id'],
+                'fab_number'     => $row['fab_number'],
+                'customer_name'  => $row['customer_name'],
+                'details'        => $row['items_summary'] ?? '',
+                'warranty_label' => $row['warranty_status'],
+                'warranty_class' => warranty_status_badge_class($row['warranty_status']),
+                'justification'  => $row['justification'] ?? '',
+                'stage_label'    => 'L1: ' . $row['l1_status'] . ' / L2: ' . $row['l2_status'],
+                'overall_status' => $row['overall_status'],
+                'created_by'     => $row['created_by_username'],
+                'created_at'     => $row['created_at'],
+                'level'          => $level,
+                'action_url'     => 'foc_parts.php',
+                'decision_field' => 'foc_decision',
+                'remarks_field'  => 'approval_remarks',
+            ];
+        }
     } catch (PDOException $e) {
         // Table may not exist yet; silently continue
     }
 }
 
-// ─── Service claims awaiting L1 approval ─────────────────────────────────────
-$serviceClaims = [];
 if ($canApproveL1Service) {
+    $currentUserId = current_user_id($obconn);
     try {
-        $stmt = $obconn->query("
+        $stmt = $obconn->prepare("
             SELECT sc.*, c.fab_number, c.customer_name
             FROM service_claims sc
             INNER JOIN complaints c ON c.id = sc.complaint_id
             WHERE sc.deleted_at IS NULL
               AND sc.overall_status = 'Pending L1 Approval'
+              AND (sc.l1_approver_user_id = :uid OR sc.l1_approver_user_id IS NULL)
             ORDER BY sc.created_at DESC
         ");
-        $serviceClaims = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->bindValue(':uid', $currentUserId, PDO::PARAM_INT);
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $approvalItems[] = [
+                'claim_type'     => 'service',
+                'id'             => (int) $row['id'],
+                'complaint_id'   => (int) $row['complaint_id'],
+                'fab_number'     => $row['fab_number'],
+                'customer_name'  => $row['customer_name'],
+                'details'        => 'KM: ' . $row['km_travelled'] . ' | Service Date: ' . $row['service_date'],
+                'warranty_label' => $row['ccs_warranty_claim'] !== null && $row['ccs_warranty_claim'] !== '' ? $row['ccs_warranty_claim'] : 'Pending',
+                'warranty_class' => !empty($row['ccs_warranty_claim']) ? ($row['ccs_warranty_claim'] === 'Yes' ? 'bg-success' : 'bg-secondary') : 'bg-warning text-dark',
+                'justification'  => '',
+                'stage_label'    => 'L1: ' . $row['l1_status'],
+                'overall_status' => $row['overall_status'],
+                'created_by'     => $row['created_by_username'],
+                'created_at'     => $row['created_at'],
+                'level'          => 'l1',
+                'action_url'     => 'service_claims.php',
+                'decision_field' => 'l1_decision',
+                'remarks_field'  => 'l1_remarks',
+            ];
+        }
     } catch (PDOException $e) {
         // Table may not exist yet; silently continue
     }
 }
+
+usort($approvalItems, static function (array $a, array $b): int {
+    return strtotime($b['created_at']) <=> strtotime($a['created_at']);
+});
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -111,16 +179,16 @@ if ($canApproveL1Service) {
             </div>
         </div>
 
-        <?php if ($canApproveL1Foc || $canApproveL2Foc): ?>
-        <div class="complaint-form-card mb-4">
+        <?php if ($approvalItems !== []): ?>
+        <div class="complaint-form-card show mb-4">
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
                     <div class="complaint-form-header__icon">
                         <i class="bi bi-shield-check"></i>
                     </div>
                     <div>
-                        <h2 class="complaint-form-header__title">FOC Parts</h2>
-                        <p class="complaint-form-header__subtitle">Free-of-cost part claims pending your approval.</p>
+                        <h2 class="complaint-form-header__title">Pending Approvals</h2>
+                        <p class="complaint-form-header__subtitle">FOC Parts and Service Claims awaiting your approval.</p>
                     </div>
                 </div>
             </div>
@@ -130,56 +198,48 @@ if ($canApproveL1Service) {
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Call Ticket</th>
+                                <th>Type</th>
                                 <th>Fab Number</th>
                                 <th>Customer</th>
-                                <th>Items</th>
-                                <th>L1 (Lock-in Engineer)</th>
-                                <th>L2 (Business Head)</th>
+                                <th>Details</th>
+                                <th>Warranty / CCS</th>
+                                <th>Stage</th>
                                 <th>Submitted By</th>
+                                <th>Submitted On</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php if ($focClaims === []): ?>
-                            <tr>
-                                <td colspan="9" class="text-center text-muted">No FOC claims pending your approval.</td>
-                            </tr>
-                            <?php endif; ?>
-                            <?php foreach ($focClaims as $i => $row): ?>
+                            <?php foreach ($approvalItems as $i => $row): ?>
                             <tr>
                                 <td><?= $i + 1 ?></td>
-                                <td>
-                                    <a href="complaint_details.php?id=<?= rawurlencode(base64_encode((string) $row['complaint_id'])) ?>" target="_blank" rel="noopener">
-                                        #<?= (int) $row['complaint_id'] ?>
-                                    </a>
-                                </td>
+                                <td><span class="badge <?= $row['claim_type'] === 'foc' ? 'bg-primary' : 'bg-info text-dark' ?>"><?= $row['claim_type'] === 'foc' ? 'FOC Parts' : 'Service Claim' ?></span></td>
                                 <td><?= htmlspecialchars($row['fab_number']) ?></td>
                                 <td><?= htmlspecialchars($row['customer_name']) ?></td>
-                                <td><?= htmlspecialchars($row['items_summary'] ?? '') ?></td>
-                                <td><span class="badge <?= foc_stage_badge_class($row['l1_status']) ?>"><?= htmlspecialchars($row['l1_status']) ?></span></td>
-                                <td><span class="badge <?= foc_stage_badge_class($row['l2_status']) ?>"><?= htmlspecialchars($row['l2_status']) ?></span></td>
-                                <td><?= htmlspecialchars($row['created_by_username']) ?></td>
+                                <td><?= htmlspecialchars($row['details']) ?></td>
+                                <td><span class="badge <?= $row['warranty_class'] ?>"><?= htmlspecialchars($row['warranty_label']) ?></span></td>
+                                <td><?= htmlspecialchars($row['stage_label']) ?></td>
+                                <td><?= htmlspecialchars($row['created_by']) ?></td>
+                                <td><?= htmlspecialchars($row['created_at']) ?></td>
                                 <td>
-                                    <?php if ($canApproveL1Foc && $row['l1_status'] === FOC_STAGE_PENDING): ?>
-                                        <form method="POST" action="foc_parts.php" class="d-flex gap-1">
-                                            <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                            <input type="hidden" name="level" value="l1">
-                                            <input type="text" name="approval_remarks" class="form-control form-control-sm" placeholder="Remarks">
-                                            <button type="submit" name="foc_decision" value="Approved" class="btn btn-sm btn-success">Approve</button>
-                                            <button type="submit" name="foc_decision" value="Rejected" class="btn btn-sm btn-danger">Reject</button>
-                                        </form>
-                                    <?php elseif ($canApproveL2Foc && $row['l1_status'] === FOC_STAGE_APPROVED && $row['l2_status'] === FOC_STAGE_PENDING): ?>
-                                        <form method="POST" action="foc_parts.php" class="d-flex gap-1">
-                                            <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                            <input type="hidden" name="level" value="l2">
-                                            <input type="text" name="approval_remarks" class="form-control form-control-sm" placeholder="Remarks">
-                                            <button type="submit" name="foc_decision" value="Approved" class="btn btn-sm btn-success">Approve</button>
-                                            <button type="submit" name="foc_decision" value="Rejected" class="btn btn-sm btn-danger">Reject</button>
-                                        </form>
-                                    <?php else: ?>
-                                        <span class="text-muted">—</span>
-                                    <?php endif; ?>
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-view-claim"
+                                        data-type="<?= htmlspecialchars($row['claim_type']) ?>"
+                                        data-claim-id="<?= (int) $row['id'] ?>"
+                                        data-complaint-id="<?= (int) $row['complaint_id'] ?>"
+                                        data-fab-number="<?= htmlspecialchars($row['fab_number']) ?>"
+                                        data-customer-name="<?= htmlspecialchars($row['customer_name']) ?>"
+                                        data-details="<?= htmlspecialchars($row['details']) ?>"
+                                        data-warranty="<?= htmlspecialchars($row['warranty_label']) ?>"
+                                        data-justification="<?= htmlspecialchars($row['justification']) ?>"
+                                        data-stage="<?= htmlspecialchars($row['stage_label']) ?>"
+                                        data-overall-status="<?= htmlspecialchars($row['overall_status']) ?>"
+                                        data-submitted-by="<?= htmlspecialchars($row['created_by']) ?>"
+                                        data-submitted-on="<?= htmlspecialchars($row['created_at']) ?>"
+                                        data-level="<?= htmlspecialchars($row['level']) ?>"
+                                        data-action="<?= htmlspecialchars($row['action_url']) ?>"
+                                        data-decision-field="<?= htmlspecialchars($row['decision_field']) ?>"
+                                        data-remarks-field="<?= htmlspecialchars($row['remarks_field']) ?>"
+                                    >View</button>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -188,77 +248,120 @@ if ($canApproveL1Service) {
                 </div>
             </div>
         </div>
-        <?php endif; ?>
-
-        <?php if ($canApproveL1Service): ?>
-        <div class="complaint-form-card mb-4">
-            <div class="complaint-form-header">
-                <div class="complaint-form-header__main">
-                    <div class="complaint-form-header__icon">
-                        <i class="bi bi-clipboard-check"></i>
-                    </div>
-                    <div>
-                        <h2 class="complaint-form-header__title">Service Claims</h2>
-                        <p class="complaint-form-header__subtitle">Warranty service claims pending L1 approval.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="complaint-form-body">
-                <div class="table-responsive">
-                    <table class="table table-bordered datatable-standard">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Call Ticket</th>
-                                <th>Fab Number</th>
-                                <th>Customer</th>
-                                <th>KM Travelled</th>
-                                <th>Service Date</th>
-                                <th>Submitted By</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if ($serviceClaims === []): ?>
-                            <tr>
-                                <td colspan="8" class="text-center text-muted">No service claims pending L1 approval.</td>
-                            </tr>
-                            <?php endif; ?>
-                            <?php foreach ($serviceClaims as $i => $row): ?>
-                            <tr>
-                                <td><?= $i + 1 ?></td>
-                                <td>
-                                    <a href="complaint_details.php?id=<?= rawurlencode(base64_encode((string) $row['complaint_id'])) ?>" target="_blank" rel="noopener">
-                                        #<?= (int) $row['complaint_id'] ?>
-                                    </a>
-                                </td>
-                                <td><?= htmlspecialchars($row['fab_number']) ?></td>
-                                <td><?= htmlspecialchars($row['customer_name']) ?></td>
-                                <td><?= htmlspecialchars($row['km_travelled']) ?></td>
-                                <td><?= htmlspecialchars($row['service_date']) ?></td>
-                                <td><?= htmlspecialchars($row['created_by_username']) ?></td>
-                                <td>
-                                    <form method="POST" action="service_claims.php" class="d-flex gap-1">
-                                        <input type="hidden" name="claim_id" value="<?= (int) $row['id'] ?>">
-                                        <input type="text" name="l1_remarks" class="form-control form-control-sm" placeholder="Remarks">
-                                        <button type="submit" name="l1_decision" value="Approved" class="btn btn-sm btn-success">Approve</button>
-                                        <button type="submit" name="l1_decision" value="Rejected" class="btn btn-sm btn-danger">Reject</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <?php if (!$canApproveL1Foc && !$canApproveL2Foc && !$canApproveL1Service): ?>
+        <?php else: ?>
         <div class="alert alert-info">You do not have any pending approval actions assigned to your role.</div>
         <?php endif; ?>
 
     </div>
 </div>
+
+<!-- Shared claim details modal: view + decide (Approve/Reject with mandatory reject comment). -->
+<div class="modal fade" id="viewClaimModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewClaimTitle">Claim Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Call Ticket</dt>
+                    <dd class="col-sm-8"><a id="viewClaimTicketLink" href="#" target="_blank" rel="noopener">#<span id="viewClaimTicket"></span></a></dd>
+                    <dt class="col-sm-4">Fab Number</dt>
+                    <dd class="col-sm-8" id="viewClaimFab"></dd>
+                    <dt class="col-sm-4">Customer</dt>
+                    <dd class="col-sm-8" id="viewClaimCustomer"></dd>
+                    <dt class="col-sm-4">Details</dt>
+                    <dd class="col-sm-8" id="viewClaimDetails"></dd>
+                    <dt class="col-sm-4">Warranty / CCS</dt>
+                    <dd class="col-sm-8" id="viewClaimWarranty"></dd>
+                    <dt class="col-sm-4">Justification</dt>
+                    <dd class="col-sm-8" id="viewClaimJustification"></dd>
+                    <dt class="col-sm-4">Stage</dt>
+                    <dd class="col-sm-8" id="viewClaimStage"></dd>
+                    <dt class="col-sm-4">Overall Status</dt>
+                    <dd class="col-sm-8" id="viewClaimOverall"></dd>
+                    <dt class="col-sm-4">Submitted By</dt>
+                    <dd class="col-sm-8" id="viewClaimSubmittedBy"></dd>
+                    <dt class="col-sm-4">Submitted On</dt>
+                    <dd class="col-sm-8" id="viewClaimSubmittedOn"></dd>
+                </dl>
+                <hr>
+                <form id="decisionForm" method="POST">
+                    <input type="hidden" name="claim_id" id="decisionClaimId">
+                    <input type="hidden" name="level" id="decisionLevel">
+                    <input type="hidden" name="return_to" value="approvals.php">
+                    <input type="hidden" id="decisionField" value="">
+                    <div class="mb-2">
+                        <label for="decisionRemarks" class="form-label">Remarks <span class="text-muted">(required to reject)</span></label>
+                        <textarea id="decisionRemarks" class="form-control" rows="2"></textarea>
+                        <div id="decisionRemarksError" class="text-danger small mt-1" style="display:none;">A comment is required to reject.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="modalRejectBtn">Reject</button>
+                <button type="button" class="btn btn-success" id="modalApproveBtn">Approve</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const viewModalEl      = document.getElementById('viewClaimModal');
+    const viewModal        = new bootstrap.Modal(viewModalEl);
+    const decisionForm     = document.getElementById('decisionForm');
+    const decisionField    = document.getElementById('decisionField');
+    const decisionRemarks  = document.getElementById('decisionRemarks');
+    const remarksError     = document.getElementById('decisionRemarksError');
+
+    document.querySelectorAll('.btn-view-claim').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const d = btn.dataset;
+
+            document.getElementById('viewClaimTitle').textContent = (d.type === 'foc' ? 'FOC Parts Claim' : 'Service Claim') + ' #' + d.claimId;
+            document.getElementById('viewClaimTicket').textContent = d.complaintId;
+            document.getElementById('viewClaimTicketLink').href = 'complaint_details.php?id=' + encodeURIComponent(btoa(d.complaintId));
+            document.getElementById('viewClaimFab').textContent = d.fabNumber;
+            document.getElementById('viewClaimCustomer').textContent = d.customerName;
+            document.getElementById('viewClaimDetails').textContent = d.details;
+            document.getElementById('viewClaimWarranty').textContent = d.warranty;
+            document.getElementById('viewClaimJustification').textContent = d.justification || '—';
+            document.getElementById('viewClaimStage').textContent = d.stage;
+            document.getElementById('viewClaimOverall').textContent = d.overallStatus;
+            document.getElementById('viewClaimSubmittedBy').textContent = d.submittedBy;
+            document.getElementById('viewClaimSubmittedOn').textContent = d.submittedOn;
+
+            decisionForm.action = d.action;
+            document.getElementById('decisionClaimId').value = d.claimId;
+            document.getElementById('decisionLevel').value = d.level;
+            decisionField.name = d.decisionField;
+            decisionField.value = '';
+            decisionRemarks.name = d.remarksField;
+            decisionRemarks.value = '';
+            remarksError.style.display = 'none';
+
+            viewModal.show();
+        });
+    });
+
+    document.getElementById('modalApproveBtn').addEventListener('click', function () {
+        decisionField.value = 'Approved';
+        decisionForm.submit();
+    });
+
+    document.getElementById('modalRejectBtn').addEventListener('click', function () {
+        if (decisionRemarks.value.trim() === '') {
+            remarksError.style.display = 'block';
+            decisionRemarks.focus();
+            return;
+        }
+        decisionField.value = 'Rejected';
+        decisionForm.submit();
+    });
+})();
+</script>
 </body>
 </html>
