@@ -6,8 +6,6 @@ require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 
-warranty_claims_ensure_schema($obconn);
-
 $success_message = '';
 $error_message   = '';
 $userName        = current_username();

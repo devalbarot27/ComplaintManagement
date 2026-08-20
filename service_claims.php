@@ -7,7 +7,6 @@ require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
 
-warranty_claims_ensure_schema($obconn);
 distance_wise_price_ensure_schema($obconn);
 
 $success_message = '';
@@ -531,11 +530,14 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                         <tr>
                             <th width="6%">ID</th>
                             <th width="16%">Call Ticket</th>
-                            <th width="14%">Customer</th>
+                            <th width="12%">Fab Number</th>
+                            <th width="14%">Customer Name</th>
                             <th width="12%">Visit</th>
                             <th width="12%">Service Date</th>
                             <th width="10%">CCS</th>
                             <th width="10%">L1</th>
+                            <th width="10%">Invoice</th>
+                            <th width="10%">Settlement</th>
                             <th width="14%">Status</th>
                             <th width="10%">Submitted By</th>
                             <th width="8%">Action</th>
@@ -564,8 +566,8 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                 <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">
                                     #<?= $complaintId ?>
                                 </a>
-                                <div class="text-muted small"><?= htmlspecialchars((string) ($row['fab_number'] ?? '-')) ?></div>
                             </td>
+                            <td><?= htmlspecialchars((string) ($row['fab_number'] ?? '-')) ?></td>
                             <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                             <td>
                                 <div class="fw-semibold"><?= htmlspecialchars($kmLabel === '-' ? '' : $kmLabel) ?><?= $kmLabel !== '-' ? ' KM' : '-' ?></div>
@@ -576,18 +578,24 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             <td><?= htmlspecialchars($serviceDateLabel) ?></td>
                             <td>
                                 <?php if ($ccsClaim !== ''): ?>
-                                    <span class="badge <?= $ccsClaim === 'Yes' ? 'bg-success' : 'bg-secondary' ?>"><?= htmlspecialchars($ccsClaim) ?></span>
+                                    <span class="status-badge border border-dark"><?= htmlspecialchars($ccsClaim) ?></span>
                                 <?php else: ?>
-                                    <span class="badge bg-warning text-dark">Pending</span>
+                                    <span class="status-badge border border-dark">Pending</span>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <span class="badge <?= foc_stage_badge_class((string) ($row['l1_status'] ?? '')) ?>">
+                                <span class="status-badge border border-dark">
                                     <?= htmlspecialchars((string) ($row['l1_status'] ?? '-')) ?>
                                 </span>
                             </td>
                             <td>
-                                <span class="badge <?= service_claim_overall_badge_class($overallStatus) ?>">
+                                -
+                            </td>
+                            <td>
+                               -
+                            </td>
+                            <td>
+                                <span class="status-badge border border-dark">
                                     <?= htmlspecialchars($overallStatus !== '' ? $overallStatus : '-') ?>
                                 </span>
                             </td>

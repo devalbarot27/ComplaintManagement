@@ -6,8 +6,6 @@ require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 
-warranty_claims_ensure_schema($obconn);
-
 $canApproveL1Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
 $canApproveL2Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
 $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');

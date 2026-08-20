@@ -7,8 +7,6 @@ require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
 require_once 'includes/record_details_layout.php';
 
-warranty_claims_ensure_schema($obconn);
-
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
 if ($id <= 0) {
@@ -25,10 +23,10 @@ $complaintId = (int) ($record['complaint_id'] ?? 0);
 $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
 $ccsClaim = trim((string) ($record['ccs_warranty_claim'] ?? ''));
 $ccsBadge = $ccsClaim === ''
-    ? '<span class="badge bg-warning text-dark">Pending</span>'
-    : '<span class="badge ' . ($ccsClaim === 'Yes' ? 'bg-success' : 'bg-secondary') . '">'
+    ? '<span class="status-badge border border-dark">Pending</span>'
+    : '<span class="status-badge border border-dark">'
         . htmlspecialchars($ccsClaim, ENT_QUOTES, 'UTF-8') . '</span>';
-$l1Badge = '<span class="badge ' . htmlspecialchars(foc_stage_badge_class((string) ($record['l1_status'] ?? '')), ENT_QUOTES, 'UTF-8') . '">'
+$l1Badge = '<span class="status-badge border border-dark">'
     . htmlspecialchars((string) ($record['l1_status'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</span>';
 $serviceDate = trim((string) ($record['service_date'] ?? ''));
 $serviceDateLabel = $serviceDate !== '' ? date('d M Y', strtotime($serviceDate)) : '-';
@@ -64,7 +62,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
                 'bi-clipboard-check',
                 [
                     record_details_id_chip((int) $record['id']),
-                    '<span class="badge bg-secondary">' . htmlspecialchars((string) ($record['overall_status'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>',
+                    '<span class="status-badge border border-dark">' . htmlspecialchars((string) ($record['overall_status'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>',
                 ]
             );
 
