@@ -170,10 +170,6 @@ function warranty_claims_ensure_schema(PDO $conn): void
         $conn->exec("ALTER TABLE service_claims ADD COLUMN visit_charge_price NUMERIC(12,2) NULL");
     }
 
-    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'deleted_at')) {
-        $conn->exec("ALTER TABLE service_claims ADD COLUMN deleted_at TIMESTAMP NULL");
-    }
-
     $ensured = true;
 }
 
