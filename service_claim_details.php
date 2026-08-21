@@ -88,7 +88,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
                 'Price',
                 $visitPrice === null || $visitPrice === ''
                     ? '-'
-                    : distance_wise_price_format_number($visitPrice),
+                    : distance_wise_price_format_rupees($visitPrice),
                 'col-md-4'
             );
             record_details_field('Service Date', $serviceDateLabel, 'col-md-4');

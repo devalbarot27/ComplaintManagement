@@ -12,6 +12,7 @@ warranty_claims_ensure_schema($obconn);
 
 $success_message = '';
 $error_message   = '';
+$field_errors    = [];
 $userName        = current_username();
 
 $canCreateFoc = rbac_user_can($obconn, 'foc-parts', 'create-foc');
@@ -31,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
 
     $complaint = warranty_claims_find_complaint($obconn, $complaintId);
     $items     = [];
+    $hasNewParts = false;
 
     if (is_array($cartItems)) {
         foreach ($cartItems as $cartItem) {
@@ -39,11 +41,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
             if ($partNumber === '' || $qty <= 0) {
                 continue;
             }
+            $source = (($cartItem['source'] ?? 'new') === 'existing') ? 'existing' : 'new';
+            if ($source === 'new') {
+                $hasNewParts = true;
+            }
             $items[] = [
                 'part_number' => $partNumber,
                 'part_description' => trim((string) ($cartItem['part_description'] ?? '')),
                 'qty' => $qty,
-                'source' => (($cartItem['source'] ?? 'new') === 'existing') ? 'existing' : 'new',
+                'source' => $source,
                 'source_reference_id' => (int) ($cartItem['source_reference_id'] ?? 0),
             ];
         }
@@ -51,11 +57,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
 
     // Validation
     if ($complaint === null) {
-        $error_message = 'Please select a valid Call Ticket Number.';
+        $field_errors['complaint_id'] = 'Please select a valid Call Ticket Number.';
+        $error_message = $field_errors['complaint_id'];
     } elseif ($items === []) {
         $error_message = 'Please add at least one part to the cart.';
     } elseif (!in_array($warrantyStatus, [WARRANTY_STATUS_UNDER, WARRANTY_STATUS_NOT_UNDER], true)) {
-        $error_message = 'Please select the machine warranty status.';
+        $field_errors['warranty_status'] = 'Please select the Machine Warranty Status.';
+        $error_message = $field_errors['warranty_status'];
+    } elseif ($hasNewParts && $justification === '') {
+        $error_message = 'Justification is required.';
     } elseif (strlen($justification) > 500) {
         $error_message = 'Justification cannot exceed 500 characters.';
     } else {
@@ -366,7 +376,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                 <label class="form-label" for="complaintId">
                                     <i class="bi bi-upc-scan"></i> Call Ticket Number <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-control" id="complaintId" name="complaint_id">
+                                <select class="form-control<?= isset($field_errors['complaint_id']) ? ' is-invalid' : '' ?>" id="complaintId" name="complaint_id">
                                     <option value="">-- Select Call Ticket --</option>
                                     <?php foreach ($recentComplaints as $c): ?>
                                     <option value="<?= (int) $c['id'] ?>"
@@ -375,9 +385,9 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <div class="text-danger validation-msg" data-field="complaint_id"></div>
+                                <div class="text-danger validation-msg" data-field="complaint_id"><?= htmlspecialchars($field_errors['complaint_id'] ?? '') ?></div>
                             </div>
-                            <div class="col-md-4 form-group d-flex align-items-end">
+                            <div class="col-md-2 form-group d-flex align-items-end mt-5">
                                 <?php
                                     $selectedComplaintId = (int) ($_POST['complaint_id'] ?? 0);
                                     $viewTicketHref = $selectedComplaintId > 0
@@ -393,7 +403,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                 <label class="form-label">
                                     <i class="bi bi-shield-check"></i> Machine Warranty Status <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-control" name="warranty_status">
+                                <select class="form-control<?= isset($field_errors['warranty_status']) ? ' is-invalid' : '' ?>" id="warrantyStatus" name="warranty_status">
                                     <option value="">-- Select Warranty Status --</option>
                                     <option value="<?= WARRANTY_STATUS_UNDER ?>"
                                         <?= (($_POST['warranty_status'] ?? '') === WARRANTY_STATUS_UNDER) ? 'selected' : '' ?>>
@@ -404,7 +414,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                         Not Under Warranty
                                     </option>
                                 </select>
-                                <div class="text-danger validation-msg" data-field="warranty_status"></div>
+                                <div class="text-danger validation-msg" data-field="warranty_status"><?= htmlspecialchars($field_errors['warranty_status'] ?? '') ?></div>
                                 <small class="text-muted">Shown to L1/L2 approvers to help their decision. To be auto-populated once ERP LN warranty lookup is integrated.</small>
                             </div>
                         </div>
@@ -456,7 +466,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                 <label class="form-label" for="newItemQty">Quantity</label>
                                 <input type="number" class="form-control" id="newItemQty" value="1" min="1" max="9999">
                             </div>
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-2 form-group">
                                 <button type="button" class="btn btn-complaint-primary w-100" id="addNewItemBtn" disabled>
                                     <i class="bi bi-plus-lg"></i> Add to Cart
                                 </button>
@@ -497,10 +507,12 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                             <div class="col-md-12 form-group">
                                 <label class="form-label" for="justification">
                                     <i class="bi bi-chat-left-text"></i> Justification
+                                    <span class="text-danger" id="justificationRequired" style="display:none;">*</span>
                                 </label>
                                 <textarea class="form-control" id="justification" name="justification"
                                     rows="2" placeholder="Reason for the FOC request (max 500 characters)"
                                     maxlength="500"><?= htmlspecialchars($_POST['justification'] ?? '') ?></textarea>
+                                <div class="text-danger validation-msg" data-field="justification"></div>
                             </div>
                         </div>
                     </section>
@@ -699,6 +711,33 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
             }).join('');
         }
         if (cartInput) cartInput.value = JSON.stringify(cart);
+        if (cart.length > 0) {
+            const cartMsg = document.querySelector('.validation-msg[data-field="cart_items"]');
+            if (cartMsg) cartMsg.textContent = '';
+        }
+        syncJustificationRequired();
+    }
+
+    function cartHasNewParts() {
+        return cart.some(function (item) {
+            return item.source === 'new';
+        });
+    }
+
+    function syncJustificationRequired() {
+        const required = cartHasNewParts();
+        const star = document.getElementById('justificationRequired');
+        const textarea = document.getElementById('justification');
+        const msg = document.querySelector('.validation-msg[data-field="justification"]');
+        if (star) {
+            star.style.display = required ? '' : 'none';
+        }
+        if (textarea && !required) {
+            textarea.classList.remove('is-invalid');
+        }
+        if (msg && !required) {
+            msg.textContent = '';
+        }
     }
 
     function escapeHtml(value) {
@@ -832,12 +871,77 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
     }
 
     const focClaimForm = document.getElementById('focClaimForm');
+    const warrantySelect = document.getElementById('warrantyStatus');
+    const justificationInput = document.getElementById('justification');
+
+    function setFieldError(field, message) {
+        const msg = document.querySelector('.validation-msg[data-field="' + field + '"]');
+        if (msg) {
+            msg.textContent = message || '';
+        }
+    }
+
+    function clearFieldError(field, input) {
+        setFieldError(field, '');
+        if (input) {
+            input.classList.remove('is-invalid');
+        }
+    }
+
+    if (complaintSelect) {
+        complaintSelect.addEventListener('change', function () {
+            clearFieldError('complaint_id', complaintSelect);
+        });
+        if (typeof $ !== 'undefined') {
+            $(complaintSelect).on('change select2:select select2:clear', function () {
+                clearFieldError('complaint_id', complaintSelect);
+            });
+        }
+    }
+    if (warrantySelect) {
+        warrantySelect.addEventListener('change', function () {
+            clearFieldError('warranty_status', warrantySelect);
+        });
+    }
+
     if (focClaimForm) {
         focClaimForm.addEventListener('submit', function (e) {
+            setFieldError('cart_items', '');
+            setFieldError('justification', '');
+            if (justificationInput) justificationInput.classList.remove('is-invalid');
+
+            let blocked = false;
+            let firstInvalid = null;
+
+            if (complaintSelect && String(complaintSelect.value || '').trim() === '') {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('complaint_id', 'Please select a Call Ticket Number.');
+                complaintSelect.classList.add('is-invalid');
+                firstInvalid = firstInvalid || complaintSelect;
+            }
+            if (warrantySelect && String(warrantySelect.value || '').trim() === '') {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('warranty_status', 'Please select the Machine Warranty Status.');
+                warrantySelect.classList.add('is-invalid');
+                firstInvalid = firstInvalid || warrantySelect;
+            }
             if (cart.length === 0) {
                 e.preventDefault();
-                const msg = document.querySelector('.validation-msg[data-field="cart_items"]');
-                if (msg) msg.textContent = 'Please add at least one part to the cart.';
+                blocked = true;
+                setFieldError('cart_items', 'Please add at least one part to the cart.');
+                firstInvalid = firstInvalid || document.getElementById('cartItemsTable');
+            }
+            if (cartHasNewParts() && justificationInput && justificationInput.value.trim() === '') {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('justification', 'Justification is required when additional/new parts are added.');
+                justificationInput.classList.add('is-invalid');
+                firstInvalid = firstInvalid || justificationInput;
+            }
+            if (blocked && firstInvalid && typeof firstInvalid.focus === 'function') {
+                firstInvalid.focus();
             }
         });
     }

@@ -12,6 +12,7 @@ distance_wise_price_ensure_schema($obconn);
 
 $success_message = '';
 $error_message   = '';
+$field_errors    = [];
 $userName        = current_username();
 
 
@@ -36,11 +37,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
     $complaint = warranty_claims_find_complaint($obconn, $complaintId);
 
     if ($complaint === null) {
-        $error_message = 'Please select a valid Call Ticket Number.';
+        $field_errors['complaint_id'] = 'Please select a valid Call Ticket Number.';
+        $error_message = $field_errors['complaint_id'];
     } elseif (!is_numeric($kmTravelled) || (float) $kmTravelled <= 0) {
-        $error_message = 'Distance travelled (KMs) is required and must be greater than zero.';
+        $field_errors['km_travelled'] = 'Distance Travelled (KMs) is required and must be greater than zero.';
+        $error_message = $field_errors['km_travelled'];
     } elseif ($serviceDate === '') {
-        $error_message = 'Service Date is required.';
+        $field_errors['service_date'] = 'Service Date is required.';
+        $error_message = $field_errors['service_date'];
     } elseif (strlen($resolutionNotes) > 1000) {
         $error_message = 'Resolution notes cannot exceed 1000 characters.';
     } else {
@@ -439,7 +443,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                 <label class="form-label" for="complaintId">
                                     <i class="bi bi-upc-scan"></i> Call Ticket Number <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-control" id="complaintId" name="complaint_id">
+                                <select class="form-control<?= isset($field_errors['complaint_id']) ? ' is-invalid' : '' ?>" id="complaintId" name="complaint_id">
                                     <option value="">-- Select Call Ticket --</option>
                                     <?php foreach ($recentComplaints as $c): ?>
                                     <option value="<?= (int) $c['id'] ?>"
@@ -448,9 +452,9 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <div class="text-danger validation-msg" data-field="complaint_id"></div>
+                                <div class="text-danger validation-msg" data-field="complaint_id"><?= htmlspecialchars($field_errors['complaint_id'] ?? '') ?></div>
                             </div>
-                            <div class="col-md-4 form-group d-flex align-items-end">
+                            <div class="col-md-2 form-group d-flex align-items-end mt-5">
                                 <?php
                                     $selectedComplaintId = (int) ($_POST['complaint_id'] ?? 0);
                                     $viewTicketHref = $selectedComplaintId > 0
@@ -479,10 +483,10 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                 <label class="form-label" for="kmTravelled">
                                     <i class="bi bi-signpost-split"></i> Distance Travelled (KMs) <span class="text-danger">*</span>
                                 </label>
-                                <input type="number" step="0.1" min="0.1" class="form-control" id="kmTravelled" name="km_travelled"
+                                <input type="number" step="0.1" min="0.1" class="form-control<?= isset($field_errors['km_travelled']) ? ' is-invalid' : '' ?>" id="kmTravelled" name="km_travelled"
                                     placeholder="e.g. 42.5"
                                     value="<?= htmlspecialchars($_POST['km_travelled'] ?? '') ?>">
-                                <div class="text-danger validation-msg" data-field="km_travelled"></div>
+                                <div class="text-danger validation-msg" data-field="km_travelled"><?= htmlspecialchars($field_errors['km_travelled'] ?? '') ?></div>
                             </div>
                             <div class="col-md-4 form-group">
                                 <label class="form-label" for="visitChargePriceDisplay">
@@ -497,10 +501,10 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                 <label class="form-label" for="serviceDate">
                                     <i class="bi bi-calendar-event"></i> Service Date <span class="text-danger">*</span>
                                 </label>
-                                <input type="date" class="form-control" id="serviceDate" name="service_date"
+                                <input type="date" class="form-control<?= isset($field_errors['service_date']) ? ' is-invalid' : '' ?>" id="serviceDate" name="service_date"
                                     value="<?= htmlspecialchars($_POST['service_date'] ?? '') ?>"
                                     max="<?= date('Y-m-d') ?>">
-                                <div class="text-danger validation-msg" data-field="service_date"></div>
+                                <div class="text-danger validation-msg" data-field="service_date"><?= htmlspecialchars($field_errors['service_date'] ?? '') ?></div>
                             </div>
                             <div class="col-md-12 form-group">
                                 <label class="form-label" for="resolutionNotes">
@@ -738,7 +742,89 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
         });
     }
 
+    const claimForm = document.getElementById('serviceClaimForm');
     const kmInput = document.getElementById('kmTravelled');
+    const serviceDateInput = document.getElementById('serviceDate');
+
+    function setFieldError(field, message) {
+        const msg = document.querySelector('.validation-msg[data-field="' + field + '"]');
+        if (msg) {
+            msg.textContent = message || '';
+        }
+    }
+
+    function clearFieldError(field, input) {
+        setFieldError(field, '');
+        if (input) {
+            input.classList.remove('is-invalid');
+        }
+    }
+
+    if (complaintSelect) {
+        complaintSelect.addEventListener('change', function () {
+            clearFieldError('complaint_id', complaintSelect);
+        });
+        if (typeof $ !== 'undefined') {
+            $(complaintSelect).on('change select2:select select2:clear', function () {
+                clearFieldError('complaint_id', complaintSelect);
+            });
+        }
+    }
+    if (kmInput) {
+        kmInput.addEventListener('input', function () {
+            clearFieldError('km_travelled', kmInput);
+        });
+        kmInput.addEventListener('change', function () {
+            clearFieldError('km_travelled', kmInput);
+        });
+    }
+    if (serviceDateInput) {
+        serviceDateInput.addEventListener('change', function () {
+            clearFieldError('service_date', serviceDateInput);
+        });
+        serviceDateInput.addEventListener('input', function () {
+            clearFieldError('service_date', serviceDateInput);
+        });
+    }
+
+    if (claimForm) {
+        claimForm.addEventListener('submit', function (e) {
+            let blocked = false;
+            let firstInvalid = null;
+
+            if (complaintSelect && String(complaintSelect.value || '').trim() === '') {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('complaint_id', 'Please select a Call Ticket Number.');
+                complaintSelect.classList.add('is-invalid');
+                firstInvalid = firstInvalid || complaintSelect;
+            }
+
+            const kmValue = kmInput ? String(kmInput.value || '').trim() : '';
+            const kmNumber = parseFloat(kmValue);
+            if (!kmValue || isNaN(kmNumber) || kmNumber <= 0) {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('km_travelled', 'Distance Travelled (KMs) is required and must be greater than zero.');
+                if (kmInput) {
+                    kmInput.classList.add('is-invalid');
+                    firstInvalid = firstInvalid || kmInput;
+                }
+            }
+
+            if (serviceDateInput && String(serviceDateInput.value || '').trim() === '') {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('service_date', 'Service Date is required.');
+                serviceDateInput.classList.add('is-invalid');
+                firstInvalid = firstInvalid || serviceDateInput;
+            }
+
+            if (blocked && firstInvalid && typeof firstInvalid.focus === 'function') {
+                firstInvalid.focus();
+            }
+        });
+    }
     const priceDisplay = document.getElementById('visitChargePriceDisplay');
     const priceHidden = document.getElementById('visitChargePrice');
     const priceHint = document.getElementById('visitChargePriceHint');
