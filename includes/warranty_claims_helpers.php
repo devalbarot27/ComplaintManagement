@@ -345,7 +345,14 @@ function warranty_claims_notify_role_holders(
 
 function warranty_status_badge_class(?string $status): string
 {
-    return $status === WARRANTY_STATUS_UNDER ? 'bg-success' : 'bg-secondary';
+    if ($status === WARRANTY_STATUS_UNDER) {
+        return 'bg-success';
+    }
+    if ($status === WARRANTY_STATUS_NOT_UNDER) {
+        return 'bg-secondary';
+    }
+
+    return 'bg-warning text-dark';
 }
 
 function foc_stage_badge_class(string $stage): string

@@ -11,58 +11,9 @@ warranty_claims_ensure_schema($obconn);
 $canApproveL1Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
 $canApproveL2Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
 $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
-$canMarkCcs          = rbac_user_can($obconn, 'service-claims', 'mark-warranty');
 
-// ─── Combined list: FOC/Service claims pending CCS/warranty or L1/L2 action ──
+// ─── Combined list: every FOC/Service claim awaiting an action this user can take ──
 $approvalItems = [];
-
-try {
-    $stmt = $obconn->query("
-        SELECT
-            fc.id, fc.complaint_id, fc.warranty_status, fc.justification, fc.l1_status, fc.l2_status,
-            fc.overall_status, fc.created_by_username, fc.created_at,
-            c.fab_number, c.customer_name,
-            (
-                SELECT STRING_AGG(fci.part_number || ' x' || fci.qty, ', ' ORDER BY fci.id)
-                FROM foc_claim_items fci
-                WHERE fci.foc_claim_id = fc.id
-            ) AS items_summary
-        FROM foc_claims fc
-        INNER JOIN complaints c ON c.id = fc.complaint_id
-        WHERE fc.deleted_at IS NULL
-          AND (
-                fc.warranty_status IS NULL
-                OR BTRIM(fc.warranty_status) = ''
-                OR fc.warranty_status = 'Pending'
-          )
-        ORDER BY fc.created_at DESC
-    ");
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $approvalItems[] = [
-            'claim_type'      => 'foc',
-            'id'              => (int) $row['id'],
-            'complaint_id'    => (int) $row['complaint_id'],
-            'fab_number'      => $row['fab_number'],
-            'customer_name'   => $row['customer_name'],
-            'details'         => $row['items_summary'] ?? '',
-            'warranty_label'  => trim((string) ($row['warranty_status'] ?? '')) !== '' ? $row['warranty_status'] : 'Pending',
-            'warranty_class'  => warranty_status_badge_class($row['warranty_status']),
-            'justification'   => $row['justification'] ?? '',
-            'stage_label'     => 'Pending CCS Review',
-            'overall_status'  => $row['overall_status'],
-            'created_by'      => $row['created_by_username'],
-            'created_at'      => $row['created_at'],
-            'level'           => 'ccs',
-            'action_url'      => 'foc_parts.php',
-            'decision_field'  => 'mark_foc_warranty',
-            'remarks_field'   => '',
-            'action_type'     => 'ccs_foc',
-            'can_decide'      => $canMarkCcs,
-        ];
-    }
-} catch (PDOException $e) {
-    // Table may not exist yet; silently continue
-}
 
 if ($canApproveL1Foc || $canApproveL2Foc) {
     $currentUserId = current_user_id($obconn);
@@ -89,7 +40,6 @@ if ($canApproveL1Foc || $canApproveL2Foc) {
             FROM foc_claims fc
             INNER JOIN complaints c ON c.id = fc.complaint_id
             WHERE fc.deleted_at IS NULL
-              AND fc.warranty_status IN ('" . WARRANTY_STATUS_UNDER . "', '" . WARRANTY_STATUS_NOT_UNDER . "')
               AND (" . implode(' OR ', $stageConditions) . ")
             ORDER BY fc.created_at DESC
         ");
@@ -101,6 +51,7 @@ if ($canApproveL1Foc || $canApproveL2Foc) {
         }
         $stmt->execute();
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            // Each row can only be actionable at exactly one stage for this approver.
             $level = null;
             if ($canApproveL1Foc && $row['l1_status'] === FOC_STAGE_PENDING
                 && ($row['l1_approver_user_id'] === null || (int) $row['l1_approver_user_id'] === $currentUserId)) {
@@ -130,49 +81,11 @@ if ($canApproveL1Foc || $canApproveL2Foc) {
                 'action_url'     => 'foc_parts.php',
                 'decision_field' => 'foc_decision',
                 'remarks_field'  => 'approval_remarks',
-                'action_type'    => 'approve',
-                'can_decide'     => true,
             ];
         }
     } catch (PDOException $e) {
         // Table may not exist yet; silently continue
     }
-}
-
-try {
-    $stmt = $obconn->query("
-        SELECT sc.*, c.fab_number, c.customer_name
-        FROM service_claims sc
-        INNER JOIN complaints c ON c.id = sc.complaint_id
-        WHERE sc.deleted_at IS NULL
-          AND sc.overall_status = 'Pending CCS Review'
-        ORDER BY sc.created_at DESC
-    ");
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $approvalItems[] = [
-            'claim_type'     => 'service',
-            'id'             => (int) $row['id'],
-            'complaint_id'   => (int) $row['complaint_id'],
-            'fab_number'     => $row['fab_number'],
-            'customer_name'  => $row['customer_name'],
-            'details'        => 'KM: ' . $row['km_travelled'] . ' | Service Date: ' . $row['service_date'],
-            'warranty_label' => 'Pending',
-            'warranty_class' => 'bg-warning text-dark',
-            'justification'  => '',
-            'stage_label'    => 'Pending CCS Review',
-            'overall_status' => $row['overall_status'],
-            'created_by'     => $row['created_by_username'],
-            'created_at'     => $row['created_at'],
-            'level'          => 'ccs',
-            'action_url'     => 'service_claims.php',
-            'decision_field' => 'mark_warranty',
-            'remarks_field'  => 'ccs_remarks',
-            'action_type'    => 'ccs_service',
-            'can_decide'     => $canMarkCcs,
-        ];
-    }
-} catch (PDOException $e) {
-    // Table may not exist yet; silently continue
 }
 
 if ($canApproveL1Service) {
@@ -208,8 +121,6 @@ if ($canApproveL1Service) {
                 'action_url'     => 'service_claims.php',
                 'decision_field' => 'l1_decision',
                 'remarks_field'  => 'l1_remarks',
-                'action_type'    => 'approve',
-                'can_decide'     => true,
             ];
         }
     } catch (PDOException $e) {
@@ -263,7 +174,7 @@ usort($approvalItems, static function (array $a, array $b): int {
         <div class="page-header">
             <div>
                 <div class="page-subtitle">
-                    Pending Warranty / CCS review and L1/L2 approvals for FOC Parts and Service Claims.
+                    Items across Warranty Management awaiting your approval.
                 </div>
             </div>
         </div>
@@ -277,7 +188,7 @@ usort($approvalItems, static function (array $a, array $b): int {
                     </div>
                     <div>
                         <h2 class="complaint-form-header__title">Pending Approvals</h2>
-                        <p class="complaint-form-header__subtitle">FOC Parts and Service Claims pending CCS warranty review or approval.</p>
+                        <p class="complaint-form-header__subtitle">FOC Parts and Service Claims awaiting your approval.</p>
                     </div>
                 </div>
             </div>
@@ -328,8 +239,6 @@ usort($approvalItems, static function (array $a, array $b): int {
                                         data-action="<?= htmlspecialchars($row['action_url']) ?>"
                                         data-decision-field="<?= htmlspecialchars($row['decision_field']) ?>"
                                         data-remarks-field="<?= htmlspecialchars($row['remarks_field']) ?>"
-                                        data-action-type="<?= htmlspecialchars($row['action_type']) ?>"
-                                        data-can-decide="<?= !empty($row['can_decide']) ? '1' : '0' ?>"
                                     >View</button>
                                 </td>
                             </tr>
@@ -340,7 +249,7 @@ usort($approvalItems, static function (array $a, array $b): int {
             </div>
         </div>
         <?php else: ?>
-        <div class="alert alert-info">There are no pending Warranty / CCS or approval items to show.</div>
+        <div class="alert alert-info">You do not have any pending approval actions assigned to your role.</div>
         <?php endif; ?>
 
     </div>
@@ -377,14 +286,14 @@ usort($approvalItems, static function (array $a, array $b): int {
                     <dt class="col-sm-4">Submitted On</dt>
                     <dd class="col-sm-8" id="viewClaimSubmittedOn"></dd>
                 </dl>
-                <hr id="decisionFormDivider">
+                <hr>
                 <form id="decisionForm" method="POST">
                     <input type="hidden" name="claim_id" id="decisionClaimId">
                     <input type="hidden" name="level" id="decisionLevel">
                     <input type="hidden" name="return_to" value="approvals.php">
                     <input type="hidden" id="decisionField" value="">
-                    <div class="mb-2" id="decisionRemarksWrap">
-                        <label for="decisionRemarks" class="form-label" id="decisionRemarksLabel">Remarks <span class="text-muted">(required to reject)</span></label>
+                    <div class="mb-2">
+                        <label for="decisionRemarks" class="form-label">Remarks <span class="text-muted">(required to reject)</span></label>
                         <textarea id="decisionRemarks" class="form-control" rows="2"></textarea>
                         <div id="decisionRemarksError" class="text-danger small mt-1" style="display:none;">A comment is required to reject.</div>
                     </div>
@@ -392,10 +301,6 @@ usort($approvalItems, static function (array $a, array $b): int {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-outline-secondary d-none" id="modalCcsNoBtn">No</button>
-                <button type="button" class="btn btn-success d-none" id="modalCcsYesBtn">Yes</button>
-                <button type="button" class="btn btn-outline-secondary d-none" id="modalFocNotUnderBtn">Not Under Warranty</button>
-                <button type="button" class="btn btn-success d-none" id="modalFocUnderBtn">Under Warranty</button>
                 <button type="button" class="btn btn-danger" id="modalRejectBtn">Reject</button>
                 <button type="button" class="btn btn-success" id="modalApproveBtn">Approve</button>
             </div>
@@ -411,25 +316,10 @@ usort($approvalItems, static function (array $a, array $b): int {
     const decisionField    = document.getElementById('decisionField');
     const decisionRemarks  = document.getElementById('decisionRemarks');
     const remarksError     = document.getElementById('decisionRemarksError');
-    const remarksWrap      = document.getElementById('decisionRemarksWrap');
-    const remarksLabel     = document.getElementById('decisionRemarksLabel');
-    const formDivider      = document.getElementById('decisionFormDivider');
-    const approveBtn       = document.getElementById('modalApproveBtn');
-    const rejectBtn        = document.getElementById('modalRejectBtn');
-    const ccsYesBtn        = document.getElementById('modalCcsYesBtn');
-    const ccsNoBtn         = document.getElementById('modalCcsNoBtn');
-    const focUnderBtn      = document.getElementById('modalFocUnderBtn');
-    const focNotUnderBtn   = document.getElementById('modalFocNotUnderBtn');
-
-    function setHidden(el, hidden) {
-        el.classList.toggle('d-none', hidden);
-    }
 
     document.querySelectorAll('.btn-view-claim').forEach(function (btn) {
         btn.addEventListener('click', function () {
             const d = btn.dataset;
-            const canDecide = d.canDecide === '1';
-            const actionType = d.actionType || 'approve';
 
             document.getElementById('viewClaimTitle').textContent = (d.type === 'foc' ? 'FOC Parts Claim' : 'Service Claim') + ' #' + d.claimId;
             document.getElementById('viewClaimTicket').textContent = d.complaintId;
@@ -447,24 +337,11 @@ usort($approvalItems, static function (array $a, array $b): int {
             decisionForm.action = d.action;
             document.getElementById('decisionClaimId').value = d.claimId;
             document.getElementById('decisionLevel').value = d.level;
-            decisionField.name = d.decisionField || '';
+            decisionField.name = d.decisionField;
             decisionField.value = '';
-            decisionRemarks.name = d.remarksField || '';
+            decisionRemarks.name = d.remarksField;
             decisionRemarks.value = '';
             remarksError.style.display = 'none';
-
-            setHidden(formDivider, !canDecide);
-            setHidden(decisionForm, !canDecide);
-            setHidden(approveBtn, !canDecide || actionType !== 'approve');
-            setHidden(rejectBtn, !canDecide || actionType !== 'approve');
-            setHidden(ccsYesBtn, !canDecide || actionType !== 'ccs_service');
-            setHidden(ccsNoBtn, !canDecide || actionType !== 'ccs_service');
-            setHidden(focUnderBtn, !canDecide || actionType !== 'ccs_foc');
-            setHidden(focNotUnderBtn, !canDecide || actionType !== 'ccs_foc');
-            setHidden(remarksWrap, !canDecide || actionType === 'ccs_foc');
-            remarksLabel.innerHTML = actionType === 'approve'
-                ? 'Remarks <span class="text-muted">(required to reject)</span>'
-                : 'Remarks <span class="text-muted">(optional)</span>';
 
             viewModal.show();
         });
@@ -482,26 +359,6 @@ usort($approvalItems, static function (array $a, array $b): int {
             return;
         }
         decisionField.value = 'Rejected';
-        decisionForm.submit();
-    });
-
-    document.getElementById('modalCcsYesBtn').addEventListener('click', function () {
-        decisionField.value = 'Yes';
-        decisionForm.submit();
-    });
-
-    document.getElementById('modalCcsNoBtn').addEventListener('click', function () {
-        decisionField.value = 'No';
-        decisionForm.submit();
-    });
-
-    document.getElementById('modalFocUnderBtn').addEventListener('click', function () {
-        decisionField.value = 'Under Warranty';
-        decisionForm.submit();
-    });
-
-    document.getElementById('modalFocNotUnderBtn').addEventListener('click', function () {
-        decisionField.value = 'Not Under Warranty';
         decisionForm.submit();
     });
 })();

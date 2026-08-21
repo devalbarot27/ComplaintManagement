@@ -97,10 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_warranty'])) {
     $claimId       = (int) ($_POST['claim_id'] ?? 0);
     $warrantyClaim = trim($_POST['mark_warranty'] ?? '');
     $ccsRemarks    = trim($_POST['ccs_remarks'] ?? '');
+    $redirectTo    = ($_POST['return_to'] ?? '') === 'approvals.php' ? 'approvals.php' : 'service_claims.php';
 
     if ($claimId <= 0 || !in_array($warrantyClaim, ['Yes', 'No'], true)) {
         $_SESSION['error_message'] = 'Please select Yes or No for warranty eligibility.';
-        header('Location: service_claims.php');
+        header('Location: ' . $redirectTo);
         exit;
     }
 
@@ -111,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_warranty'])) {
 
     if ($claim === false || $claim['overall_status'] !== 'Pending CCS Review') {
         $_SESSION['error_message'] = 'This claim is not pending CCS review.';
-        header('Location: service_claims.php');
+        header('Location: ' . $redirectTo);
         exit;
     }
 
@@ -139,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_warranty'])) {
     );
 
     $_SESSION['success_message'] = 'Warranty eligibility recorded. Claim moved to L1 approval.';
-    header('Location: service_claims.php');
+    header('Location: ' . $redirectTo);
     exit;
 }
 
@@ -529,19 +530,19 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 <table id="serviceClaimsTable" class="table table-hover booking-table w-100">
                     <thead>
                         <tr>
-                            <th width="6%">ID</th>
-                            <th width="16%">Call Ticket</th>
-                            <th width="12%">Fab Number</th>
-                            <th width="14%">Customer Name</th>
-                            <th width="12%">Visit</th>
-                            <th width="12%">Service Date</th>
-                            <th width="10%">CCS</th>
-                            <th width="10%">L1</th>
-                            <th width="10%">Invoice</th>
-                            <th width="10%">Settlement</th>
-                            <th width="14%">Status</th>
-                            <th width="10%">Submitted By</th>
-                            <th width="8%">Action</th>
+                        <th width="6%">#</th>
+<th width="10%">Call Ticket</th>
+<th width="12%">Fab Number</th>
+<th width="14%">Customer</th>
+<th width="12%">KM</th>
+<th width="12%">Service Date</th>
+<th width="10%">Warranty<br>(CCS)</th>
+<th width="10%">L1<br>(Lock-in Engineer)</th>
+<th width="10%">Invoice</th>
+<th width="10%">Settlement</th>
+<th width="14%">Overall Status</th>
+<th width="10%">Submitted By</th>
+<th width="8%">Action</th>
                         </tr>
                     </thead>
                     <tbody>

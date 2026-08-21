@@ -14,6 +14,7 @@ $userName        = current_username();
 
 $canApproveL1 = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
 $canApproveL2 = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
+$canMarkCcs   = rbac_user_can($obconn, 'service-claims', 'mark-warranty');
 
 // ─── Handle FOC Claim Submission (Process 1, steps 1-6) ─────────────────────────
 // Anyone who can view this page can submit an FOC claim (same convention as new_complaint.php).
@@ -117,6 +118,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
             $error_message = 'Failed to submit FOC claim. Please try again.';
         }
     }
+}
+
+// ─── Handle CCS warranty marking for FOC claims still pending review ─────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_foc_warranty'])) {
+    $redirectTo = ($_POST['return_to'] ?? '') === 'approvals.php' ? 'approvals.php' : 'foc_parts.php';
+
+    if (!$canMarkCcs) {
+        header('Location: access_denied.php');
+        exit;
+    }
+
+    $claimId        = (int) ($_POST['claim_id'] ?? 0);
+    $warrantyStatus = trim($_POST['mark_foc_warranty'] ?? '');
+
+    if ($claimId <= 0 || !in_array($warrantyStatus, [WARRANTY_STATUS_UNDER, WARRANTY_STATUS_NOT_UNDER], true)) {
+        $_SESSION['error_message'] = 'Please select the machine warranty status.';
+        header('Location: ' . $redirectTo);
+        exit;
+    }
+
+    $claimStmt = $obconn->prepare('SELECT * FROM foc_claims WHERE id = :id AND deleted_at IS NULL');
+    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $claimStmt->execute();
+    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
+
+    $pendingWarranty = $claim !== false && !in_array(trim((string) ($claim['warranty_status'] ?? '')), [WARRANTY_STATUS_UNDER, WARRANTY_STATUS_NOT_UNDER], true);
+
+    if (!$pendingWarranty) {
+        $_SESSION['error_message'] = 'This claim is not pending warranty review.';
+        header('Location: ' . $redirectTo);
+        exit;
+    }
+
+    $update = $obconn->prepare("
+        UPDATE foc_claims
+        SET warranty_status = :warranty_status,
+            overall_status = 'Pending L1 Approval',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+    ");
+    $update->bindValue(':warranty_status', $warrantyStatus);
+    $update->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $update->execute();
+
+    warranty_claims_notify_role_holders(
+        $obconn,
+        'foc-parts',
+        'approve-l1-foc',
+        'FOC Claim Pending L1 Approval',
+        'FOC claim #' . $claimId . ' has been marked "' . $warrantyStatus . '" by CCS and needs Lock-in Engineer approval.',
+        $claimId
+    );
+
+    $_SESSION['success_message'] = 'Warranty status recorded. Claim moved to L1 approval.';
+    header('Location: ' . $redirectTo);
+    exit;
 }
 
 // ─── Handle L1 / L2 approval decisions (Process 1, steps 7-9) ────────────────
