@@ -61,16 +61,21 @@ function permission_slug_exists(PDO $conn, int $moduleId, string $permissionSlug
 
 function permission_search_filter(string $searchValue): array
 {
-    return rbac_search_filter($searchValue, ['permission_name', 'permission_slug', 'description'], function ($search) {
-        return [
-            'sql' => 'module_id IN (
-                SELECT id FROM modules
-                WHERE deleted_at IS NULL
-                  AND (module_name ILIKE :module_search OR module_slug ILIKE :module_search)
-            )',
-            'params' => [':module_search' => '%' . $search . '%'],
-        ];
-    });
+    return rbac_search_filter(
+        $searchValue,
+        ['p.permission_name', 'p.permission_slug', 'p.description', 'CAST(p.id AS TEXT)'],
+        function ($search) {
+            return [
+                'sql' => 'p.module_id IN (
+                    SELECT id FROM modules
+                    WHERE deleted_at IS NULL
+                      AND (module_name ILIKE :module_search OR module_slug ILIKE :module_search)
+                )',
+                'params' => [':module_search' => '%' . $search . '%'],
+            ];
+        },
+        'p.status'
+    );
 }
 
 function permission_get_by_id(PDO $conn, int $id): ?array

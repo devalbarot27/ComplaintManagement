@@ -87,7 +87,7 @@ function rbac_validate_status(string $status): ?string
     return null;
 }
 
-function rbac_search_filter(string $searchValue, array $textColumns, ?callable $extraMatcher = null): array
+function rbac_search_filter(string $searchValue, array $textColumns, ?callable $extraMatcher = null, string $statusColumn = 'status'): array
 {
     $parts = [];
     $params = [':search' => '%' . $searchValue . '%'];
@@ -97,14 +97,14 @@ function rbac_search_filter(string $searchValue, array $textColumns, ?callable $
     }
 
     $statusValues = rbac_status_search_values($searchValue);
-    if (!empty($statusValues)) {
+    if (!empty($statusValues) && $statusColumn !== '') {
         $statusPlaceholders = [];
         foreach ($statusValues as $index => $statusValue) {
             $paramKey = ':status_search_' . $index;
             $statusPlaceholders[] = $paramKey;
             $params[$paramKey] = $statusValue;
         }
-        $parts[] = 'status IN (' . implode(', ', $statusPlaceholders) . ')';
+        $parts[] = $statusColumn . ' IN (' . implode(', ', $statusPlaceholders) . ')';
     }
 
     if ($extraMatcher !== null) {

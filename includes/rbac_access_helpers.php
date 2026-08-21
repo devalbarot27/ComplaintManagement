@@ -77,7 +77,7 @@ function rbac_page_access_rules(): array
         'service_claims.php' => ['module' => 'service-claims', 'permission' => 'view'],
         'service_claim_details.php' => ['module' => 'service-claims', 'permission' => 'view'],
         'delete_service_claim.php' => ['module' => 'service-claims', 'permission' => 'delete'],
-        'approvals.php' => ['module' => 'approvals', 'permission' => 'view-approvals'],
+        'approvals.php' => ['module' => 'approvals', 'permission' => 'view'],
         'access_denied.php' => null,
         'notifications.php' => null,    ];
 }
@@ -129,7 +129,7 @@ function rbac_sidebar_modules(): array
         'dse_lse_complaint_list.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
         'foc_parts.php' => ['module' => 'foc-parts', 'permission' => 'view'],
         'service_claims.php' => ['module' => 'service-claims','permission' => 'view'],        
-        'approvals.php' => ['module' => 'approvals','permission' => 'view-approvals'],
+        'approvals.php' => ['module' => 'approvals','permission' => 'view'],
     ];
 }
 

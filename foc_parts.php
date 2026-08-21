@@ -379,8 +379,14 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                 <div class="text-danger validation-msg" data-field="complaint_id"></div>
                             </div>
                             <div class="col-md-4 form-group d-flex align-items-end">
-                                <a href="#" id="viewTicketLink" target="_blank" rel="noopener"
-                                    class="btn btn-outline-secondary w-100 disabled">
+                                <?php
+                                    $selectedComplaintId = (int) ($_POST['complaint_id'] ?? 0);
+                                    $viewTicketHref = $selectedComplaintId > 0
+                                        ? 'complaint_details.php?id=' . rawurlencode(base64_encode((string) $selectedComplaintId))
+                                        : '#';
+                                ?>
+                                <a href="<?= htmlspecialchars($viewTicketHref, ENT_QUOTES, 'UTF-8') ?>" id="viewTicketLink" target="_blank" rel="noopener"
+                                    class="btn btn-outline-secondary w-100<?= $selectedComplaintId > 0 ? '' : ' disabled' ?>">
                                     <i class="bi bi-box-arrow-up-right"></i> View Ticket Details
                                 </a>
                             </div>
@@ -595,16 +601,39 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
     if (closeBtn) closeBtn.addEventListener('click', hideForm);
     if (cancelBtn) cancelBtn.addEventListener('click', hideForm);
 
+    function complaintDetailsUrl(id) {
+        return 'complaint_details.php?id=' + encodeURIComponent(btoa(String(id)));
+    }
+
+    function syncViewTicketLink() {
+        if (!viewTicketLink || !complaintSelect) {
+            return;
+        }
+        const id = String(complaintSelect.value || '').trim();
+        if (id) {
+            viewTicketLink.href = complaintDetailsUrl(id);
+            viewTicketLink.classList.remove('disabled');
+            viewTicketLink.setAttribute('aria-disabled', 'false');
+        } else {
+            viewTicketLink.href = '#';
+            viewTicketLink.classList.add('disabled');
+            viewTicketLink.setAttribute('aria-disabled', 'true');
+        }
+    }
+
     if (complaintSelect && viewTicketLink) {
-        complaintSelect.addEventListener('change', function () {
-            const id = this.value;
-            if (id) {
-                viewTicketLink.href = 'complaint_details.php?id=' + encodeURIComponent(btoa(id));
-                viewTicketLink.classList.remove('disabled');
-            } else {
-                viewTicketLink.href = '#';
-                viewTicketLink.classList.add('disabled');
+        syncViewTicketLink();
+        complaintSelect.addEventListener('change', syncViewTicketLink);
+        if (typeof $ !== 'undefined') {
+            $(complaintSelect).on('change select2:select select2:clear', syncViewTicketLink);
+        }
+        viewTicketLink.addEventListener('click', function (e) {
+            const id = String(complaintSelect.value || '').trim();
+            if (!id) {
+                e.preventDefault();
+                return;
             }
+            this.href = complaintDetailsUrl(id);
         });
     }
 

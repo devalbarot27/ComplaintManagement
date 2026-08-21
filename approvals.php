@@ -12,7 +12,7 @@ $canApproveL1Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
 $canApproveL2Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
 $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
 $canMarkCcs          = rbac_user_can($obconn, 'service-claims', 'mark-warranty');
-$canApproval          = rbac_user_can($obconn, 'approvals', 'view-approvals');
+$canApproval          = rbac_user_can($obconn, 'approvals', 'view');
 
 if (!$canApproval) {
     header('Location: access_denied.php');
