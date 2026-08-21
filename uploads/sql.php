@@ -3,6 +3,44 @@ include '../pdo_obconn.php';
 
 
 
+try {
+    // 1. Get table structure
+    $stmt = $obconn->prepare("
+        SELECT 
+            column_name,
+            data_type,
+            character_maximum_length,
+            is_nullable,
+            column_default
+        FROM information_schema.columns
+        WHERE table_name = 'service_claims'
+        ORDER BY ordinal_position
+    ");
+    
+    $stmt->execute();
+    $structure = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. Get sample data
+    $stmt = $obconn->prepare("
+        SELECT *
+        FROM service_claims
+        LIMIT 10
+    ");
+
+    $stmt->execute();
+    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 3. Merge output
+    echo "<pre>";
+    print_r([
+        "structure" => $structure,
+        "data" => $data
+    ]);
+
+} catch (PDOException $e) {
+    echo "Error: " . $e->getMessage();
+}
+die();
 
 
 

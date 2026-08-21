@@ -135,7 +135,6 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 km_travelled NUMERIC(8,2) NOT NULL,
                 service_date DATE NOT NULL,
                 resolution_notes VARCHAR(1000) NULL,
-                visit_charge_price NUMERIC(12,2) NULL,
                 ccs_warranty_claim VARCHAR(5) NULL,
                 ccs_remarks VARCHAR(500) NULL,
                 ccs_marked_by_username VARCHAR(150) NULL,
@@ -164,10 +163,6 @@ function warranty_claims_ensure_schema(PDO $conn): void
 
     if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'l1_approver_user_id')) {
         $conn->exec("ALTER TABLE service_claims ADD COLUMN l1_approver_user_id INTEGER NULL");
-    }
-
-    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'visit_charge_price')) {
-        $conn->exec("ALTER TABLE service_claims ADD COLUMN visit_charge_price NUMERIC(12,2) NULL");
     }
 
     $ensured = true;
@@ -357,54 +352,4 @@ function foc_stage_badge_class(string $stage): string
     ];
 
     return $map[$stage] ?? 'bg-secondary';
-}
-
-function service_claim_overall_badge_class(?string $status): string
-{
-    $status = trim((string) $status);
-    $map = [
-        'Pending CCS Review' => 'bg-warning text-dark',
-        'Pending L1 Approval' => 'bg-info text-dark',
-        'Approved - Pending Invoice' => 'bg-primary',
-        'Invoice Raised - Pending Settlement' => 'bg-info text-dark',
-        'Settled' => 'bg-success',
-        'Rejected' => 'bg-danger',
-    ];
-
-    return $map[$status] ?? 'bg-secondary';
-}
-
-function service_claim_get_by_id(PDO $conn, int $id): ?array
-{
-    if ($id <= 0) {
-        return null;
-    }
-
-    $stmt = $conn->prepare("
-        SELECT sc.*, c.fab_number, c.customer_name
-        FROM service_claims sc
-        INNER JOIN complaints c ON c.id = sc.complaint_id
-        WHERE sc.id = :id
-          AND sc.deleted_at IS NULL
-        LIMIT 1
-    ");
-    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $stmt->execute();
-
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return $row ?: null;
-}
-
-function service_claim_soft_delete(PDO $conn, int $id): void
-{
-    $stmt = $conn->prepare("
-        UPDATE service_claims
-        SET deleted_at = CURRENT_TIMESTAMP,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = :id
-          AND deleted_at IS NULL
-    ");
-    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
-    $stmt->execute();
 }

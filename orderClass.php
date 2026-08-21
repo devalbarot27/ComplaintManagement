@@ -20,8 +20,7 @@ class orderClass
         $this->obconn = $obconn;
         $this->dpconn = $dpconn;
         $this->userId = $_SESSION['usr_name'];
-        //$this->customer_code = $_SESSION['customer_number_vayu'];
-        $this->customer_code = @$_SESSION['customer_number_vayu'] ?? 'BP0001127';
+        $this->customer_code = $_SESSION['customer_number_vayu'];
     }
 
 

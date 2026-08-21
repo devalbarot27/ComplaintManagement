@@ -101,12 +101,6 @@
         $pageName = "Notifications";
     } else if ($currentPage == 'foc_parts.php') {
         $pageName = "FOC Part & Service Claim";
-    } else if ($currentPage == 'service_claims.php') {
-        $pageName = "Service Claims";
-    } else if ($currentPage == 'service_claim_details.php') {
-        $pageName = "Service Claim Details";
-    } else if ($currentPage == 'approvals.php') {
-        $pageName = "Approvals";
     }
 
     ?>
@@ -290,7 +284,7 @@
                   <?php } ?>
                     <?php if ($canServiceClaims) { ?>
                       <a href="service_claims.php"
-                          class="menu-item <?= ($currentPage == 'service_claims.php' || $currentPage == 'service_claim_details.php') ? 'active' : '' ?>">
+                          class="menu-item <?= ($currentPage == 'service_claims.php') ? 'active' : '' ?>">
                           <i class="bi bi-shield-check"></i>
                           Service Claims
                       </a>
