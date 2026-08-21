@@ -250,3 +250,27 @@ table.dataTable.table.booking-table tbody td:last-child {
         max-width: 100%;
     }
 }
+
+/* Length dropdown inside complaint-form-card (FOC / Service Claims grids).
+   .complaint-form-card .form-select { background: #fff } hides Bootstrap's arrow. */
+.complaint-form-card .dataTables_wrapper .dataTables_length select,
+.complaint-form-card .dataTables_wrapper .dataTables_length select.form-select {
+    appearance: none;
+    -webkit-appearance: none;
+    min-width: 64px;
+    min-height: 36px;
+    height: 36px;
+    margin: 0 4px;
+    padding: 0 32px 0 12px !important;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%231565d8' d='M4.5 6L8 9.5 11.5 6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+}

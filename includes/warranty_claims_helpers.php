@@ -381,9 +381,14 @@ function service_claim_get_by_id(PDO $conn, int $id): ?array
     }
 
     $stmt = $conn->prepare("
-        SELECT sc.*, c.fab_number, c.customer_name
+        SELECT
+            sc.*, c.fab_number, c.customer_name,
+            COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
+        LEFT JOIN user_master um
+            ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
+           AND um.deleted_at IS NULL
         WHERE sc.id = :id
           AND sc.deleted_at IS NULL
         LIMIT 1

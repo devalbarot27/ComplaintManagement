@@ -234,6 +234,7 @@ try {
             fc.l2_status, fc.l2_by_username, fc.l2_at, fc.l2_remarks,
             fc.overall_status, fc.ln_order_number, fc.created_by_username, fc.created_at,
             c.fab_number, c.customer_name,
+            COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(fc.created_by_username), ''), '-') AS created_by_name,
             (
                 SELECT STRING_AGG(fci.part_number, E'\\n' ORDER BY fci.id)
                 FROM foc_claim_items fci
@@ -251,6 +252,9 @@ try {
             ) AS part_qtys
         FROM foc_claims fc
         INNER JOIN complaints c ON c.id = fc.complaint_id
+        LEFT JOIN user_master um
+            ON LOWER(TRIM(um.username)) = LOWER(TRIM(fc.created_by_username))
+           AND um.deleted_at IS NULL
         WHERE fc.deleted_at IS NULL
         ORDER BY fc.created_at DESC
     ");
@@ -282,11 +286,6 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <style>
-        .dataTables_length select{
-            padding: 0px 25px !important
-        }
-    </style>
 </head>
 <body>
 <div class="main-wrapper" id="mainWrapper">
@@ -372,7 +371,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                     <?php foreach ($recentComplaints as $c): ?>
                                     <option value="<?= (int) $c['id'] ?>"
                                         <?= (((int) ($_POST['complaint_id'] ?? 0)) === (int) $c['id']) ? 'selected' : '' ?>>
-                                        #<?= (int) $c['id'] ?> — <?= htmlspecialchars($c['fab_number']) ?> (<?= htmlspecialchars($c['customer_name']) ?>)
+                                        #<?= (int) $c['id'] ?> - <?= htmlspecialchars($c['fab_number']) ?> (<?= htmlspecialchars($c['customer_name']) ?>)
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -521,43 +520,79 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
         <!-- ── End Form ───────────────────────────────────────────────────── -->
 
         <!-- ── Claims List ────────────────────────────────────────────────── -->
-        <div class="card mt-3" id="focTableCard">
-            <div class="card-header d-flex align-items-center gap-2">
-                <i class="bi bi-list-ul"></i>
-                <strong>FOC Claims</strong>
+        <div class="complaint-form-card show" id="focTableCard">
+            <div class="complaint-form-header">
+                <div class="complaint-form-header__main">
+                    <div class="complaint-form-header__icon">
+                        <i class="bi bi-clipboard-check"></i>
+                    </div>
+                    <div>
+                        <h2 class="complaint-form-header__title">FOC Part Claims</h2>
+                        <p class="complaint-form-header__subtitle">
+                            Track warranty FOC requests, L1/L2 approval and claim status.
+                        </p>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="padding:10px;">
-                    <table id="focClaimsTable" class="table table-hover mb-0 datatable-standard">
+            <div class="complaint-form-body">
+                <div class="table-responsive">
+                    <table id="focClaimsTable" class="table table-hover booking-table w-100">
                         <thead>
                             <tr>
-                                <th>#</th>
-                                <th>Fab Number</th>
-                                <th>Customer</th>
-                                <th>Part Number</th>
-                                <th>Part Name</th>
-                                <th>Qty</th>
-                                <th>Warranty</th>
-                                <th>Lock-in Engineer</th>
-                                <th>Business Head</th>
-                                <th>Overall Status</th>
-                                <th>Submitted By</th>
+                                <th width="6%">#</th>
+                                <th width="10%">Call Ticket</th>
+                                <th width="12%">Fab Number</th>
+                                <th width="14%">Customer</th>
+                                <th width="12%">Part Number</th>
+                                <th width="14%">Part Name</th>
+                                <th width="8%">Qty</th>
+                                <th width="10%">Warranty</th>
+                                <th width="10%">Lock-in Engineer</th>
+                                <th width="10%">Business Head</th>
+                                <th width="14%">Overall Status</th>
+                                <th width="10%">Submitted By</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($claims as $i => $row): ?>
+                            <?php
+                                $claimId = (int) $row['id'];
+                                $complaintId = (int) $row['complaint_id'];
+                                $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
+                            ?>
                             <tr>
-                                <td><?= $i + 1 ?></td>
-                                <td><?= htmlspecialchars($row['fab_number']) ?></td>
-                                <td><?= htmlspecialchars($row['customer_name']) ?></td>
+                                <td><?= $claimId ?></td>
+                                <td>
+                                    <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">
+                                        #<?= $complaintId ?>
+                                    </a>
+                                </td>
+                                <td><?= htmlspecialchars((string) ($row['fab_number'] ?? '-')) ?></td>
+                                <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                                 <td><?= nl2br(htmlspecialchars($row['part_numbers'] ?? '')) ?></td>
                                 <td><?= nl2br(htmlspecialchars($row['part_names'] ?? '')) ?></td>
                                 <td><?= nl2br(htmlspecialchars($row['part_qtys'] ?? '')) ?></td>
-                                <td><span class="badge <?= warranty_status_badge_class($row['warranty_status']) ?>"><?= htmlspecialchars($row['warranty_status']) ?></span></td>
-                                <td><span class="badge <?= foc_stage_badge_class($row['l1_status']) ?>"><?= htmlspecialchars($row['l1_status']) ?></span></td>
-                                <td><span class="badge <?= foc_stage_badge_class($row['l2_status']) ?>"><?= htmlspecialchars($row['l2_status']) ?></span></td>
-                                <td><?= htmlspecialchars($row['overall_status']) ?></td>
-                                <td><?= htmlspecialchars($row['created_by_username']) ?></td>
+                                <td>
+                                    <span class="status-badge border border-dark ">
+                                        <?= htmlspecialchars((string) ($row['warranty_status'] ?? '-')) ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="status-badge border border-dark">
+                                        <?= htmlspecialchars((string) ($row['l1_status'] ?? '-')) ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="status-badge border border-dark">
+                                        <?= htmlspecialchars((string) ($row['l2_status'] ?? '-')) ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="status-badge border border-dark">
+                                        <?= htmlspecialchars((string) ($row['overall_status'] ?? '-')) ?>
+                                    </span>
+                                </td>
+                                <td><?= htmlspecialchars((string) ($row['created_by_name'] ?? $row['created_by_username'] ?? '-')) ?></td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -658,7 +693,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                     '<td>' + escapeHtml(item.part_number) + '</td>' +
                     '<td>' + escapeHtml(item.part_description || '') + '</td>' +
                     '<td>' + item.qty + '</td>' +
-                    '<td><span class="badge ' + (item.source === 'existing' ? 'bg-info text-dark' : 'bg-primary') + '">' + item.source + '</span></td>' +
+                    '<td><span class="status-badge border border-dark">' + item.source + '</span></td>' +
                     '<td><button type="button" class="btn btn-sm btn-outline-danger" data-remove-index="' + index + '"><i class="bi bi-trash"></i></button></td>' +
                     '</tr>';
             }).join('');
@@ -818,7 +853,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
     if (typeof $.fn.DataTable !== 'undefined') {
         $('#focClaimsTable').DataTable({
             order: [[0, 'desc']],
-            pageLength: 25,
+            pageLength: 10,
             language: { emptyTable: 'No FOC claims submitted yet.' }
         });
     }

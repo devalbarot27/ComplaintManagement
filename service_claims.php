@@ -320,9 +320,13 @@ $claims = [];
 try {
     $claimStmt = $obconn->query("
         SELECT
-            sc.*, c.fab_number, c.customer_name
+            sc.*, c.fab_number, c.customer_name,
+            COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
+        LEFT JOIN user_master um
+            ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
+           AND um.deleted_at IS NULL
         WHERE sc.deleted_at IS NULL
         ORDER BY sc.created_at ASC
     ");
@@ -614,7 +618,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                     <?= htmlspecialchars($overallStatus !== '' ? $overallStatus : '-') ?>
                                 </span>
                             </td>
-                            <td><?= htmlspecialchars((string) ($row['created_by_username'] ?? '-')) ?></td>
+                            <td><?= htmlspecialchars((string) ($row['created_by_name'] ?? $row['created_by_username'] ?? '-')) ?></td>
                             <td>
                                 <div class="d-flex gap-1">
                                     <a href="service_claim_details.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"
