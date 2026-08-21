@@ -415,7 +415,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
                     <div class="complaint-form-header__icon">
-                        <i class="bi bi-wrench-adjustable"></i>
+                        <i class="bi bi-clipboard-check"></i>
                     </div>
                     <div>
                         <h2 class="complaint-form-header__title">New Warranty Service Claim</h2>

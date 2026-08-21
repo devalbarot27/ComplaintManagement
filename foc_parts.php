@@ -348,7 +348,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
                     <div class="complaint-form-header__icon">
-                        <i class="bi bi-shield-check"></i>
+                        <i class="bi bi-wrench-adjustable"></i>
                     </div>
                     <div>
                         <h2 class="complaint-form-header__title">New FOC Part Claim</h2>
@@ -536,7 +536,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
                     <div class="complaint-form-header__icon">
-                        <i class="bi bi-clipboard-check"></i>
+                        <i class="bi bi-wrench-adjustable"></i>
                     </div>
                     <div>
                         <h2 class="complaint-form-header__title">FOC Part Claims</h2>

@@ -281,14 +281,14 @@
                   <?php if ($canFocParts) { ?>
                       <a href="foc_parts.php"
                           class="menu-item <?= ($currentPage == 'foc_parts.php') ? 'active' : '' ?>">
-                          <i class="bi bi-shield-check"></i>
+                          <i class="bi bi-wrench-adjustable"></i>
                           FOC Parts
                       </a>
                   <?php } ?>
                     <?php if ($canServiceClaims) { ?>
                       <a href="service_claims.php"
                           class="menu-item <?= ($currentPage == 'service_claims.php' || ($currentPage == 'service_claim_details.php' && @$_GET['id'] != '')) ? 'active' : '' ?>">
-                          <i class="bi bi-shield-check"></i>
+                          <i class="bi bi-clipboard-check"></i>
                           Service Claims
                       </a>
                   <?php } ?>
