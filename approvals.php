@@ -366,7 +366,7 @@ usort($approvalItems, static function (array $a, array $b): int {
                                     <span class="status-badge border border-dark"><?= htmlspecialchars($typeLabel) ?></span>
                                 </td>
                                 <td>
-                                    <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">
+                                    <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                         #<?= $complaintId ?>
                                     </a>
                                 </td>
@@ -449,7 +449,7 @@ usort($approvalItems, static function (array $a, array $b): int {
                         <div class="col-md-4 form-group">
                             <label class="form-label"><i class="bi bi-ticket-detailed"></i> Call Ticket</label>
                             <div class="approval-detail-value">
-                                <a id="viewClaimTicketLink" href="#" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">#<span id="viewClaimTicket"></span></a>
+                                <a id="viewClaimTicketLink" href="#" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">#<span id="viewClaimTicket"></span></a>
                             </div>
                         </div>
                         <div class="col-md-4 form-group">

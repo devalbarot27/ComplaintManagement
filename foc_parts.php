@@ -575,7 +575,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                             <tr>
                                 <td><?= $claimId ?></td>
                                 <td>
-                                    <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="fw-semibold text-decoration-none">
+                                    <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                         #<?= $complaintId ?>
                                     </a>
                                 </td>

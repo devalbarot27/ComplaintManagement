@@ -73,7 +73,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_section_start(1, 'Call Ticket', 'Complaint this service visit relates to');
             record_details_field(
                 'Call Ticket',
-                '<a href="complaint_details.php?id=' . htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">#' . $complaintId . '</a>',
+                '<a class="text-primary" href="complaint_details.php?id=' . htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">#' . $complaintId . '</a>',
                 'col-md-4',
                 false,
                 true

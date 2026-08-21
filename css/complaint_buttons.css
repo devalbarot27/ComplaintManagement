@@ -136,3 +136,7 @@
     background-color:#F44611;
     border-color: #F44611;
 } 
+a.text-primary {
+    text-decoration: none !important;
+    color: #F44611 !important;
+}
