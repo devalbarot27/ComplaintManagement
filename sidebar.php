@@ -269,9 +269,8 @@
             $canFocParts = rbac_can_access_menu($obconn, 'foc_parts.php');
             $canServiceClaims = rbac_can_access_menu($obconn, 'service_claims.php');
             $canshowApprovals = rbac_can_access_menu($obconn, 'approvals.php');
-            $showWarrantyManagement = $canFocParts;
             ?>
-          <?php if ($showWarrantyManagement) { ?>
+          <?php if ($canFocParts || $canServiceClaims || $canshowApprovals) { ?>
               <div class="menu-section">
                   <div class="menu-heading">WARRANTY MANAGEMENT</div>
 

@@ -6,24 +6,18 @@ require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 
-
-
 warranty_claims_ensure_schema($obconn);
 
 $success_message = '';
 $error_message   = '';
 $userName        = current_username();
 
-$canCreateFoc = rbac_user_can($obconn, 'foc-parts', 'create-foc');
 $canApproveL1 = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
 $canApproveL2 = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
 
 // ─── Handle FOC Claim Submission (Process 1, steps 1-6) ─────────────────────────
+// Anyone who can view this page can submit an FOC claim (same convention as new_complaint.php).
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) {
-    if (!$canCreateFoc) {
-        header('Location: access_denied.php');
-        exit;
-    }
     $complaintId    = (int) ($_POST['complaint_id'] ?? 0);
     $justification  = trim($_POST['justification'] ?? '');
     $warrantyStatus = trim($_POST['warranty_status'] ?? '');
@@ -323,11 +317,9 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                 </div>
             </div>
             <div class="header-btn-group">
-                 <?php if ($canCreateFoc): ?>
                 <button class="new-order-btn btn-complaint-primary" id="openFocForm" type="button">
                     <i class="bi bi-plus-lg"></i> New FOC Claim
                 </button>
-                <?php endif; ?>
                 <button class="close-form-btn cancel-btn" id="closeFocForm" type="button" style="display:none;">
                     <i class="bi bi-x-lg"></i> Cancel
                 </button>

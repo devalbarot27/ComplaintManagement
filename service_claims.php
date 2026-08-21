@@ -14,14 +14,20 @@ $success_message = '';
 $error_message   = '';
 $userName        = current_username();
 
+
+$canCreateClaim  = rbac_user_can($obconn, 'service-claims', 'create-service-claims');
+$canDeleteClaim  = rbac_user_can($obconn, 'service-claims', 'delete');
 $canMarkCcs      = rbac_user_can($obconn, 'service-claims', 'mark-warranty');
 $canApproveL1    = rbac_user_can($obconn, 'service-claims', 'approve-l1');
 $canRaiseInvoice = rbac_user_can($obconn, 'service-claims', 'raise-invoice');
 $canSettle       = rbac_user_can($obconn, 'service-claims', 'settle-claim');
 
 // --- Handle Call Closure Submission (Process 2, steps 1-2) -------------------
-// Anyone who can view this page can log a call closure (same convention as new_complaint.php).
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'])) {
+    if (!$canCreateClaim) {
+        header('Location: access_denied.php');
+        exit;
+    }
     $complaintId     = (int) ($_POST['complaint_id'] ?? 0);
     $kmTravelled     = trim($_POST['km_travelled'] ?? '');
     $serviceDate     = trim($_POST['service_date'] ?? '');
@@ -385,9 +391,11 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 </div>
             </div>
             <div class="header-btn-group">
+                <?php if ($canCreateClaim): ?>
                 <button class="new-order-btn btn-complaint-primary" id="openClaimForm" type="button">
                     <i class="bi bi-plus-lg"></i> New Call Closure
                 </button>
+                <?php endif; ?>
                 <button class="close-form-btn cancel-btn" id="closeClaimForm" type="button" style="display:none;">
                     <i class="bi bi-x-lg"></i> Cancel
                 </button>
@@ -413,7 +421,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
             <form method="POST" id="serviceClaimForm" novalidate>
                 <div class="complaint-form-body">
 
-                    <!-- Section 1 – Call Ticket -->
+                    <!-- Section 1 ï¿½ Call Ticket -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
@@ -447,7 +455,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                         </div>
                     </section>
 
-                    <!-- Section 2 – Call Closure Details -->
+                    <!-- Section 2 ï¿½ Call Closure Details -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">2</span>
@@ -607,11 +615,13 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                         class="btn btn-sm btn-outline-dark" title="View">
                                         <i class="bi bi-eye"></i>
                                     </a>
+                                    <?php if ($canDeleteClaim): ?>
                                     <a href="delete_service_claim.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"
                                         class="btn btn-sm btn-outline-dark"
                                         onclick="return confirm('Delete this service claim?');" title="Delete">
                                         <i class="bi bi-trash"></i>
                                     </a>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>

@@ -12,12 +12,6 @@ admin_ensure_session_role($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 
-if (!rbac_user_can($obconn, 'foc-parts', 'view')) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Access denied.']);
-    exit;
-}
-
 warranty_claims_ensure_schema($obconn);
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';

@@ -328,7 +328,7 @@ usort($approvalItems, static function (array $a, array $b): int {
             document.getElementById('viewClaimCustomer').textContent = d.customerName;
             document.getElementById('viewClaimDetails').textContent = d.details;
             document.getElementById('viewClaimWarranty').textContent = d.warranty;
-            document.getElementById('viewClaimJustification').textContent = d.justification || '—';
+            document.getElementById('viewClaimJustification').textContent = d.justification || '-';
             document.getElementById('viewClaimStage').textContent = d.stage;
             document.getElementById('viewClaimOverall').textContent = d.overallStatus;
             document.getElementById('viewClaimSubmittedBy').textContent = d.submittedBy;

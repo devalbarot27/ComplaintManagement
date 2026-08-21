@@ -12,6 +12,12 @@ $canApproveL1Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
 $canApproveL2Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
 $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
 $canMarkCcs          = rbac_user_can($obconn, 'service-claims', 'mark-warranty');
+$canApproval          = rbac_user_can($obconn, 'approvals', 'view-approvals');
+
+if (!$canApproval) {
+    header('Location: access_denied.php');
+    exit;
+}
 
 // --- Combined list: FOC/Service claims pending CCS/warranty or L1/L2 action --
 $approvalItems = [];
@@ -438,7 +444,7 @@ usort($approvalItems, static function (array $a, array $b): int {
             document.getElementById('viewClaimCustomer').textContent = d.customerName;
             document.getElementById('viewClaimDetails').textContent = d.details;
             document.getElementById('viewClaimWarranty').textContent = d.warranty;
-            document.getElementById('viewClaimJustification').textContent = d.justification || '—';
+            document.getElementById('viewClaimJustification').textContent = d.justification || '-';
             document.getElementById('viewClaimStage').textContent = d.stage;
             document.getElementById('viewClaimOverall').textContent = d.overallStatus;
             document.getElementById('viewClaimSubmittedBy').textContent = d.submittedBy;
