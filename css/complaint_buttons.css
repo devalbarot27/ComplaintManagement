@@ -114,7 +114,6 @@
     color: #fff !important;
     border-color: #000 !important;
 }
-
 .btn-outline-primary {
     --bs-btn-color: #F44611;
     --bs-btn-border-color: #F44611;
@@ -135,7 +134,7 @@
 .btn-outline-primary:hover {
     background-color:#F44611;
     border-color: #F44611;
-} 
+}
 a.text-primary {
     text-decoration: none !important;
     color: #F44611 !important;

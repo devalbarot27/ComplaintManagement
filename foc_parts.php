@@ -19,7 +19,7 @@ $canCreateFoc = rbac_user_can($obconn, 'foc-parts', 'create-foc');
 $canApproveL1 = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
 $canApproveL2 = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
 
-// ─── Handle FOC Claim Submission (Process 1, steps 1-6) ─────────────────────────
+// --- Handle FOC Claim Submission (Process 1, steps 1-6) -------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) {
     if (!$canCreateFoc) {
         header('Location: access_denied.php');
@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
     }
 }
 
-// ─── Handle L1 / L2 approval decisions (Process 1, steps 7-9) ────────────────
+// --- Handle L1 / L2 approval decisions (Process 1, steps 7-9) ----------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
     $claimId  = (int) ($_POST['claim_id'] ?? 0);
     $level    = trim($_POST['level'] ?? '');
@@ -234,7 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
     exit;
 }
 
-// ─── Fetch existing claims for the datatable ─────────────────────────────────
+// --- Fetch existing claims for the datatable ---------------------------------
 $claims = [];
 try {
     $claimStmt = $obconn->query("
@@ -343,7 +343,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
             </div>
         </div>
 
-        <!-- ── Claim Entry Form ───────────────────────────────────────────── -->
+        <!-- -- Claim Entry Form --------------------------------------------- -->
         <div class="complaint-form-card" id="focFormCard" style="display:none;">
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
@@ -362,7 +362,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
             <form method="POST" id="focClaimForm" novalidate>
                 <div class="complaint-form-body">
 
-                    <!-- Section 1 – Call Ticket -->
+                    <!-- Section 1 � Call Ticket -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
@@ -420,7 +420,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                         </div>
                     </section>
 
-                    <!-- Section 2 – Parts Cart -->
+                    <!-- Section 2 � Parts Cart -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">2</span>
@@ -495,7 +495,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                         <input type="hidden" name="cart_items" id="cartItemsInput" value="[]">
                     </section>
 
-                    <!-- Section 3 – Justification -->
+                    <!-- Section 3 � Justification -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">3</span>
@@ -529,9 +529,9 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                 </div>
             </form>
         </div>
-        <!-- ── End Form ───────────────────────────────────────────────────── -->
+        <!-- -- End Form ----------------------------------------------------- -->
 
-        <!-- ── Claims List ────────────────────────────────────────────────── -->
+        <!-- -- Claims List -------------------------------------------------- -->
         <div class="complaint-form-card show" id="focTableCard">
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
@@ -612,7 +612,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                 </div>
             </div>
         </div>
-        <!-- ── End Claims List ───────────────────────────────────────────── -->
+        <!-- -- End Claims List --------------------------------------------- -->
 
     </div><!-- /.content -->
 </div><!-- /.main-wrapper -->
@@ -684,7 +684,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
         });
     }
 
-    // ── Parts cart (existing items for the call ticket + item-master search) ──
+    // -- Parts cart (existing items for the call ticket + item-master search) --
     const cartBody       = document.getElementById('cartItemsBody');
     const cartInput       = document.getElementById('cartItemsInput');
     const existingPanel   = document.getElementById('existingItemsPanel');

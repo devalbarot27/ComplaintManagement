@@ -429,7 +429,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
             <form method="POST" id="serviceClaimForm" novalidate>
                 <div class="complaint-form-body">
 
-                    <!-- Section 1 � Call Ticket -->
+                    <!-- Section 1   Call Ticket -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
@@ -469,7 +469,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                         </div>
                     </section>
 
-                    <!-- Section 2 � Call Closure Details -->
+                    <!-- Section 2   Call Closure Details -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">2</span>

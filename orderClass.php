@@ -21,8 +21,8 @@ class orderClass
         $this->dpconn = $dpconn;
         $this->userId = $_SESSION['usr_name'];
         //$this->customer_code = $_SESSION['customer_number_vayu'];
-        $this->customer_code = @$_SESSION['customer_number_vayu'] ?? '';
-    }
+        $this->customer_code = @$_SESSION['customer_number_vayu']??'BP0001127';
+        }
 
 
     public function getCartCount()
