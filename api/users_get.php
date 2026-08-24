@@ -14,6 +14,7 @@ if ($id <= 0) {
     exit;
 }
 
+user_ensure_schema($obconn);
 $row = user_get_by_id($obconn, $id);
 
 if (!$row) {
@@ -33,6 +34,8 @@ $safeCustomerCode = trim((string) ($row['customer_code'] ?? ''));
 $safeCustomerLabel = $safeCustomerCode !== ''
     ? user_customer_code_label($obconn, $safeCustomerCode)
     : '';
+$safeLevel1Approval = user_bool_from_value($row['level_1_approval'] ?? false);
+$safeLevel2Approval = user_bool_from_value($row['level_2_approval'] ?? false);
 unset($row);
 
 api_json_echo([
@@ -45,4 +48,6 @@ api_json_echo([
     'sales_coordinator_id' => $safeSalesCoordinatorId,
     'customer_code' => $safeCustomerCode,
     'customer_code_text' => $safeCustomerLabel,
+    'level_1_approval' => $safeLevel1Approval,
+    'level_2_approval' => $safeLevel2Approval,
 ]);

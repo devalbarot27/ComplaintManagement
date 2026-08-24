@@ -242,7 +242,21 @@ function warranty_claims_existing_items_for_complaint(PDO $conn, int $complaintI
         return [];
     }
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $items = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $partNumber = trim((string) ($row['part_number'] ?? ''));
+        if ($partNumber === '') {
+            continue;
+        }
+        $items[] = [
+            'source_reference_id' => (int) ($row['source_reference_id'] ?? 0),
+            'part_number' => $partNumber,
+            'part_description' => trim((string) ($row['part_description'] ?? '')),
+            'qty' => max(1, (int) ($row['qty'] ?? 1)),
+        ];
+    }
+
+    return $items;
 }
 
 /**

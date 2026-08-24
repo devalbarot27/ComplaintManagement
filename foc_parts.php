@@ -282,6 +282,31 @@ foreach ($claims as $row) {
 $focItemsByClaim = foc_claim_items_for_claims($obconn, $focItemsByClaim);
 
 $recentComplaints = warranty_claims_recent_complaints($obconn);
+
+$postedCartItems = [];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $decodedCart = json_decode((string) ($_POST['cart_items'] ?? '[]'), true);
+    if (is_array($decodedCart)) {
+        foreach ($decodedCart as $cartItem) {
+            if (!is_array($cartItem)) {
+                continue;
+            }
+            $partNumber = trim((string) ($cartItem['part_number'] ?? ''));
+            if ($partNumber === '') {
+                continue;
+            }
+            $postedCartItems[] = [
+                'part_number' => $partNumber,
+                'part_description' => trim((string) ($cartItem['part_description'] ?? '')),
+                'qty' => max(1, (int) ($cartItem['qty'] ?? 1)),
+                'source' => (($cartItem['source'] ?? '') === 'existing') ? 'existing' : 'new',
+                'source_reference_id' => isset($cartItem['source_reference_id'])
+                    ? (int) $cartItem['source_reference_id']
+                    : null,
+            ];
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -434,7 +459,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                             <span class="complaint-form-section__badge">2</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Parts</h3>
-                                <p class="complaint-form-section__hint">Pick from parts already recorded for this call ticket, or search and add a new part.</p>
+                                <p class="complaint-form-section__hint">Parts recorded on the selected call ticket are added automatically. You can remove items or search and add a new part.</p>
                             </div>
                         </div>
 
@@ -500,7 +525,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                             </table>
                         </div>
                         <div class="text-danger validation-msg" data-field="cart_items"></div>
-                        <input type="hidden" name="cart_items" id="cartItemsInput" value="[]">
+                        <input type="hidden" name="cart_items" id="cartItemsInput" value="<?= htmlspecialchars(json_encode($postedCartItems), ENT_QUOTES, 'UTF-8') ?>">
                     </section>
 
                     <!-- Section 3  Justification -->
@@ -724,7 +749,9 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
     const addExistingBtn  = document.getElementById('addExistingItemsBtn');
     const addNewItemBtn   = document.getElementById('addNewItemBtn');
     const newItemQtyInput = document.getElementById('newItemQty');
-    let cart = [];
+    const postedCart = <?= json_encode($postedCartItems, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS) ?>;
+    let cart = Array.isArray(postedCart) ? postedCart.slice() : [];
+    let lastLoadedComplaintId = null;
 
     function renderCart() {
         if (!cartBody) return;
@@ -798,43 +825,109 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
         });
     }
 
-    if (complaintSelect) {
-        complaintSelect.addEventListener('change', function () {
-            const complaintId = this.value;
-            if (!existingPanel || !existingBody) return;
-            if (!complaintId) {
+    function ticketPartsToCartItems(items) {
+        return (items || []).map(function (item) {
+            const qty = parseInt(item.qty, 10);
+            return {
+                part_number: item.part_number,
+                part_description: item.part_description || '',
+                qty: qty > 0 ? qty : 1,
+                source: 'existing',
+                source_reference_id: item.source_reference_id || null
+            };
+        }).filter(function (item) {
+            return !!item.part_number;
+        });
+    }
+
+    function renderExistingItemsTable(items) {
+        if (!existingBody) {
+            return;
+        }
+        existingBody.innerHTML = items.map(function (item, idx) {
+            return '<tr>' +
+                '<td><input type="checkbox" class="form-check-input existing-item-check" data-idx="' + idx + '"></td>' +
+                '<td>' + escapeHtml(item.part_number) + '</td>' +
+                '<td>' + escapeHtml(item.part_description || '') + '</td>' +
+                '<td><input type="number" class="form-control form-control-sm existing-item-qty" data-idx="' + idx + '" value="' + item.qty + '" min="1"></td>' +
+                '</tr>';
+        }).join('');
+        existingBody.dataset.items = JSON.stringify(items);
+    }
+
+    function loadExistingItemsForComplaint(complaintId, options) {
+        options = options || {};
+        const keepCart = !!options.keepCart;
+        const normalizedId = String(complaintId || '').trim();
+
+        if (!options.force && normalizedId === lastLoadedComplaintId) {
+            return;
+        }
+        lastLoadedComplaintId = normalizedId;
+
+        if (!existingPanel || !existingBody) {
+            return;
+        }
+
+        if (!normalizedId) {
+            existingPanel.style.display = 'none';
+            if (existingEmpty) existingEmpty.style.display = 'none';
+            existingBody.innerHTML = '';
+            existingBody.dataset.items = '[]';
+            if (!keepCart) {
+                cart = [];
+                renderCart();
+            }
+            return;
+        }
+
+        $.ajax({
+            url: 'foc_parts_data.php',
+            method: 'GET',
+            dataType: 'json',
+            data: { action: 'complaint_items', complaint_id: normalizedId }
+        }).done(function (res) {
+            const items = (res && res.items) || [];
+            if (items.length === 0) {
                 existingPanel.style.display = 'none';
-                existingEmpty.style.display = 'none';
+                if (existingEmpty) existingEmpty.style.display = 'block';
+                existingBody.innerHTML = '';
+                existingBody.dataset.items = '[]';
+                if (!keepCart) {
+                    cart = [];
+                    renderCart();
+                }
                 return;
             }
-            $.ajax({
-                url: 'foc_parts_data.php',
-                method: 'GET',
-                dataType: 'json',
-                data: { action: 'complaint_items', complaint_id: complaintId }
-            }).done(function (res) {
-                const items = (res && res.items) || [];
-                if (items.length === 0) {
-                    existingPanel.style.display = 'none';
-                    existingEmpty.style.display = 'block';
-                    return;
-                }
-                existingEmpty.style.display = 'none';
-                existingPanel.style.display = 'block';
-                existingBody.innerHTML = items.map(function (item, idx) {
-                    return '<tr>' +
-                        '<td><input type="checkbox" class="form-check-input existing-item-check" data-idx="' + idx + '"></td>' +
-                        '<td>' + escapeHtml(item.part_number) + '</td>' +
-                        '<td>' + escapeHtml(item.part_description || '') + '</td>' +
-                        '<td><input type="number" class="form-control form-control-sm existing-item-qty" data-idx="' + idx + '" value="' + item.qty + '" min="1"></td>' +
-                        '</tr>';
-                }).join('');
-                existingBody.dataset.items = JSON.stringify(items);
-            }).fail(function () {
-                existingPanel.style.display = 'none';
-                existingEmpty.style.display = 'none';
-            });
+
+            if (existingEmpty) existingEmpty.style.display = 'none';
+            existingPanel.style.display = 'block';
+            renderExistingItemsTable(items);
+
+            if (!keepCart) {
+                cart = ticketPartsToCartItems(items);
+                renderCart();
+            }
+        }).fail(function () {
+            existingPanel.style.display = 'none';
+            if (existingEmpty) existingEmpty.style.display = 'none';
         });
+    }
+
+    if (complaintSelect) {
+        const initialComplaintId = String(complaintSelect.value || '').trim();
+        if (initialComplaintId) {
+            loadExistingItemsForComplaint(initialComplaintId, { keepCart: cart.length > 0 });
+        }
+        if (typeof $ !== 'undefined') {
+            $(complaintSelect).on('change select2:select select2:clear', function () {
+                loadExistingItemsForComplaint(complaintSelect.value, { keepCart: false });
+            });
+        } else {
+            complaintSelect.addEventListener('change', function () {
+                loadExistingItemsForComplaint(this.value, { keepCart: false });
+            });
+        }
     }
 
     if (addExistingBtn) {

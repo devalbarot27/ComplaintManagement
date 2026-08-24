@@ -5,6 +5,7 @@ login_start_php_session();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_access_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
+require_once 'includes/complaint_service_log_helpers.php';
 
 login_enforce_idle_timeout(true, false);
 login_enforce_session_version($obconn, true);
@@ -19,6 +20,7 @@ if (!rbac_user_can($obconn, 'foc-parts', 'view')) {
 }
 
 warranty_claims_ensure_schema($obconn);
+complaint_service_log_ensure_schema($obconn);
 
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 

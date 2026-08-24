@@ -7,6 +7,7 @@ include 'includes/user_helpers.php';
 require_once 'includes/record_details_layout.php';
 
 require_system_admin($obconn);
+user_ensure_schema($obconn);
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
@@ -88,6 +89,14 @@ $encodedId = base64_encode((string) $record['id']);
             if ($showSalesCoordinator) {
                 record_details_field('Sales Coordinator', $salesCoordinatorLabel);
             }
+            record_details_field(
+                'Level 1 Approval',
+                user_bool_from_value($record['level_1_approval'] ?? false) ? 'Yes' : 'No'
+            );
+            record_details_field(
+                'Level 2 Approval',
+                user_bool_from_value($record['level_2_approval'] ?? false) ? 'Yes' : 'No'
+            );
             record_details_field('Created By', user_display_value($record['created_by']));
             record_details_section_end();
 
