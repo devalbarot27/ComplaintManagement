@@ -5,6 +5,7 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
+require_once 'includes/installed_base_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
 
@@ -244,6 +245,33 @@ if ($canApproveL1Service) {
 usort($approvalItems, static function (array $a, array $b): int {
     return strtotime($b['created_at']) <=> strtotime($a['created_at']);
 });
+
+$installedBaseIdByFab = [];
+$focClaimMap = [];
+$serviceComplaintIds = [];
+foreach ($approvalItems as $item) {
+    if (($item['claim_type'] ?? '') === 'foc') {
+        $focClaimMap[(int) $item['id']] = (int) ($item['complaint_id'] ?? 0);
+    }
+    if (($item['claim_type'] ?? '') === 'service') {
+        $serviceComplaintIds[] = (int) ($item['complaint_id'] ?? 0);
+    }
+}
+$focItemsByClaim = foc_claim_items_for_claims($obconn, $focClaimMap);
+$servicePartsByComplaint = complaint_service_log_parts_for_complaints($obconn, $serviceComplaintIds);
+foreach ($approvalItems as &$item) {
+    $item['fab_html'] = installed_base_fab_link_html($obconn, (string) ($item['fab_number'] ?? ''), $installedBaseIdByFab);
+    if (($item['claim_type'] ?? '') === 'foc') {
+        $item['details_html'] = foc_parts_linked_summary_html($focItemsByClaim[(int) $item['id']] ?? []);
+        $item['parts_html'] = $item['details_html'];
+        continue;
+    }
+    $item['details_html'] = '';
+    $item['parts_html'] = foc_parts_linked_summary_html(
+        $servicePartsByComplaint[(int) ($item['complaint_id'] ?? 0)] ?? []
+    );
+}
+unset($item);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -370,9 +398,15 @@ usort($approvalItems, static function (array $a, array $b): int {
                                         #<?= $complaintId ?>
                                     </a>
                                 </td>
-                                <td><?= htmlspecialchars((string) ($row['fab_number'] ?? '-')) ?></td>
+                                <td><?= installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?></td>
                                 <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
-                                <td><?= htmlspecialchars((string) ($row['details'] ?? '')) ?></td>
+                                <td>
+                                    <?php if (($row['claim_type'] ?? '') === 'foc'): ?>
+                                        <?= $row['details_html'] !== '' ? $row['details_html'] : '-' ?>
+                                    <?php else: ?>
+                                        <?= htmlspecialchars((string) ($row['details'] ?? '')) ?>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <span class="status-badge border border-dark">
                                         <?= htmlspecialchars((string) ($row['warranty_label'] ?? '-')) ?>
@@ -391,8 +425,11 @@ usort($approvalItems, static function (array $a, array $b): int {
                                         data-claim-id="<?= $claimId ?>"
                                         data-complaint-id="<?= $complaintId ?>"
                                         data-fab-number="<?= htmlspecialchars((string) ($row['fab_number'] ?? '')) ?>"
+                                        data-fab-html="<?= htmlspecialchars((string) ($row['fab_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         data-customer-name="<?= htmlspecialchars((string) ($row['customer_name'] ?? '')) ?>"
                                         data-details="<?= htmlspecialchars((string) ($row['details'] ?? '')) ?>"
+                                        data-details-html="<?= htmlspecialchars((string) ($row['details_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                        data-parts-html="<?= htmlspecialchars((string) ($row['parts_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                         data-warranty="<?= htmlspecialchars((string) ($row['warranty_label'] ?? '')) ?>"
                                         data-justification="<?= htmlspecialchars((string) ($row['justification'] ?? '')) ?>"
                                         data-stage="<?= htmlspecialchars((string) ($row['stage_label'] ?? '')) ?>"
@@ -463,6 +500,10 @@ usort($approvalItems, static function (array $a, array $b): int {
                         <div class="col-12 form-group">
                             <label class="form-label"><i class="bi bi-card-text"></i> Details</label>
                             <div class="approval-detail-value" id="viewClaimDetails"></div>
+                        </div>
+                        <div class="col-12 form-group" id="viewClaimPartsWrap">
+                            <label class="form-label"><i class="bi bi-upc"></i> Part Number</label>
+                            <div class="approval-detail-value" id="viewClaimParts"></div>
                         </div>
                         <div class="col-md-4 form-group">
                             <label class="form-label"><i class="bi bi-shield-check"></i> Warranty / CCS</label>
@@ -572,9 +613,29 @@ usort($approvalItems, static function (array $a, array $b): int {
             document.getElementById('viewClaimIcon').className = isFoc ? 'bi bi-shield-check' : 'bi bi-clipboard-check';
             document.getElementById('viewClaimTicket').textContent = d.complaintId;
             document.getElementById('viewClaimTicketLink').href = 'complaint_details.php?id=' + encodeURIComponent(btoa(d.complaintId));
-            document.getElementById('viewClaimFab').textContent = d.fabNumber || '-';
+            const fabEl = document.getElementById('viewClaimFab');
+            if (d.fabHtml) {
+                fabEl.innerHTML = d.fabHtml;
+            } else {
+                fabEl.textContent = d.fabNumber || '-';
+            }
             document.getElementById('viewClaimCustomer').textContent = d.customerName || '-';
-            document.getElementById('viewClaimDetails').textContent = d.details || '-';
+            const detailsEl = document.getElementById('viewClaimDetails');
+            if (isFoc && d.detailsHtml) {
+                detailsEl.innerHTML = d.detailsHtml;
+            } else {
+                detailsEl.textContent = d.details || '-';
+            }
+            const partsWrap = document.getElementById('viewClaimPartsWrap');
+            const partsEl = document.getElementById('viewClaimParts');
+            const partsHtml = d.partsHtml && d.partsHtml !== '-' ? d.partsHtml : '';
+            if (!isFoc && partsHtml) {
+                partsEl.innerHTML = partsHtml;
+                setHidden(partsWrap, false);
+            } else {
+                partsEl.innerHTML = '';
+                setHidden(partsWrap, true);
+            }
             document.getElementById('viewClaimWarranty').textContent = d.warranty || '-';
             document.getElementById('viewClaimJustification').textContent = d.justification || '-';
             document.getElementById('viewClaimStage').textContent = d.stage || '-';

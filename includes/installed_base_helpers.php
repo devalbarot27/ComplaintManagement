@@ -154,6 +154,35 @@ function installed_base_find_id_by_fab(PDO $conn, string $fabNumber): ?int
     return $id !== false ? (int) $id : null;
 }
 
+function installed_base_fab_link_html(PDO $conn, string $fabNumber, array &$cache): string
+{
+    $fabNumber = trim($fabNumber);
+    if ($fabNumber === '') {
+        return '-';
+    }
+
+    $escaped = htmlspecialchars($fabNumber, ENT_QUOTES, 'UTF-8');
+    $key = strtolower($fabNumber);
+    if (!array_key_exists($key, $cache)) {
+        $cache[$key] = installed_base_find_id_by_fab($conn, $fabNumber) ?? 0;
+    }
+
+    $installedBaseId = (int) $cache[$key];
+    if ($installedBaseId <= 0) {
+        return $escaped;
+    }
+
+    $href = htmlspecialchars(
+        'installed_base_details.php?id=' . rawurlencode(base64_encode((string) $installedBaseId)),
+        ENT_QUOTES,
+        'UTF-8'
+    );
+
+    return '<a href="' . $href . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">'
+        . $escaped
+        . '</a>';
+}
+
 /**
  * @return array<int, int>
  */

@@ -5,6 +5,7 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
+require_once 'includes/installed_base_helpers.php';
 
 
 
@@ -273,6 +274,13 @@ try {
     // Table may not exist yet; silently continue
 }
 
+$installedBaseIdByFab = [];
+$focItemsByClaim = [];
+foreach ($claims as $row) {
+    $focItemsByClaim[(int) ($row['id'] ?? 0)] = (int) ($row['complaint_id'] ?? 0);
+}
+$focItemsByClaim = foc_claim_items_for_claims($obconn, $focItemsByClaim);
+
 $recentComplaints = warranty_claims_recent_complaints($obconn);
 ?>
 <!DOCTYPE html>
@@ -510,7 +518,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                     <span class="text-danger" id="justificationRequired" style="display:none;">*</span>
                                 </label>
                                 <textarea class="form-control" id="justification" name="justification"
-                                    rows="2" placeholder="Justification require only when add part in cart"
+                                    rows="2" placeholder="Justification is required only when adding a part to the cart"
                                     maxlength="500"><?= htmlspecialchars($_POST['justification'] ?? '') ?></textarea>
                                 <div class="text-danger validation-msg" data-field="justification"></div>
                             </div>
@@ -581,9 +589,9 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                         #<?= $complaintId ?>
                                     </a>
                                 </td>
-                                <td><?= htmlspecialchars((string) ($row['fab_number'] ?? '-')) ?></td>
+                                <td><?= installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?></td>
                                 <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
-                                <td><?= nl2br(htmlspecialchars($row['part_numbers'] ?? '')) ?></td>
+                                <td><?= foc_parts_linked_cell_html($focItemsByClaim[$claimId] ?? []) ?></td>
                                 <td><?= nl2br(htmlspecialchars($row['part_names'] ?? '')) ?></td>
                                 <td><?= nl2br(htmlspecialchars($row['part_qtys'] ?? '')) ?></td>
                                 <td>

@@ -6,6 +6,7 @@ require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
+require_once 'includes/installed_base_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
 distance_wise_price_ensure_schema($obconn);
@@ -339,6 +340,8 @@ try {
     // Table may not exist yet; silently continue
 }
 
+$installedBaseIdByFab = [];
+
 $recentComplaints = warranty_claims_recent_complaints($obconn);
 $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_get_active_slabs($obconn));
 ?>
@@ -590,7 +593,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                     #<?= $complaintId ?>
                                 </a>
                             </td>
-                            <td><?= htmlspecialchars((string) ($row['fab_number'] ?? '-')) ?></td>
+                            <td><?= installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?></td>
                             <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                             <td>
                                 <div class="fw-semibold"><?= htmlspecialchars($kmLabel === '-' ? '' : $kmLabel) ?><?= $kmLabel !== '-' ? ' KM' : '-' ?></div>

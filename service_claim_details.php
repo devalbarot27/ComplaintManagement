@@ -5,6 +5,7 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
+require_once 'includes/installed_base_helpers.php';
 require_once 'includes/record_details_layout.php';
 
 warranty_claims_ensure_schema($obconn);
@@ -23,6 +24,8 @@ if (!$record) {
 
 $complaintId = (int) ($record['complaint_id'] ?? 0);
 $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
+$fabNumber = trim((string) ($record['fab_number'] ?? ''));
+$installedBaseId = $fabNumber !== '' ? installed_base_find_id_by_fab($obconn, $fabNumber) : null;
 $ccsClaim = trim((string) ($record['ccs_warranty_claim'] ?? ''));
 $ccsBadge = $ccsClaim === ''
     ? '<span class="status-badge border border-dark">Pending</span>'
@@ -78,7 +81,19 @@ $visitPrice = $record['visit_charge_price'] ?? '';
                 false,
                 true
             );
-            record_details_field('Fab Number', (string) ($record['fab_number'] ?? ''), 'col-md-4');
+            if ($installedBaseId !== null && $installedBaseId > 0 && $fabNumber !== '') {
+                $encodedInstalledBaseId = rawurlencode(base64_encode((string) $installedBaseId));
+                record_details_field(
+                    'Fab Number',
+                    '<a class="text-primary" href="installed_base_details.php?id=' . htmlspecialchars($encodedInstalledBaseId, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">'
+                        . htmlspecialchars($fabNumber, ENT_QUOTES, 'UTF-8') . '</a>',
+                    'col-md-4',
+                    false,
+                    true
+                );
+            } else {
+                record_details_field('Fab Number', $fabNumber, 'col-md-4');
+            }
             record_details_field('Customer', (string) ($record['customer_name'] ?? ''), 'col-md-4');
             record_details_section_end();
 

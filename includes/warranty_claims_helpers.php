@@ -245,6 +245,61 @@ function warranty_claims_existing_items_for_complaint(PDO $conn, int $complaintI
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/**
+ * @param array<int, int> $complaintIds
+ * @return array<int, array<int, array<string, mixed>>>
+ */
+function complaint_service_log_parts_for_complaints(PDO $conn, array $complaintIds): array
+{
+    $ids = [];
+    foreach ($complaintIds as $complaintId) {
+        $complaintId = (int) $complaintId;
+        if ($complaintId > 0) {
+            $ids[] = $complaintId;
+        }
+    }
+    $ids = array_values(array_unique($ids));
+    $indexed = [];
+    foreach ($ids as $id) {
+        $indexed[$id] = [];
+    }
+    if ($ids === []) {
+        return $indexed;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    try {
+        $stmt = $conn->prepare("
+            SELECT
+                csl.complaint_id,
+                spr.machine_model_code AS part_number,
+                spr.machine_model AS part_description,
+                spr.quantity AS qty,
+                spr.service_log_id
+            FROM complaint_service_logs csl
+            INNER JOIN service_log_part_replacements spr
+                ON spr.service_log_id = csl.service_log_id
+               AND spr.deleted_at IS NULL
+            WHERE csl.complaint_id IN ($placeholders)
+            ORDER BY csl.complaint_id, spr.sort_order ASC, spr.id ASC
+        ");
+        foreach ($ids as $index => $id) {
+            $stmt->bindValue($index + 1, $id, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $complaintId = (int) ($row['complaint_id'] ?? 0);
+            if ($complaintId > 0) {
+                $indexed[$complaintId][] = $row;
+            }
+        }
+    } catch (PDOException $e) {
+        // Service log tables may not exist yet.
+    }
+
+    return $indexed;
+}
+
 /** Item master search (Spares only) for the "Search & Add New Item" box, same source as orderbooking.php. */
 function warranty_claims_search_spare_items(PDO $conn, string $search, int $limit = 20): array
 {
@@ -290,18 +345,202 @@ function foc_claim_insert_items(PDO $conn, int $focClaimId, array $items): void
 }
 
 /** Line items for a given FOC claim (used on the list/detail view). */
-function foc_claim_items_for_claim(PDO $conn, int $focClaimId): array
+function foc_claim_items_for_claim(PDO $conn, int $focClaimId, int $complaintId = 0): array
 {
-    $stmt = $conn->prepare("
-        SELECT part_number, part_description, qty, source
-        FROM foc_claim_items
-        WHERE foc_claim_id = :foc_claim_id
-        ORDER BY id
-    ");
-    $stmt->bindValue(':foc_claim_id', $focClaimId, PDO::PARAM_INT);
-    $stmt->execute();
+    if ($focClaimId <= 0) {
+        return [];
+    }
 
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $conn->prepare("
+            SELECT
+                fci.part_number,
+                fci.part_description,
+                fci.qty,
+                fci.source,
+                COALESCE(
+                    (
+                        SELECT spr.service_log_id
+                        FROM service_log_part_replacements spr
+                        WHERE spr.id = fci.source_reference_id
+                          AND spr.deleted_at IS NULL
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT spr.service_log_id
+                        FROM complaint_service_logs csl
+                        INNER JOIN service_log_part_replacements spr
+                            ON spr.service_log_id = csl.service_log_id
+                           AND spr.deleted_at IS NULL
+                        WHERE csl.complaint_id = :complaint_id
+                          AND LOWER(TRIM(spr.machine_model_code)) = LOWER(TRIM(fci.part_number))
+                        ORDER BY spr.id DESC
+                        LIMIT 1
+                    )
+                ) AS service_log_id
+            FROM foc_claim_items fci
+            WHERE fci.foc_claim_id = :foc_claim_id
+            ORDER BY fci.id
+        ");
+        $stmt->bindValue(':foc_claim_id', $focClaimId, PDO::PARAM_INT);
+        $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        $stmt = $conn->prepare("
+            SELECT part_number, part_description, qty, source
+            FROM foc_claim_items
+            WHERE foc_claim_id = :foc_claim_id
+            ORDER BY id
+        ");
+        $stmt->bindValue(':foc_claim_id', $focClaimId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+}
+
+function foc_service_log_details_url(int $serviceLogId): string
+{
+    return 'service_log_details.php?id=' . rawurlencode(base64_encode((string) $serviceLogId));
+}
+
+function foc_part_number_link_html(string $partNumber, int $serviceLogId): string
+{
+    $escaped = htmlspecialchars($partNumber, ENT_QUOTES, 'UTF-8');
+    if ($partNumber === '') {
+        return '-';
+    }
+    if ($serviceLogId <= 0) {
+        return $escaped;
+    }
+
+    $href = htmlspecialchars(foc_service_log_details_url($serviceLogId), ENT_QUOTES, 'UTF-8');
+
+    return '<a href="' . $href . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">'
+        . $escaped
+        . '</a>';
+}
+
+/**
+ * @param array<int, array<string, mixed>> $items
+ */
+function foc_parts_linked_cell_html(array $items, string $separator = '<br>'): string
+{
+    if ($items === []) {
+        return '-';
+    }
+
+    $parts = [];
+    foreach ($items as $item) {
+        $parts[] = foc_part_number_link_html(
+            (string) ($item['part_number'] ?? ''),
+            (int) ($item['service_log_id'] ?? 0)
+        );
+    }
+
+    return implode($separator, $parts);
+}
+
+/**
+ * @param array<int, array<string, mixed>> $items
+ */
+function foc_parts_linked_summary_html(array $items): string
+{
+    if ($items === []) {
+        return '-';
+    }
+
+    $parts = [];
+    foreach ($items as $item) {
+        $link = foc_part_number_link_html(
+            (string) ($item['part_number'] ?? ''),
+            (int) ($item['service_log_id'] ?? 0)
+        );
+        $qty = trim((string) ($item['qty'] ?? ''));
+        $parts[] = $qty !== ''
+            ? $link . ' x' . htmlspecialchars($qty, ENT_QUOTES, 'UTF-8')
+            : $link;
+    }
+
+    return implode(', ', $parts);
+}
+
+/**
+ * @param array<int, int> $claimIdToComplaintId
+ * @return array<int, array<int, array<string, mixed>>>
+ */
+function foc_claim_items_for_claims(PDO $conn, array $claimIdToComplaintId): array
+{
+    $ids = [];
+    foreach (array_keys($claimIdToComplaintId) as $claimId) {
+        $claimId = (int) $claimId;
+        if ($claimId > 0) {
+            $ids[] = $claimId;
+        }
+    }
+    $ids = array_values(array_unique($ids));
+    if ($ids === []) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $indexed = [];
+    foreach ($ids as $id) {
+        $indexed[$id] = [];
+    }
+
+    try {
+        $stmt = $conn->prepare("
+            SELECT
+                fci.foc_claim_id,
+                fci.part_number,
+                fci.part_description,
+                fci.qty,
+                fci.source,
+                COALESCE(
+                    (
+                        SELECT spr.service_log_id
+                        FROM service_log_part_replacements spr
+                        WHERE spr.id = fci.source_reference_id
+                          AND spr.deleted_at IS NULL
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT spr.service_log_id
+                        FROM complaint_service_logs csl
+                        INNER JOIN service_log_part_replacements spr
+                            ON spr.service_log_id = csl.service_log_id
+                           AND spr.deleted_at IS NULL
+                        WHERE csl.complaint_id = fc.complaint_id
+                          AND LOWER(TRIM(spr.machine_model_code)) = LOWER(TRIM(fci.part_number))
+                        ORDER BY spr.id DESC
+                        LIMIT 1
+                    )
+                ) AS service_log_id
+            FROM foc_claim_items fci
+            INNER JOIN foc_claims fc ON fc.id = fci.foc_claim_id
+            WHERE fci.foc_claim_id IN ($placeholders)
+            ORDER BY fci.foc_claim_id, fci.id
+        ");
+        foreach ($ids as $index => $id) {
+            $stmt->bindValue($index + 1, $id, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $claimId = (int) ($row['foc_claim_id'] ?? 0);
+            if ($claimId > 0) {
+                $indexed[$claimId][] = $row;
+            }
+        }
+    } catch (PDOException $e) {
+        foreach ($claimIdToComplaintId as $claimId => $complaintId) {
+            $indexed[(int) $claimId] = foc_claim_items_for_claim($conn, (int) $claimId, (int) $complaintId);
+        }
+    }
+
+    return $indexed;
 }
 
 function foc_claim_get_by_id(PDO $conn, int $id): ?array
