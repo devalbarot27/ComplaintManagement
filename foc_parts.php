@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
                 $newClaimId
             );
 
-            $_SESSION['success_message'] = 'FOC claim submitted successfully. Pending L1 (Lock-in Engineer) approval.';
+            $_SESSION['success_message'] = 'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending L1 (Lock-in Engineer) approval.';
             header('Location: foc_parts.php');
             exit;
         } catch (PDOException $e) {
@@ -362,7 +362,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
             <form method="POST" id="focClaimForm" novalidate>
                 <div class="complaint-form-body">
 
-                    <!-- Section 1 – Call Ticket -->
+                    <!-- Section 1 Â– Call Ticket -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
@@ -400,7 +400,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                 </a>
                             </div>
                             <div class="col-md-6 form-group">
-                                <label class="form-label">
+                                <label class="form-label" for="warrantyStatus">
                                     <i class="bi bi-shield-check"></i> Machine Warranty Status <span class="text-danger">*</span>
                                 </label>
                                 <select class="form-control<?= isset($field_errors['warranty_status']) ? ' is-invalid' : '' ?>" id="warrantyStatus" name="warranty_status">
@@ -420,7 +420,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                         </div>
                     </section>
 
-                    <!-- Section 2 – Parts Cart -->
+                    <!-- Section 2 Â– Parts Cart -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">2</span>
@@ -495,7 +495,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                         <input type="hidden" name="cart_items" id="cartItemsInput" value="[]">
                     </section>
 
-                    <!-- Section 3 – Justification -->
+                    <!-- Section 3 Â– Justification -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">3</span>
@@ -510,7 +510,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                     <span class="text-danger" id="justificationRequired" style="display:none;">*</span>
                                 </label>
                                 <textarea class="form-control" id="justification" name="justification"
-                                    rows="2" placeholder="Reason for the FOC request (max 500 characters)"
+                                    rows="2" placeholder="Justification require only when add part in cart"
                                     maxlength="500"><?= htmlspecialchars($_POST['justification'] ?? '') ?></textarea>
                                 <div class="text-danger validation-msg" data-field="justification"></div>
                             </div>
@@ -563,6 +563,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                 <th width="10%">Business Head</th>
                                 <th width="14%">Overall Status</th>
                                 <th width="10%">Submitted By</th>
+                                <th width="8%">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -570,6 +571,7 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                             <?php
                                 $claimId = (int) $row['id'];
                                 $complaintId = (int) $row['complaint_id'];
+                                $encodedClaimId = rawurlencode(base64_encode((string) $claimId));
                                 $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
                             ?>
                             <tr>
@@ -605,6 +607,14 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
                                     </span>
                                 </td>
                                 <td><?= htmlspecialchars((string) ($row['created_by_name'] ?? $row['created_by_username'] ?? '-')) ?></td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <a href="foc_claim_details.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="btn btn-sm btn-outline-dark" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </div>
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -626,6 +636,19 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
     const tableCard = document.getElementById('focTableCard');
     const complaintSelect = document.getElementById('complaintId');
     const viewTicketLink  = document.getElementById('viewTicketLink');
+
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('#complaintId').select2({
+            placeholder: '-- Select Call Ticket --',
+            allowClear: true,
+            width: '100%'
+        });
+        $('#warrantyStatus').select2({
+            placeholder: '-- Select Warranty Status --',
+            allowClear: true,
+            width: '100%'
+        });
+    }
 
     function showForm() {
         if (!formCard) return;
@@ -902,6 +925,11 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
         warrantySelect.addEventListener('change', function () {
             clearFieldError('warranty_status', warrantySelect);
         });
+        if (typeof $ !== 'undefined') {
+            $(warrantySelect).on('change select2:select select2:clear', function () {
+                clearFieldError('warranty_status', warrantySelect);
+            });
+        }
     }
 
     if (focClaimForm) {
@@ -958,6 +986,9 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
         $('#focClaimsTable').DataTable({
             order: [[0, 'desc']],
             pageLength: 10,
+            columnDefs: [
+                { orderable: false, targets: -1 }
+            ],
             language: { emptyTable: 'No FOC claims submitted yet.' }
         });
     }

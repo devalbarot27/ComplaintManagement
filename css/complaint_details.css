@@ -38,6 +38,12 @@
     border-color: #a7f3d0;
 }
 
+.complaint-details-status--new {
+    color: #0369a1;
+    background: #f0f9ff;
+    border-color: #bae6fd;
+}
+
 .complaint-details-status--default {
     color: #475569;
     background: #f8fafc;

@@ -74,6 +74,7 @@ function rbac_page_access_rules(): array
         'dse_lse_complaint_list.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
         'service_update_complaint.php' => ['module' => 'assigned-complaint-list', 'permission' => 'service-update'],
         'foc_parts.php' => ['module' => 'foc-parts', 'permission' => 'view'],
+        'foc_claim_details.php' => ['module' => 'foc-parts', 'permission' => 'view'],
         'service_claims.php' => ['module' => 'service-claims', 'permission' => 'view'],
         'service_claim_details.php' => ['module' => 'service-claims', 'permission' => 'view'],
         'delete_service_claim.php' => ['module' => 'service-claims', 'permission' => 'delete'],

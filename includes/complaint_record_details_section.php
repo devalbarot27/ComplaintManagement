@@ -56,6 +56,20 @@ $complaintStatusLabel = $statusMap[$complaint['status']] ?? 'Unknown';
                     $complaintStatusLabel,
                     'col-md-4'
                 );
+                if (!empty($focClaimId)) {
+                    $renderComplaintDetailField(
+                        'FOC Status',
+                        (string) ($focStatusLabel ?? '-'),
+                        'col-md-4'
+                    );
+                }
+                if (!empty($serviceClaimId)) {
+                    $renderComplaintDetailField(
+                        'Service Claim Status',
+                        (string) ($serviceClaimStatusLabel ?? '-'),
+                        'col-md-4'
+                    );
+                }
                 ?>
             </div>
         </section>

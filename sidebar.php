@@ -101,8 +101,12 @@
         $pageName = "Notifications";
     } else if ($currentPage == 'foc_parts.php') {
         $pageName = "FOC Part & Service Claim";
+    } else if ($currentPage == 'foc_claim_details.php') {
+        $pageName = "FOC Part Claim Details";
     } else if ($currentPage == 'service_claims.php') {
         $pageName = "Service Claim";
+    } else if ($currentPage == 'service_claim_details.php') {
+        $pageName = "Service Claim Details";
     } else if ($currentPage == 'approvals.php') {
         $pageName = "Approvals";
     }
@@ -280,7 +284,7 @@
 
                   <?php if ($canFocParts) { ?>
                       <a href="foc_parts.php"
-                          class="menu-item <?= ($currentPage == 'foc_parts.php') ? 'active' : '' ?>">
+                          class="menu-item <?= ($currentPage == 'foc_parts.php' || ($currentPage == 'foc_claim_details.php' && @$_GET['id'] != '')) ? 'active' : '' ?>">
                           <i class="bi bi-wrench-adjustable"></i>
                           FOC Parts
                       </a>

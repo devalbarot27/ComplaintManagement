@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
                 $newClaimId
             );
 
-            $_SESSION['success_message'] = 'Call closure submitted successfully. Pending CCS warranty review.';
+            $_SESSION['success_message'] = 'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending CCS warranty review.';
             header('Location: service_claims.php');
             exit;
         } catch (PDOException $e) {

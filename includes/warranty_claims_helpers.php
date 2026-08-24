@@ -304,6 +304,41 @@ function foc_claim_items_for_claim(PDO $conn, int $focClaimId): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function foc_claim_get_by_id(PDO $conn, int $id): ?array
+{
+    if ($id <= 0) {
+        return null;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT
+            fc.*, c.fab_number, c.customer_name,
+            COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(fc.created_by_username), ''), '-') AS created_by_name,
+            COALESCE(NULLIF(TRIM(um_l1.name), ''), NULLIF(TRIM(fc.l1_by_username), ''), '-') AS l1_by_name,
+            COALESCE(NULLIF(TRIM(um_l2.name), ''), NULLIF(TRIM(fc.l2_by_username), ''), '-') AS l2_by_name
+        FROM foc_claims fc
+        INNER JOIN complaints c ON c.id = fc.complaint_id
+        LEFT JOIN user_master um
+            ON LOWER(TRIM(um.username)) = LOWER(TRIM(fc.created_by_username))
+           AND um.deleted_at IS NULL
+        LEFT JOIN user_master um_l1
+            ON LOWER(TRIM(um_l1.username)) = LOWER(TRIM(fc.l1_by_username))
+           AND um_l1.deleted_at IS NULL
+        LEFT JOIN user_master um_l2
+            ON LOWER(TRIM(um_l2.username)) = LOWER(TRIM(fc.l2_by_username))
+           AND um_l2.deleted_at IS NULL
+        WHERE fc.id = :id
+          AND fc.deleted_at IS NULL
+        LIMIT 1
+    ");
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
 /**
  * Notify every user whose role currently holds the given module/permission.
  * Keeps the approval hierarchy configurable via the existing Assign Permissions UI.
@@ -412,4 +447,68 @@ function service_claim_soft_delete(PDO $conn, int $id): void
     ");
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
+}
+
+/**
+ * Latest FOC / service-claim status for a call ticket.
+ * Returns "New" when no claim has been submitted yet.
+ *
+ * @return array{foc_status: string, foc_id: int, service_status: string, service_id: int}
+ */
+function complaint_warranty_claim_statuses(PDO $conn, int $complaintId): array
+{
+    $result = [
+        'foc_status' => '-',
+        'foc_id' => 0,
+        'service_status' => 'New',
+        'service_id' => 0,
+    ];
+
+    if ($complaintId <= 0) {
+        return $result;
+    }
+
+    try {
+        $stmt = $conn->prepare("
+            SELECT id, overall_status
+            FROM foc_claims
+            WHERE complaint_id = :complaint_id
+              AND deleted_at IS NULL
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+        ");
+        $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (is_array($row)) {
+            $status = trim((string) ($row['overall_status'] ?? ''));
+            $result['foc_id'] = (int) ($row['id'] ?? 0);
+            $result['foc_status'] = $status !== '' ? $status : '-';
+        }
+    } catch (PDOException $e) {
+        // FOC table may not exist yet.
+    }
+
+    try {
+        $stmt = $conn->prepare("
+            SELECT id, overall_status
+            FROM service_claims
+            WHERE complaint_id = :complaint_id
+              AND deleted_at IS NULL
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+        ");
+        $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (is_array($row)) {
+            $status = trim((string) ($row['overall_status'] ?? ''));
+            $result['service_id'] = (int) ($row['id'] ?? 0);
+            $result['service_status'] = $status !== '' ? $status : 'New';
+        }
+    } catch (PDOException $e) {
+        // Service claims table may not exist yet.
+    }
+
+    return $result;
 }

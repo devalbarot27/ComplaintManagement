@@ -9,6 +9,7 @@ include 'includes/complaint_address_helpers.php';
 include 'includes/complaint_category_helpers.php';
 require_once 'includes/complaint_closure_helpers.php';
 require_once 'includes/complaint_service_log_helpers.php';
+require_once 'includes/warranty_claims_helpers.php';
 
 $id = (int)base64_decode($_GET['id'] ?? '', true);
  
@@ -150,6 +151,11 @@ $statusUiClass = [
 ];
 
 $complaintStatusUiClass = $statusUiClass[(int) $complaint['status']] ?? 'complaint-details-status--default';
+$warrantyClaimStatuses = complaint_warranty_claim_statuses($obconn, (int) $complaint['id']);
+$focStatusLabel = $warrantyClaimStatuses['foc_status'];
+$serviceClaimStatusLabel = $warrantyClaimStatuses['service_status'];
+$focClaimId = (int) $warrantyClaimStatuses['foc_id'];
+$serviceClaimId = (int) $warrantyClaimStatuses['service_id'];
 $assignmentCount = count($assignments);
 $serviceUpdateCount = count($serviceUpdates);
 $closureCount = count($closures);
@@ -184,6 +190,22 @@ $closureCount = count($closures);
                         <span class="complaint-details-status <?php echo htmlspecialchars($complaintStatusUiClass); ?>">
                             <?php echo htmlspecialchars($statusMap[$complaint['status']] ?? 'Unknown'); ?>
                         </span>
+                        <?php
+                        $focStatusClass = 'complaint-details-status--default';
+                        $serviceStatusClass = 'complaint-details-status--default';
+                        ?>
+                        <?php if ($focClaimId > 0 && $focStatusLabel !== '-') { ?>
+                        <a href="foc_claim_details.php?id=<?php echo rawurlencode(base64_encode((string) $focClaimId)); ?>"
+                            class="complaint-details-status <?php echo htmlspecialchars($focStatusClass); ?> text-decoration-none">
+                            FOC: <?php echo htmlspecialchars($focStatusLabel); ?>
+                        </a>
+                        <?php } ?>
+                        <?php if ($serviceClaimId > 0) { ?>
+                        <a href="service_claim_details.php?id=<?php echo rawurlencode(base64_encode((string) $serviceClaimId)); ?>"
+                            class="complaint-details-status <?php echo htmlspecialchars($serviceStatusClass); ?> text-decoration-none">
+                            Service Claim: <?php echo htmlspecialchars($serviceClaimStatusLabel); ?>
+                        </a>
+                        <?php } ?>
                         <?php if (!empty($complaint['fab_number'])) { ?>
                         <span class="badge border border-secondary text-secondary complaint-details-meta-badge">
                             <i class="bi bi-upc-scan"></i>
