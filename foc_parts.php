@@ -395,7 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="POST" id="focClaimForm" novalidate>
                 <div class="complaint-form-body">
 
-                    <!-- Section 1  Call Ticket -->
+                    <!-- Section 1 ? Call Ticket -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
@@ -453,7 +453,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </section>
 
-                    <!-- Section 2  Parts Cart -->
+                    <!-- Section 2 ? Parts Cart -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">2</span>
@@ -528,7 +528,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="hidden" name="cart_items" id="cartItemsInput" value="<?= htmlspecialchars(json_encode($postedCartItems), ENT_QUOTES, 'UTF-8') ?>">
                     </section>
 
-                    <!-- Section 3  Justification -->
+                    <!-- Section 3 ? Justification -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">3</span>

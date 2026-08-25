@@ -125,6 +125,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_section_start(4, 'Audit Trail', 'Creation and update history', true);
             record_details_field('Submitted By', rbac_display_value($record['created_by_name'] ?? $record['created_by_username'] ?? ''), 'col-md-6');
             record_details_field('Created At', rbac_format_datetime($record['created_at'] ?? null), 'col-md-6');
+
             record_details_section_end();
 
             record_details_card_end();
