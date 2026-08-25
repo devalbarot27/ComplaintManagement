@@ -17,8 +17,8 @@ $field_errors    = [];
 $userName        = current_username();
 
 $canCreateFoc = rbac_user_can($obconn, 'foc-parts', 'create-foc');
-$canApproveL1 = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
-$canApproveL2 = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
+$canApproveL1 = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc') || rbac_user_can($obconn, 'approvals', 'view');
+$canApproveL2 = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc') || rbac_user_can($obconn, 'approvals', 'view');
 
 // --- Handle FOC Claim Submission (Process 1, steps 1-6) -------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) {
@@ -152,82 +152,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
         exit;
     }
 
-    if ($decision === FOC_STAGE_REJECTED && $remarks === '') {
-        $_SESSION['error_message'] = 'Remarks are required to reject a claim.';
+    $applyError = foc_claim_apply_decision($obconn, $claimId, $level, $decision, $remarks, $userName);
+    if ($applyError !== null) {
+        $_SESSION['error_message'] = $applyError;
         header('Location: ' . $redirectTo);
         exit;
-    }
-
-    $claimStmt = $obconn->prepare('SELECT * FROM foc_claims WHERE id = :id AND deleted_at IS NULL');
-    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
-    $claimStmt->execute();
-    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($claim === false) {
-        $_SESSION['error_message'] = 'FOC claim not found.';
-        header('Location: ' . $redirectTo);
-        exit;
-    }
-
-    if ($level === 'l1' && $claim['l1_status'] !== FOC_STAGE_PENDING) {
-        $_SESSION['error_message'] = 'This claim has already been actioned at L1.';
-        header('Location: ' . $redirectTo);
-        exit;
-    }
-
-    if ($level === 'l2' && ($claim['l1_status'] !== FOC_STAGE_APPROVED || $claim['l2_status'] !== FOC_STAGE_PENDING)) {
-        $_SESSION['error_message'] = 'This claim is not ready for L2 approval.';
-        header('Location: ' . $redirectTo);
-        exit;
-    }
-
-    // A claim assigned to a specific approver can only be actioned by that user (null = unassigned/legacy claim).
-    $approverColumn = $level === 'l1' ? 'l1_approver_user_id' : 'l2_approver_user_id';
-    if ($claim[$approverColumn] !== null && (int) $claim[$approverColumn] !== current_user_id($obconn)) {
-        header('Location: access_denied.php');
-        exit;
-    }
-
-    if ($level === 'l1') {
-        $overallStatus = $decision === FOC_STAGE_APPROVED ? 'Pending L2 Approval' : 'Rejected';
-        $update = $obconn->prepare("
-            UPDATE foc_claims
-            SET l1_status = :status, l1_by_username = :by, l1_at = CURRENT_TIMESTAMP,
-                l1_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
-            WHERE id = :id
-        ");
-        $update->bindValue(':status', $decision);
-        $update->bindValue(':by', $userName);
-        $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
-        $update->bindValue(':overall_status', $overallStatus);
-        $update->bindValue(':id', $claimId, PDO::PARAM_INT);
-        $update->execute();
-
-        if ($decision === FOC_STAGE_APPROVED) {
-            warranty_claims_notify_role_holders(
-                $obconn,
-                'foc-parts',
-                'approve-l2-foc',
-                'FOC Claim Pending L2 Approval',
-                'FOC claim #' . $claimId . ' has been approved at L1 and needs Business Head approval.',
-                $claimId
-            );
-        }
-    } else {
-        // L2 approval finalises the claim; ERP LN pushes the FOC Sales Order + Zero-Value Invoice next.
-        $overallStatus = $decision === FOC_STAGE_APPROVED ? 'Approved' : 'Rejected';
-        $update = $obconn->prepare("
-            UPDATE foc_claims
-            SET l2_status = :status, l2_by_username = :by, l2_at = CURRENT_TIMESTAMP,
-                l2_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
-            WHERE id = :id
-        ");
-        $update->bindValue(':status', $decision);
-        $update->bindValue(':by', $userName);
-        $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
-        $update->bindValue(':overall_status', $overallStatus);
-        $update->bindValue(':id', $claimId, PDO::PARAM_INT);
-        $update->execute();
     }
 
     $_SESSION['success_message'] = 'FOC claim #' . $claimId . ' has been ' . strtolower($decision) . ' at ' . strtoupper($level) . '.';

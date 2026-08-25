@@ -7,7 +7,6 @@ include 'includes/admin_access_helpers.php';
 include 'includes/user_helpers.php';
 
 require_system_admin($obconn);
-user_ensure_schema($obconn);
 
 $success_message = '';
 $error_message = '';
@@ -24,8 +23,6 @@ $formRecord = [
     'mobile_number' => '',
     'sales_coordinator_id' => 0,
     'customer_code' => '',
-    'level_1_approval' => false,
-    'level_2_approval' => false,
 ];
 $createdBy = current_username();
 

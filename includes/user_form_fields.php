@@ -17,8 +17,6 @@ $formRecord = $formRecord ?? [
     'mobile_number' => '',
     'sales_coordinator_id' => 0,
     'customer_code' => '',
-    'level_1_approval' => false,
-    'level_2_approval' => false,
 ];
 
 $isEditForm = !empty($formRecord['id']);
@@ -138,22 +136,5 @@ $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole)
                 : 'Minimum 8 characters with digit, uppercase, lowercase, and special character.'; ?>
         </small>
         <div class="text-danger validation-msg" data-field="password"></div>
-    </div>
-    <div class="col-md-6 form-group">
-        <label class="form-label d-block">
-            <i class="bi bi-check2-square"></i> Approval
-        </label>
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="level_1_approval" value="1"
-                id="userLevel1Approval"
-                <?php echo !empty($formRecord['level_1_approval']) ? ' checked' : ''; ?>>
-            <label class="form-check-label" for="userLevel1Approval">Level 1 Approval</label>
-        </div>
-        <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="level_2_approval" value="1"
-                id="userLevel2Approval"
-                <?php echo !empty($formRecord['level_2_approval']) ? ' checked' : ''; ?>>
-            <label class="form-check-label" for="userLevel2Approval">Level 2 Approval</label>
-        </div>
     </div>
 </div>

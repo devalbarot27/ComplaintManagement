@@ -422,15 +422,6 @@ function fillUserForm(record) {
         record.customer_code_text || record.customer_code || ''
     );
 
-    const level1 = form.querySelector('[name="level_1_approval"]');
-    const level2 = form.querySelector('[name="level_2_approval"]');
-    if (level1) {
-        level1.checked = !!record.level_1_approval;
-    }
-    if (level2) {
-        level2.checked = !!record.level_2_approval;
-    }
-
     const passwordHint = document.getElementById('userPasswordHint');
     const passwordRequired = document.getElementById('userPasswordRequired');
     if (passwordHint) {

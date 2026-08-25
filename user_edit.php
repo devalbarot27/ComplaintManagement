@@ -7,7 +7,6 @@ include 'includes/admin_access_helpers.php';
 include 'includes/user_helpers.php';
 
 require_system_admin($obconn);
-user_ensure_schema($obconn);
 
 $encodedId = trim((string) ($_GET['id'] ?? ''));
 $recordId = (int) base64_decode($encodedId, true);

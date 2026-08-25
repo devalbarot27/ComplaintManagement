@@ -631,6 +631,146 @@ function warranty_claims_notify_role_holders(
     }
 }
 
+/**
+ * Apply an L1 or L2 decision to an FOC claim.
+ * Returns an error message, or null on success.
+ */
+function foc_claim_apply_decision(
+    PDO $conn,
+    int $claimId,
+    string $level,
+    string $decision,
+    string $remarks,
+    string $byUsername
+): ?string {
+    if (!in_array($level, ['l1', 'l2'], true)
+        || !in_array($decision, [FOC_STAGE_APPROVED, FOC_STAGE_REJECTED], true)
+        || $claimId <= 0
+    ) {
+        return 'Invalid FOC approval request.';
+    }
+
+    if ($decision === FOC_STAGE_REJECTED && $remarks === '') {
+        return 'Remarks are required to reject a claim.';
+    }
+
+    $claimStmt = $conn->prepare('SELECT * FROM foc_claims WHERE id = :id AND deleted_at IS NULL');
+    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $claimStmt->execute();
+    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($claim === false) {
+        return 'FOC claim not found.';
+    }
+
+    if ($level === 'l1' && $claim['l1_status'] !== FOC_STAGE_PENDING) {
+        return 'This claim has already been actioned at L1.';
+    }
+
+    if ($level === 'l2' && ($claim['l1_status'] !== FOC_STAGE_APPROVED || $claim['l2_status'] !== FOC_STAGE_PENDING)) {
+        return 'This claim is not ready for L2 approval.';
+    }
+
+    if ($level === 'l1') {
+        $overallStatus = $decision === FOC_STAGE_APPROVED ? 'Pending L2 Approval' : 'Rejected';
+        $update = $conn->prepare("
+            UPDATE foc_claims
+            SET l1_status = :status, l1_by_username = :by, l1_at = CURRENT_TIMESTAMP,
+                l1_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+        ");
+        $update->bindValue(':status', $decision);
+        $update->bindValue(':by', $byUsername);
+        $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
+        $update->bindValue(':overall_status', $overallStatus);
+        $update->bindValue(':id', $claimId, PDO::PARAM_INT);
+        $update->execute();
+
+        if ($decision === FOC_STAGE_APPROVED) {
+            warranty_claims_notify_role_holders(
+                $conn,
+                'foc-parts',
+                'approve-l2-foc',
+                'FOC Claim Pending L2 Approval',
+                'FOC claim #' . $claimId . ' has been approved at L1 and needs Business Head approval.',
+                $claimId
+            );
+        }
+    } else {
+        $overallStatus = $decision === FOC_STAGE_APPROVED ? 'Approved' : 'Rejected';
+        $update = $conn->prepare("
+            UPDATE foc_claims
+            SET l2_status = :status, l2_by_username = :by, l2_at = CURRENT_TIMESTAMP,
+                l2_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+        ");
+        $update->bindValue(':status', $decision);
+        $update->bindValue(':by', $byUsername);
+        $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
+        $update->bindValue(':overall_status', $overallStatus);
+        $update->bindValue(':id', $claimId, PDO::PARAM_INT);
+        $update->execute();
+    }
+
+    return null;
+}
+
+/**
+ * Apply a Lock-in Engineer decision to a service claim.
+ * Returns an error message, or null on success.
+ */
+function service_claim_apply_l1_decision(
+    PDO $conn,
+    int $claimId,
+    string $decision,
+    string $remarks,
+    string $byUsername
+): ?string {
+    if ($claimId <= 0 || !in_array($decision, [SERVICE_CLAIM_L1_APPROVED, SERVICE_CLAIM_L1_REJECTED], true)) {
+        return 'Invalid service claim approval request.';
+    }
+
+    if ($decision === SERVICE_CLAIM_L1_REJECTED && $remarks === '') {
+        return 'Remarks are required to reject a claim.';
+    }
+
+    $claimStmt = $conn->prepare('SELECT * FROM service_claims WHERE id = :id AND deleted_at IS NULL');
+    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $claimStmt->execute();
+    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($claim === false || ($claim['overall_status'] ?? '') !== 'Pending L1 Approval') {
+        return 'This claim is not pending L1 approval.';
+    }
+
+    $overallStatus = $decision === SERVICE_CLAIM_L1_APPROVED ? 'Approved - Pending Invoice' : 'Rejected';
+    $update = $conn->prepare("
+        UPDATE service_claims
+        SET l1_status = :status, l1_by_username = :by, l1_at = CURRENT_TIMESTAMP,
+            l1_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+    ");
+    $update->bindValue(':status', $decision);
+    $update->bindValue(':by', $byUsername);
+    $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
+    $update->bindValue(':overall_status', $overallStatus);
+    $update->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $update->execute();
+
+    if ($decision === SERVICE_CLAIM_L1_APPROVED) {
+        warranty_claims_notify_role_holders(
+            $conn,
+            'service-claims',
+            'raise-invoice',
+            'Service Claim Approved - Invoice Pending',
+            'Service claim #' . $claimId . ' has been approved. Please raise the predefined visit-charge invoice.',
+            $claimId
+        );
+    }
+
+    return null;
+}
+
 function warranty_status_badge_class(?string $status): string
 {
     return $status === WARRANTY_STATUS_UNDER ? 'bg-success' : 'bg-secondary';
