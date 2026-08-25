@@ -79,7 +79,6 @@ $level2 = user_approval_config_bool_from_value($record['level_2_approval'] ?? fa
             record_details_section_start(2, 'Audit Trail', 'Creation and update history', true);
             record_details_field('Created By', rbac_display_value($record['created_by'] ?? ''), 'col-md-6');
             record_details_field('Created At', rbac_format_datetime($record['created_at'] ?? null), 'col-md-6');
-            record_details_field('Updated At', rbac_format_datetime($record['updated_at'] ?? null), 'col-md-6');
             record_details_section_end();
 
             record_details_card_end();

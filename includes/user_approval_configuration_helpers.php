@@ -53,6 +53,56 @@ function user_approval_config_yes_no(bool $value): string
     return $value ? 'Yes' : 'No';
 }
 
+/**
+ * @return array{l1: bool, l2: bool}
+ */
+function user_approval_config_levels_for_user(PDO $conn, ?int $userId, string $moduleSlug): array
+{
+    $levels = ['l1' => false, 'l2' => false];
+    if ($userId === null || $userId <= 0 || $moduleSlug === '') {
+        return $levels;
+    }
+
+    user_approval_config_ensure_schema($conn);
+
+    $stmt = $conn->prepare('
+        SELECT level_1_approval, level_2_approval
+        FROM user_approval_configurations
+        WHERE user_id = :user_id
+          AND module_slug = :module_slug
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+    $stmt->bindValue(':module_slug', $moduleSlug);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return $levels;
+    }
+
+    $levels['l1'] = user_approval_config_bool_from_value($row['level_1_approval'] ?? false);
+    if ($moduleSlug !== user_approval_config_module_service()) {
+        $levels['l2'] = user_approval_config_bool_from_value($row['level_2_approval'] ?? false);
+    }
+
+    return $levels;
+}
+
+function user_approval_config_user_can_level(PDO $conn, ?int $userId, string $moduleSlug, string $level): bool
+{
+    $levels = user_approval_config_levels_for_user($conn, $userId, $moduleSlug);
+
+    if ($level === 'l1') {
+        return $levels['l1'];
+    }
+    if ($level === 'l2') {
+        return $levels['l2'];
+    }
+
+    return false;
+}
+
 function user_approval_config_ensure_schema(PDO $conn): void
 {
     static $ensured = false;

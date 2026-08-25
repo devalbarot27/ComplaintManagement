@@ -6,15 +6,25 @@ require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/installed_base_helpers.php';
+require_once 'includes/user_approval_configuration_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
+user_approval_config_ensure_schema($obconn);
 
-// $canApproveL1Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l1-foc');
-// $canApproveL2Foc     = rbac_user_can($obconn, 'foc-parts', 'approve-l2-foc');
-// $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
-$canApproveL1Foc = true;
-$canApproveL2Foc = true;
-$canApproveL1Service = true;
+$currentUserId = current_user_id($obconn);
+$focApprovalLevels = user_approval_config_levels_for_user(
+    $obconn,
+    $currentUserId,
+    user_approval_config_module_foc()
+);
+$canApproveL1Foc = $focApprovalLevels['l1'];
+$canApproveL2Foc = $focApprovalLevels['l2'];
+$serviceApprovalLevels = user_approval_config_levels_for_user(
+    $obconn,
+    $currentUserId,
+    user_approval_config_module_service()
+);
+$canApproveL1Service = $serviceApprovalLevels['l1'];
 $canApproval          = rbac_user_can($obconn, 'approvals', 'view');
 
 if (!$canApproval) {
@@ -141,9 +151,9 @@ try {
            AND um.deleted_at IS NULL
         WHERE sc.deleted_at IS NULL
           AND sc.l1_status = '" . SERVICE_CLAIM_L1_PENDING . "'
-          AND sc.overall_status = 'Pending L1 Approval'
+       AND sc.overall_status = 'Pending L1 Approval'
         ORDER BY sc.created_at DESC
-    ");
+    "); //    AND sc.overall_status = 'Pending L1 Approval'
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $approvalItems[] = [
             'claim_type'     => 'service',
