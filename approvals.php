@@ -6,25 +6,15 @@ require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/installed_base_helpers.php';
-require_once 'includes/user_approval_configuration_helpers.php';
+require_once 'includes/user_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
-user_approval_config_ensure_schema($obconn);
 
-$currentUserId = current_user_id($obconn);
-$focApprovalLevels = user_approval_config_levels_for_user(
-    $obconn,
-    $currentUserId,
-    user_approval_config_module_foc()
-);
-$canApproveL1Foc = $focApprovalLevels['l1'];
-$canApproveL2Foc = $focApprovalLevels['l2'];
-$serviceApprovalLevels = user_approval_config_levels_for_user(
-    $obconn,
-    $currentUserId,
-    user_approval_config_module_service()
-);
-$canApproveL1Service = $serviceApprovalLevels['l1'];
+$approvalFlags = user_current_approval_flags($obconn);
+$canApproveL1Foc = $approvalFlags['l1'];
+$canApproveL2Foc = $approvalFlags['l2'];
+// $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
+$canApproveL1Service = true;
 $canApproval          = rbac_user_can($obconn, 'approvals', 'view');
 
 if (!$canApproval) {

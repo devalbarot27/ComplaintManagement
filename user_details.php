@@ -7,6 +7,7 @@ include 'includes/user_helpers.php';
 require_once 'includes/record_details_layout.php';
 
 require_system_admin($obconn);
+user_ensure_schema($obconn);
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
@@ -25,6 +26,9 @@ $displayName = user_display_value($record['name']);
 $pageTitle = $displayName !== '-' ? $displayName : user_display_value($record['username']);
 $showSalesCoordinator = user_role_requires_sales_coordinator((int) $record['role'])
     || !empty($record['sales_coordinator_id']);
+$showApprovalOptions = user_role_has_approval_options((int) $record['role']);
+$level1Approval = user_bool_from_value($record['level_1_approval'] ?? false);
+$level2Approval = user_bool_from_value($record['level_2_approval'] ?? false);
 $salesCoordinatorLabel = user_sales_coordinator_display_name(
     $obconn,
     isset($record['sales_coordinator_id']) ? (int) $record['sales_coordinator_id'] : null
@@ -87,6 +91,10 @@ $encodedId = base64_encode((string) $record['id']);
             );
             if ($showSalesCoordinator) {
                 record_details_field('Sales Coordinator', $salesCoordinatorLabel);
+            }
+            if ($showApprovalOptions) {
+                record_details_field('Level 1 Approval', user_yes_no($level1Approval));
+                record_details_field('Level 2 Approval', user_yes_no($level2Approval));
             }
             record_details_field('Created By', user_display_value($record['created_by']));
             record_details_section_end();

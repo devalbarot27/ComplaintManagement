@@ -11,6 +11,42 @@ function roleRequiresSalesCoordinator(roleId) {
     return getRolesRequiringSalesCoordinator().indexOf(role) !== -1;
 }
 
+function getRolesWithApprovalOptions() {
+    return Array.isArray(window.USER_ROLES_WITH_APPROVAL_OPTIONS)
+        ? window.USER_ROLES_WITH_APPROVAL_OPTIONS.map(function (roleId) {
+            return parseInt(roleId, 10);
+        })
+        : [];
+}
+
+function roleHasApprovalOptions(roleId) {
+    const role = parseInt(roleId, 10);
+    return getRolesWithApprovalOptions().indexOf(role) !== -1;
+}
+
+function toggleApprovalFields(roleId, flags) {
+    const wrap = document.getElementById('userApprovalFieldsWrap');
+    const level1 = document.getElementById('userLevel1Approval');
+    const level2 = document.getElementById('userLevel2Approval');
+    if (!wrap || !level1 || !level2) {
+        return;
+    }
+
+    const isAllowed = roleHasApprovalOptions(roleId);
+    wrap.style.display = isAllowed ? '' : 'none';
+
+    if (!isAllowed) {
+        level1.checked = false;
+        level2.checked = false;
+        return;
+    }
+
+    if (flags) {
+        level1.checked = !!flags.level_1_approval;
+        level2.checked = !!flags.level_2_approval;
+    }
+}
+
 function toggleSalesCoordinatorField(roleId, selectedSalesCoordinatorId) {
     const wrap = document.getElementById('salesCoordinatorFieldWrap');
     const select = document.getElementById('salesCoordinatorSelect');
@@ -412,6 +448,10 @@ function fillUserForm(record) {
 
     form.querySelector('[name="role"]').value = record.role || '';
     toggleSalesCoordinatorField(record.role, record.sales_coordinator_id || '');
+    toggleApprovalFields(record.role, {
+        level_1_approval: !!record.level_1_approval,
+        level_2_approval: !!record.level_2_approval
+    });
     form.querySelector('[name="username"]').value = record.username || '';
     form.querySelector('[name="name"]').value = record.name || '';
     form.querySelector('[name="email"]').value = record.email || '';
@@ -442,6 +482,7 @@ function resetUserForm() {
     form.reset();
     document.getElementById('userRecordId').value = '';
     toggleSalesCoordinatorField('');
+    toggleApprovalFields('');
     setUserCustomerCodeSelect2Value('', '');
     document.getElementById('userFormModeLabel').textContent = 'Add User';
     document.getElementById('submitUserBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save User';
@@ -502,8 +543,10 @@ function bootUserEditPage() {
     if (roleSelect) {
         roleSelect.addEventListener('change', function () {
             toggleSalesCoordinatorField(roleSelect.value);
+            toggleApprovalFields(roleSelect.value);
         });
         toggleSalesCoordinatorField(roleSelect.value, document.getElementById('salesCoordinatorSelect')?.value || '');
+        toggleApprovalFields(roleSelect.value);
     }
 
     const cancelBtn = document.getElementById('cancelUserForm');
@@ -530,6 +573,7 @@ function bootUsersPage() {
     if (roleSelect) {
         roleSelect.addEventListener('change', function () {
             toggleSalesCoordinatorField(roleSelect.value);
+            toggleApprovalFields(roleSelect.value);
         });
     }
 

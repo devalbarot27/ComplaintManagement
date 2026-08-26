@@ -7,6 +7,7 @@ include 'includes/admin_access_helpers.php';
 include 'includes/user_helpers.php';
 
 require_system_admin($obconn);
+user_ensure_schema($obconn);
 
 $success_message = '';
 $error_message = '';
@@ -23,6 +24,8 @@ $formRecord = [
     'mobile_number' => '',
     'sales_coordinator_id' => 0,
     'customer_code' => '',
+    'level_1_approval' => false,
+    'level_2_approval' => false,
 ];
 $createdBy = current_username();
 
@@ -193,10 +196,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
         </div>
     </div>
 
-    <script src="js/users.js"></script>
     <script>
     window.USER_ROLES_REQUIRING_SALES_COORDINATOR = <?php echo json_encode(user_roles_requiring_sales_coordinator()); ?>;
+    window.USER_ROLES_WITH_APPROVAL_OPTIONS = <?php echo json_encode(user_roles_with_approval_options()); ?>;
     window.BLOCKED_EMAIL_DOMAINS = <?php echo json_encode(disposable_email_blocked_domains(), JSON_UNESCAPED_SLASHES); ?>;
+    </script>
+    <script src="js/users.js"></script>
+    <script>
     $(document).ready(function () {
         document.getElementById('cancelUserForm').addEventListener('click', closeUserFormPanel);
         document.getElementById('closeUserForm').addEventListener('click', closeUserFormPanel);

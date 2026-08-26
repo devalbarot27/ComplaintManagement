@@ -45,10 +45,6 @@
         $pageName = "User Details";
     } else if ($currentPage == 'user_edit.php') {
         $pageName = "Edit User";
-    } else if ($currentPage == 'user_approval_configurations.php') {
-        $pageName = "User Approval Configuration";
-    } else if ($currentPage == 'user_approval_configuration_details.php') {
-        $pageName = "User Approval Configuration Details";
     } else if ($currentPage == 'roles.php') {
         $pageName = "Role Management";
     } else if ($currentPage == 'role_details.php') {
@@ -367,12 +363,6 @@
                       class="menu-item <?= ($currentPage == 'assign_permissions.php') ? 'active' : '' ?>">
                       <i class="bi bi-check2-square"></i>
                       Assign Permissions
-                  </a>
-
-                  <a href="user_approval_configurations.php"
-                      class="menu-item <?= ($currentPage == 'user_approval_configurations.php' || $currentPage == 'user_approval_configuration_details.php') ? 'active' : '' ?>">
-                      <i class="bi bi-person-check"></i>
-                      User Approval Config
                   </a>
 
               </div>

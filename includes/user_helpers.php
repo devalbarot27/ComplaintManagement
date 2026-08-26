@@ -6,6 +6,109 @@ require_once __DIR__ . '/role_helpers.php';
 require_once __DIR__ . '/admin_access_helpers.php';
 require_once __DIR__ . '/disposable_email_helpers.php';
 
+function user_ensure_schema(PDO $conn): void
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+
+    $conn->exec('
+        ALTER TABLE user_master
+        ADD COLUMN IF NOT EXISTS level_1_approval BOOLEAN NOT NULL DEFAULT FALSE
+    ');
+    $conn->exec('
+        ALTER TABLE user_master
+        ADD COLUMN IF NOT EXISTS level_2_approval BOOLEAN NOT NULL DEFAULT FALSE
+    ');
+
+    $ensured = true;
+}
+
+function user_bool_from_value($value): bool
+{
+    if (is_bool($value)) {
+        return $value;
+    }
+    if ($value === null) {
+        return false;
+    }
+    if (is_int($value) || is_float($value)) {
+        return (int) $value === 1;
+    }
+
+    $normalized = strtolower(trim((string) $value));
+
+    return in_array($normalized, ['1', 't', 'true', 'yes', 'on'], true);
+}
+
+function user_yes_no(bool $value): string
+{
+    return $value ? 'Yes' : 'No';
+}
+
+/**
+ * Roles that can be given Level 1 / Level 2 approval options.
+ *
+ * @return array<int, int>
+ */
+function user_roles_with_approval_options(): array
+{
+    return [
+        ELGI_ENGINEER_USER_ROLE,
+        SALES_COORDINATOR_USER_ROLE,
+        MANAGEMENT_USER_ROLE,
+        SYSTEM_ADMIN_ROLE,
+        CCS_ADMIN_ROLE,
+    ];
+}
+
+function user_role_has_approval_options(int $roleId): bool
+{
+    return in_array($roleId, user_roles_with_approval_options(), true);
+}
+
+/**
+ * Logged-in user's assigned Level 1 / Level 2 approval flags.
+ *
+ * @return array{l1: bool, l2: bool}
+ */
+function user_current_approval_flags(PDO $conn): array
+{
+    $userId = current_user_id($conn);
+    if ($userId === null || $userId <= 0) {
+        return ['l1' => false, 'l2' => false];
+    }
+
+    $row = user_get_by_id($conn, $userId);
+    if ($row === null) {
+        return ['l1' => false, 'l2' => false];
+    }
+
+    return [
+        'l1' => user_bool_from_value($row['level_1_approval'] ?? false),
+        'l2' => user_bool_from_value($row['level_2_approval'] ?? false),
+    ];
+}
+
+/**
+ * @return array{level_1_approval: bool, level_2_approval: bool}
+ */
+function user_normalized_approval_flags(array $data): array
+{
+    if (!user_role_has_approval_options((int) ($data['role'] ?? 0))) {
+        return [
+            'level_1_approval' => false,
+            'level_2_approval' => false,
+        ];
+    }
+
+    return [
+        'level_1_approval' => !empty($data['level_1_approval']),
+        'level_2_approval' => !empty($data['level_2_approval']),
+    ];
+}
+
 /**
  * @return array<int, int>
  */
@@ -128,6 +231,8 @@ function user_form_record_from_row(array $row): array
         'mobile_number' => (string) ($row['mobile_number'] ?? ''),
         'sales_coordinator_id' => isset($row['sales_coordinator_id']) ? (int) $row['sales_coordinator_id'] : 0,
         'customer_code' => trim((string) ($row['customer_code'] ?? '')),
+        'level_1_approval' => user_bool_from_value($row['level_1_approval'] ?? false),
+        'level_2_approval' => user_bool_from_value($row['level_2_approval'] ?? false),
     ];
 }
 
@@ -145,6 +250,8 @@ function user_form_record_from_post(array $data, int $id): array
         'mobile_number' => (string) ($data['mobile_number'] ?? ''),
         'sales_coordinator_id' => (int) ($data['sales_coordinator_id'] ?? 0),
         'customer_code' => trim((string) ($data['customer_code'] ?? '')),
+        'level_1_approval' => !empty($data['level_1_approval']),
+        'level_2_approval' => !empty($data['level_2_approval']),
     ];
 }
 
@@ -409,7 +516,7 @@ function user_search_filter(PDO $conn, string $searchValue): array
 
 function user_from_post(array $post): array
 {
-    return [
+    $data = [
         'role' => trim((string) ($post['role'] ?? '')),
         'username' => trim((string) ($post['username'] ?? '')),
         'name' => trim((string) ($post['name'] ?? '')),
@@ -418,7 +525,11 @@ function user_from_post(array $post): array
         'mobile_number' => trim((string) ($post['mobile_number'] ?? '')),
         'sales_coordinator_id' => trim((string) ($post['sales_coordinator_id'] ?? '')),
         'customer_code' => trim((string) ($post['customer_code'] ?? '')),
+        'level_1_approval' => !empty($post['level_1_approval']),
+        'level_2_approval' => !empty($post['level_2_approval']),
     ];
+
+    return array_merge($data, user_normalized_approval_flags($data));
 }
 
 /**
@@ -629,6 +740,8 @@ function user_customer_code_exists(PDO $conn, string $customerCode, int $exclude
 
 function user_get_by_id(PDO $conn, int $id): ?array
 {
+    user_ensure_schema($conn);
+
     $stmt = $conn->prepare('
         SELECT *
         FROM user_master
@@ -704,13 +817,24 @@ function user_bind_customer_code(PDOStatement $stmt, array $data): void
     }
 }
 
+function user_bind_approval_flags(PDOStatement $stmt, array $data): void
+{
+    $flags = user_normalized_approval_flags($data);
+    $stmt->bindValue(':level_1_approval', $flags['level_1_approval'], PDO::PARAM_BOOL);
+    $stmt->bindValue(':level_2_approval', $flags['level_2_approval'], PDO::PARAM_BOOL);
+}
+
 function user_insert(PDO $conn, array $data, string $createdBy): void
 {
+    user_ensure_schema($conn);
+
     $stmt = $conn->prepare('
         INSERT INTO user_master (
-            role, username, name, email, password, mobile_number, sales_coordinator_id, customer_code, created_by, created_at
+            role, username, name, email, password, mobile_number, sales_coordinator_id, customer_code,
+            level_1_approval, level_2_approval, created_by, created_at
         ) VALUES (
-            :role, :username, :name, :email, :password, :mobile_number, :sales_coordinator_id, :customer_code, :created_by, CURRENT_TIMESTAMP
+            :role, :username, :name, :email, :password, :mobile_number, :sales_coordinator_id, :customer_code,
+            :level_1_approval, :level_2_approval, :created_by, CURRENT_TIMESTAMP
         )
     ');
     $stmt->bindValue(':role', (int) $data['role'], PDO::PARAM_INT);
@@ -721,12 +845,15 @@ function user_insert(PDO $conn, array $data, string $createdBy): void
     $stmt->bindValue(':mobile_number', $data['mobile_number']);
     user_bind_sales_coordinator_id($stmt, $data);
     user_bind_customer_code($stmt, $data);
+    user_bind_approval_flags($stmt, $data);
     $stmt->bindValue(':created_by', $createdBy);
     $stmt->execute();
 }
 
 function user_update(PDO $conn, int $id, array $data): void
 {
+    user_ensure_schema($conn);
+
     $existing = user_get_by_id($conn, $id);
     $passwordChanged = $data['password'] !== '';
     $roleChanged = $existing !== null
@@ -748,6 +875,8 @@ function user_update(PDO $conn, int $id, array $data): void
                 mobile_number = :mobile_number,
                 sales_coordinator_id = :sales_coordinator_id,
                 customer_code = :customer_code,
+                level_1_approval = :level_1_approval,
+                level_2_approval = :level_2_approval,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
               AND deleted_at IS NULL
@@ -763,6 +892,8 @@ function user_update(PDO $conn, int $id, array $data): void
                 mobile_number = :mobile_number,
                 sales_coordinator_id = :sales_coordinator_id,
                 customer_code = :customer_code,
+                level_1_approval = :level_1_approval,
+                level_2_approval = :level_2_approval,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
               AND deleted_at IS NULL
@@ -776,6 +907,7 @@ function user_update(PDO $conn, int $id, array $data): void
     $stmt->bindValue(':mobile_number', $data['mobile_number']);
     user_bind_sales_coordinator_id($stmt, $data);
     user_bind_customer_code($stmt, $data);
+    user_bind_approval_flags($stmt, $data);
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
 

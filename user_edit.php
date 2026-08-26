@@ -7,6 +7,7 @@ include 'includes/admin_access_helpers.php';
 include 'includes/user_helpers.php';
 
 require_system_admin($obconn);
+user_ensure_schema($obconn);
 
 $encodedId = trim((string) ($_GET['id'] ?? ''));
 $recordId = (int) base64_decode($encodedId, true);
@@ -146,6 +147,7 @@ $pageTitle = $displayName !== '-' ? $displayName : user_display_value($formRecor
     <script>
     window.USER_FORM_PAGE = 'edit';
     window.USER_ROLES_REQUIRING_SALES_COORDINATOR = <?php echo json_encode(user_roles_requiring_sales_coordinator()); ?>;
+    window.USER_ROLES_WITH_APPROVAL_OPTIONS = <?php echo json_encode(user_roles_with_approval_options()); ?>;
     window.BLOCKED_EMAIL_DOMAINS = <?php echo json_encode(disposable_email_blocked_domains(), JSON_UNESCAPED_SLASHES); ?>;
     window.USER_FORM_CANCEL_URL = <?php echo json_encode('users.php'); ?>;
     </script>

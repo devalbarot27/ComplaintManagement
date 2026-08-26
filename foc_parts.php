@@ -6,10 +6,9 @@ require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/installed_base_helpers.php';
-require_once 'includes/user_approval_configuration_helpers.php';
+require_once 'includes/user_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
-user_approval_config_ensure_schema($obconn);
 
 $success_message = '';
 $error_message   = '';
@@ -17,13 +16,9 @@ $field_errors    = [];
 $userName        = current_username();
 
 $canCreateFoc = rbac_user_can($obconn, 'foc-parts', 'create-foc');
-$focApprovalLevels = user_approval_config_levels_for_user(
-    $obconn,
-    current_user_id($obconn),
-    user_approval_config_module_foc()
-);
-$canApproveL1 = $focApprovalLevels['l1'];
-$canApproveL2 = $focApprovalLevels['l2'];
+$approvalFlags = user_current_approval_flags($obconn);
+$canApproveL1 = $approvalFlags['l1'];
+$canApproveL2 = $approvalFlags['l2'];
 
 // --- Handle FOC Claim Submission (Process 1, steps 1-6) -------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) {

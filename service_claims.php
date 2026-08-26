@@ -7,11 +7,9 @@ require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
 require_once 'includes/installed_base_helpers.php';
-require_once 'includes/user_approval_configuration_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
 distance_wise_price_ensure_schema($obconn);
-user_approval_config_ensure_schema($obconn);
 
 $success_message = '';
 $error_message   = '';
@@ -22,15 +20,11 @@ $userName        = current_username();
 $canCreateClaim  = rbac_user_can($obconn, 'service-claims', 'create-service-claims');
 $canDeleteClaim  = rbac_user_can($obconn, 'service-claims', 'delete');
 //$canMarkCcs      = rbac_user_can($obconn, 'service-claims', 'mark-warranty');
+//$canApproveL1    = rbac_user_can($obconn, 'service-claims', 'approve-l1');
 //$canRaiseInvoice = rbac_user_can($obconn, 'service-claims', 'raise-invoice');
 //$canSettle       = rbac_user_can($obconn, 'service-claims', 'settle-claim');
 $canMarkCcs = true;
-$canApproveL1 = user_approval_config_user_can_level(
-    $obconn,
-    current_user_id($obconn),
-    user_approval_config_module_service(),
-    'l1'
-);
+$canApproveL1 = true;
 $canRaiseInvoice = true;
 $canSettle = true;
 

@@ -17,6 +17,8 @@ $formRecord = $formRecord ?? [
     'mobile_number' => '',
     'sales_coordinator_id' => 0,
     'customer_code' => '',
+    'level_1_approval' => false,
+    'level_2_approval' => false,
 ];
 
 $isEditForm = !empty($formRecord['id']);
@@ -28,6 +30,9 @@ if ($selectedCustomerCode !== '' && isset($obconn) && $obconn instanceof PDO) {
     $selectedCustomerLabel = user_customer_code_label($obconn, $selectedCustomerCode);
 }
 $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole);
+$showApprovalFields = user_role_has_approval_options($selectedRole);
+$level1Checked = !empty($formRecord['level_1_approval']);
+$level2Checked = !empty($formRecord['level_2_approval']);
 ?>
 <div class="row g-3">
     <div class="col-md-6 form-group">
@@ -136,5 +141,22 @@ $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole)
                 : 'Minimum 8 characters with digit, uppercase, lowercase, and special character.'; ?>
         </small>
         <div class="text-danger validation-msg" data-field="password"></div>
+    </div>
+    <div class="col-12 form-group" id="userApprovalFieldsWrap"<?php echo $showApprovalFields ? '' : ' style="display: none;"'; ?>>
+        <label class="form-label d-block">
+            <i class="bi bi-check2-square"></i> Approval
+        </label>
+        <div class="d-flex flex-wrap gap-4">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="level_1_approval" value="1"
+                    id="userLevel1Approval"<?php echo $level1Checked ? ' checked' : ''; ?>>
+                <label class="form-check-label" for="userLevel1Approval">Level 1 Approval</label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="level_2_approval" value="1"
+                    id="userLevel2Approval"<?php echo $level2Checked ? ' checked' : ''; ?>>
+                <label class="form-check-label" for="userLevel2Approval">Level 2 Approval</label>
+            </div>
+        </div>
     </div>
 </div>
