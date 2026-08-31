@@ -180,11 +180,11 @@ function spare_parts_validate(PDO $conn, array $data): ?string
     }
 
     if ($data['warranty_chargeable'] === '') {
-        return 'Warranty / Chargeable is required.';
+        return 'Service Type is required.';
     }
 
     if (!scm_option_exists($conn, 'warranty_chargeable', $data['warranty_chargeable'])) {
-        return 'Invalid Warranty / Chargeable selection.';
+        return 'Invalid Service Type selection.';
     }
 
     $items = spare_parts_resolve_items($data);

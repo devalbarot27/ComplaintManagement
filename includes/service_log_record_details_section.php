@@ -159,7 +159,7 @@ $renderServiceLogDetailField = static function (
                     'col-md-4'
                 );
                 $renderServiceLogDetailField(
-                    'Warranty / Chargeable',
+                    'Service Type',
                     service_log_display_value($serviceLogRecord['warranty_chargeable'] ?? null),
                     'col-md-4'
                 );

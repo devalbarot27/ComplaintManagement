@@ -22,7 +22,7 @@ function validateInstalledBaseServiceLogDraftForm(form) {
 
     requireField('fab_number', 'Fab Number is required');
     requireField('machine_model', 'Machine Model is required');
-    requireField('warranty_chargeable', 'Warranty / Chargeable is required');
+    requireField('warranty_chargeable', 'Service Type is required');
     requireField('complaint_date', 'Log Date is required');
     requireField('issue_description', 'Issue / Service Description is required');
     requireField('engineer_name', 'Engineer Name is required');

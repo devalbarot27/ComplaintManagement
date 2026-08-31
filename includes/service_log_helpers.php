@@ -503,11 +503,11 @@ function service_log_validate(PDO $conn, array $data, int $recordId = 0): ?strin
     }
 
     if ($data['warranty_chargeable'] === '') {
-        return 'Warranty / Chargeable is required.';
+        return 'Service Type is required.';
     }
 
     if (!scm_option_exists($conn, 'warranty_chargeable', $data['warranty_chargeable'])) {
-        return 'Invalid Warranty / Chargeable selection.';
+        return 'Invalid Service Type selection.';
     }
 
     if ($data['complaint_date'] === '') {

@@ -59,7 +59,7 @@
                                 <div class="text-danger validation-msg" data-field="serial_number"></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-shield-check"></i> Warranty / Chargeable <span class="text-danger">*</span></label>
+                                <label class="form-label"><i class="bi bi-shield-check"></i> Service Type <span class="text-danger">*</span></label>
                                 <select class="form-control" name="warranty_chargeable" id="ibServiceLogWarrantySelect"
                                     data-placeholder="Search service type">
                                     <option value=""></option>

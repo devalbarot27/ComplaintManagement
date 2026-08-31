@@ -326,7 +326,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                 </div>
                               
                                 <div class="col-md-4 form-group">
-                                    <label class="form-label"><i class="bi bi-shield-check"></i> Warranty / Chargeable <span class="text-danger">*</span></label>
+                                    <label class="form-label"><i class="bi bi-shield-check"></i> Service Type <span class="text-danger">*</span></label>
                                     <select class="form-control" name="warranty_chargeable" id="serviceLogWarrantySelect"
                                         data-placeholder="Search service type">
                                         <option value=""></option>

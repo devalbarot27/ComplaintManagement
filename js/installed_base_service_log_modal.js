@@ -600,7 +600,7 @@ function initInstalledBaseServiceLogValidation() {
             presence: { allowEmpty: false, message: '^Machine Model is required' }
         },
         warranty_chargeable: {
-            presence: { allowEmpty: false, message: '^Warranty / Chargeable is required' }
+            presence: { allowEmpty: false, message: '^Service Type is required' }
         },
         complaint_date: {
             presence: { allowEmpty: false, message: '^Log Date is required' }

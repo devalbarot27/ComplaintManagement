@@ -24,7 +24,7 @@ function complaint_service_log_validate_draft(PDO $conn, array $data, int $recor
     }
 
     if ($data['warranty_chargeable'] === '') {
-        return 'Warranty / Chargeable is required.';
+        return 'Service Type is required.';
     }
 
     if ($data['complaint_date'] === '') {
