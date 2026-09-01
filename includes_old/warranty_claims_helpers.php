@@ -1081,9 +1081,9 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
         $districtValue = $city ?? null;
     }
 
-    $bearerToken = warranty_claims_get_ln_bearer_token();
+    // $bearerToken = warranty_claims_get_ln_bearer_token();
 
-    // $bearerToken = "eyJraWQiOiJrZzpjNmE0ODgwZi02ZDI0LTQ4MTctYjY3ZS1mNTA3NzNiYjI3N2EiLCJhbGciOiJSUzI1NiJ9.eyJTZXJ2aWNlQWNjb3VudCI6IkVMR0lfVFNUI29JZHp6dC04STg0amxLbC1aTlVOcW5Nb0JUM2s5ZjBzWjJDb1cyVFNRQmNOb28zQlpUemd4WXdFaTJ5OHAtRUJoTlJxUVhUSHlaVm1CWWtTM0VEMmJnIiwiVGVuYW50IjoiRUxHSV9UU1QiLCJJZGVudGl0eTIiOiJkMzJjZWQ5Yy0zZjlhLTRlNzctOTllYS0zMmRmOGVkZTQ3MzAiLCJFbmZvcmNlU2NvcGVzRm9yQ2xpZW50IjoiMCIsImdyYW50X2lkIjoiZjBkZjgxOGUtYzI5ZC00ZjQwLTg0NWYtZTIzZTIzOWI0MDJhIiwiSW5mb3JTVFNJc3N1ZWRUeXBlIjoiQVMiLCJjbGllbnRfaWQiOiJFTEdJX1RTVH5HalFUeThzZTBTbnBMX0JjWkl1aEhkNVA0YW9pTldZTkxqazNIOFUtdE5zIiwianRpIjoiODJhYTg4ODQtMTRjMS00N2FhLTk0OTctNmU4ZTE1ZGQzM2M4IiwiaWF0IjoxNzg3ODMyMDEzLCJuYmYiOjE3ODc4MzIwMTMsImV4cCI6MTc4NzgzOTIxMywiaXNzIjoiaHR0cHM6Ly9taW5nbGUtc3NvLmV1MS5pbmZvcmNsb3Vkc3VpdGUuY29tOjQ0MyIsImF1ZCI6Imh0dHBzOi8vbWluZ2xlLWlvbmFwaS5ldTEuaW5mb3JjbG91ZHN1aXRlLmNvbSJ9.uSLwghk5Ulw3tDj9gHJ1Ip97PVM4rUeOzZzDfYDzZpJcHCrLAxhCHpo-xHN7E_HFaBMmbUh3WhxHbjNP8Z0Smzn8fsGVFjz6LwJMRPw24-Fu1xpf0ZNgPIepdD49pLD7G27jQGfZzyzuYjutXFCz5kUoTFo-tNwzBjqBAnBPOOBZtZwikva_sXtFxvpqCXGD2Aoi_cvwxyi2elNaUdMyW0-4r86__PQ2tFur7TFjmULJt24_Z4PKd8VkH_OSg-49r6geRpZvO5kfI-zg8t5s9rnWNcwbW4Ppq2-o_UNQNxxXcZgfb9oJpY66YZMvc0Fb0Trpy_Efrk-V5MDVGcz-Gw";
+    $bearerToken = "eyJraWQiOiJrZzpjNmE0ODgwZi02ZDI0LTQ4MTctYjY3ZS1mNTA3NzNiYjI3N2EiLCJhbGciOiJSUzI1NiJ9.eyJTZXJ2aWNlQWNjb3VudCI6IkVMR0lfVFNUI29JZHp6dC04STg0amxLbC1aTlVOcW5Nb0JUM2s5ZjBzWjJDb1cyVFNRQmNOb28zQlpUemd4WXdFaTJ5OHAtRUJoTlJxUVhUSHlaVm1CWWtTM0VEMmJnIiwiVGVuYW50IjoiRUxHSV9UU1QiLCJJZGVudGl0eTIiOiJkMzJjZWQ5Yy0zZjlhLTRlNzctOTllYS0zMmRmOGVkZTQ3MzAiLCJFbmZvcmNlU2NvcGVzRm9yQ2xpZW50IjoiMCIsImdyYW50X2lkIjoiZjBkZjgxOGUtYzI5ZC00ZjQwLTg0NWYtZTIzZTIzOWI0MDJhIiwiSW5mb3JTVFNJc3N1ZWRUeXBlIjoiQVMiLCJjbGllbnRfaWQiOiJFTEdJX1RTVH5HalFUeThzZTBTbnBMX0JjWkl1aEhkNVA0YW9pTldZTkxqazNIOFUtdE5zIiwianRpIjoiODJhYTg4ODQtMTRjMS00N2FhLTk0OTctNmU4ZTE1ZGQzM2M4IiwiaWF0IjoxNzg3ODMyMDEzLCJuYmYiOjE3ODc4MzIwMTMsImV4cCI6MTc4NzgzOTIxMywiaXNzIjoiaHR0cHM6Ly9taW5nbGUtc3NvLmV1MS5pbmZvcmNsb3Vkc3VpdGUuY29tOjQ0MyIsImF1ZCI6Imh0dHBzOi8vbWluZ2xlLWlvbmFwaS5ldTEuaW5mb3JjbG91ZHN1aXRlLmNvbSJ9.uSLwghk5Ulw3tDj9gHJ1Ip97PVM4rUeOzZzDfYDzZpJcHCrLAxhCHpo-xHN7E_HFaBMmbUh3WhxHbjNP8Z0Smzn8fsGVFjz6LwJMRPw24-Fu1xpf0ZNgPIepdD49pLD7G27jQGfZzyzuYjutXFCz5kUoTFo-tNwzBjqBAnBPOOBZtZwikva_sXtFxvpqCXGD2Aoi_cvwxyi2elNaUdMyW0-4r86__PQ2tFur7TFjmULJt24_Z4PKd8VkH_OSg-49r6geRpZvO5kfI-zg8t5s9rnWNcwbW4Ppq2-o_UNQNxxXcZgfb9oJpY66YZMvc0Fb0Trpy_Efrk-V5MDVGcz-Gw";
 
     if (!$bearerToken) {
         error_log("FOC claim #{$claimId}: aborting - could not obtain ERP LN bearer token.");
@@ -1436,21 +1436,21 @@ $insertStmt = $obconn->prepare($insertSql);
 
         $insertedCount++;
 
-        // $debugSql = $insertSql;
+        $debugSql = $insertSql;
 
-// foreach ($params as $key => $value) {
-//     if ($value === null) {
-//         $replacement = 'NULL';
-//     } elseif (is_bool($value)) {
-//         $replacement = $value ? 'TRUE' : 'FALSE';
-//     } elseif (is_numeric($value)) {
-//         $replacement = $value;
-//     } else {
-//         $replacement = $obconn->quote($value);
-//     }
+foreach ($params as $key => $value) {
+    if ($value === null) {
+        $replacement = 'NULL';
+    } elseif (is_bool($value)) {
+        $replacement = $value ? 'TRUE' : 'FALSE';
+    } elseif (is_numeric($value)) {
+        $replacement = $value;
+    } else {
+        $replacement = $obconn->quote($value);
+    }
 
-//     $debugSql = str_replace($key, $replacement, $debugSql);
-// }
+    $debugSql = str_replace($key, $replacement, $debugSql);
+}
 
     error_log(
     "FOC claim #{$claimId}: inserted plexecom_customer_units row for part {$tplcode} " .
@@ -1459,10 +1459,10 @@ $insertStmt = $obconn->prepare($insertSql);
 );
 
 
-// error_log(
-//     "FOC claim #{$claimId}: FINAL INSERT SQL for part {$tplcode} = " .
-//     $debugSql
-// );
+error_log(
+    "FOC claim #{$claimId}: FINAL INSERT SQL for part {$tplcode} = " .
+    $debugSql
+);
 
     }
 
@@ -1488,6 +1488,9 @@ $insertStmt = $obconn->prepare($insertSql);
     $errno = 0;
     $error = '';
     $httpCode = 0;
+
+     print_r($xml);
+                        exit();
 
     for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
         $ch = curl_init();

@@ -2,6 +2,23 @@
 include '../pdo_obconn.php';
 
 
+$sql = "UPDATE user_master
+SET
+    level_1_approval = TRUE,
+    level_2_approval = TRUE,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 14
+  AND deleted_at IS NULL;";
+
+$stmt = $obconn->prepare($sql);
+
+if ($stmt->execute()) {
+    echo "Column added successfully (or already exists).";
+} else {
+    print_r($stmt->errorInfo());
+}
+die();
+
 
 try {
     // 1. Get table structure
@@ -44,15 +61,13 @@ die();
 
 
 
-$sql = "CREATE TABLE IF NOT EXISTS customer_master_sync (
-    id SERIAL PRIMARY KEY,
-    customer_code VARCHAR(9) NOT NULL,
-    added_by VARCHAR(100),
-    updated_by VARCHAR(100),
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITHOUT TIME ZONE,
-    deleted_at TIMESTAMP WITHOUT TIME ZONE
-);";
+$sql = "UPDATE user_master
+SET
+    level_1_approval = TRUE,
+    level_2_approval = TRUE,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = 14
+  AND deleted_at IS NULL;";
 
 $stmt = $obconn->prepare($sql);
 

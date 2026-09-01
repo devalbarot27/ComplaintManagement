@@ -68,9 +68,9 @@
     } else if ($currentPage == 'industry_segment_details.php') {
         $pageName = "Industry Segment Details";
     } else if ($currentPage == 'warranty_chargeable.php') {
-        $pageName = "Service Type";
+        $pageName = "Warranty / Chargeable";
     } else if ($currentPage == 'warranty_chargeable_details.php') {
-        $pageName = "Service Type Details";
+        $pageName = "Warranty / Chargeable Details";
     } else if ($currentPage == 'part_replaced.php') {
         $pageName = "Part Replaced";
     } else if ($currentPage == 'part_replaced_details.php') {
@@ -409,7 +409,7 @@
                   <a href="warranty_chargeable.php"
                       class="menu-item <?= in_array($currentPage, ['warranty_chargeable.php', 'warranty_chargeable_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-shield-check"></i>
-                      Service Type
+                      Warranty / Chargeable
                   </a>
 
                   <a href="part_replaced.php"
