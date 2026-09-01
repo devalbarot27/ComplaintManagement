@@ -86,6 +86,10 @@ function rbac_page_access_rules(): array
         'amc.php' => ['module' => 'amc', 'permission' => 'view'],
         'amc_details.php' => ['module' => 'amc', 'permission' => 'view'],
         'delete_amc.php' => ['module' => 'amc', 'permission' => 'delete'],
+        'documentation.php' => ['module' => 'documentation', 'permission' => 'view'],
+        'documentation_details.php' => ['module' => 'documentation', 'permission' => 'view'],
+        'documentation_download.php' => ['module' => 'documentation', 'permission' => 'view'],
+        'delete_documentation.php' => ['module' => 'documentation', 'permission' => 'delete'],
         'access_denied.php' => null,
         'notifications.php' => null,    ];
 }
@@ -117,6 +121,7 @@ function rbac_api_access_rules(): array
         'complaint_service_log_prefill.php' => ['module' => 'assigned-complaint-list', 'permission' => 'service-update'],
         'complaint_service_log_draft_save.php' => ['module' => 'assigned-complaint-list', 'permission' => 'service-update'],
         'service_log_update.php' => ['module' => 'service-log-capture', 'permission' => 'edit'],
+        'cdoc_product_search.php' => ['module' => 'documentation', 'permission' => 'view'],
         'amc.php' => ['module' => 'amc', 'permission' => 'view'],
            'amc_details.php' => ['module' => 'amc', 'permission' => 'view'],
         'delete_amc.php' => ['module' => 'amc', 'permission' => 'delete'],
@@ -144,6 +149,7 @@ function rbac_sidebar_modules(): array
            'amc.php' => ['module' => 'amc', 'permission' => 'view'],
               'amc_details.php' => ['module' => 'amc', 'permission' => 'view'],
         'delete_amc.php' => ['module' => 'amc', 'permission' => 'delete'],
+        'documentation.php' => ['module' => 'documentation', 'permission' => 'view'],
     ];
 }
 

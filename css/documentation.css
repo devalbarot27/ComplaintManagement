@@ -1,0 +1,21 @@
+.cdoc-preview-frame {
+    width: 100%;
+    min-height: 640px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.cdoc-preview-image-wrap {
+    text-align: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.cdoc-preview-image-wrap img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+}

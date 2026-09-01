@@ -7,6 +7,12 @@
     if (!isset($obconn)) {
         require_once __DIR__ . '/pdo_obconn.php';
     }
+    require_once __DIR__ . '/includes/cdoc_helpers.php';
+    try {
+        cdoc_ensure_schema($obconn);
+    } catch (Throwable $e) {
+        // Schema bootstrap must not block the rest of the portal.
+    }
     $currentPage = basename($_SERVER['PHP_SELF']);
     $pageName = "";
     if ($currentPage == "orderbooking.php") {
@@ -109,6 +115,10 @@
         $pageName = "Service Claim Details";
     } else if ($currentPage == 'approvals.php') {
         $pageName = "Approvals";
+    } else if ($currentPage == 'documentation.php') {
+        $pageName = "Documentation";
+    } else if ($currentPage == 'documentation_details.php') {
+        $pageName = "Document Details";
     }
 
     ?>
@@ -269,7 +279,21 @@
                   <?php } ?>
               </div>
           <?php } ?>
-      <?php $canAmc = rbac_can_access_menu($obconn, 'amc.php'); ?>
+          <?php
+            $canDocumentation = rbac_can_access_menu($obconn, 'documentation.php');
+            ?>
+          <?php if ($canDocumentation) { ?>
+              <div class="menu-section">
+                  <div class="menu-heading">DOCUMENTATION</div>
+
+                  <a href="documentation.php"
+                      class="menu-item <?= ($currentPage == 'documentation.php' || $currentPage == 'documentation_details.php') ? 'active' : '' ?>">
+                      <i class="bi bi-journal-text"></i>
+                      Documentation
+                  </a>
+              </div>
+          <?php } ?>
+          <?php $canAmc = rbac_can_access_menu($obconn, 'amc.php'); ?>
           <?php if ($canAmc) { ?>
               <div class="menu-section">
                   <div class="menu-heading">AMC</div>
