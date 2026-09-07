@@ -3,20 +3,9 @@ function resetComplaintFabAutoFields(form) {
         return;
     }
 
-    ['customer_name', 'street_1', 'street_2'].forEach(function (field) {
-        const input = form.querySelector('[name="' + field + '"]');
-        if (input) {
-            input.value = '';
-            input.classList.remove('is-invalid');
-        }
-
-        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
-        if (msg) {
-            msg.textContent = '';
-        }
-    });
-
-    resetPincodeSelect2(form, 'pincodeSelect');
+    if (typeof resetComplaintCustomerSelect2 === 'function') {
+        resetComplaintCustomerSelect2();
+    }
 }
 
 function setComplaintCustomerFields(form, data) {
@@ -24,20 +13,9 @@ function setComplaintCustomerFields(form, data) {
         return;
     }
 
-    ['customer_name', 'street_1', 'street_2'].forEach(function (field) {
-        const input = form.querySelector('[name="' + field + '"]');
-        if (!input) {
-            return;
-        }
-
-        input.value = data[field] != null ? String(data[field]) : '';
-        input.classList.remove('is-invalid');
-
-        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
-        if (msg) {
-            msg.textContent = '';
-        }
-    });
+    if (data.customer_id && typeof setComplaintCustomerSelect2 === 'function') {
+        setComplaintCustomerSelect2(data.customer_id, data.customer_label || data.customer_name || '');
+    }
 }
 
 function prefillComplaintFromFab(form, fabNumber) {
@@ -62,7 +40,6 @@ function prefillComplaintFromFab(form, fabNumber) {
         }
 
         setComplaintCustomerFields(form, response);
-        setPincodeSelect2(form, 'pincodeSelect', response);
     }).fail(function () {
         resetComplaintFabAutoFields(form);
     });

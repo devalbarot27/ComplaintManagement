@@ -325,47 +325,95 @@ function resetcustomerMasterForm() {
 }
 
 function opencustomerMasterFormPanel() {
-    document.getElementById('customerMasterFormCard').classList.add('show');
-    document.getElementById('opencustomerMasterForm').style.display = 'none';
-    document.getElementById('closecustomerMasterForm').classList.add('show');
+    const card = document.getElementById('customerMasterFormCard');
+    const openBtn = document.getElementById('opencustomerMasterForm');
+    const closeBtn = document.getElementById('closecustomerMasterForm');
+    if (card) {
+        card.classList.add('show');
+    }
+    if (openBtn) {
+        openBtn.style.display = 'none';
+    }
+    if (closeBtn) {
+        closeBtn.classList.add('show');
+    }
 }
 
 function closecustomerMasterFormPanel() {
-    document.getElementById('customerMasterFormCard').classList.remove('show');
-    document.getElementById('opencustomerMasterForm').style.display = 'flex';
-    document.getElementById('closecustomerMasterForm').classList.remove('show');
+    const card = document.getElementById('customerMasterFormCard');
+    const openBtn = document.getElementById('opencustomerMasterForm');
+    const closeBtn = document.getElementById('closecustomerMasterForm');
+    if (card) {
+        card.classList.remove('show');
+    }
+    if (openBtn) {
+        openBtn.style.display = 'flex';
+    }
+    if (closeBtn) {
+        closeBtn.classList.remove('show');
+    }
     resetcustomerMasterForm();
 }
 
 function bootcustomerMasterPage() {
     initPincodeSelect2('customerMasterForm', 'customerMasterPincodeSelect');
     initcustomerMasterFormValidation();
-    initcustomerMasterDatatable();
 
-    document.getElementById('cancelcustomerMasterForm').addEventListener('click', closecustomerMasterFormPanel);
-    document.getElementById('closecustomerMasterForm').addEventListener('click', closecustomerMasterFormPanel);
-    document.getElementById('opencustomerMasterForm').addEventListener('click', function () {
+    const returnMode = !!window.customerMasterReturnMode;
+    const openBtn = document.getElementById('opencustomerMasterForm');
+    const closeBtn = document.getElementById('closecustomerMasterForm');
+    const cancelBtn = document.getElementById('cancelcustomerMasterForm');
+
+    if (!returnMode) {
+        initcustomerMasterDatatable();
+    } else {
+        opencustomerMasterFormPanel();
+        if (openBtn) {
+            openBtn.style.display = 'none';
+        }
+        if (closeBtn) {
+            closeBtn.style.display = 'none';
+        }
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closecustomerMasterFormPanel);
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closecustomerMasterFormPanel);
+    }
+    if (openBtn) {
+        openBtn.addEventListener('click', function () {
+            resetcustomerMasterForm();
+            opencustomerMasterFormPanel();
+        });
+    }
+
+    if (!returnMode) {
+        document.addEventListener('click', function (e) {
+            const editBtn = e.target.closest('.edit-customer-master-btn');
+            if (!editBtn) {
+                return;
+            }
+            const id = editBtn.getAttribute('data-id');
+            $.getJSON('api/customer_master_get.php', { id: id })
+                .done(function (record) {
+                    resetcustomerMasterForm();
+                    fillcustomerMasterForm(record);
+                    opencustomerMasterFormPanel();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                })
+                .fail(function () {
+                    alert('Failed to load customer details.');
+                });
+        });
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('open_form') === '1' && !returnMode) {
         resetcustomerMasterForm();
         opencustomerMasterFormPanel();
-    });
-
-    document.addEventListener('click', function (e) {
-        const editBtn = e.target.closest('.edit-customer-master-btn');
-        if (!editBtn) {
-            return;
-        }
-        const id = editBtn.getAttribute('data-id');
-        $.getJSON('api/customer_master_get.php', { id: id })
-            .done(function (record) {
-                resetcustomerMasterForm();
-                fillcustomerMasterForm(record);
-                opencustomerMasterFormPanel();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            })
-            .fail(function () {
-                alert('Failed to load customer details.');
-            });
-    });
+    }
 
     setTimeout(function () { $('.alert-success').fadeOut(); }, 3000);
 }

@@ -6,42 +6,76 @@ include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/customer_master_helpers.php';
 require_once __DIR__ . '/includes/current_username_helpers.php';
+require_once __DIR__ . '/includes/rbac_access_helpers.php';
 
-require_system_admin($obconn);
+$returnUrl = customer_master_sanitize_return_url($_GET['return_url'] ?? ($_POST['return_url'] ?? ''));
+$openFormFromReturn = isset($_GET['open_form']) && (string) $_GET['open_form'] === '1' && $returnUrl !== '';
+$isSystemAdmin = false;
+$returnDestinationLabel = 'previous form';
+if ($returnUrl !== '') {
+    $returnBase = basename(parse_url($returnUrl, PHP_URL_PATH) ?: $returnUrl);
+    if ($returnBase === 'installed_base.php') {
+        $returnDestinationLabel = 'Installed Base Capture';
+    } elseif ($returnBase === 'new_complaint.php') {
+        $returnDestinationLabel = 'Complaint Entry';
+    }
+}
+
+admin_ensure_session_role($obconn);
+$isSystemAdmin = is_system_admin();
+customer_master_require_page_access($obconn, $returnUrl);
 customer_master_ensure_schema($obconn);
 
 $success_message = '';
 $error_message = '';
 $actorUsername = current_username();
+$isReturnCreateMode = !$isSystemAdmin && $returnUrl !== '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_master'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = customer_master_from_post($_POST);
     $isEdit = $recordId > 0;
-    $validationError = customer_master_validate($obconn, $data);
+    $postedReturnUrl = customer_master_sanitize_return_url($_POST['return_url'] ?? '');
 
-    if ($validationError !== null) {
-        $error_message = $validationError;
-    } elseif (customer_master_email_exists($obconn, $data['email'], $recordId)) {
-        $error_message = 'Email already exists. Please choose a different email.';
-    } elseif (customer_master_mobile_exists($obconn, $data['mobile'], $recordId)) {
-        $error_message = 'Mobile already exists. Please choose a different mobile number.';
+    if ($isReturnCreateMode && $isEdit) {
+        $error_message = 'Access denied. You can only create a new customer.';
     } else {
-        try {
-            if ($isEdit) {
-                if (!customer_master_get_by_id($obconn, $recordId)) {
-                    $error_message = 'Record not found or already deleted.';
+        $validationError = customer_master_validate($obconn, $data);
+
+        if ($validationError !== null) {
+            $error_message = $validationError;
+        } elseif (customer_master_email_exists($obconn, $data['email'], $recordId)) {
+            $error_message = 'Email already exists. Please choose a different email.';
+        } elseif (customer_master_mobile_exists($obconn, $data['mobile'], $recordId)) {
+            $error_message = 'Mobile already exists. Please choose a different mobile number.';
+        } else {
+            try {
+                if ($isEdit) {
+                    if (!customer_master_get_by_id($obconn, $recordId)) {
+                        $error_message = 'Record not found or already deleted.';
+                    } else {
+                        customer_master_update($obconn, $recordId, $data, $actorUsername);
+                        $success_message = 'Customer updated successfully.';
+                    }
                 } else {
-                    customer_master_update($obconn, $recordId, $data, $actorUsername);
-                    $success_message = 'Customer updated successfully.';
+                    $newId = customer_master_insert($obconn, $data, $actorUsername);
+                    if ($postedReturnUrl !== '' && $newId > 0) {
+                        $separator = str_contains($postedReturnUrl, '?') ? '&' : '?';
+                        header('Location: ' . $postedReturnUrl . $separator . 'customer_id=' . $newId);
+                        exit;
+                    }
+                    $success_message = 'Customer saved successfully.';
                 }
-            } else {
-                customer_master_insert($obconn, $data, $actorUsername);
-                $success_message = 'Customer saved successfully.';
+            } catch (PDOException $e) {
+                $error_message = $isEdit ? 'Failed to update customer.' : 'Failed to save customer.';
             }
-        } catch (PDOException $e) {
-            $error_message = $isEdit ? 'Failed to update customer.' : 'Failed to save customer.';
         }
+    }
+
+    if ($postedReturnUrl !== '') {
+        $returnUrl = $postedReturnUrl;
+        $openFormFromReturn = true;
+        $isReturnCreateMode = !$isSystemAdmin && $returnUrl !== '';
     }
 }
 ?>
@@ -102,19 +136,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
 
             <div class="page-header">
                 <div>
-                    <div class="page-subtitle">Manage customer contact details and address information.</div>
+                    <div class="page-subtitle">
+                        <?php echo $isReturnCreateMode
+                            ? 'Add a customer and return to ' . htmlspecialchars($returnDestinationLabel, ENT_QUOTES, 'UTF-8') . '.'
+                            : 'Manage customer contact details and address information.'; ?>
+                    </div>
                 </div>
                 <div class="header-btn-group">
+                    <?php if ($isSystemAdmin) { ?>
                     <button class="new-order-btn btn-complaint-primary" id="opencustomerMasterForm" type="button">
                         <i class="bi bi-plus-lg"></i> Add Customer
                     </button>
                     <button class="close-form-btn cancel-btn" id="closecustomerMasterForm" type="button">
                         <i class="bi bi-x-lg"></i> Cancel
                     </button>
+                    <?php } elseif ($returnUrl !== '') { ?>
+                    <a href="<?php echo htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-light border">
+                        Back to <?php echo htmlspecialchars($returnDestinationLabel, ENT_QUOTES, 'UTF-8'); ?>
+                    </a>
+                    <?php } ?>
                 </div>
             </div>
 
-            <div class="complaint-form-card" id="customerMasterFormCard">
+            <div class="complaint-form-card<?php echo ($openFormFromReturn || $isReturnCreateMode) ? ' show' : ''; ?>" id="customerMasterFormCard">
                 <div class="complaint-form-header">
                     <div class="complaint-form-header__main">
                         <div class="complaint-form-header__icon"><i class="bi bi-person-vcard"></i></div>
@@ -128,6 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                 <form method="POST" id="customerMasterForm" novalidate>
                     <input type="hidden" name="record_id" id="customerMasterRecordId" value="">
                     <input type="hidden" name="submit_customer_master" value="1">
+                    <?php if ($returnUrl !== '') { ?>
+                    <input type="hidden" name="return_url" value="<?php echo htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php } ?>
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
                             <div class="row g-3">
@@ -193,7 +240,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                         </section>
                     </div>
                     <div class="complaint-form-actions">
+                        <?php if ($returnUrl !== '') { ?>
+                        <a href="<?php echo htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8'); ?>" class="cancel-btn">Cancel</a>
+                        <?php } else { ?>
                         <button type="button" class="cancel-btn" id="cancelcustomerMasterForm">Cancel</button>
+                        <?php } ?>
                         <button class="submit-btn btn-complaint-primary" type="submit" id="submitcustomerMasterBtn">
                             <i class="bi bi-check-lg"></i> Save Customer
                         </button>
@@ -201,6 +252,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                 </form>
             </div>
 
+            <?php if ($isSystemAdmin) { ?>
             <div class="booking-card">
                 <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div class="booking-title">Customer Master List</div>
@@ -223,11 +275,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                     </table>
                 </div>
             </div>
+            <?php } ?>
         </div>
     </div>
 
     <script src="js/pincode_select2.js"></script>
     <script src="js/customer_master.js"></script>
+    <script>
+    window.customerMasterReturnMode = <?php echo $isReturnCreateMode || $openFormFromReturn ? 'true' : 'false'; ?>;
+    </script>
 </body>
 
 </html>

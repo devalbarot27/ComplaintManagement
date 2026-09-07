@@ -24,11 +24,14 @@ if (!after_market_user_can_access_record($obconn, 'spare_parts_consumption', $id
 }
 
 $stmt = $obconn->prepare('
-    SELECT sp.*, ib.order_id, ib.customer_name, ib.machine_model
+    SELECT sp.*, ib.order_id, cm.customer_name, ib.machine_model
     FROM spare_parts_consumption sp
     LEFT JOIN installed_base ib
         ON ib.id = sp.installed_base_id
        AND ib.deleted_at IS NULL
+    LEFT JOIN customer_masters cm
+        ON cm.id = ib.customer_id
+       AND cm.deleted_at IS NULL
     WHERE sp.id = :id
       AND sp.deleted_at IS NULL
 ');

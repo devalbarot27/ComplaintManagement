@@ -173,7 +173,7 @@ try {
             fc.warranty_status, fc.l1_status, fc.l1_by_username, fc.l1_at, fc.l1_remarks,
             fc.l2_status, fc.l2_by_username, fc.l2_at, fc.l2_remarks,
             fc.overall_status, fc.ln_order_number, fc.created_by_username, fc.created_at,
-            c.fab_number, c.customer_name,
+            c.fab_number, cm.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(fc.created_by_username), ''), '-') AS created_by_name,
             (
                 SELECT STRING_AGG(fci.part_number, E'\\n' ORDER BY fci.id)
@@ -192,6 +192,9 @@ try {
             ) AS part_qtys
         FROM foc_claims fc
         INNER JOIN complaints c ON c.id = fc.complaint_id
+        LEFT JOIN customer_masters cm
+            ON cm.id = c.customer_id
+           AND cm.deleted_at IS NULL
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(fc.created_by_username))
            AND um.deleted_at IS NULL

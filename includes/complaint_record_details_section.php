@@ -85,9 +85,19 @@ $complaintStatusLabel = $statusMap[$complaint['status']] ?? 'Unknown';
             <div class="row g-3">
                 <?php
                 $renderComplaintDetailField(
-                    'Customer Name',
+                    'Customer',
                     (string) ($complaint['customer_name'] ?? ''),
                     'col-md-6'
+                );
+                $renderComplaintDetailField(
+                    'Mobile',
+                    (string) ($complaint['mobile'] ?? ''),
+                    'col-md-3'
+                );
+                $renderComplaintDetailField(
+                    'Email',
+                    (string) ($complaint['email'] ?? ''),
+                    'col-md-3'
                 );
                 $renderComplaintDetailField(
                     'Street 1',

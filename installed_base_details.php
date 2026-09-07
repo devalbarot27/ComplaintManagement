@@ -20,6 +20,8 @@ if ($id <= 0) {
     die('Invalid installed base record.');
 }
 
+installed_base_ensure_schema($obconn);
+
 if (!after_market_user_can_access_record($obconn, 'installed_base', $id)) {
     die('Installed base record not found.');
 }
@@ -27,6 +29,15 @@ if (!after_market_user_can_access_record($obconn, 'installed_base', $id)) {
 $stmt = $obconn->prepare('
     SELECT
         ib.*,
+        cm.customer_name,
+        cm.email,
+        cm.mobile,
+        cm.street_1,
+        cm.street_2,
+        cm.pincode,
+        cm.city,
+        cm.district,
+        cm.state,
         COALESCE(
             NULLIF(TRIM(um.name), \'\'),
             NULLIF(TRIM(um.username), \'\'),
@@ -34,6 +45,9 @@ $stmt = $obconn->prepare('
             \'-\'
         ) AS added_by_name
     FROM installed_base ib
+    LEFT JOIN customer_masters cm
+        ON cm.id = ib.customer_id
+       AND cm.deleted_at IS NULL
     LEFT JOIN user_master um
         ON um.id = ib.created_by
        AND um.deleted_at IS NULL

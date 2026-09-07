@@ -7,33 +7,44 @@ require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 rbac_require_api_access($obconn);
 
+installed_base_ensure_schema($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 
 $term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? ''));
 
 $scope = after_market_list_scope($obconn);
+$scopeWhere = after_market_scope_where_for_alias($scope['where'], 'ib');
 
 $sql = "
-    SELECT id, order_ref_id, order_id, fab_number, customer_name, machine_model, machine_model_code, running_hours
-    FROM installed_base
-    WHERE {$scope['where']}
+    SELECT
+        ib.id,
+        ib.order_ref_id,
+        ib.order_id,
+        ib.fab_number,
+        cm.customer_name,
+        ib.machine_model,
+        ib.machine_model_code,
+        ib.running_hours
+    FROM installed_base ib
+    " . installed_base_customer_join_sql('ib', 'cm') . "
+    WHERE {$scopeWhere}
 ";
 
 if ($term !== '') {
     $sql .= "
       AND (
-            order_id ILIKE :term
-         OR fab_number ILIKE :term
-         OR customer_name ILIKE :term
-         OR machine_model ILIKE :term
-         OR machine_model_code ILIKE :term
+            ib.order_id ILIKE :term
+         OR ib.fab_number ILIKE :term
+         OR cm.customer_name ILIKE :term
+         OR ib.machine_model ILIKE :term
+         OR ib.machine_model_code ILIKE :term
       )
     ";
 }
 
 $sql .= '
-    ORDER BY id DESC
+    ORDER BY ib.id DESC
     LIMIT 25
 ';
 
@@ -49,7 +60,8 @@ $stmt->execute();
 $results = [];
 
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-    $label = '#' . (int) $row['id'] . ' - ' . $row['fab_number'] . ' - ' . $row['customer_name'];
+    $customerName = trim((string) ($row['customer_name'] ?? ''));
+    $label = '#' . (int) $row['id'] . ' - ' . $row['fab_number'] . ' - ' . ($customerName !== '' ? $customerName : '-');
     $machineModelLabel = installed_base_machine_model_label($row);
 
     $results[] = [

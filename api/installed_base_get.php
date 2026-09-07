@@ -6,8 +6,11 @@ rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/ln_invoice_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
+require_once dirname(__DIR__) . '/includes/customer_master_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
+
+installed_base_ensure_schema($obconn);
 
 $id = (int) ($_GET['id'] ?? 0);
 
@@ -24,10 +27,21 @@ if (!after_market_user_can_access_record($obconn, 'installed_base', $id)) {
 }
 
 $stmt = $obconn->prepare('
-    SELECT *
-    FROM installed_base
-    WHERE id = :id
-      AND deleted_at IS NULL
+    SELECT
+        ib.*,
+        cm.customer_name,
+        cm.email,
+        cm.mobile,
+        cm.street_1,
+        cm.street_2,
+        cm.pincode,
+        cm.city,
+        cm.district,
+        cm.state
+    FROM installed_base ib
+    ' . installed_base_customer_join_sql('ib', 'cm') . '
+    WHERE ib.id = :id
+      AND ib.deleted_at IS NULL
 ');
 $stmt->bindValue(':id', $id, PDO::PARAM_INT);
 $stmt->execute();
@@ -53,8 +67,10 @@ if (!empty($row['fab_number'])) {
 $commissioning_date = $row['commissioning_date'];
 $formatted_commissioning_date = installed_base_format_date_for_input(
     $commissioning_date !== null ? (string) $commissioning_date : ''
-); 
- 
+);
+
+$customerId = (int) ($row['customer_id'] ?? 0);
+
 echo json_encode([
     'id' => (int) $row['id'],
     'order_ref_id' => trim((string) ($row['order_id'] ?? '')) !== ''
@@ -62,15 +78,9 @@ echo json_encode([
         : (string) ($row['order_ref_id'] ?? ''),
     'order_id' => $row['order_id'],
     'fab_number' => $row['fab_number'],
-    'customer_name' => $row['customer_name'],
-    'street_1' => $row['street_1'],
-    'street_2' => $row['street_2'],
-    'pincode' => $row['pincode'],
-    'city' => $row['city'],
-    'district' => $row['district'],
-    'state' => $row['state'],
-    'mobile' => $row['mobile'],
-    'email' => $row['email'],
+    'customer_id' => $customerId > 0 ? $customerId : '',
+    'customer_label' => $customerId > 0 ? customer_master_select2_label($row) : '',
+    'customer_name' => $row['customer_name'] ?? '',
     'dealer_name' => $row['dealer_name'],
     'machine_model_code' => $row['machine_model_code'],
     'machine_model' => $row['machine_model'],

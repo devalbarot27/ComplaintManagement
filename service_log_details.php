@@ -42,11 +42,23 @@ $installedBaseRecord = null;
 $installedBaseId = (int) ($record['installed_base_id'] ?? 0);
 
 if ($installedBaseId > 0) {
+    installed_base_ensure_schema($obconn);
     $ibStmt = $obconn->prepare('
-        SELECT *
-        FROM installed_base
-        WHERE id = :id
-          AND deleted_at IS NULL
+        SELECT
+            ib.*,
+            cm.customer_name,
+            cm.email,
+            cm.mobile,
+            cm.street_1,
+            cm.street_2,
+            cm.pincode,
+            cm.city,
+            cm.district,
+            cm.state
+        FROM installed_base ib
+        ' . installed_base_customer_join_sql('ib', 'cm') . '
+        WHERE ib.id = :id
+          AND ib.deleted_at IS NULL
     ');
     $ibStmt->bindValue(':id', $installedBaseId, PDO::PARAM_INT);
     $ibStmt->execute();

@@ -9,22 +9,25 @@ require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+installed_base_ensure_schema($obconn);
+
 $term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? ''));
 
 $listScope = after_market_list_scope($obconn);
-$where = $listScope['where'];
+$where = after_market_scope_where_for_alias($listScope['where'], 'ib');
 $params = $listScope['params'];
 
 if ($term !== '') {
-    $where .= ' AND (fab_number ILIKE :term OR customer_name ILIKE :term OR CAST(id AS TEXT) ILIKE :term)';
+    $where .= ' AND (ib.fab_number ILIKE :term OR cm.customer_name ILIKE :term OR CAST(ib.id AS TEXT) ILIKE :term)';
     $params[':term'] = '%' . $term . '%';
 }
 
 $stmt = $obconn->prepare("
-    SELECT id, fab_number, customer_name, commissioning_date
-    FROM installed_base
+    SELECT ib.id, ib.fab_number, cm.customer_name, ib.commissioning_date
+    FROM installed_base ib
+    " . installed_base_customer_join_sql('ib', 'cm') . "
     WHERE {$where}
-    ORDER BY id DESC
+    ORDER BY ib.id DESC
     LIMIT 20
 ");
 foreach ($params as $key => $value) {

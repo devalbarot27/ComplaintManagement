@@ -28,11 +28,20 @@ function complaint_mail_send(string $to, string $subject, string $message): bool
 
 function complaint_fetch_complaint_for_mail(PDO $conn, int $complaintId): ?array
 {
+    require_once __DIR__ . '/complaint_address_helpers.php';
+    complaint_ensure_schema($conn);
+
     $stmt = $conn->prepare('
-        SELECT id, fab_number, customer_name, complaint_description, complaint_category_name
-        FROM complaints
-        WHERE id = :id
-          AND deleted_at IS NULL
+        SELECT
+            c.id,
+            c.fab_number,
+            cm.customer_name,
+            c.complaint_description,
+            c.complaint_category_name
+        FROM complaints c
+        ' . complaint_customer_join_sql('c', 'cm') . '
+        WHERE c.id = :id
+          AND c.deleted_at IS NULL
     ');
     $stmt->bindValue(':id', $complaintId, PDO::PARAM_INT);
     $stmt->execute();

@@ -109,7 +109,7 @@ $renderInstalledBaseDetailField = static function (
             <div class="row g-3">
                 <?php
                 $renderInstalledBaseDetailField(
-                    'Customer Name',
+                    'Customer',
                     installed_base_display_value($installedBaseRecord['customer_name'] ?? null),
                     'col-md-6'
                 );
@@ -120,33 +120,33 @@ $renderInstalledBaseDetailField = static function (
                 );
                 $renderInstalledBaseDetailField(
                     'Street 1',
-                    installed_base_address_display_value($installedBaseRecord, 'street_1'),
+                    installed_base_display_value($installedBaseRecord['street_1'] ?? null),
                     'col-md-6',
                     true
                 );
                 $renderInstalledBaseDetailField(
                     'Street 2',
-                    installed_base_address_display_value($installedBaseRecord, 'street_2'),
+                    installed_base_display_value($installedBaseRecord['street_2'] ?? null),
                     'col-md-6'
                 );
                 $renderInstalledBaseDetailField(
                     'Pincode',
-                    installed_base_address_display_value($installedBaseRecord, 'pincode'),
+                    installed_base_display_value($installedBaseRecord['pincode'] ?? null),
                     'col-md-3'
                 );
                 $renderInstalledBaseDetailField(
                     'City',
-                    installed_base_address_display_value($installedBaseRecord, 'city'),
+                    installed_base_display_value($installedBaseRecord['city'] ?? null),
                     'col-md-3'
                 );
                 $renderInstalledBaseDetailField(
                     'District',
-                    installed_base_address_display_value($installedBaseRecord, 'district'),
+                    installed_base_display_value($installedBaseRecord['district'] ?? null),
                     'col-md-3'
                 );
                 $renderInstalledBaseDetailField(
                     'State',
-                    installed_base_address_display_value($installedBaseRecord, 'state'),
+                    installed_base_display_value($installedBaseRecord['state'] ?? null),
                     'col-md-3'
                 );
                 $renderInstalledBaseDetailField(

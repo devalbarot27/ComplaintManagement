@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/customer_master_helpers.php';
+
 function complaint_address_search_columns(): array
 {
     return [
@@ -11,6 +13,115 @@ function complaint_address_search_columns(): array
         'state',
         'customer_address',
     ];
+}
+
+/**
+ * @return array<int, string>
+ */
+function complaint_legacy_customer_columns(): array
+{
+    return [
+        'customer_name',
+        'street_1',
+        'street_2',
+        'pincode',
+        'city',
+        'district',
+        'state',
+        'customer_address',
+    ];
+}
+
+function complaint_table_has_column(PDO $conn, string $column): bool
+{
+    $stmt = $conn->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'complaints'
+          AND column_name = :column_name
+        LIMIT 1
+    ");
+    $stmt->bindValue(':column_name', $column);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
+function complaint_ensure_schema(PDO $conn): void
+{
+    customer_master_ensure_schema($conn);
+
+    if (!complaint_table_has_column($conn, 'customer_id')) {
+        $conn->exec('ALTER TABLE complaints ADD COLUMN customer_id INTEGER NULL');
+    }
+
+    if (complaint_table_has_column($conn, 'customer_name')) {
+        require_once __DIR__ . '/installed_base_helpers.php';
+        complaint_migrate_legacy_customer_fields($conn);
+
+        foreach (complaint_legacy_customer_columns() as $column) {
+            if (complaint_table_has_column($conn, $column)) {
+                $conn->exec('ALTER TABLE complaints DROP COLUMN IF EXISTS ' . $column);
+            }
+        }
+    }
+}
+
+function complaint_migrate_legacy_customer_fields(PDO $conn): void
+{
+    $selectCols = ['id'];
+    foreach (complaint_legacy_customer_columns() as $column) {
+        if ($column === 'customer_address') {
+            continue;
+        }
+        if (complaint_table_has_column($conn, $column)) {
+            $selectCols[] = $column;
+        }
+    }
+
+    $stmt = $conn->query('
+        SELECT ' . implode(', ', $selectCols) . '
+        FROM complaints
+        WHERE customer_id IS NULL
+          AND deleted_at IS NULL
+        ORDER BY id ASC
+    ');
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $customerId = installed_base_resolve_or_create_customer_from_legacy_row($conn, $row);
+        if ($customerId <= 0) {
+            continue;
+        }
+
+        $update = $conn->prepare('
+            UPDATE complaints
+            SET customer_id = :customer_id
+            WHERE id = :id
+              AND customer_id IS NULL
+        ');
+        $update->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+        $update->bindValue(':id', (int) $row['id'], PDO::PARAM_INT);
+        $update->execute();
+    }
+}
+
+function complaint_customer_join_sql(string $complaintAlias = 'c', string $cmAlias = 'cm'): string
+{
+    return "LEFT JOIN customer_masters {$cmAlias}
+        ON {$cmAlias}.id = {$complaintAlias}.customer_id
+       AND {$cmAlias}.deleted_at IS NULL";
+}
+
+function complaint_scope_where_for_alias(string $where, string $tableAlias = 'c'): string
+{
+    $where = preg_replace('/\bcomplaints\.id\b/', $tableAlias . '.id', $where);
+    $where = preg_replace('/(?<![.\w])deleted_at\b/', $tableAlias . '.deleted_at', $where);
+    $where = preg_replace('/(?<![.\w])username\s*=/', $tableAlias . '.username =', $where);
+    $where = preg_replace('/(?<![.\w])status\s*=/', $tableAlias . '.status =', $where);
+    $where = preg_replace('/(?<![.\w])id\s*=\s*:complaint_id/', $tableAlias . '.id = :complaint_id', $where);
+
+    return $where;
 }
 
 function complaint_address_from_post(array $post): array
@@ -69,6 +180,22 @@ function complaint_validate_address_fields(array $address): ?string
 
     if (strlen($address['state']) > 100) {
         return 'State cannot exceed 100 characters.';
+    }
+
+    return null;
+}
+
+function complaint_validate_customer_id(PDO $conn, $customerId): ?string
+{
+    complaint_ensure_schema($conn);
+
+    $id = (int) $customerId;
+    if ($id <= 0) {
+        return 'Customer is required.';
+    }
+
+    if (customer_master_get_by_id($conn, $id) === null) {
+        return 'Selected customer is invalid.';
     }
 
     return null;

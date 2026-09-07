@@ -10,7 +10,10 @@ include('includes/complaint_category_helpers.php');
 require_once 'includes/complaint_datatable_helpers.php';
 require_once 'includes/complaint_closure_helpers.php';
 include('includes/ln_invoice_helpers.php');
- 
+require_once 'includes/customer_master_helpers.php';
+
+complaint_ensure_schema($obconn);
+
 $success_message = '';
 $error_message = '';
 $userName = current_username();
@@ -39,25 +42,22 @@ if(isset($_POST['submit_complaint']))
         $error_message = 'Access denied. You do not have permission to assign complaints.';
     } else {
     $fab_number = trim($_POST['fab_number']);
-    $customer_name = trim($_POST['customer_name']);
-    $address = complaint_address_from_post($_POST);
+    $customer_id = (int) ($_POST['customer_id'] ?? 0);
     $complaint_description = trim($_POST['complaint_description']);
     $complaint_category_id = (int) ($_POST['complaint_category_id'] ?? 0);
     $remarks = trim($_POST['remarks'] ?? '');
 
-    $addressError = complaint_validate_address_fields($address);
+    $customerError = complaint_validate_customer_id($obconn, $customer_id);
+    $customer = $customer_id > 0 ? customer_master_get_by_id($obconn, $customer_id) : null;
+    $customer_name = $customer ? trim((string) ($customer['customer_name'] ?? '')) : '';
     $complaintCategory = complaint_category_resolve_for_complaint($obconn, $complaint_category_id);
 
-    if ($addressError !== null) {
-        $error_message = $addressError;
+    if ($customerError !== null) {
+        $error_message = $customerError;
     } elseif ($fab_number === '') {
         $error_message = 'Fab Number is required.';
     } elseif (!ln_invoice_fabno_exists($dpconn, $fab_number)) {
         $error_message = 'Selected Fab Number was not found in invoice details.';
-    } elseif ($customer_name === '') {
-        $error_message = 'Customer Name is required.';
-    } elseif (!preg_match('/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/', $customer_name)) {
-        $error_message = 'Customer Name can contain only alphabetic characters and spaces.';
     } elseif ($complaintCategory === null) {
         $error_message = 'Complaint Category is required.';
     } elseif (strlen($remarks) > 500) {
@@ -94,13 +94,7 @@ if(isset($_POST['submit_complaint']))
                 INSERT INTO complaints
                 (
                     fab_number,
-                    customer_name,
-                    street_1,
-                    street_2,
-                    pincode,
-                    city,
-                    district,
-                    state,
+                    customer_id,
                     complaint_description,
                     complaint_category_id,
                     complaint_category_name,
@@ -111,13 +105,7 @@ if(isset($_POST['submit_complaint']))
                 VALUES
                 (
                     :fab_number,
-                    :customer_name,
-                    :street_1,
-                    :street_2,
-                    :pincode,
-                    :city,
-                    :district,
-                    :state,
+                    :customer_id,
                     :complaint_description,
                     :complaint_category_id,
                     :complaint_category_name,
@@ -128,13 +116,7 @@ if(isset($_POST['submit_complaint']))
             ");
 
             $insert->bindValue(':fab_number', $fab_number);
-            $insert->bindValue(':customer_name', $customer_name);
-            $insert->bindValue(':street_1', $address['street_1']);
-            $insert->bindValue(':street_2', $address['street_2'] !== '' ? $address['street_2'] : null);
-            $insert->bindValue(':pincode', $address['pincode']);
-            $insert->bindValue(':city', $address['city']);
-            $insert->bindValue(':district', $address['district']);
-            $insert->bindValue(':state', $address['state']);
+            $insert->bindValue(':customer_id', $customer_id, PDO::PARAM_INT);
             $insert->bindValue(':complaint_description', $complaint_description);
             $insert->bindValue(':complaint_category_id', (int) $complaintCategory['id'], PDO::PARAM_INT);
             $insert->bindValue(':complaint_category_name', $complaintCategory['name']);
@@ -149,7 +131,7 @@ if(isset($_POST['submit_complaint']))
                 $obconn,
                 $complaintId,
                 'Created',
-                'Complaint registered for Fab Number ' . $fab_number . ' - ' . $customer_name,
+                'Complaint registered for Fab Number ' . $fab_number . ' - ' . ($customer_name !== '' ? $customer_name : 'Customer #' . $customer_id),
                 $assigned_by
             );
 
@@ -270,8 +252,8 @@ if(isset($_POST['submit_complaint']))
 <!-- validate.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="js/pincode_select2.js"></script>
 <script src="js/fabno_select2.js"></script>
+<script src="js/complaint_customer_select2.js"></script>
 <script src="js/complaint_fab_prefill.js"></script>
 <script src="js/assign_to_select2.js"></script>
 <script src="js/static_select2.js"></script>
@@ -390,69 +372,25 @@ if(isset($_POST['submit_complaint']))
                                     <div class="text-danger validation-msg" data-field="fab_number"></div>
                                 </div>
                                 <div class="col-md-6 form-group">
-                                    <label class="form-label">
+                                    <label class="form-label" for="complaintCustomerSelect">
                                         <i class="bi bi-person"></i>
-                                        Customer Name <span class="text-danger">*</span>
+                                        Customer <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control" name="customer_name" maxlength="200"
-                                        placeholder="Enter customer name">
-                                    <div class="text-danger validation-msg" data-field="customer_name"></div>
-                                </div>
-                                <div class="col-md-6 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-signpost"></i>
-                                        Street 1 <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control" name="street_1" maxlength="255"
-                                        placeholder="House / building / street">
-                                    <div class="text-danger validation-msg" data-field="street_1"></div>
-                                </div>
-                                <div class="col-md-6 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-signpost-2"></i>
-                                        Street 2
-                                    </label>
-                                    <input type="text" class="form-control" name="street_2" maxlength="255"
-                                        placeholder="Area / landmark (optional)">
-                                    <div class="text-danger validation-msg" data-field="street_2"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label" for="pincodeSelect">
-                                        <i class="bi bi-mailbox"></i>
-                                        Pincode <span class="text-danger">*</span>
-                                    </label>
-                                    <select class="form-control" name="pincode" id="pincodeSelect"
-                                        data-placeholder="Search pincode">
-                                        <option value=""></option>
-                                    </select>
-                                    <div class="text-danger validation-msg" data-field="pincode"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-building"></i>
-                                        City <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control address-auto-field" name="city"
-                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
-                                    <div class="text-danger validation-msg" data-field="city"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-geo"></i>
-                                        District <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control address-auto-field" name="district"
-                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
-                                    <div class="text-danger validation-msg" data-field="district"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-map"></i>
-                                        State <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control address-auto-field" name="state"
-                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
-                                    <div class="text-danger validation-msg" data-field="state"></div>
+                                    <div class="d-flex gap-2 align-items-start flex-wrap">
+                                        <div class="flex-grow-1" style="min-width:220px;">
+                                            <select class="form-control" name="customer_id" id="complaintCustomerSelect"
+                                                data-placeholder="Search customer" style="width:100%;">
+                                                <option value=""></option>
+                                            </select>
+                                            <div class="text-danger validation-msg" data-field="customer_id"></div>
+                                        </div>
+                                        <?php if ($canAddComplaint) { ?>
+                                        <button type="button" class="btn btn-outline-dark btn-sm mt-1" id="addNewCustomerFromComplaintBtn"
+                                            title="Add New Customer">
+                                            <i class="bi bi-plus-lg"></i> Add New Customer
+                                        </button>
+                                        <?php } ?>
+                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -803,54 +741,10 @@ function initComplaintFormValidation() {
                 message: '^Fab Number is required'
             }
         },
-        customer_name: {
+        customer_id: {
             presence: {
                 allowEmpty: false,
-                message: '^Customer Name is required'
-            },
-            format: {
-                pattern: /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/,
-                message: '^Customer Name can contain only alphabetic characters and spaces.'
-            }
-        },
-        street_1: {
-            presence: {
-                allowEmpty: false,
-                message: '^Street 1 is required'
-            }
-        },
-        street_2: {
-            length: {
-                maximum: 255,
-                message: '^Street 2 cannot exceed 255 characters'
-            }
-        },
-        pincode: {
-            presence: {
-                allowEmpty: false,
-                message: '^Pincode is required'
-            },
-            format: {
-                pattern: /^\d{6}$/,
-                message: '^Pincode must be a 6-digit number'
-            }
-        },
-        city: {
-            presence: {
-                allowEmpty: false,
-                message: '^City is required'
-            }
-        },
-        district: {
-            presence: {
-                allowEmpty: false,
-                message: '^District is required'
-            }
-        },
-        state: {
-            presence: {
-                allowEmpty: false,
-                message: '^State is required'
+                message: '^Customer is required'
             }
         },
         complaint_description: {
@@ -901,8 +795,9 @@ function initComplaintFormValidation() {
                 $('#complaintFabNumberSelect').addClass('is-invalid');
             }
 
-            if (field === 'pincode') {
-                $('#pincodeSelect').addClass('is-invalid');
+            if (field === 'customer_id') {
+                $('#complaintCustomerSelect').addClass('is-invalid');
+                $('#complaintCustomerSelect').next('.select2-container').find('.select2-selection').addClass('is-invalid');
             }
 
             if (field === 'assign_complaint') {
@@ -930,7 +825,12 @@ function initComplaintFormValidation() {
             const fieldErrors = validate.single(input.value, constraints[input.name]);
             const msg = form.querySelector('.validation-msg[data-field="' + input.name + '"]');
 
-            input.classList.toggle('is-invalid', !!fieldErrors);
+            if (input.name === 'customer_id') {
+                $('#complaintCustomerSelect').toggleClass('is-invalid', !!fieldErrors);
+                $('#complaintCustomerSelect').next('.select2-container').find('.select2-selection').toggleClass('is-invalid', !!fieldErrors);
+            } else {
+                input.classList.toggle('is-invalid', !!fieldErrors);
+            }
 
             if (msg) {
                 msg.textContent = fieldErrors ? fieldErrors[0] : '';
@@ -1472,7 +1372,8 @@ $(document).ready(function() {
 
     initComplaintEntryDatatable();
     initComplaintFormValidation();
-    initPincodeSelect2();
+    initComplaintCustomerSelect2();
+    initComplaintAddNewCustomerButton();
     initFabnoSelect2('complaintForm', 'complaintFabNumberSelect', {
         onSelect: function (data, form) {
             prefillComplaintFromFab(form, data.id);
@@ -1482,6 +1383,51 @@ $(document).ready(function() {
         }
     });
     initComplaintCategorySelect2();
+
+    // Return from Customer Master: restore draft + select new customer.
+    (function applyComplaintCustomerReturn() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('open_form') !== '1') {
+            return;
+        }
+
+        const openBtn = document.getElementById('openOrderForm');
+        const closeBtn = document.getElementById('closeOrderForm');
+        const card = document.getElementById('orderFormCard');
+        if (card) {
+            card.classList.add('show');
+        }
+        if (openBtn) {
+            openBtn.style.display = 'none';
+        }
+        if (closeBtn) {
+            closeBtn.classList.add('show');
+        }
+
+        const draft = typeof restoreComplaintFormDraft === 'function'
+            ? restoreComplaintFormDraft()
+            : null;
+        if (draft && typeof applyComplaintFormDraft === 'function') {
+            applyComplaintFormDraft(draft);
+        }
+
+        const customerId = (params.get('customer_id') || '').trim();
+        if (customerId) {
+            $.getJSON('api/customer_masters_search.php', { id: customerId })
+                .done(function (response) {
+                    const row = response && response.results && response.results[0] ? response.results[0] : null;
+                    if (row && typeof setComplaintCustomerSelect2 === 'function') {
+                        setComplaintCustomerSelect2(row.id, row.text || '');
+                    }
+                });
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete('customer_id');
+        url.searchParams.delete('open_form');
+        const nextUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+        window.history.replaceState({}, document.title, nextUrl);
+    })();
 <?php if ($canAssignComplaint) { ?>
     initAssignToSelect2('complaintForm', 'complaintAssignToSelect');
     initAssignToSelect2('assignComplaintForm', 'assignModalAssignToSelect', {
@@ -1589,6 +1535,9 @@ closeOrderForm.addEventListener('click', function() {
         complaintForm.reset();
         resetComplaintFabAutoFields(complaintForm);
         resetFabNumberSelect2ById('complaintFabNumberSelect');
+        if (typeof resetComplaintCustomerSelect2 === 'function') {
+            resetComplaintCustomerSelect2();
+        }
         resetStaticSelect2('complaintCategorySelect');
         document.getElementById('complaintCategoryName').value = '';
 <?php if ($canAssignComplaint) { ?>

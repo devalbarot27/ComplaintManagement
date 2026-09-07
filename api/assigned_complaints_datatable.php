@@ -7,14 +7,17 @@ rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_category_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_assignment_helpers.php';
+require_once dirname(__DIR__) . '/includes/complaint_address_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
+
+complaint_ensure_schema($obconn);
 
 $showAddedBy = complaint_can_view_added_by_column($obconn);
 
 $allowedOrderColumns = [
     'c.id',
     'c.fab_number',
-    'c.customer_name',
+    'cm.customer_name',
 ];
 if ($showAddedBy) {
     $allowedOrderColumns[] = 'added_by_name';
@@ -35,6 +38,7 @@ $baseWhere = $listScope['where'];
 $baseParams = $listScope['params'];
 $fromJoin = '
     FROM complaints c
+    ' . complaint_customer_join_sql('c', 'cm') . '
     ' . complaint_assigned_list_join_sql();
 if ($showAddedBy) {
     $fromJoin .= "\n    " . complaint_added_by_join_sql('c', 'um_added');
@@ -61,7 +65,7 @@ if ($complaintIdFilter > 0) {
 }
 
 if ($req['searchValue'] !== '') {
-    $searchColumns = ['c.fab_number', 'c.customer_name', 'c.complaint_category_name', 'c.username', 'c.complaint_description', 'ca.assign_complaint', 'ca.remarks'];
+    $searchColumns = ['c.fab_number', 'cm.customer_name', 'c.complaint_category_name', 'c.username', 'c.complaint_description', 'ca.assign_complaint', 'ca.remarks'];
     if ($showAddedBy) {
         $searchColumns[] = 'um_added.name';
         $searchColumns[] = 'um_added.username';
@@ -91,6 +95,8 @@ $orderColumn = $req['orderColumn'];
 $orderDir = $req['orderDir'];
 if ($orderColumn === 'added_by_name') {
     $orderColumn = complaint_added_by_sql_expression('c', 'um_added');
+} elseif ($orderColumn === 'cm.customer_name') {
+    $orderColumn = 'cm.customer_name';
 }
  
 $addedBySelect = $showAddedBy
@@ -102,7 +108,7 @@ $dataQuery = "
         c.id,
         ca.id as c_id,
         c.fab_number,
-        c.customer_name,
+        cm.customer_name,
         c.complaint_category_name,
         c.username,
         c.status,
@@ -142,7 +148,7 @@ foreach ($rows as $row) {
         'id' => '#' . (int) $row['c_id'],
         'c_id' => '#' . (int) $row['id'],
         'fab_number' => htmlspecialchars($row['fab_number'], ENT_QUOTES, 'UTF-8'),
-        'customer_name' => htmlspecialchars($row['customer_name'], ENT_QUOTES, 'UTF-8'),
+        'customer_name' => htmlspecialchars((string) ($row['customer_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'complaint_category' => htmlspecialchars(complaint_category_display_name($row), ENT_QUOTES, 'UTF-8'),
         'username' => htmlspecialchars((string) ($row['username'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'assign_complaint' => htmlspecialchars($row['assign_complaint'], ENT_QUOTES, 'UTF-8'),

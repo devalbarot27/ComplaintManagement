@@ -16,10 +16,21 @@ $id = (int)base64_decode($_GET['id'] ?? '', true);
 if ($id <= 0) {
     die('Invalid complaint');
 }
+
+complaint_ensure_schema($obconn);
  
 $stmt = $obconn->prepare("
     SELECT
         c.*,
+        cm.customer_name,
+        cm.street_1,
+        cm.street_2,
+        cm.pincode,
+        cm.city,
+        cm.district,
+        cm.state,
+        cm.mobile,
+        cm.email,
         COALESCE(
             NULLIF(TRIM(um.name), ''),
             NULLIF(TRIM(um.username), ''),
@@ -27,6 +38,7 @@ $stmt = $obconn->prepare("
             '-'
         ) AS added_by_name
     FROM complaints c
+    " . complaint_customer_join_sql('c', 'cm') . "
     LEFT JOIN user_master um
         ON um.id = c.added_by
        AND um.deleted_at IS NULL

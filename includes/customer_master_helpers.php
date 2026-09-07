@@ -321,7 +321,159 @@ function customer_master_entry_actions(int $id): string
     ';
 }
 
-function customer_master_insert(PDO $conn, array $data, string $username): void
+function customer_master_select2_label(array $row): string
+{
+    $name = trim((string) ($row['customer_name'] ?? ''));
+    $mobile = trim((string) ($row['mobile'] ?? ''));
+    $city = trim((string) ($row['city'] ?? ''));
+
+    if ($name === '') {
+        return '-';
+    }
+
+    $parts = [$name];
+    if ($mobile !== '') {
+        $parts[] = $mobile;
+    }
+    if ($city !== '') {
+        $parts[] = $city;
+    }
+
+    return implode(' - ', $parts);
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function customer_master_search_select2(PDO $conn, string $search, int $limit = 50): array
+{
+    customer_master_ensure_schema($conn);
+    $limit = max(1, min(100, $limit));
+
+    $sql = '
+        SELECT id, customer_name, email, mobile, street_1, street_2, pincode, city, district, state
+        FROM customer_masters
+        WHERE deleted_at IS NULL
+    ';
+    $params = [];
+
+    if ($search !== '') {
+        $sql .= ' AND (
+            customer_name ILIKE :search
+            OR email ILIKE :search
+            OR mobile ILIKE :search
+            OR city ILIKE :search
+        )';
+        $params[':search'] = '%' . $search . '%';
+    }
+
+    $sql .= ' ORDER BY customer_name ASC, id DESC LIMIT ' . (int) $limit;
+
+    $stmt = $conn->prepare($sql);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    $stmt->execute();
+
+    $results = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $results[] = [
+            'id' => (int) $row['id'],
+            'text' => customer_master_select2_label($row),
+            'customer_name' => trim((string) ($row['customer_name'] ?? '')),
+            'email' => trim((string) ($row['email'] ?? '')),
+            'mobile' => trim((string) ($row['mobile'] ?? '')),
+            'street_1' => trim((string) ($row['street_1'] ?? '')),
+            'street_2' => trim((string) ($row['street_2'] ?? '')),
+            'pincode' => trim((string) ($row['pincode'] ?? '')),
+            'city' => trim((string) ($row['city'] ?? '')),
+            'district' => trim((string) ($row['district'] ?? '')),
+            'state' => trim((string) ($row['state'] ?? '')),
+        ];
+    }
+
+    return $results;
+}
+
+function customer_master_sanitize_return_url(?string $returnUrl): string
+{
+    $returnUrl = trim((string) $returnUrl);
+    if ($returnUrl === '') {
+        return '';
+    }
+
+    if (preg_match('#^(https?:)?//#i', $returnUrl) || str_contains($returnUrl, "\n") || str_contains($returnUrl, "\r")) {
+        return '';
+    }
+
+    $path = parse_url($returnUrl, PHP_URL_PATH);
+    $path = is_string($path) ? ltrim($path, '/') : '';
+    $base = basename($path !== '' ? $path : $returnUrl);
+
+    if (!in_array($base, ['installed_base.php', 'new_complaint.php'], true)) {
+        return '';
+    }
+
+    return $returnUrl;
+}
+
+function customer_master_user_can_create_from_return(PDO $conn, string $returnUrl = ''): bool
+{
+    require_once __DIR__ . '/rbac_access_helpers.php';
+
+    if (is_system_admin()) {
+        return true;
+    }
+
+    $safeReturn = customer_master_sanitize_return_url($returnUrl);
+    if ($safeReturn === '') {
+        return false;
+    }
+
+    $base = basename(parse_url($safeReturn, PHP_URL_PATH) ?: $safeReturn);
+
+    if ($base === 'installed_base.php') {
+        return rbac_role_has_permission($conn, 'installed-base-capture', 'add');
+    }
+
+    if ($base === 'new_complaint.php') {
+        return rbac_role_has_permission($conn, 'complaint-entry', 'add');
+    }
+
+    return false;
+}
+
+/** @deprecated Use customer_master_user_can_create_from_return() */
+function customer_master_user_can_create_from_installed_base(PDO $conn): bool
+{
+    require_once __DIR__ . '/rbac_access_helpers.php';
+
+    return is_system_admin()
+        || rbac_role_has_permission($conn, 'installed-base-capture', 'add')
+        || rbac_role_has_permission($conn, 'complaint-entry', 'add');
+}
+
+function customer_master_require_page_access(PDO $conn, string $returnUrl = ''): void
+{
+    require_once __DIR__ . '/admin_access_helpers.php';
+    require_once __DIR__ . '/login_helpers.php';
+    login_enforce_session_version($conn);
+    admin_ensure_session_role($conn);
+
+    if (is_system_admin()) {
+        return;
+    }
+
+    if (customer_master_user_can_create_from_return($conn, $returnUrl)) {
+        return;
+    }
+
+    $_SESSION['error_message'] = 'Access denied. System Admin privileges required.';
+    header('Location: dashboard.php');
+    exit;
+}
+
+function customer_master_insert(PDO $conn, array $data, string $username): int
 {
     customer_master_ensure_schema($conn);
 
@@ -349,6 +501,8 @@ function customer_master_insert(PDO $conn, array $data, string $username): void
         $stmt->bindValue(':created_by', $username);
     }
     $stmt->execute();
+
+    return (int) $conn->lastInsertId();
 }
 
 function customer_master_update(PDO $conn, int $id, array $data, string $username): void

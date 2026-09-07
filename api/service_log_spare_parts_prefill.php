@@ -42,13 +42,16 @@ $stmt = $obconn->prepare('
         sl.closure_date,
         sl.running_hours,
         sl.remarks,
-        ib.customer_name,
+        cm.customer_name,
         ib.dealer_name,
         ib.running_hours AS ib_running_hours
     FROM service_logs sl
     INNER JOIN installed_base ib
         ON ib.id = sl.installed_base_id
        AND ib.deleted_at IS NULL
+    LEFT JOIN customer_masters cm
+        ON cm.id = ib.customer_id
+       AND cm.deleted_at IS NULL
     WHERE sl.id = :id
       AND sl.deleted_at IS NULL
 ');

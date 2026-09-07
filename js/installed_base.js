@@ -75,7 +75,6 @@ function fillInstalledBaseForm(record) {
     }
 
     const fields = [
-        'customer_name', 'street_1', 'street_2', 'mobile', 'email',
         'invoice_date', 'commissioning_date',
         'running_hours', 'industry_segment', 'remarks'
     ];
@@ -89,25 +88,18 @@ function fillInstalledBaseForm(record) {
 
     setInstalledBaseDealerName(record.dealer_name || getInstalledBaseDefaultDealerName());
 
+    if (typeof setInstalledBaseCustomerSelect2 === 'function') {
+        setInstalledBaseCustomerSelect2(record.customer_id || '', record.customer_label || record.customer_name || '');
+    }
+
     setStaticSelect2Value('industrySegmentSelect', record.industry_segment || '');
-    // Edit loads an existing Installed Base FAB ó Machine Model is read-only.
+    // Edit loads an existing Installed Base FAB ù Machine Model is read-only.
     setMachineModelSelect2(record.machine_model_code || '', record.machine_model || '', {
         locked: true
     });
 
     setInstalledBaseFabSelect2(record.fab_number || '');
     setInstalledBaseInvoiceDate(form, record.invoice_date || '');
-
-    const $pincode = $('#installedBasePincodeSelect');
-    if ($pincode.length) {
-        $pincode.val(null).trigger('change');
-        if (record.pincode) {
-            const option = new Option(record.pincode, record.pincode, true, true);
-            $pincode.append(option).trigger('change');
-        }
-    }
-
-    setAddressAutoFields(form, record);
 }
 
 function resetInstalledBaseForm() {
@@ -127,7 +119,9 @@ function resetInstalledBaseForm() {
 
     resetOrderSelect2(form);
     resetFabNumberSelect2();
-    resetPincodeSelect2(form, 'installedBasePincodeSelect');
+    if (typeof resetInstalledBaseCustomerSelect2 === 'function') {
+        resetInstalledBaseCustomerSelect2();
+    }
     resetStaticSelect2('industrySegmentSelect');
     resetMachineModelSelect2();
 
@@ -199,8 +193,10 @@ function initInstalledBasePage() {
     initInstalledBaseFabnoSelect2();
     initInstalledBaseOrderSelect2();
     initInstalledBaseMachineModelSelect2();
+    initInstalledBaseCustomerSelect2();
     initInstalledBaseStaticSelect2();
     initInstalledBaseFormValidation();
+    initInstalledBaseAddNewCustomerButton();
 
     const openBtn = document.getElementById('openInstalledBaseForm');
     const closeBtn = document.getElementById('closeInstalledBaseForm');
@@ -220,9 +216,19 @@ function initInstalledBasePage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('open_form') === '1' && openBtn) {
         resetInstalledBaseForm();
+
+        const draft = typeof restoreInstalledBaseFormDraft === 'function'
+            ? restoreInstalledBaseFormDraft()
+            : null;
+        if (draft) {
+            applyInstalledBaseFormDraft(draft);
+        }
+
         const fabNumber = (params.get('fab_number') || '').trim();
         const complaintId = (params.get('complaint_id') || '').trim();
-        if (fabNumber) {
+        const customerId = (params.get('customer_id') || '').trim();
+
+        if (fabNumber && !draft) {
             setInstalledBaseFabSelect2(fabNumber);
         }
 
@@ -232,8 +238,18 @@ function initInstalledBasePage() {
             returnComplaintIdField.value = complaintId;
         }
 
-        if (form && (fabNumber || complaintId)) {
+        if (form && (fabNumber || complaintId) && !draft) {
             prefillInstalledBaseFromFab(form, fabNumber, complaintId);
+        }
+
+        if (customerId) {
+            $.getJSON('api/customer_masters_search.php', { id: customerId })
+                .done(function (response) {
+                    const row = response && response.results && response.results[0] ? response.results[0] : null;
+                    if (row && typeof setInstalledBaseCustomerSelect2 === 'function') {
+                        setInstalledBaseCustomerSelect2(row.id, row.text || '');
+                    }
+                });
         }
 
         openInstalledBaseForm();
@@ -241,6 +257,15 @@ function initInstalledBasePage() {
         const card = document.getElementById('installedBaseFormCard');
         if (card && typeof card.scrollIntoView === 'function') {
             card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Clean customer_id from URL after apply.
+        if (params.has('customer_id') || params.has('open_form')) {
+            const url = new URL(window.location.href);
+            // Keep open_form only briefly; remove return params for cleaner refresh.
+            url.searchParams.delete('customer_id');
+            const nextUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+            window.history.replaceState({}, document.title, nextUrl);
         }
     }
 

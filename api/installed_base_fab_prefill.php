@@ -7,6 +7,7 @@ require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 rbac_require_api_access($obconn);
+installed_base_ensure_schema($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -19,7 +20,6 @@ if ($fabNumber === '' && $complaintId <= 0) {
     exit;
 }
 
-// Block another user's FAB before any auto-population.
 if ($fabNumber !== '') {
     $ownershipError = installed_base_validate_fab_for_current_user(
         $obconn,
@@ -67,7 +67,6 @@ if ($hasInstalledBase && !empty($installedBaseRow['commissioning_date'])) {
     );
 }
 
-// Machine Model comes only from Installed Base when FAB already exists.
 $machineModelCode = '';
 $machineModelDesc = '';
 if ($hasInstalledBase) {
@@ -75,20 +74,16 @@ if ($hasInstalledBase) {
     $machineModelDesc = (string) ($installedBaseRow['machine_model'] ?? '');
 }
 
+$customerId = (int) ($row['customer_id'] ?? ($installedBaseRow['customer_id'] ?? 0));
+$customerLabel = (string) ($row['customer_label'] ?? ($installedBaseRow['customer_label'] ?? ''));
+
 $response = [
     'found' => true,
     'blocked' => false,
     'available' => true,
     'has_installed_base' => $hasInstalledBase,
-    'customer_name' => (string) ($row['customer_name'] ?? ($installedBaseRow['customer_name'] ?? '')),
-    'street_1' => (string) ($row['street_1'] ?? ($installedBaseRow['street_1'] ?? '')),
-    'street_2' => (string) ($row['street_2'] ?? ($installedBaseRow['street_2'] ?? '')),
-    'pincode' => (string) ($row['pincode'] ?? ($installedBaseRow['pincode'] ?? '')),
-    'city' => (string) ($row['city'] ?? ($installedBaseRow['city'] ?? '')),
-    'district' => (string) ($row['district'] ?? ($installedBaseRow['district'] ?? '')),
-    'state' => (string) ($row['state'] ?? ($installedBaseRow['state'] ?? '')),
-    'mobile' => (string) ($row['mobile'] ?? ($installedBaseRow['mobile'] ?? '')),
-    'email' => (string) ($row['email'] ?? ($installedBaseRow['email'] ?? '')),
+    'customer_id' => $customerId > 0 ? $customerId : '',
+    'customer_label' => $customerLabel,
     'machine_model_code' => $machineModelCode,
     'machine_model' => $machineModelDesc,
     'commissioning_date' => $hasInstalledBase ? $commissioningDate : '',

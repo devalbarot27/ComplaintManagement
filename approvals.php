@@ -159,7 +159,7 @@ try {
         SELECT
             fc.id, fc.complaint_id, fc.warranty_status, fc.justification, fc.l1_status, fc.l2_status,
             fc.overall_status, fc.created_by_username, fc.created_at,
-            c.fab_number, c.customer_name,
+            c.fab_number, cm.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(fc.created_by_username), ''), '-') AS created_by_name,
             (
                 SELECT STRING_AGG(fci.part_number || ' x' || fci.qty, ', ' ORDER BY fci.id)
@@ -168,6 +168,9 @@ try {
             ) AS items_summary
         FROM foc_claims fc
         INNER JOIN complaints c ON c.id = fc.complaint_id
+        LEFT JOIN customer_masters cm
+            ON cm.id = c.customer_id
+           AND cm.deleted_at IS NULL
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(fc.created_by_username))
            AND um.deleted_at IS NULL
@@ -216,10 +219,13 @@ try {
 try {
     $stmt = $obconn->query("
         SELECT
-            sc.*, c.fab_number, c.customer_name,
+            sc.*, c.fab_number, cm.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
+        LEFT JOIN customer_masters cm
+            ON cm.id = c.customer_id
+           AND cm.deleted_at IS NULL
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
            AND um.deleted_at IS NULL

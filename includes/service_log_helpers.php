@@ -458,16 +458,28 @@ function service_log_sync_part_replacements(PDO $conn, int $serviceLogId, array 
 function service_log_get_installed_base(PDO $conn, int $installedBaseId, string $username = ''): ?array
 {
     require_once __DIR__ . '/after_market_access_helpers.php';
+    require_once __DIR__ . '/installed_base_helpers.php';
+
+    installed_base_ensure_schema($conn);
 
     if (!after_market_user_can_access_record($conn, 'installed_base', $installedBaseId)) {
         return null;
     }
 
     $stmt = $conn->prepare('
-        SELECT id, order_ref_id, order_id, fab_number, customer_name, machine_model, machine_model_code, running_hours
-        FROM installed_base
-        WHERE id = :id
-          AND deleted_at IS NULL
+        SELECT
+            ib.id,
+            ib.order_ref_id,
+            ib.order_id,
+            ib.fab_number,
+            cm.customer_name,
+            ib.machine_model,
+            ib.machine_model_code,
+            ib.running_hours
+        FROM installed_base ib
+        ' . installed_base_customer_join_sql('ib', 'cm') . '
+        WHERE ib.id = :id
+          AND ib.deleted_at IS NULL
     ');
     $stmt->bindValue(':id', $installedBaseId, PDO::PARAM_INT);
     $stmt->execute();

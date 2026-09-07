@@ -14,73 +14,10 @@ function initInstalledBaseFormValidation() {
                 message: '^Fab Number is required'
             }
         },
-        customer_name: {
+        customer_id: {
             presence: {
                 allowEmpty: false,
-                message: '^Customer Name is required'
-            },
-            format: {
-                pattern: /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/,
-                message: '^Customer Name can contain only alphabetic characters and spaces.'
-            }
-        },
-        street_1: {
-            presence: {
-                allowEmpty: false,
-                message: '^Street 1 is required'
-            }
-        },
-        street_2: {
-            length: {
-                maximum: 255,
-                message: '^Street 2 cannot exceed 255 characters'
-            }
-        },
-        pincode: {
-            presence: {
-                allowEmpty: false,
-                message: '^Pincode is required'
-            },
-            format: {
-                pattern: /^\d{6}$/,
-                message: '^Pincode must be a 6-digit number'
-            }
-        },
-        city: {
-            presence: {
-                allowEmpty: false,
-                message: '^City is required'
-            }
-        },
-        district: {
-            presence: {
-                allowEmpty: false,
-                message: '^District is required'
-            }
-        },
-        state: {
-            presence: {
-                allowEmpty: false,
-                message: '^State is required'
-            }
-        },
-        mobile: {
-            presence: {
-                allowEmpty: false,
-                message: '^Mobile is required'
-            },
-            format: {
-                pattern: /^[1-9]\d{9}$/,
-                message: '^Mobile must be a valid 10-digit number'
-            }
-        },
-        email: {
-            presence: {
-                allowEmpty: false,
-                message: '^Email is required'
-            },
-            email: {
-                message: '^Email must be a valid email address'
+                message: '^Customer is required'
             }
         },
         dealer_name: {
@@ -159,12 +96,13 @@ function initInstalledBaseFormValidation() {
                 input.classList.add('is-invalid');
             }
 
-            if (field === 'pincode') {
-                $('#installedBasePincodeSelect').addClass('is-invalid');
-            }
-
             if (field === 'fab_number') {
                 $('#fabNumberSelect').addClass('is-invalid');
+            }
+
+            if (field === 'customer_id') {
+                $('#installedBaseCustomerSelect').addClass('is-invalid');
+                $('#installedBaseCustomerSelect').next('.select2-container').find('.select2-selection').addClass('is-invalid');
             }
 
             if (field === 'machine_model_code') {
@@ -315,10 +253,6 @@ function initInstalledBaseFormValidation() {
         const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
 
         input.addEventListener(eventName, function () {
-            if (input.name === 'mobile') {
-                input.value = input.value.replace(/\D/g, '');
-            }
-
             if (input.name === 'fab_number') {
                 clearFabOwnershipError();
             }
@@ -328,6 +262,9 @@ function initInstalledBaseFormValidation() {
 
             if (input.name === 'fab_number') {
                 $('#fabNumberSelect').toggleClass('is-invalid', !!fieldErrors);
+            } else if (input.name === 'customer_id') {
+                $('#installedBaseCustomerSelect').toggleClass('is-invalid', !!fieldErrors);
+                $('#installedBaseCustomerSelect').next('.select2-container').find('.select2-selection').toggleClass('is-invalid', !!fieldErrors);
             } else {
                 input.classList.toggle('is-invalid', !!fieldErrors);
             }
@@ -404,7 +341,9 @@ function initInstalledBaseFormValidation() {
         clearValidationState();
         resetOrderSelect2(form);
         resetFabNumberSelect2();
-        resetPincodeSelect2(form, 'installedBasePincodeSelect');
+        if (typeof resetInstalledBaseCustomerSelect2 === 'function') {
+            resetInstalledBaseCustomerSelect2();
+        }
         resetStaticSelect2('industrySegmentSelect');
         resetMachineModelSelect2();
     });

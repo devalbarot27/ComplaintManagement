@@ -329,10 +329,13 @@ $claims = [];
 try {
     $claimStmt = $obconn->query("
         SELECT
-            sc.*, c.fab_number, c.customer_name,
+            sc.*, c.fab_number, cm.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
+        LEFT JOIN customer_masters cm
+            ON cm.id = c.customer_id
+           AND cm.deleted_at IS NULL
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
            AND um.deleted_at IS NULL

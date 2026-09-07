@@ -52,20 +52,10 @@ function resetInstalledBaseFabAutoFields(form) {
         return;
     }
 
-    ['customer_name', 'street_1', 'street_2', 'mobile', 'email'].forEach(function (field) {
-        const input = form.querySelector('[name="' + field + '"]');
-        if (input) {
-            input.value = '';
-            input.classList.remove('is-invalid');
-        }
+    if (typeof resetInstalledBaseCustomerSelect2 === 'function') {
+        resetInstalledBaseCustomerSelect2();
+    }
 
-        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
-        if (msg) {
-            msg.textContent = '';
-        }
-    });
-
-    resetPincodeSelect2(form, 'installedBasePincodeSelect');
     resetInstalledBaseFabRecordFields(form);
 
     if (typeof resetMachineModelSelect2 === 'function') {
@@ -78,25 +68,12 @@ function setInstalledBaseFabAutoFields(form, data) {
         return;
     }
 
-    ['customer_name', 'street_1', 'street_2', 'mobile', 'email'].forEach(function (field) {
-        const input = form.querySelector('[name="' + field + '"]');
-        if (!input) {
-            return;
-        }
+    if (data.customer_id && typeof setInstalledBaseCustomerSelect2 === 'function') {
+        setInstalledBaseCustomerSelect2(data.customer_id, data.customer_label || data.customer_name || '');
+    }
 
-        input.value = data[field] != null ? String(data[field]) : '';
-        input.classList.remove('is-invalid');
-
-        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
-        if (msg) {
-            msg.textContent = '';
-        }
-    });
-
-    setPincodeSelect2(form, 'installedBasePincodeSelect', data);
     setInstalledBaseFabRecordFields(form, data);
 
-    // Machine Model: only auto-fill + lock when FAB already exists in Installed Base.
     if (data.has_installed_base) {
         const machineModelCode = String(data.machine_model_code || '').trim();
         const machineModelDesc = String(data.machine_model || '').trim();

@@ -4,45 +4,200 @@ require_once __DIR__ . '/complaint_address_helpers.php';
 require_once __DIR__ . '/ln_invoice_helpers.php';
 require_once __DIR__ . '/system_config_master_helpers.php';
 require_once __DIR__ . '/rbac_access_helpers.php';
+require_once __DIR__ . '/customer_master_helpers.php';
 
 function installed_base_industry_segments(PDO $conn): array
 {
     return scm_get_active_names($conn, 'industry_segment');
 }
 
-function installed_base_address_search_columns(): array
+/**
+ * @return array<int, string>
+ */
+function installed_base_legacy_customer_columns(): array
 {
     return [
+        'customer_name',
         'street_1',
         'street_2',
         'pincode',
         'city',
         'district',
         'state',
-        'address',
+        'mobile',
+        'email',
     ];
 }
 
-function installed_base_address_display_value(array $row, string $field): string
+function installed_base_table_has_column(PDO $conn, string $column): bool
 {
-    $value = trim((string) ($row[$field] ?? ''));
+    $stmt = $conn->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'installed_base'
+          AND column_name = :column_name
+        LIMIT 1
+    ");
+    $stmt->bindValue(':column_name', $column);
+    $stmt->execute();
 
-    if ($field === 'street_1' && $value === '' && !empty($row['address'])) {
-        return trim((string) $row['address']);
+    return (bool) $stmt->fetchColumn();
+}
+
+function installed_base_ensure_schema(PDO $conn): void
+{
+    customer_master_ensure_schema($conn);
+
+    if (!installed_base_table_has_column($conn, 'customer_id')) {
+        $conn->exec('ALTER TABLE installed_base ADD COLUMN customer_id INTEGER NULL');
     }
 
-    return $value !== '' ? $value : '-';
+    if (installed_base_table_has_column($conn, 'customer_name')) {
+        installed_base_migrate_legacy_customer_fields($conn);
+
+        foreach (installed_base_legacy_customer_columns() as $column) {
+            if (installed_base_table_has_column($conn, $column)) {
+                $conn->exec('ALTER TABLE installed_base DROP COLUMN IF EXISTS ' . $column);
+            }
+        }
+    }
+}
+
+function installed_base_migrate_legacy_customer_fields(PDO $conn): void
+{
+    $selectCols = ['id'];
+    foreach (installed_base_legacy_customer_columns() as $column) {
+        if (installed_base_table_has_column($conn, $column)) {
+            $selectCols[] = $column;
+        }
+    }
+
+    $stmt = $conn->query('
+        SELECT ' . implode(', ', $selectCols) . '
+        FROM installed_base
+        WHERE customer_id IS NULL
+          AND deleted_at IS NULL
+        ORDER BY id ASC
+    ');
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $customerId = installed_base_resolve_or_create_customer_from_legacy_row($conn, $row);
+        if ($customerId <= 0) {
+            continue;
+        }
+
+        $update = $conn->prepare('
+            UPDATE installed_base
+            SET customer_id = :customer_id,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+              AND customer_id IS NULL
+        ');
+        $update->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+        $update->bindValue(':id', (int) $row['id'], PDO::PARAM_INT);
+        $update->execute();
+    }
+}
+
+function installed_base_resolve_or_create_customer_from_legacy_row(PDO $conn, array $row): int
+{
+    $email = trim((string) ($row['email'] ?? ''));
+    $mobile = trim((string) ($row['mobile'] ?? ''));
+    $customerName = trim((string) ($row['customer_name'] ?? ''));
+
+    if ($email !== '') {
+        $existing = $conn->prepare('
+            SELECT id
+            FROM customer_masters
+            WHERE LOWER(TRIM(email)) = LOWER(TRIM(:email))
+              AND deleted_at IS NULL
+            LIMIT 1
+        ');
+        $existing->bindValue(':email', $email);
+        $existing->execute();
+        $id = $existing->fetchColumn();
+        if ($id !== false) {
+            return (int) $id;
+        }
+    }
+
+    if ($mobile !== '') {
+        $existing = $conn->prepare('
+            SELECT id
+            FROM customer_masters
+            WHERE TRIM(mobile) = TRIM(:mobile)
+              AND deleted_at IS NULL
+            LIMIT 1
+        ');
+        $existing->bindValue(':mobile', $mobile);
+        $existing->execute();
+        $id = $existing->fetchColumn();
+        if ($id !== false) {
+            return (int) $id;
+        }
+    }
+
+    if ($customerName === '' || $email === '' || $mobile === '') {
+        return 0;
+    }
+
+    $street1 = trim((string) ($row['street_1'] ?? ''));
+    if ($street1 === '') {
+        $street1 = '-';
+    }
+    $street2 = trim((string) ($row['street_2'] ?? ''));
+    if ($street2 === '') {
+        $street2 = '-';
+    }
+    $pincode = trim((string) ($row['pincode'] ?? ''));
+    if ($pincode === '' || !preg_match('/^\d{6}$/', $pincode)) {
+        $pincode = '000000';
+    }
+    $city = trim((string) ($row['city'] ?? ''));
+    if ($city === '') {
+        $city = '-';
+    }
+    $district = trim((string) ($row['district'] ?? ''));
+    if ($district === '') {
+        $district = '-';
+    }
+    $state = trim((string) ($row['state'] ?? ''));
+    if ($state === '') {
+        $state = '-';
+    }
+
+    try {
+        return customer_master_insert($conn, [
+            'customer_name' => $customerName,
+            'email' => $email,
+            'mobile' => $mobile,
+            'street_1' => $street1,
+            'street_2' => $street2,
+            'pincode' => $pincode,
+            'city' => $city,
+            'district' => $district,
+            'state' => $state,
+        ], 'system-migration');
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
+function installed_base_customer_join_sql(string $ibAlias = 'ib', string $cmAlias = 'cm'): string
+{
+    return "LEFT JOIN customer_masters {$cmAlias}
+        ON {$cmAlias}.id = {$ibAlias}.customer_id
+       AND {$cmAlias}.deleted_at IS NULL";
 }
 
 function installed_base_from_post(array $post): array
 {
-    return array_merge([
+    return [
         'order_ref_id' => trim((string) ($post['order_ref_id'] ?? '')),
         'order_id' => trim((string) ($post['order_id'] ?? '')),
         'fab_number' => trim((string) ($post['fab_number'] ?? '')),
-        'customer_name' => trim((string) ($post['customer_name'] ?? '')),
-        'mobile' => trim((string) ($post['mobile'] ?? '')),
-        'email' => trim((string) ($post['email'] ?? '')),
+        'customer_id' => trim((string) ($post['customer_id'] ?? '')),
         'dealer_name' => trim((string) ($post['dealer_name'] ?? '')),
         'machine_model_code' => trim((string) ($post['machine_model_code'] ?? '')),
         'machine_model' => trim((string) ($post['machine_model'] ?? '')),
@@ -51,42 +206,24 @@ function installed_base_from_post(array $post): array
         'running_hours' => trim((string) ($post['running_hours'] ?? '')),
         'industry_segment' => trim((string) ($post['industry_segment'] ?? '')),
         'remarks' => trim((string) ($post['remarks'] ?? '')),
-    ], complaint_address_from_post($post));
+    ];
 }
 
 function installed_base_validate(PDO $conn, array $data): ?string
 {
+    installed_base_ensure_schema($conn);
+
     if ($data['fab_number'] === '') {
         return 'Fab Number is required.';
     }
 
-    if ($data['customer_name'] === '') {
-        return 'Customer Name is required.';
+    $customerId = (int) ($data['customer_id'] ?? 0);
+    if ($customerId <= 0) {
+        return 'Customer is required.';
     }
 
-    if (!preg_match('/^[A-Za-z]+(?:\s+[A-Za-z]+)*$/', $data['customer_name'])) {
-        return 'Customer Name can contain only alphabetic characters and spaces.';
-    }
-
-    $addressError = complaint_validate_address_fields($data);
-    if ($addressError !== null) {
-        return $addressError;
-    }
-
-    if ($data['mobile'] === '') {
-        return 'Mobile is required.';
-    }
-
-    if (!preg_match('/^[1-9]\d{9}$/', $data['mobile'])) {
-        return 'Mobile must be a valid 10-digit number.';
-    }
-
-    if ($data['email'] === '') {
-        return 'Email is required.';
-    }
-
-    if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-        return 'Email must be a valid email address.';
+    if (customer_master_get_by_id($conn, $customerId) === null) {
+        return 'Selected customer is invalid.';
     }
 
     if ($data['dealer_name'] === '') {
@@ -355,21 +492,15 @@ function installed_base_validate_fab_for_current_user(
 
 function installed_base_update_record(PDO $conn, int $id, array $data): void
 {
+    installed_base_ensure_schema($conn);
+
     $update = $conn->prepare('
         UPDATE installed_base
         SET
             order_ref_id = :order_ref_id,
             order_id = :order_id,
             fab_number = :fab_number,
-            customer_name = :customer_name,
-            street_1 = :street_1,
-            street_2 = :street_2,
-            pincode = :pincode,
-            city = :city,
-            district = :district,
-            state = :state,
-            mobile = :mobile,
-            email = :email,
+            customer_id = :customer_id,
             dealer_name = :dealer_name,
             machine_model_code = :machine_model_code,
             machine_model = :machine_model,
@@ -386,15 +517,7 @@ function installed_base_update_record(PDO $conn, int $id, array $data): void
     $update->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
     $update->bindValue(':order_id', '0', PDO::PARAM_INT);
     $update->bindValue(':fab_number', $data['fab_number']);
-    $update->bindValue(':customer_name', $data['customer_name']);
-    $update->bindValue(':street_1', $data['street_1']);
-    $update->bindValue(':street_2', $data['street_2'] !== '' ? $data['street_2'] : null);
-    $update->bindValue(':pincode', $data['pincode']);
-    $update->bindValue(':city', $data['city']);
-    $update->bindValue(':district', $data['district']);
-    $update->bindValue(':state', $data['state']);
-    $update->bindValue(':mobile', $data['mobile']);
-    $update->bindValue(':email', $data['email']);
+    $update->bindValue(':customer_id', (int) $data['customer_id'], PDO::PARAM_INT);
     $update->bindValue(':dealer_name', $data['dealer_name']);
     $update->bindValue(':machine_model_code', $data['machine_model_code']);
     $update->bindValue(':machine_model', $data['machine_model']);
@@ -424,21 +547,15 @@ function installed_base_update_commissioning_date(PDO $conn, int $id, string $co
 
 function installed_base_insert_record(PDO $conn, array $data, int $createdBy, string $username): int
 {
+    installed_base_ensure_schema($conn);
+
     $insert = $conn->prepare('
         INSERT INTO installed_base
         (
             order_ref_id,
             order_id,
             fab_number,
-            customer_name,
-            street_1,
-            street_2,
-            pincode,
-            city,
-            district,
-            state,
-            mobile,
-            email,
+            customer_id,
             dealer_name,
             machine_model_code,
             machine_model,
@@ -455,15 +572,7 @@ function installed_base_insert_record(PDO $conn, array $data, int $createdBy, st
             :order_ref_id,
             :order_id,
             :fab_number,
-            :customer_name,
-            :street_1,
-            :street_2,
-            :pincode,
-            :city,
-            :district,
-            :state,
-            :mobile,
-            :email,
+            :customer_id,
             :dealer_name,
             :machine_model_code,
             :machine_model,
@@ -480,15 +589,7 @@ function installed_base_insert_record(PDO $conn, array $data, int $createdBy, st
     $insert->bindValue(':order_ref_id', '0', PDO::PARAM_INT);
     $insert->bindValue(':order_id', '0', PDO::PARAM_INT);
     $insert->bindValue(':fab_number', $data['fab_number']);
-    $insert->bindValue(':customer_name', $data['customer_name']);
-    $insert->bindValue(':street_1', $data['street_1']);
-    $insert->bindValue(':street_2', $data['street_2'] !== '' ? $data['street_2'] : null);
-    $insert->bindValue(':pincode', $data['pincode']);
-    $insert->bindValue(':city', $data['city']);
-    $insert->bindValue(':district', $data['district']);
-    $insert->bindValue(':state', $data['state']);
-    $insert->bindValue(':mobile', $data['mobile']);
-    $insert->bindValue(':email', $data['email']);
+    $insert->bindValue(':customer_id', (int) $data['customer_id'], PDO::PARAM_INT);
     $insert->bindValue(':dealer_name', $data['dealer_name']);
     $insert->bindValue(':machine_model_code', $data['machine_model_code']);
     $insert->bindValue(':machine_model', $data['machine_model']);
@@ -506,6 +607,10 @@ function installed_base_insert_record(PDO $conn, array $data, int $createdBy, st
 
 function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $complaintId = null): ?array
 {
+    installed_base_ensure_schema($conn);
+    require_once __DIR__ . '/complaint_address_helpers.php';
+    complaint_ensure_schema($conn);
+
     $fabNumber = trim($fabNumber);
     if ($fabNumber === '' && ($complaintId === null || $complaintId <= 0)) {
         return null;
@@ -514,25 +619,32 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $comp
     if ($complaintId !== null && $complaintId > 0) {
         $complaintStmt = $conn->prepare('
             SELECT
-                customer_name,
-                street_1,
-                street_2,
-                pincode,
-                city,
-                district,
-                state,
-                complaint_description AS remarks
-            FROM complaints
-            WHERE id = :id
-              AND deleted_at IS NULL
+                c.customer_id,
+                cm.customer_name,
+                cm.street_1,
+                cm.street_2,
+                cm.pincode,
+                cm.city,
+                cm.district,
+                cm.state,
+                cm.mobile,
+                cm.email,
+                c.complaint_description AS remarks
+            FROM complaints c
+            ' . complaint_customer_join_sql('c', 'cm') . '
+            WHERE c.id = :id
+              AND c.deleted_at IS NULL
             LIMIT 1
         ');
         $complaintStmt->bindValue(':id', $complaintId, PDO::PARAM_INT);
         $complaintStmt->execute();
         $complaintRow = $complaintStmt->fetch(PDO::FETCH_ASSOC);
         if ($complaintRow) {
-            $complaintRow['mobile'] = '';
-            $complaintRow['email'] = '';
+            $complaintRow['customer_label'] = customer_master_select2_label([
+                'customer_name' => $complaintRow['customer_name'] ?? '',
+                'mobile' => $complaintRow['mobile'] ?? '',
+                'city' => $complaintRow['city'] ?? '',
+            ]);
             $complaintRow['has_installed_base'] = false;
             return $complaintRow;
         }
@@ -550,18 +662,22 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $comp
 
     $complaintByFabStmt = $conn->prepare('
         SELECT
-            customer_name,
-            street_1,
-            street_2,
-            pincode,
-            city,
-            district,
-            state,
-            complaint_description AS remarks
-        FROM complaints
-        WHERE fab_number = :fab_number
-          AND deleted_at IS NULL
-        ORDER BY created_at DESC, id DESC
+            c.customer_id,
+            cm.customer_name,
+            cm.street_1,
+            cm.street_2,
+            cm.pincode,
+            cm.city,
+            cm.district,
+            cm.state,
+            cm.mobile,
+            cm.email,
+            c.complaint_description AS remarks
+        FROM complaints c
+        ' . complaint_customer_join_sql('c', 'cm') . '
+        WHERE c.fab_number = :fab_number
+          AND c.deleted_at IS NULL
+        ORDER BY c.created_at DESC, c.id DESC
         LIMIT 1
     ');
     $complaintByFabStmt->bindValue(':fab_number', $fabNumber);
@@ -572,11 +688,49 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $comp
         return null;
     }
 
-    $complaintByFab['mobile'] = '';
-    $complaintByFab['email'] = '';
+    $complaintByFab['customer_label'] = customer_master_select2_label([
+        'customer_name' => $complaintByFab['customer_name'] ?? '',
+        'mobile' => $complaintByFab['mobile'] ?? '',
+        'city' => $complaintByFab['city'] ?? '',
+    ]);
     $complaintByFab['has_installed_base'] = false;
 
     return $complaintByFab;
+}
+
+/**
+ * @return array{id:int,text:string,mobile:string,email:string}|null
+ */
+function installed_base_match_customer_from_name(PDO $conn, string $customerName): ?array
+{
+    $customerName = trim($customerName);
+    if ($customerName === '') {
+        return null;
+    }
+
+    customer_master_ensure_schema($conn);
+
+    $stmt = $conn->prepare('
+        SELECT id, customer_name, mobile, email, city
+        FROM customer_masters
+        WHERE LOWER(TRIM(customer_name)) = LOWER(TRIM(:customer_name))
+          AND deleted_at IS NULL
+        ORDER BY id DESC
+        LIMIT 1
+    ');
+    $stmt->bindValue(':customer_name', $customerName);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return null;
+    }
+
+    return [
+        'id' => (int) $row['id'],
+        'text' => customer_master_select2_label($row),
+        'mobile' => trim((string) ($row['mobile'] ?? '')),
+        'email' => trim((string) ($row['email'] ?? '')),
+    ];
 }
 
 /**
@@ -584,6 +738,8 @@ function installed_base_fab_prefill_row(PDO $conn, string $fabNumber, ?int $comp
  */
 function installed_base_latest_record_by_fab(PDO $conn, string $fabNumber): ?array
 {
+    installed_base_ensure_schema($conn);
+
     $fabNumber = trim($fabNumber);
     if ($fabNumber === '') {
         return null;
@@ -591,33 +747,44 @@ function installed_base_latest_record_by_fab(PDO $conn, string $fabNumber): ?arr
 
     $stmt = $conn->prepare('
         SELECT
-            customer_name,
-            street_1,
-            street_2,
-            pincode,
-            city,
-            district,
-            state,
-            mobile,
-            email,
-            remarks,
-            commissioning_date,
-            running_hours,
-            industry_segment,
-            machine_model_code,
-            machine_model
-        FROM installed_base
-        WHERE TRIM(fab_number) = TRIM(:fab_number)
-          AND deleted_at IS NULL
-        ORDER BY COALESCE(updated_at, created_at) DESC, id DESC
+            ib.customer_id,
+            cm.customer_name,
+            cm.street_1,
+            cm.street_2,
+            cm.pincode,
+            cm.city,
+            cm.district,
+            cm.state,
+            cm.mobile,
+            cm.email,
+            ib.remarks,
+            ib.commissioning_date,
+            ib.running_hours,
+            ib.industry_segment,
+            ib.machine_model_code,
+            ib.machine_model
+        FROM installed_base ib
+        ' . installed_base_customer_join_sql('ib', 'cm') . '
+        WHERE TRIM(ib.fab_number) = TRIM(:fab_number)
+          AND ib.deleted_at IS NULL
+        ORDER BY COALESCE(ib.updated_at, ib.created_at) DESC, ib.id DESC
         LIMIT 1
     ');
     $stmt->bindValue(':fab_number', $fabNumber);
     $stmt->execute();
 
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return null;
+    }
 
-    return $row ?: null;
+    $row['customer_label'] = customer_master_select2_label([
+        'customer_name' => $row['customer_name'] ?? '',
+        'mobile' => $row['mobile'] ?? '',
+        'city' => $row['city'] ?? '',
+    ]);
+
+    return $row;
 }
 
 function installed_base_pending_order_normalize_row(array $row): array

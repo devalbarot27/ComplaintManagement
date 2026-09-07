@@ -147,15 +147,28 @@ function complaint_service_log_drop_service_log_complaint_columns(PDO $conn): vo
 
 function complaint_service_log_get_installed_base_row(PDO $conn, int $installedBaseId): ?array
 {
+    require_once __DIR__ . '/installed_base_helpers.php';
+
     if ($installedBaseId <= 0) {
         return null;
     }
 
+    installed_base_ensure_schema($conn);
+
     $stmt = $conn->prepare('
-        SELECT id, order_ref_id, order_id, fab_number, customer_name, machine_model, machine_model_code, running_hours
-        FROM installed_base
-        WHERE id = :id
-          AND deleted_at IS NULL
+        SELECT
+            ib.id,
+            ib.order_ref_id,
+            ib.order_id,
+            ib.fab_number,
+            cm.customer_name,
+            ib.machine_model,
+            ib.machine_model_code,
+            ib.running_hours
+        FROM installed_base ib
+        ' . installed_base_customer_join_sql('ib', 'cm') . '
+        WHERE ib.id = :id
+          AND ib.deleted_at IS NULL
         LIMIT 1
     ');
     $stmt->bindValue(':id', $installedBaseId, PDO::PARAM_INT);
@@ -183,11 +196,20 @@ function complaint_service_log_get_complaint(PDO $conn, int $complaintId): ?arra
         return null;
     }
 
+    require_once __DIR__ . '/complaint_address_helpers.php';
+    complaint_ensure_schema($conn);
+
     $stmt = $conn->prepare('
-        SELECT id, fab_number, customer_name, complaint_description, status
-        FROM complaints
-        WHERE id = :id
-          AND deleted_at IS NULL
+        SELECT
+            c.id,
+            c.fab_number,
+            cm.customer_name,
+            c.complaint_description,
+            c.status
+        FROM complaints c
+        ' . complaint_customer_join_sql('c', 'cm') . '
+        WHERE c.id = :id
+          AND c.deleted_at IS NULL
         LIMIT 1
     ');
     $stmt->bindValue(':id', $complaintId, PDO::PARAM_INT);
@@ -254,6 +276,7 @@ function complaint_service_log_resolve_cycle_context(PDO $conn, int $complaintId
 
 function complaint_service_log_resolve_installed_base(PDO $conn, int $complaintId, string $username = ''): ?array
 {
+    require_once __DIR__ . '/installed_base_helpers.php';
     unset($username);
 
     $complaint = complaint_service_log_get_complaint($conn, $complaintId);
@@ -266,12 +289,23 @@ function complaint_service_log_resolve_installed_base(PDO $conn, int $complaintI
         return null;
     }
 
+    installed_base_ensure_schema($conn);
+
     $stmt = $conn->prepare('
-        SELECT id, order_ref_id, order_id, fab_number, customer_name, machine_model, machine_model_code, running_hours
-        FROM installed_base
-        WHERE fab_number = :fab_number
-          AND deleted_at IS NULL
-        ORDER BY created_at DESC, id DESC
+        SELECT
+            ib.id,
+            ib.order_ref_id,
+            ib.order_id,
+            ib.fab_number,
+            cm.customer_name,
+            ib.machine_model,
+            ib.machine_model_code,
+            ib.running_hours
+        FROM installed_base ib
+        ' . installed_base_customer_join_sql('ib', 'cm') . '
+        WHERE ib.fab_number = :fab_number
+          AND ib.deleted_at IS NULL
+        ORDER BY ib.created_at DESC, ib.id DESC
         LIMIT 1
     ');
     $stmt->bindValue(':fab_number', $fabNumber);

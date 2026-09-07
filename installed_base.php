@@ -13,6 +13,8 @@ $active_menu = 'installed_base';
 $success_message = '';
 $error_message = '';
 
+installed_base_ensure_schema($obconn);
+
 if (isset($_GET['service_log_draft_added']) && (string) $_GET['service_log_draft_added'] === '1') {
     $success_message = 'Service log saved as draft successfully.';
 }
@@ -359,20 +361,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                 <span class="complaint-form-section__badge">2</span>
                                 <div>
                                     <h3 class="complaint-form-section__title">Customer Details</h3>
-                                    <p class="complaint-form-section__hint">Customer contact and location information</p>
+                                    <p class="complaint-form-section__hint">Select customer from Customer Master</p>
                                 </div>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-6 form-group">
-                                    <label class="form-label">
+                                <div class="col-md-8 form-group">
+                                    <label class="form-label" for="installedBaseCustomerSelect">
                                         <i class="bi bi-person"></i>
-                                        Customer Name <span class="text-danger">*</span>
+                                        Customer <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control" name="customer_name" maxlength="200"
-                                        placeholder="Enter customer name">
-                                    <div class="text-danger validation-msg" data-field="customer_name"></div>
+                                    <div class="d-flex gap-2 align-items-start flex-wrap">
+                                        <div class="flex-grow-1" style="min-width:220px;">
+                                            <select class="form-control" name="customer_id" id="installedBaseCustomerSelect"
+                                                data-placeholder="Search customer" style="width:100%;">
+                                                <option value=""></option>
+                                            </select>
+                                            <div class="text-danger validation-msg" data-field="customer_id"></div>
+                                        </div>
+                                        <?php if ($canAddInstalledBase) { ?>
+                                        <button type="button" class="btn btn-outline-dark btn-sm mt-1" id="addNewCustomerFromInstalledBaseBtn"
+                                            title="Add New Customer">
+                                            <i class="bi bi-plus-lg"></i> Add New Customer
+                                        </button>
+                                        <?php } ?>
+                                    </div>
                                 </div>
-                                <div class="col-md-6 form-group">
+                                <div class="col-md-4 form-group">
                                     <label class="form-label">
                                         <i class="bi bi-shop"></i>
                                         Dealer Name <span class="text-danger">*</span>
@@ -381,80 +395,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                         value="<?php echo htmlspecialchars($defaultDealerName, ENT_QUOTES, 'UTF-8'); ?>"
                                         placeholder="Auto-filled from logged-in user">
                                     <div class="text-danger validation-msg" data-field="dealer_name"></div>
-                                </div>
-                                <div class="col-md-6 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-signpost"></i>
-                                        Street 1 <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control" name="street_1" maxlength="255"
-                                        placeholder="House / building / street">
-                                    <div class="text-danger validation-msg" data-field="street_1"></div>
-                                </div>
-                                <div class="col-md-6 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-signpost-2"></i>
-                                        Street 2
-                                    </label>
-                                    <input type="text" class="form-control" name="street_2" maxlength="255"
-                                        placeholder="Area / landmark (optional)">
-                                    <div class="text-danger validation-msg" data-field="street_2"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label" for="installedBasePincodeSelect">
-                                        <i class="bi bi-mailbox"></i>
-                                        Pincode <span class="text-danger">*</span>
-                                    </label>
-                                    <select class="form-control" name="pincode" id="installedBasePincodeSelect"
-                                        data-placeholder="Search or select pincode">
-                                        <option value=""></option>
-                                    </select>
-                                    <div class="text-danger validation-msg" data-field="pincode"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-building"></i>
-                                        City <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control address-auto-field" name="city"
-                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
-                                    <div class="text-danger validation-msg" data-field="city"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-geo"></i>
-                                        District <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control address-auto-field" name="district"
-                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
-                                    <div class="text-danger validation-msg" data-field="district"></div>
-                                </div>
-                                <div class="col-md-3 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-map"></i>
-                                        State <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control address-auto-field" name="state"
-                                        maxlength="100" placeholder="Auto-filled from pincode" readonly>
-                                    <div class="text-danger validation-msg" data-field="state"></div>
-                                </div>
-                                <div class="col-md-6 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-phone"></i>
-                                        Mobile <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control" name="mobile" inputmode="numeric"
-                                        maxlength="10" placeholder="10-digit mobile number">
-                                    <div class="text-danger validation-msg" data-field="mobile"></div>
-                                </div>
-                                <div class="col-md-6 form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-envelope"></i>
-                                        Email <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="email" class="form-control" name="email" maxlength="150"
-                                        placeholder="Enter email address">
-                                    <div class="text-danger validation-msg" data-field="email"></div>
                                 </div>
                             </div>
                         </section>
@@ -595,8 +535,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <?php } ?>
 
     <script src="js/static_select2.js"></script>
-    <script src="js/pincode_select2.js"></script>
     <script src="js/fabno_select2.js"></script>
+    <script src="js/installed_base_customer_select2.js"></script>
     <script src="js/installed_base_fab_prefill.js"></script>
     <script src="js/installed_base_fabno_select2.js"></script>
     <script src="js/installed_base_order_select2.js"></script>
@@ -615,7 +555,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <script>
     $(document).ready(function () {
         initInstalledBasePage();
-        initPincodeSelect2('installedBaseForm', 'installedBasePincodeSelect');
         <?php if ($canAddServiceLog) { ?>
         initInstalledBaseServiceLogModal();
         <?php } ?>
