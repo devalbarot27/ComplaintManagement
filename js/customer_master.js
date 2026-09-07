@@ -95,26 +95,92 @@ function initcustomerMasterFormValidation() {
         });
     }
 
+    function clearFieldError(fieldName) {
+        const input = form.querySelector('[name="' + fieldName + '"]');
+        const msg = form.querySelector('.validation-msg[data-field="' + fieldName + '"]');
+        if (input) {
+            input.classList.remove('is-invalid');
+        }
+        if (msg) {
+            msg.textContent = '';
+        }
+        if (fieldName === 'pincode' && window.jQuery) {
+            window.jQuery('#customerMasterPincodeSelect')
+                .next('.select2-container')
+                .find('.select2-selection')
+                .removeClass('is-invalid');
+        }
+    }
+
+    function setFieldError(fieldName, message) {
+        const input = form.querySelector('[name="' + fieldName + '"]');
+        const msg = form.querySelector('.validation-msg[data-field="' + fieldName + '"]');
+        if (input) {
+            input.classList.add('is-invalid');
+        }
+        if (fieldName === 'pincode' && window.jQuery) {
+            window.jQuery('#customerMasterPincodeSelect')
+                .next('.select2-container')
+                .find('.select2-selection')
+                .addClass('is-invalid');
+        }
+        if (msg) {
+            msg.textContent = message || '';
+        }
+    }
+
     function showErrors(errors) {
         clearValidationState();
         if (!errors) {
             return;
         }
         Object.keys(errors).forEach(function (field) {
-            const input = form.querySelector('[name="' + field + '"]');
-            const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
-            if (input) {
-                input.classList.add('is-invalid');
-            }
-            if (field === 'pincode' && window.jQuery) {
-                window.jQuery('#customerMasterPincodeSelect')
-                    .next('.select2-container')
-                    .find('.select2-selection')
-                    .addClass('is-invalid');
-            }
-            if (msg && errors[field]) {
-                msg.textContent = Array.isArray(errors[field]) ? errors[field][0] : errors[field];
-            }
+            const message = Array.isArray(errors[field]) ? errors[field][0] : errors[field];
+            setFieldError(field, message);
+        });
+    }
+
+    function validateField(input) {
+        const fieldName = input && input.name;
+        if (!fieldName || !constraints[fieldName]) {
+            return;
+        }
+
+        const fieldErrors = validate.single(input.value, constraints[fieldName]);
+        if (fieldErrors) {
+            setFieldError(fieldName, fieldErrors[0]);
+        } else {
+            clearFieldError(fieldName);
+        }
+
+        // Auto-filled address fields clear once pincode selection populates them.
+        if (fieldName === 'pincode' && !fieldErrors) {
+            ['city', 'district', 'state'].forEach(function (autoField) {
+                const autoInput = form.querySelector('[name="' + autoField + '"]');
+                if (autoInput) {
+                    validateField(autoInput);
+                }
+            });
+        }
+    }
+
+    form.querySelectorAll('input, textarea, select').forEach(function (input) {
+        if (!constraints[input.name]) {
+            return;
+        }
+
+        const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
+        input.addEventListener(eventName, function () {
+            validateField(input);
+        });
+        input.addEventListener('blur', function () {
+            validateField(input);
+        });
+    });
+
+    if (window.jQuery) {
+        window.jQuery('#customerMasterPincodeSelect').on('select2:select select2:clear change', function () {
+            validateField(form.querySelector('[name="pincode"]'));
         });
     }
 
