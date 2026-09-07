@@ -1,3 +1,74 @@
+<?php
+session_start();
+
+include 'pdo_obconn.php';
+require_once 'includes/rbac_page_guard.php';
+require_once 'includes/current_username_helpers.php';
+
+$active_menu = 'ar_statement';
+
+$cuno = trim((string) ($_SESSION['customer_number_vayu'] ?? ''));
+
+$summary = [
+    'invamt' => 0.0, 'recvamt' => 0.0, 'amtout' => 0.0,
+    'less30' => 0.0, 'less40' => 0.0, 'less45' => 0.0,
+    'less50' => 0.0, 'less60' => 0.0, 'less90' => 0.0, 'more90' => 0.0,
+];
+$ledgerRows = [];
+$asOfDate = '';
+
+if ($cuno !== '') {
+    $summaryStmt = $dpconn->prepare('
+        SELECT
+            COALESCE(SUM(invamt), 0) AS invamt,
+            COALESCE(SUM(recvamt), 0) AS recvamt,
+            COALESCE(SUM(amtout), 0) AS amtout,
+            COALESCE(SUM(less30), 0) AS less30,
+            COALESCE(SUM(less40), 0) AS less40,
+            COALESCE(SUM(less45), 0) AS less45,
+            COALESCE(SUM(less50), 0) AS less50,
+            COALESCE(SUM(less60), 0) AS less60,
+            COALESCE(SUM(less90), 0) AS less90,
+            COALESCE(SUM(more90), 0) AS more90,
+            MAX(docdt) AS max_docdt
+        FROM arst_new
+        WHERE cuno = :cuno
+    ');
+    $summaryStmt->bindValue(':cuno', $cuno);
+    $summaryStmt->execute();
+    $summaryRow = $summaryStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($summaryRow) {
+        foreach ($summary as $key => $default) {
+            $summary[$key] = (float) $summaryRow[$key];
+        }
+        $asOfDate = (string) ($summaryRow['max_docdt'] ?? '');
+    }
+
+    $rowsStmt = $dpconn->prepare('
+        SELECT dpst, docdt, invpre, invno, currency, invamt, recvamt, amtout,
+               less30, less40, less45, less50, less60, less90, more90, duedate
+        FROM arst_new
+        WHERE cuno = :cuno
+        ORDER BY docdt DESC
+    ');
+    $rowsStmt->bindValue(':cuno', $cuno);
+    $rowsStmt->execute();
+    $ledgerRows = $rowsStmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$invoicedTotal    = $summary['invamt'];
+$receivedTotal    = $summary['recvamt'];
+$outstandingTotal = $summary['amtout'];
+$above90Total     = $summary['more90'];
+
+$above90Count = 0;
+foreach ($ledgerRows as $row) {
+    if ((float) $row['more90'] > 0) {
+        $above90Count++;
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -21,34 +92,9 @@
 
 
     <div class="main-wrapper" id="mainWrapper">
-        <!-- TOPBAR -->
-
-        <div class="topbar">
-
-            <div class="topbar-left">
-                <i class="bi bi-list toggle-btn" id="menuToggle"></i>
-                AR Statement
-            </div>
-            <?php include('topbar.php'); ?>
-        </div>
-        <!-- SIDEBAR -->
 
         <?php include('sidebar.php'); ?>
         <div class="content">
-
-            <!-- PAGE HEADER -->
-
-            <div class="page-header">
-
-                <div class="page-title-section">
-
-                    <div class="page-title">
-                        AR Statement
-                    </div>
-
-                </div>
-
-            </div>
 
             <!-- STATS -->
 
@@ -67,7 +113,7 @@
                             </div>
 
                             <div class="card-value">
-                                ₹42.3L
+                                ₹<?= number_format(round($outstandingTotal)) ?>
                             </div>
 
                         </div>
@@ -91,15 +137,11 @@
                         <div>
 
                             <div class="card-title">
-                                Credit Limit
+                                Total Invoiced
                             </div>
 
                             <div class="card-value">
-                                ₹62.0L
-                            </div>
-
-                            <div class="card-sub gray">
-                                90-day credit terms
+                                ₹<?= number_format(round($invoicedTotal)) ?>
                             </div>
 
                         </div>
@@ -123,11 +165,11 @@
                         <div>
 
                             <div class="card-title">
-                                Overdue Amount
+                                Total Received
                             </div>
 
                             <div class="card-value">
-                                ₹4.5L
+                                ₹<?= number_format(round($receivedTotal)) ?>
                             </div>
 
                         </div>
@@ -151,15 +193,15 @@
                         <div>
 
                             <div class="card-title">
-                                Avg. Payment Days
+                                Above 90 Days
                             </div>
 
                             <div class="card-value">
-                                72
+                                ₹<?= number_format(round($above90Total)) ?>
                             </div>
 
-                            <div class="card-sub green-text">
-                                ↑ 3 days faster
+                            <div class="card-sub red-text" style="color:#dc2626;">
+                                <?= $above90Count ?> overdue invoice<?= $above90Count === 1 ? '' : 's' ?>
                             </div>
 
                         </div>
@@ -169,150 +211,6 @@
                             <i class="bi bi-clock-history"></i>
 
                         </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- CREDIT UTILIZATION -->
-
-            <div class="utilization-card">
-
-                <div class="utilization-title">
-                    Credit Utilization
-                </div>
-
-                <div class="utilization-top">
-
-                    <div class="utilization-text">
-
-                        Used: ₹42.3L of ₹62.0L
-
-                    </div>
-
-                    <div class="utilization-percent">
-                        68%
-                    </div>
-
-                </div>
-
-                <div class="utilization-bar">
-
-                    <div class="utilization-fill"></div>
-
-                </div>
-
-                <div class="utilization-bottom">
-
-                    <div class="available-credit">
-                        Available credit ₹19.7L
-                    </div>
-
-                    <div class="moderate-text">
-                        Moderate utilization
-                    </div>
-
-                </div>
-
-            </div>
-
-            <!-- ANALYSIS -->
-
-            <div class="analysis-grid">
-
-                <!-- CHART -->
-
-                <div class="analysis-card">
-
-                    <div class="analysis-title">
-
-                        <i class="bi bi-graph-up-arrow"></i>
-
-                        Aging Analysis (₹ in thousands)
-
-                    </div>
-
-                    <div class="chart-wrapper">
-
-                        <canvas id="agingChart"></canvas>
-
-                    </div>
-
-                </div>
-
-                <!-- SUMMARY -->
-
-                <div class="analysis-card">
-
-                    <div class="analysis-title">
-                        Payment Summary
-                    </div>
-
-                    <!-- BOX -->
-
-                    <div class="summary-box">
-
-                        <div>
-
-                            <div class="summary-label">
-                                Total Invoiced (This Quarter)
-                            </div>
-
-                            <div class="summary-value">
-                                ₹7.50L
-                            </div>
-
-                        </div>
-
-                        <span class="summary-badge">
-                            Q1 2024
-                        </span>
-
-                    </div>
-
-                    <!-- BOX -->
-
-                    <div class="summary-box">
-
-                        <div>
-
-                            <div class="summary-label">
-                                Total Payments Received
-                            </div>
-
-                            <div class="summary-value">
-                                ₹4.65L
-                            </div>
-
-                        </div>
-
-                        <span class="summary-badge blue-badge">
-                            62%
-                        </span>
-
-                    </div>
-
-                    <!-- BOX -->
-
-                    <div class="summary-box danger-box">
-
-                        <div>
-
-                            <div class="summary-label">
-                                Overdue Invoices
-                            </div>
-
-                            <div class="summary-value red-text">
-                                ₹4.50L
-                            </div>
-
-                        </div>
-
-                        <span class="summary-badge red-badge">
-                            3 invoices
-                        </span>
 
                     </div>
 
@@ -340,28 +238,26 @@
 
                             <i class="bi bi-search"></i>
 
-                            <input type="text"
-                                placeholder="Search transactions...">
+                            <input type="text" id="ledgerSearchInput"
+                                placeholder="Search invoice no...">
 
                         </div>
 
                         <!-- FILTER -->
 
-                        <select class="filter-select">
+                        <select class="filter-select" id="ledgerStatusFilter">
 
-                            <option>All Types</option>
+                            <option value="">All Status</option>
 
-                            <option>Invoice</option>
+                            <option value="outstanding">Outstanding</option>
 
-                            <option>Payment</option>
-
-                            <option>Credit Note</option>
+                            <option value="settled">Settled</option>
 
                         </select>
 
                         <!-- DOWNLOAD -->
 
-                        <button class="download-btn">
+                        <button class="download-btn" id="downloadStatementBtn" type="button">
 
                             <i class="bi bi-download"></i>
 
@@ -377,19 +273,26 @@
 
                 <div class="table-responsive">
 
-                    <table class="booking-table">
+                    <table class="booking-table" id="ledgerTable">
 
                         <thead>
 
                             <tr>
 
-                                <th>Ref</th>
-                                <th>Date</th>
-                                <th>Description</th>
-                                <th>Type</th>
-                                <th>Debit</th>
-                                <th>Credit</th>
-                                <th>Balance</th>
+                                <th>DPST</th>
+                                <th>Document Date</th>
+                                <th>Invoice No</th>
+                                <th>Currency</th>
+                                <th>Invoice Amt</th>
+                                <th>Received Amt</th>
+                                <th>Outstanding Amt</th>
+                                <th>Less than<br>30 days</th>
+                                <th>31-40<br>days</th>
+                                <th>41-45<br>days</th>
+                                <th>46-50<br>days</th>
+                                <th>51-60<br>days</th>
+                                <th>61-90<br>days</th>
+                                <th>Above 90<br>days</th>
                                 <th>Due Date</th>
 
                             </tr>
@@ -398,107 +301,70 @@
 
                         <tbody>
 
+<?php if (empty($ledgerRows)): ?>
                             <tr>
+                                <td colspan="15" class="text-center text-muted">No AR records found.</td>
+                            </tr>
+<?php else: foreach ($ledgerRows as $row): $rowOutstanding = (float) $row['amtout']; ?>
+                            <tr data-status="<?= $rowOutstanding > 0 ? 'outstanding' : 'settled' ?>">
 
                                 <td class="fw-semibold">
-                                    INV-8821
+                                    <?= htmlspecialchars((string) $row['dpst']) ?>
                                 </td>
 
-                                <td>01 Mar 2024</td>
+                                <td><?= htmlspecialchars(!empty($row['docdt']) ? date('d M Y', strtotime((string) $row['docdt'])) : '') ?></td>
 
-                                <td>Invoice - ORD-2024-1750</td>
+                                <td><?= htmlspecialchars(trim((string) $row['invpre']) . '-' . trim((string) $row['invno'])) ?></td>
 
-                                <td>
+                                <td><?= htmlspecialchars(trim((string) $row['currency']) !== '' ? $row['currency'] : 'INR') ?></td>
 
-                                    <span class="ledger-badge">
-                                        Invoice
-                                    </span>
-
+                                <td class="debit-text text-end">
+                                    ₹<?= number_format(round((float) $row['invamt'])) ?>
                                 </td>
 
-                                <td class="debit-text">
-                                    ₹2,50,000
+                                <td class="credit-text text-end">
+                                    ₹<?= number_format(round((float) $row['recvamt'])) ?>
                                 </td>
 
-                                <td>-</td>
-
-                                <td class="fw-semibold">
-                                    ₹42,30,000
+                                <td class="fw-semibold text-end">
+                                    ₹<?= number_format(round($rowOutstanding)) ?>
                                 </td>
 
-                                <td class="debit-text">
-                                    30 May 2024
+                                <td class="text-end"><?= number_format(round((float) $row['less30'])) ?></td>
+                                <td class="text-end"><?= number_format(round((float) $row['less40'])) ?></td>
+                                <td class="text-end"><?= number_format(round((float) $row['less45'])) ?></td>
+                                <td class="text-end"><?= number_format(round((float) $row['less50'])) ?></td>
+                                <td class="text-end"><?= number_format(round((float) $row['less60'])) ?></td>
+                                <td class="text-end"><?= number_format(round((float) $row['less90'])) ?></td>
+                                <td class="text-end"><?= number_format(round((float) $row['more90'])) ?></td>
+
+                                <td class="<?= $rowOutstanding > 0 ? 'debit-text' : '' ?>">
+                                    <?= htmlspecialchars(!empty($row['duedate']) ? date('d M Y', strtotime((string) $row['duedate'])) : '—') ?>
                                 </td>
 
                             </tr>
-
-                            <tr>
-
-                                <td class="fw-semibold">
-                                    PMT-3321
-                                </td>
-
-                                <td>05 Mar 2024</td>
-
-                                <td>Payment Received - NEFT</td>
-
-                                <td>
-
-                                    <span class="ledger-badge">
-                                        Payment
-                                    </span>
-
-                                </td>
-
-                                <td>-</td>
-
-                                <td class="credit-text">
-                                    ₹1,80,000
-                                </td>
-
-                                <td class="fw-semibold">
-                                    ₹40,50,000
-                                </td>
-
-                                <td>—</td>
-
-                            </tr>
-
-                            <tr>
-
-                                <td class="fw-semibold">
-                                    INV-8835
-                                </td>
-
-                                <td>10 Mar 2024</td>
-
-                                <td>Invoice - ORD-2024-1780</td>
-
-                                <td>
-
-                                    <span class="ledger-badge">
-                                        Invoice
-                                    </span>
-
-                                </td>
-
-                                <td class="debit-text">
-                                    ₹1,45,000
-                                </td>
-
-                                <td>-</td>
-
-                                <td class="fw-semibold">
-                                    ₹41,95,000
-                                </td>
-
-                                <td class="debit-text">
-                                    08 Jun 2024
-                                </td>
-
-                            </tr>
+<?php endforeach; endif; ?>
 
                         </tbody>
+
+<?php if (!empty($ledgerRows)): ?>
+                        <tfoot>
+                            <tr class="fw-bold">
+                                <td colspan="4">Total Amount</td>
+                                <td class="text-end">₹<?= number_format(round($summary['invamt'])) ?></td>
+                                <td class="text-end">₹<?= number_format(round($summary['recvamt'])) ?></td>
+                                <td class="text-end">₹<?= number_format(round($summary['amtout'])) ?></td>
+                                <td class="text-end"><?= number_format(round($summary['less30'])) ?></td>
+                                <td class="text-end"><?= number_format(round($summary['less40'])) ?></td>
+                                <td class="text-end"><?= number_format(round($summary['less45'])) ?></td>
+                                <td class="text-end"><?= number_format(round($summary['less50'])) ?></td>
+                                <td class="text-end"><?= number_format(round($summary['less60'])) ?></td>
+                                <td class="text-end"><?= number_format(round($summary['less90'])) ?></td>
+                                <td class="text-end"><?= number_format(round($summary['more90'])) ?></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+<?php endif; ?>
 
                     </table>
 
@@ -509,67 +375,42 @@
         </div>
 
         <script>
-            const ctx = document.getElementById('agingChart');
+            const ledgerTable = document.getElementById('ledgerTable');
+            const searchInput = document.getElementById('ledgerSearchInput');
+            const statusFilter = document.getElementById('ledgerStatusFilter');
 
-            new Chart(ctx, {
-
-                type: 'bar',
-
-                data: {
-
-                    labels: [
-                        'Current',
-                        '1-30 days',
-                        '31-60 days',
-                        '61-90 days',
-                        '90+ days'
-                    ],
-
-                    datasets: [{
-
-                        data: [320, 150, 250, 90, 50],
-
-                        backgroundColor: '#1565d8',
-
-                        borderRadius: 4
-
-                    }]
-
-                },
-
-                options: {
-
-                    responsive: true,
-
-                    maintainAspectRatio: false,
-
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-
-                    scales: {
-
-                        x: {
-                            grid: {
-                                color: '#e2e8f0',
-                                borderDash: [3, 3]
-                            }
-                        },
-
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: '#e2e8f0',
-                                borderDash: [3, 3]
-                            }
-                        }
-
-                    }
-
+            function applyLedgerFilters() {
+                if (!ledgerTable) {
+                    return;
                 }
+                const search = (searchInput?.value || '').trim().toLowerCase();
+                const status = statusFilter?.value || '';
+                ledgerTable.querySelectorAll('tbody tr[data-status]').forEach((tr) => {
+                    const matchesSearch = search === '' || tr.textContent.toLowerCase().includes(search);
+                    const matchesStatus = status === '' || tr.dataset.status === status;
+                    tr.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+                });
+            }
 
+            searchInput?.addEventListener('input', applyLedgerFilters);
+            statusFilter?.addEventListener('change', applyLedgerFilters);
+
+            document.getElementById('downloadStatementBtn')?.addEventListener('click', () => {
+                if (!ledgerTable) {
+                    return;
+                }
+                const rows = [...ledgerTable.querySelectorAll('tr')].filter((tr) => tr.style.display !== 'none');
+                const csv = rows.map((tr) =>
+                    [...tr.querySelectorAll('th,td')]
+                        .map((cell) => '"' + cell.textContent.trim().replace(/"/g, '""').replace(/\s+/g, ' ') + '"')
+                        .join(',')
+                ).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'AR_Statement.csv';
+                link.click();
+                URL.revokeObjectURL(link.href);
             });
         </script>
     </div>

@@ -34,7 +34,7 @@ $freightPercentage = 4;
     <link href="css/success_modal.css" rel="stylesheet" />
     <link href="css/select2_change.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-    <php /* <link rel="stylesheet" href="https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.css"> */ ?>
+    <?php /* <link rel="stylesheet" href="https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.css"> */ ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery-ui@1.14.1/dist/themes/base/jquery-ui.min.css">
     <style>
         .select2-selection__rendered {

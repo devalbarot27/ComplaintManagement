@@ -229,10 +229,47 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                             <div id="serviceUpdateServiceLogDetails" class="d-none"></div>
                             <div class="text-danger validation-msg" data-field="service_log" id="serviceUpdateServiceLogValidation"></div>
                         </section>
+                        <section class="complaint-form-section d-none" id="cqReviewWrap">
+                            <div class="complaint-form-section__head">
+                                <span class="complaint-form-section__badge">3</span>
+                                <div>
+                                    <h3 class="complaint-form-section__title">Customer Quality (CQ) Review</h3>
+                                    <p class="complaint-form-section__hint">Required for Product Performance / Parts-Accessories complaints based on warranty status</p>
+                                </div>
+                            </div>
+                            <div class="row g-3 align-items-start mb-2">
+                                <div class="col-md-5">
+                                    <div class="text-muted small mb-1">Warranty Status</div>
+                                    <span class="badge" id="cqWarrantyStatusBadge">-</span>
+                                </div>
+                                <div class="col-md-7">
+                                    <div class="text-muted small mb-1">Service Type (from Service Log)</div>
+                                    <div id="cqServiceTypeDisplay">-</div>
+                                </div>
+                            </div>
+                            <div id="cqFailedPartsWrap" class="d-none">
+                                <label class="form-label small">Failed Part(s) <span class="text-danger">*</span></label>
+                                <div class="table-responsive mb-1">
+                                    <table class="table table-sm table-bordered" id="cqFailedPartsTable">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:40px;"></th>
+                                                <th>Part Number</th>
+                                                <th>Description</th>
+                                                <th style="width:90px;">Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cqFailedPartsBody"></tbody>
+                                    </table>
+                                </div>
+                                <div class="text-danger validation-msg" data-field="cq_failed_parts"></div>
+                            </div>
+                            <input type="hidden" name="cq_failed_parts" id="cqFailedPartsInput" value="[]">
+                        </section>
                         <?php } ?>
                         <section class="complaint-form-section">
                             <div class="complaint-form-section__head">
-                                <span class="complaint-form-section__badge">3</span>
+                                <span class="complaint-form-section__badge">4</span>
                                 <div>
                                     <h3 class="complaint-form-section__title">Service Report</h3>
                                     <p class="complaint-form-section__hint">Upload supporting service documentation</p>
@@ -335,6 +372,128 @@ function initAssignedComplaintDatatable() {
 }
 
 let serviceUpdateSubmitting = false;
+
+const cqState = { categoryQualifies: false, warrantyStatus: '', serviceType: '', qualifies: false, parts: [] };
+
+function escapeCqHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+}
+
+function renderCqFailedPartsOptions() {
+    const body = document.getElementById('cqFailedPartsBody');
+    if (!body) {
+        return;
+    }
+    if (cqState.parts.length === 0) {
+        body.innerHTML = '<tr><td colspan="4" class="text-muted text-center">No parts recorded in Service Log for this call ticket.</td></tr>';
+        return;
+    }
+    body.innerHTML = cqState.parts.map(function (part, idx) {
+        return '<tr>' +
+            '<td><input type="checkbox" class="form-check-input cq-part-check" data-idx="' + idx + '"></td>' +
+            '<td>' + escapeCqHtml(part.part_number) + '</td>' +
+            '<td>' + escapeCqHtml(part.part_description || '') + '</td>' +
+            '<td><input type="number" class="form-control form-control-sm cq-part-qty" data-idx="' + idx + '" min="1" value="' + (part.qty || 1) + '"></td>' +
+            '</tr>';
+    }).join('');
+}
+
+function syncCqFailedPartsInput() {
+    const input = document.getElementById('cqFailedPartsInput');
+    const selected = [];
+    document.querySelectorAll('.cq-part-check:checked').forEach(function (checkbox) {
+        const idx = parseInt(checkbox.getAttribute('data-idx'), 10);
+        const part = cqState.parts[idx];
+        if (!part) {
+            return;
+        }
+        const qtyInput = document.querySelector('.cq-part-qty[data-idx="' + idx + '"]');
+        const qty = qtyInput ? parseInt(qtyInput.value, 10) : part.qty;
+        selected.push({
+            part_number: part.part_number,
+            part_description: part.part_description,
+            qty: qty > 0 ? qty : 1
+        });
+    });
+    if (input) {
+        input.value = JSON.stringify(selected);
+    }
+    return selected;
+}
+
+function updateCqReviewVisibility() {
+    const wrap = document.getElementById('cqReviewWrap');
+    const partsWrap = document.getElementById('cqFailedPartsWrap');
+    if (wrap) {
+        wrap.classList.toggle('d-none', !cqState.categoryQualifies);
+    }
+    if (partsWrap) {
+        partsWrap.classList.toggle('d-none', !cqState.qualifies);
+    }
+}
+
+function loadCqReviewData(complaintId) {
+    cqState.categoryQualifies = false;
+    cqState.warrantyStatus = '';
+    cqState.serviceType = '';
+    cqState.qualifies = false;
+    cqState.parts = [];
+    updateCqReviewVisibility();
+
+    if (!complaintId) {
+        return;
+    }
+
+    $.ajax({
+        url: 'api/complaint_cq_review_data.php',
+        type: 'GET',
+        dataType: 'json',
+        data: { complaint_id: complaintId }
+    }).done(function (res) {
+        console.debug('[CQ debug] complaint_cq_review_data.php response:', res);
+        if (!res || !res.success) {
+            return;
+        }
+        cqState.categoryQualifies = !!res.category_qualifies;
+        cqState.warrantyStatus = res.warranty_status || '';
+        cqState.serviceType = res.service_type || '';
+        cqState.qualifies = !!res.qualifies;
+        cqState.parts = res.parts || [];
+
+        const badge = document.getElementById('cqWarrantyStatusBadge');
+        if (badge) {
+            badge.textContent = cqState.warrantyStatus || 'Unknown';
+            badge.className = 'badge ' + (res.warranty_badge_class || 'bg-secondary');
+        }
+
+        const serviceTypeDisplay = document.getElementById('cqServiceTypeDisplay');
+        if (serviceTypeDisplay) {
+            serviceTypeDisplay.textContent = cqState.serviceType || 'Not recorded in Service Log';
+        }
+
+        renderCqFailedPartsOptions();
+        updateCqReviewVisibility();
+    }).fail(function (xhr) {
+        console.error('[CQ debug] complaint_cq_review_data.php request failed:', xhr.status, xhr.responseText);
+    });
+}
+
+function initCqReviewSection() {
+    const partsBody = document.getElementById('cqFailedPartsBody');
+    if (partsBody) {
+        partsBody.addEventListener('change', function (e) {
+            if (e.target.classList.contains('cq-part-check') || e.target.classList.contains('cq-part-qty')) {
+                syncCqFailedPartsInput();
+                const msg = document.querySelector('.validation-msg[data-field="cq_failed_parts"]');
+                if (msg) {
+                    msg.textContent = '';
+                }
+            }
+        });
+    }
+}
 
 function initServiceUpdateValidation() {
     const form = document.getElementById('serviceUpdateForm');
@@ -466,6 +625,10 @@ function initServiceUpdateValidation() {
             errors.service_log = [serviceLogError];
         }
 
+        if (cqState.qualifies && syncCqFailedPartsInput().length === 0) {
+            errors.cq_failed_parts = ['Please select at least one failed part'];
+        }
+
         return Object.keys(errors).length ? errors : null;
     }
 
@@ -593,6 +756,8 @@ function resetServiceUpdateForm(complaintId) {
     form.querySelectorAll('.validation-msg').forEach(function (el) {
         el.textContent = '';
     });
+
+    loadCqReviewData(complaintId);
 }
 
 
@@ -601,6 +766,7 @@ $(document).ready(function() {
 <?php if ($canServiceUpdateAssignedComplaint) { ?>
     initServiceUpdateValidation();
     initComplaintServiceUpdateSave();
+    initCqReviewSection();
 <?php } ?>
 
     setTimeout(function() {

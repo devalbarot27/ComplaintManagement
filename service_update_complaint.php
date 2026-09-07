@@ -9,6 +9,7 @@ require_once 'includes/complaint_assignment_helpers.php';
 require_once 'includes/complaint_datatable_helpers.php';
 include 'includes/service_report_helpers.php';
 require_once 'includes/complaint_service_log_helpers.php'; // 10-07-26
+require_once 'includes/cq_helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     rbac_access_denied_redirect();
@@ -64,7 +65,7 @@ $storedPaths = [];
  
 try {
     $complaintStmt = $obconn->prepare("
-        SELECT id, status
+        SELECT id, status, complaint_category_name, fab_number, complaint_description
         FROM complaints
         WHERE id = :id
         AND deleted_at IS NULL
@@ -89,6 +90,44 @@ try {
         $_SESSION['error_message'] = 'Service update is only allowed for complaints in progress or re-open.';
         header('Location: dse_lse_complaint_list.php');
         exit;
+    }
+
+    // Customer Quality (CQ) qualification check: Complaint Category + Warranty Status + Service Type.
+    // Service Type is read from the complaint's own Service Log (warranty_chargeable field,
+    // labeled "Service Type" in the Add/Edit Service Log modal) - not a separate user input here.
+    $cqServiceType = '';
+    $cqWarrantyStatus = '';
+    $cqQualifies = false;
+    $cqFailedParts = [];
+
+    if (cq_complaint_category_qualifies((string) ($complaint['complaint_category_name'] ?? ''))) {
+        $cqServiceType = cq_resolve_service_type_for_complaint($obconn, $complaint_id);
+        $cqWarrantyStatus = cq_resolve_warranty_status_for_complaint($obconn, $complaint_id)['status'];
+        $cqQualifies = cq_service_type_qualifies($cqWarrantyStatus, $cqServiceType);
+
+        if ($cqQualifies) {
+            $rawFailedParts = json_decode($_POST['cq_failed_parts'] ?? '[]', true);
+            if (is_array($rawFailedParts)) {
+                foreach ($rawFailedParts as $part) {
+                    $partNumber = trim((string) ($part['part_number'] ?? ''));
+                    $qty = (int) ($part['qty'] ?? 0);
+                    if ($partNumber === '' || $qty <= 0) {
+                        continue;
+                    }
+                    $cqFailedParts[] = [
+                        'part_number' => $partNumber,
+                        'part_description' => trim((string) ($part['part_description'] ?? '')),
+                        'qty' => $qty,
+                    ];
+                }
+            }
+
+            if ($cqFailedParts === []) {
+                $_SESSION['error_message'] = 'Please select at least one failed part for Customer Quality review.';
+                header('Location: dse_lse_complaint_list.php');
+                exit;
+            }
+        }
     }
  
     $assignmentStmt = $obconn->prepare("
@@ -213,6 +252,30 @@ try {
         $activityDescription,
         $created_by
     );
+
+    if ($cqQualifies) {
+        $cqTrackNumbers = cq_create_referral(
+            $ccsconn,
+            $complaint_id,
+            (string) ($complaint['fab_number'] ?? ''),
+            (string) ($complaint['complaint_description'] ?? ''),
+            (string) ($complaint['complaint_category_name'] ?? ''),
+            $cqWarrantyStatus,
+            $cqServiceType,
+            $cqFailedParts,
+            $created_by,
+            (string) ($_SERVER['REMOTE_ADDR'] ?? '')
+        );
+
+        complaint_log_activity(
+            $obconn,
+            $complaint_id,
+            'CQ Referral',
+            'Customer Quality referral(s) created in CCS (trackno: ' . implode(', ', $cqTrackNumbers)
+                . '; Service Type: ' . $cqServiceType . ', Warranty Status: ' . $cqWarrantyStatus . ').',
+            $created_by
+        );
+    }
  
     $obconn->commit();
  

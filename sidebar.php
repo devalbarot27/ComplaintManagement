@@ -7,12 +7,6 @@
     if (!isset($obconn)) {
         require_once __DIR__ . '/pdo_obconn.php';
     }
-    require_once __DIR__ . '/includes/cdoc_helpers.php';
-    try {
-        cdoc_ensure_schema($obconn);
-    } catch (Throwable $e) {
-        // Schema bootstrap must not block the rest of the portal.
-    }
     $currentPage = basename($_SERVER['PHP_SELF']);
     $pageName = "";
     if ($currentPage == "orderbooking.php") {
@@ -74,9 +68,9 @@
     } else if ($currentPage == 'industry_segment_details.php') {
         $pageName = "Industry Segment Details";
     } else if ($currentPage == 'warranty_chargeable.php') {
-        $pageName = "Service Type";
+        $pageName = "Warranty / Chargeable";
     } else if ($currentPage == 'warranty_chargeable_details.php') {
-        $pageName = "Service Type Details";
+        $pageName = "Warranty / Chargeable Details";
     } else if ($currentPage == 'part_replaced.php') {
         $pageName = "Part Replaced";
     } else if ($currentPage == 'part_replaced_details.php') {
@@ -97,29 +91,20 @@
         $pageName = "Customer Master";
     } else if ($currentPage == 'customer_details.php') {
         $pageName = "Customer Details";
-    } else if ($currentPage == 'distance_wise_prices.php') {
-        $pageName = "Distance Wise Price Management";
-    } else if ($currentPage == 'distance_wise_price_details.php') {
-        $pageName = "Distance Wise Price Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     } else if ($currentPage == 'notifications.php') {
         $pageName = "Notifications";
     } else if ($currentPage == 'foc_parts.php') {
         $pageName = "FOC Part & Service Claim";
-    } else if ($currentPage == 'foc_claim_details.php') {
-        $pageName = "FOC Part Claim Details";
-    } else if ($currentPage == 'service_claims.php') {
-        $pageName = "Service Claim";
-    } else if ($currentPage == 'service_claim_details.php') {
-        $pageName = "Service Claim Details";
-    } else if ($currentPage == 'approvals.php') {
-        $pageName = "Approvals";
-    } else if ($currentPage == 'documentation.php') {
-        $pageName = "Documentation";
-    } else if ($currentPage == 'documentation_details.php') {
-        $pageName = "Document Details";
+    } else if ($currentPage == 'warranty_claims.php') {
+        $pageName = "Warranty Claim";
+    } else if ($currentPage == 'ar_statement.php') {
+        $pageName = "AR Statement";
+    } else if ($currentPage == 'amc.php') {
+        $pageName = "AMC";
     }
+
 
     ?>
 
@@ -279,20 +264,7 @@
                   <?php } ?>
               </div>
           <?php } ?>
-          <?php
-            $canDocumentation = rbac_can_access_menu($obconn, 'documentation.php');
-            ?>
-          <?php if ($canDocumentation) { ?>
-              <div class="menu-section">
-                  <div class="menu-heading">DOCUMENTATION</div>
 
-                  <a href="documentation.php"
-                      class="menu-item <?= ($currentPage == 'documentation.php' || $currentPage == 'documentation_details.php') ? 'active' : '' ?>">
-                      <i class="bi bi-journal-text"></i>
-                      Documentation
-                  </a>
-              </div>
-          <?php } ?>
           <?php $canAmc = rbac_can_access_menu($obconn, 'amc.php'); ?>
           <?php if ($canAmc) { ?>
               <div class="menu-section">
@@ -305,6 +277,17 @@
                   </a>
               </div>
           <?php } ?>
+
+                    <div class="menu-section">
+              <div class="menu-heading">ACCOUNTS</div>
+
+              <a href="ar_statement.php"
+                  class="menu-item <?= ($currentPage == 'ar_statement.php') ? 'active' : '' ?>">
+                  <i class="bi bi-receipt"></i>
+                  AR Statement
+              </a>
+          </div>
+
           <?php
             $canComplaintEntry = rbac_can_access_menu($obconn, 'new_complaint.php');
             $canAssignedComplaintList = rbac_can_access_menu($obconn, 'dse_lse_complaint_list.php');
@@ -312,23 +295,32 @@
             $canFocParts = rbac_can_access_menu($obconn, 'foc_parts.php');
             $canServiceClaims = rbac_can_access_menu($obconn, 'service_claims.php');
             $canshowApprovals = rbac_can_access_menu($obconn, 'approvals.php');
+            $canWarrantyClaims = rbac_can_access_menu($obconn, 'warranty_claims.php');
+            $showWarrantyManagement = $canFocParts || $canServiceClaims || $canshowApprovals || $canWarrantyClaims;
             ?>
-          <?php if ($canFocParts || $canServiceClaims || $canshowApprovals) { ?>
+          <?php if ($showWarrantyManagement) { ?>
               <div class="menu-section">
                   <div class="menu-heading">WARRANTY MANAGEMENT</div>
 
                   <?php if ($canFocParts) { ?>
                       <a href="foc_parts.php"
-                          class="menu-item <?= ($currentPage == 'foc_parts.php' || ($currentPage == 'foc_claim_details.php' && @$_GET['id'] != '')) ? 'active' : '' ?>">
-                          <i class="bi bi-wrench-adjustable"></i>
+                          class="menu-item <?= ($currentPage == 'foc_parts.php') ? 'active' : '' ?>">
+                          <i class="bi bi-shield-check"></i>
                           FOC Parts
                       </a>
                   <?php } ?>
                     <?php if ($canServiceClaims) { ?>
                       <a href="service_claims.php"
-                          class="menu-item <?= ($currentPage == 'service_claims.php' || ($currentPage == 'service_claim_details.php' && @$_GET['id'] != '')) ? 'active' : '' ?>">
-                          <i class="bi bi-clipboard-check"></i>
+                          class="menu-item <?= ($currentPage == 'service_claims.php') ? 'active' : '' ?>">
+                          <i class="bi bi-shield-check"></i>
                           Service Claims
+                      </a>
+                  <?php } ?>
+                    <?php if ($canWarrantyClaims) { ?>
+                      <a href="warranty_claims.php"
+                          class="menu-item <?= ($currentPage == 'warranty_claims.php') ? 'active' : '' ?>">
+                          <i class="bi bi-shield-check"></i>
+                          Warranty Claims
                       </a>
                   <?php } ?>
                    <?php if ($canshowApprovals) { ?>
@@ -433,7 +425,7 @@
                   <a href="warranty_chargeable.php"
                       class="menu-item <?= in_array($currentPage, ['warranty_chargeable.php', 'warranty_chargeable_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-shield-check"></i>
-                      Service Type
+                      Warranty / Chargeable
                   </a>
 
                   <a href="part_replaced.php"
@@ -452,12 +444,6 @@
                       class="menu-item <?= in_array($currentPage, ['reasons.php', 'reason_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-list-check"></i>
                       Reason
-                  </a>
-
-                  <a href="distance_wise_prices.php"
-                      class="menu-item <?= in_array($currentPage, ['distance_wise_prices.php', 'distance_wise_price_details.php'], true) ? 'active' : '' ?>">
-                      <i class="bi bi-signpost-split"></i>
-                      Distance Wise Price
                   </a>
 
                 

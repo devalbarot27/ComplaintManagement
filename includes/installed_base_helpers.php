@@ -407,6 +407,21 @@ function installed_base_update_record(PDO $conn, int $id, array $data): void
     $update->execute();
 }
 
+/** Targeted update used by the Warranty Claims "New" modal (commissioning date only). */
+function installed_base_update_commissioning_date(PDO $conn, int $id, string $commissioningDate): void
+{
+    $normalized = installed_base_format_date_for_input($commissioningDate);
+    $stmt = $conn->prepare('
+        UPDATE installed_base
+        SET commissioning_date = :commissioning_date, updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+          AND deleted_at IS NULL
+    ');
+    $stmt->bindValue(':commissioning_date', $normalized !== '' ? $normalized : $commissioningDate);
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
 function installed_base_insert_record(PDO $conn, array $data, int $createdBy, string $username): int
 {
     $insert = $conn->prepare('
