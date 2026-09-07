@@ -360,7 +360,7 @@ if(isset($_POST['submit_complaint']))
                                 </div>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-6 form-group">
+                                <div class="col-md-4 form-group">
                                     <label class="form-label" for="complaintFabNumberSelect">
                                         <i class="bi bi-upc-scan"></i>
                                         Fab Number <span class="text-danger">*</span>
@@ -371,7 +371,7 @@ if(isset($_POST['submit_complaint']))
                                     </select>
                                     <div class="text-danger validation-msg" data-field="fab_number"></div>
                                 </div>
-                                <div class="col-md-6 form-group">
+                                <div class="col-md-8 form-group">
                                     <label class="form-label" for="complaintCustomerSelect">
                                         <i class="bi bi-person"></i>
                                         Customer <span class="text-danger">*</span>

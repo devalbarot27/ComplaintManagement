@@ -95,6 +95,10 @@
         $pageName = "Customer Master";
     } else if ($currentPage == 'customer_master_details.php') {
         $pageName = "Customer Master Details";
+    } else if ($currentPage == 'contact.php') {
+        $pageName = "Contact";
+    } else if ($currentPage == 'contact_details.php') {
+        $pageName = "Contact Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     } else if ($currentPage == 'notifications.php') {
@@ -418,6 +422,12 @@
                       class="menu-item <?= in_array($currentPage, ['customer_master.php', 'customer_master_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-person-vcard"></i>
                       Customer Master
+                  </a>
+
+                  <a href="contact.php"
+                      class="menu-item <?= in_array($currentPage, ['contact.php', 'contact_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-person-lines-fill"></i>
+                      Contact
                   </a>
 
                   <a href="complaint_categories.php"
