@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Master</title>
+    <title>Customer Sync</title>
     <?php include 'header_css.php'; ?>
     <link href="css/new_complaint.css" rel="stylesheet" />
     <link href="css/complaint_buttons.css" rel="stylesheet" />
@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer'])) {
 
             <div class="booking-card">
                 <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div class="booking-title">Customer Master List</div>
+                    <div class="booking-title">Customer Sync List</div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover booking-table w-100" id="customersTable">

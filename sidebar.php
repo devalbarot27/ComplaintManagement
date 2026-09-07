@@ -88,9 +88,13 @@
     } else if ($currentPage == 'product_details.php') {
         $pageName = "Product Details";
     } else if ($currentPage == 'customers.php') {
-        $pageName = "Customer Master";
+        $pageName = "Customer Sync";
     } else if ($currentPage == 'customer_details.php') {
-        $pageName = "Customer Details";
+        $pageName = "Customer Sync Details";
+    } else if ($currentPage == 'customer_master.php') {
+        $pageName = "Customer Master";
+    } else if ($currentPage == 'customer_master_details.php') {
+        $pageName = "Customer Master Details";
     } else if ($currentPage == 'access_denied.php') {
         $pageName = "Access Denied";
     } else if ($currentPage == 'notifications.php') {
@@ -407,6 +411,12 @@
                  <a href="customers.php"
                       class="menu-item <?= in_array($currentPage, ['customers.php', 'customer_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-person-badge"></i>
+                      Customer Sync
+                  </a>
+
+                  <a href="customer_master.php"
+                      class="menu-item <?= in_array($currentPage, ['customer_master.php', 'customer_master_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-person-vcard"></i>
                       Customer Master
                   </a>
 
