@@ -3,6 +3,7 @@ session_start();
 include('pdo_obconn.php');
 require_once __DIR__ . '/includes/admin_access_helpers.php';
 require_once __DIR__ . '/includes/rbac_access_helpers.php';
+require_once __DIR__ . '/includes/order_approval_helpers.php';
 
 if (empty($_SESSION['usr_name'])) {
     header('Location: login.php');
@@ -10,6 +11,7 @@ if (empty($_SESSION['usr_name'])) {
 }
 
 admin_refresh_session_role($obconn);
+order_approval_ensure_schema($obconn);
 
 $roModule = 'recent-orders';
 $canListRecentOrders = rbac_user_can($obconn, $roModule, 'list');
