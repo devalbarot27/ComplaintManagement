@@ -496,7 +496,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                         : ($isCart ? 'Order Approval' : 'Service Claim');
                                     ?>
                                     <tr>
-                                        <td><?= $claimId ?></td>
+                                        <td></td>
                                         <td>
                                             <span class="status-badge border border-dark"><?= htmlspecialchars($typeLabel) ?></span>
                                         </td>
@@ -1039,6 +1039,13 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     ],
                     pageLength: 10,
                     columnDefs: [{
+                        targets: 0,
+                        orderable: false,
+                        searchable: false,
+                        render: function(data, type, row, meta) {
+                            return meta.row + meta.settings._iDisplayStart + 1;
+                        }
+                    }, {
                         orderable: false,
                         targets: -1
                     }],
