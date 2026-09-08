@@ -91,11 +91,13 @@ $freightPercentage = 4;
         }
 
         .ui-datepicker .ui-datepicker-header {
+            position: relative !important;
             background: #f8fafc !important;
             border: 0 !important;
             border-radius: 8px !important;
-            padding: 6px 4px !important;
+            padding: 8px 36px !important;
             margin-bottom: 6px;
+            min-height: 36px;
         }
 
         .ui-datepicker .ui-datepicker-title {
@@ -103,12 +105,69 @@ $freightPercentage = 4;
             font-size: 14px !important;
             font-weight: 600 !important;
             line-height: 1.4 !important;
+            margin: 0 !important;
+            text-align: center !important;
         }
 
         .ui-datepicker .ui-datepicker-prev,
         .ui-datepicker .ui-datepicker-next {
-            top: 8px !important;
-            cursor: pointer;
+            position: absolute !important;
+            top: 50% !important;
+            width: 28px !important;
+            height: 28px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 6px !important;
+            background: #ffffff !important;
+            cursor: pointer !important;
+            transform: translateY(-50%);
+            text-decoration: none !important;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ui-datepicker .ui-datepicker-prev {
+            left: 6px !important;
+            right: auto !important;
+        }
+
+        .ui-datepicker .ui-datepicker-next {
+            right: 6px !important;
+            left: auto !important;
+        }
+
+        .ui-datepicker .ui-datepicker-prev span,
+        .ui-datepicker .ui-datepicker-next span {
+            display: none !important;
+        }
+
+        .ui-datepicker .ui-datepicker-prev::before,
+        .ui-datepicker .ui-datepicker-next::before {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+            color: #0f172a;
+        }
+
+        .ui-datepicker .ui-datepicker-prev::before {
+            content: '‹';
+        }
+
+        .ui-datepicker .ui-datepicker-next::before {
+            content: '›';
+        }
+
+        .ui-datepicker .ui-datepicker-prev:hover,
+        .ui-datepicker .ui-datepicker-next:hover {
+            background: #e2e8f0 !important;
+        }
+
+        .ui-datepicker .ui-datepicker-prev.ui-state-disabled,
+        .ui-datepicker .ui-datepicker-next.ui-state-disabled {
+            opacity: 0.4;
+            cursor: default !important;
         }
 
         .ui-datepicker table {
