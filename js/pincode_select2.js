@@ -86,9 +86,10 @@ function setPincodeSelect2(form, pincodeSelectId, data) {
   }
 }
 
-function initPincodeSelect2(formId, pincodeSelectId) {
+function initPincodeSelect2(formId, pincodeSelectId, options) {
   formId = formId || "complaintForm";
   pincodeSelectId = pincodeSelectId || "pincodeSelect";
+  options = options || {};
 
   const form = document.getElementById(formId);
   const $pincode = $("#" + pincodeSelectId);
@@ -97,7 +98,11 @@ function initPincodeSelect2(formId, pincodeSelectId) {
     return;
   }
 
-  $pincode.select2({
+  if ($pincode.hasClass("select2-hidden-accessible")) {
+    $pincode.select2("destroy");
+  }
+
+  const select2Options = {
     width: "100%",
     placeholder: $pincode.data("placeholder") || "Search or select pincode",
     allowClear: true,
@@ -124,9 +129,15 @@ function initPincodeSelect2(formId, pincodeSelectId) {
         return "Searching...";
       },
     },
-  });
+  };
 
-  $pincode.on("select2:select", function (e) {
+  if (options.dropdownParent) {
+    select2Options.dropdownParent = options.dropdownParent;
+  }
+
+  $pincode.select2(select2Options);
+
+  $pincode.off("select2:select.pincodeAuto").on("select2:select.pincodeAuto", function (e) {
     setAddressAutoFields(form, e.params.data);
     $pincode.removeClass("is-invalid");
 
@@ -136,7 +147,7 @@ function initPincodeSelect2(formId, pincodeSelectId) {
     }
   });
 
-  $pincode.on("select2:clear", function () {
+  $pincode.off("select2:clear.pincodeAuto").on("select2:clear.pincodeAuto", function () {
     clearAddressAutoFields(form);
   });
 }

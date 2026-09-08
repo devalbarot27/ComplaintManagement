@@ -5,12 +5,12 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/customer_master_helpers.php';
+include 'includes/contact_helpers.php';
 require_once __DIR__ . '/includes/current_username_helpers.php';
 require_once __DIR__ . '/includes/rbac_access_helpers.php';
 
 $returnUrl = customer_master_sanitize_return_url($_GET['return_url'] ?? ($_POST['return_url'] ?? ''));
 $openFormFromReturn = isset($_GET['open_form']) && (string) $_GET['open_form'] === '1' && $returnUrl !== '';
-$isSystemAdmin = false;
 $returnDestinationLabel = 'previous form';
 if ($returnUrl !== '') {
     $returnBase = basename(parse_url($returnUrl, PHP_URL_PATH) ?: $returnUrl);
@@ -22,14 +22,25 @@ if ($returnUrl !== '') {
 }
 
 admin_ensure_session_role($obconn);
-$isSystemAdmin = is_system_admin();
 customer_master_require_page_access($obconn, $returnUrl);
 customer_master_ensure_schema($obconn);
+customer_master_ensure_rbac($obconn);
+contact_ensure_rbac($obconn);
+
+$customerMasterPermissions = customer_master_action_permissions($obconn);
+$contactPermissions = contact_action_permissions($obconn);
+$canViewList = $customerMasterPermissions['view'];
+$canAdd = $customerMasterPermissions['add'];
+$canEdit = $customerMasterPermissions['edit'];
+$canDelete = $customerMasterPermissions['delete'];
+$canAddContact = $contactPermissions['add'];
+$isReturnCreateMode = !$canViewList
+    && $returnUrl !== ''
+    && customer_master_user_can_create_from_return($obconn, $returnUrl);
 
 $success_message = '';
 $error_message = '';
 $actorUsername = current_username();
-$isReturnCreateMode = !$isSystemAdmin && $returnUrl !== '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_master'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
@@ -39,6 +50,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
 
     if ($isReturnCreateMode && $isEdit) {
         $error_message = 'Access denied. You can only create a new customer.';
+    } elseif ($isEdit && !$canEdit) {
+        $error_message = 'Access denied. You do not have permission to edit customers.';
+    } elseif (!$isEdit && !$canAdd && !$isReturnCreateMode) {
+        $error_message = 'Access denied. You do not have permission to add customers.';
     } else {
         $validationError = customer_master_validate($obconn, $data);
 
@@ -75,7 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
     if ($postedReturnUrl !== '') {
         $returnUrl = $postedReturnUrl;
         $openFormFromReturn = true;
-        $isReturnCreateMode = !$isSystemAdmin && $returnUrl !== '';
+        $isReturnCreateMode = !$canViewList
+            && $returnUrl !== ''
+            && customer_master_user_can_create_from_return($obconn, $returnUrl);
     }
 }
 ?>
@@ -143,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                     </div>
                 </div>
                 <div class="header-btn-group">
-                    <?php if ($isSystemAdmin) { ?>
+                    <?php if ($canAdd && $canViewList) { ?>
                     <button class="new-order-btn btn-complaint-primary" id="opencustomerMasterForm" type="button">
                         <i class="bi bi-plus-lg"></i> Add Customer
                     </button>
@@ -158,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                 </div>
             </div>
 
+            <?php if ($canAdd || $isReturnCreateMode || $canEdit) { ?>
             <div class="complaint-form-card<?php echo ($openFormFromReturn || $isReturnCreateMode) ? ' show' : ''; ?>" id="customerMasterFormCard">
                 <div class="complaint-form-header">
                     <div class="complaint-form-header__main">
@@ -240,7 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                         </section>
                     </div>
                     <div class="complaint-form-actions">
-                        <?php if ($returnUrl !== '') { ?>
+                        <?php if ($returnUrl !== '' && $isReturnCreateMode) { ?>
                         <a href="<?php echo htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8'); ?>" class="cancel-btn">Cancel</a>
                         <?php } else { ?>
                         <button type="button" class="cancel-btn" id="cancelcustomerMasterForm">Cancel</button>
@@ -251,8 +269,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                     </div>
                 </form>
             </div>
+            <?php } ?>
 
-            <?php if ($isSystemAdmin) { ?>
+            <?php if ($canViewList) { ?>
             <div class="booking-card">
                 <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div class="booking-title">Customer Master List</div>
@@ -261,14 +280,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                     <table class="table table-hover booking-table w-100" id="customerMasterTable">
                         <thead>
                             <tr>
-                                <th width="8%">ID</th>
-                                <th width="16%">Customer Name</th>
-                                <th width="16%">Email</th>
-                                <th width="12%">Mobile</th>
-                                <th width="12%">City</th>
-                                <th width="12%">State</th>
+                                <th width="7%">ID</th>
+                                <th width="14%">Customer Name</th>
+                                <th width="14%">Email</th>
+                                <th width="11%">Mobile</th>
+                                <th width="10%">City</th>
+                                <th width="10%">State</th>
+                                <th width="9%">Contacts</th>
                                 <th width="12%">Created At</th>
-                                <th width="12%">Action</th>
+                                <th width="13%">Action</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -283,6 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
     <script src="js/customer_master.js"></script>
     <script>
     window.customerMasterReturnMode = <?php echo $isReturnCreateMode || $openFormFromReturn ? 'true' : 'false'; ?>;
+    window.customerMasterCanEdit = <?php echo $canEdit ? 'true' : 'false'; ?>;
     </script>
 </body>
 

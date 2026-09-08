@@ -363,7 +363,13 @@
               </div>
           <?php } ?>
 
-          <?php if (is_system_admin()) { ?>
+          <?php
+            $canCustomerMaster = rbac_can_access_menu($obconn, 'customer_master.php');
+            $canContact = rbac_can_access_menu($obconn, 'contact.php');
+            $canSystemConfigAdmin = is_system_admin();
+            $showSystemConfiguration = $canSystemConfigAdmin || $canCustomerMaster || $canContact;
+          ?>
+          <?php if ($canSystemConfigAdmin) { ?>
               <div class="menu-section">
                   <div class="menu-heading">ADMINISTRATION</div>
 
@@ -399,13 +405,16 @@
                       Assign Permissions
                   </a>
               </div>
+          <?php } ?>
 
+          <?php if ($showSystemConfiguration) { ?>
               <div class="menu-section">
 
                   <div class="menu-heading">
                       SYSTEM CONFIGURATION
                   </div>
 
+                  <?php if ($canSystemConfigAdmin) { ?>
                   <a href="products.php"
                       class="menu-item <?= in_array($currentPage, ['products.php', 'product_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-box-seam"></i>
@@ -417,19 +426,25 @@
                       <i class="bi bi-person-badge"></i>
                       Customer Sync
                   </a>
+                  <?php } ?>
 
+                  <?php if ($canCustomerMaster) { ?>
                   <a href="customer_master.php"
                       class="menu-item <?= in_array($currentPage, ['customer_master.php', 'customer_master_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-person-vcard"></i>
                       Customer Master
                   </a>
+                  <?php } ?>
 
+                  <?php if ($canContact) { ?>
                   <a href="contact.php"
                       class="menu-item <?= in_array($currentPage, ['contact.php', 'contact_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-person-lines-fill"></i>
                       Contact
                   </a>
+                  <?php } ?>
 
+                  <?php if ($canSystemConfigAdmin) { ?>
                   <a href="complaint_categories.php"
                       class="menu-item <?= in_array($currentPage, ['complaint_categories.php', 'complaint_category_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-tags"></i>
@@ -465,6 +480,7 @@
                       <i class="bi bi-list-check"></i>
                       Reason
                   </a>
+                  <?php } ?>
 
                 
 

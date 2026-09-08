@@ -526,6 +526,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
         </div>
     </div>
 
+    <?php if ($canAddInstalledBase) { ?>
+    <?php include 'includes/installed_base_customer_modal.php'; ?>
+    <?php } ?>
+
     <?php if ($canAddServiceLog) { ?>
     <?php include 'includes/installed_base_service_log_modal.php'; ?>
     <?php } ?>
@@ -535,8 +539,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <?php } ?>
 
     <script src="js/static_select2.js"></script>
+    <script src="js/pincode_select2.js"></script>
     <script src="js/fabno_select2.js"></script>
     <script src="js/installed_base_customer_select2.js"></script>
+    <script src="js/installed_base_customer_modal.js"></script>
     <script src="js/installed_base_fab_prefill.js"></script>
     <script src="js/installed_base_fabno_select2.js"></script>
     <script src="js/installed_base_order_select2.js"></script>

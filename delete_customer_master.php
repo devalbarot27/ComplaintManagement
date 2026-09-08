@@ -6,9 +6,17 @@ include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/customer_master_helpers.php';
 require_once __DIR__ . '/includes/current_username_helpers.php';
+require_once __DIR__ . '/includes/rbac_access_helpers.php';
 
-require_system_admin($obconn);
+admin_ensure_session_role($obconn);
 customer_master_ensure_schema($obconn);
+customer_master_ensure_rbac($obconn);
+
+if (!customer_master_action_permissions($obconn)['delete']) {
+    $_SESSION['error_message'] = 'Access denied. You do not have permission to delete customers.';
+    header('Location: customer_master.php');
+    exit;
+}
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 

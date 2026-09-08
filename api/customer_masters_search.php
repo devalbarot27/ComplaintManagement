@@ -18,10 +18,15 @@ login_enforce_idle_timeout(true, false);
 login_enforce_session_version($obconn, true);
 admin_ensure_session_role($obconn);
 
-$canSearch = is_system_admin()
-    || rbac_has_permission($obconn, 'installed-base-capture', 'view')
+$canSearch = rbac_has_permission($obconn, 'installed-base-capture', 'view')
     || rbac_has_permission($obconn, 'complaint-entry', 'view')
-    || rbac_has_permission($obconn, 'complaint-entry', 'add');
+    || rbac_has_permission($obconn, 'complaint-entry', 'add')
+    || rbac_has_permission($obconn, 'customer-master', 'view')
+    || rbac_has_permission($obconn, 'customer-master', 'add')
+    || rbac_has_permission($obconn, 'customer-master', 'edit')
+    || rbac_has_permission($obconn, 'contact', 'view')
+    || rbac_has_permission($obconn, 'contact', 'add')
+    || rbac_has_permission($obconn, 'contact', 'edit');
 
 if (!$canSearch) {
     http_response_code(403);

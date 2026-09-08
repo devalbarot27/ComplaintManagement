@@ -254,6 +254,8 @@ if(isset($_POST['submit_complaint']))
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="js/fabno_select2.js"></script>
 <script src="js/complaint_customer_select2.js"></script>
+<script src="js/pincode_select2.js"></script>
+<script src="js/installed_base_customer_modal.js"></script>
 <script src="js/complaint_fab_prefill.js"></script>
 <script src="js/assign_to_select2.js"></script>
 <script src="js/static_select2.js"></script>
@@ -721,6 +723,9 @@ if(isset($_POST['submit_complaint']))
     </div>
 <?php } ?>
 
+<?php if ($canAddComplaint) { ?>
+<?php include 'includes/installed_base_customer_modal.php'; ?>
+<?php } ?>
 
 </body>
  
@@ -1374,6 +1379,9 @@ $(document).ready(function() {
     initComplaintFormValidation();
     initComplaintCustomerSelect2();
     initComplaintAddNewCustomerButton();
+    if (typeof initInstalledBaseAddCustomerModal === 'function') {
+        initInstalledBaseAddCustomerModal();
+    }
     initFabnoSelect2('complaintForm', 'complaintFabNumberSelect', {
         onSelect: function (data, form) {
             prefillComplaintFromFab(form, data.id);

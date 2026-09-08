@@ -1,5 +1,76 @@
-function initcustomerMasterFormValidation() {
-    const form = document.getElementById('customerMasterForm');
+function getInstalledBaseAddCustomerModal() {
+    const el = document.getElementById('installedBaseAddCustomerModal');
+    if (!el || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+        return null;
+    }
+    return bootstrap.Modal.getOrCreateInstance(el);
+}
+
+function clearInstalledBaseAddCustomerAlert() {
+    const alert = document.getElementById('installedBaseAddCustomerAlert');
+    if (!alert) {
+        return;
+    }
+    alert.classList.add('d-none');
+    alert.textContent = '';
+}
+
+function showInstalledBaseAddCustomerAlert(message) {
+    const alert = document.getElementById('installedBaseAddCustomerAlert');
+    if (!alert) {
+        return;
+    }
+    alert.textContent = message || 'Unable to save customer.';
+    alert.classList.remove('d-none');
+}
+
+function resetInstalledBaseAddCustomerForm() {
+    const form = document.getElementById('installedBaseAddCustomerForm');
+    if (!form) {
+        return;
+    }
+
+    form.reset();
+    clearInstalledBaseAddCustomerAlert();
+    resetPincodeSelect2(form, 'installedBaseCustomerModalPincodeSelect');
+
+    form.querySelectorAll('.is-invalid').forEach(function (el) {
+        el.classList.remove('is-invalid');
+    });
+    form.querySelectorAll('.validation-msg').forEach(function (el) {
+        el.textContent = '';
+    });
+    $('#installedBaseCustomerModalPincodeSelect')
+        .next('.select2-container')
+        .find('.select2-selection')
+        .removeClass('is-invalid');
+
+    const submitButton = document.getElementById('installedBaseAddCustomerSubmitBtn');
+    if (submitButton) {
+        submitButton.classList.remove('disabled_btn');
+        submitButton.disabled = false;
+    }
+}
+
+function openInstalledBaseAddCustomerModal() {
+    const modal = getInstalledBaseAddCustomerModal();
+    if (!modal) {
+        return;
+    }
+    resetInstalledBaseAddCustomerForm();
+    modal.show();
+}
+
+function closeInstalledBaseAddCustomerModal() {
+    const modal = getInstalledBaseAddCustomerModal();
+    if (!modal) {
+        return;
+    }
+    modal.hide();
+}
+
+function initInstalledBaseAddCustomerFormValidation() {
+    const form = document.getElementById('installedBaseAddCustomerForm');
     if (!form || typeof validate === 'undefined') {
         return;
     }
@@ -87,6 +158,7 @@ function initcustomerMasterFormValidation() {
     bindInputRestrictions();
 
     function clearValidationState() {
+        clearInstalledBaseAddCustomerAlert();
         form.querySelectorAll('.validation-msg').forEach(function (msg) {
             msg.textContent = '';
         });
@@ -105,7 +177,7 @@ function initcustomerMasterFormValidation() {
             msg.textContent = '';
         }
         if (fieldName === 'pincode' && window.jQuery) {
-            window.jQuery('#customerMasterPincodeSelect')
+            window.jQuery('#installedBaseCustomerModalPincodeSelect')
                 .next('.select2-container')
                 .find('.select2-selection')
                 .removeClass('is-invalid');
@@ -119,7 +191,7 @@ function initcustomerMasterFormValidation() {
             input.classList.add('is-invalid');
         }
         if (fieldName === 'pincode' && window.jQuery) {
-            window.jQuery('#customerMasterPincodeSelect')
+            window.jQuery('#installedBaseCustomerModalPincodeSelect')
                 .next('.select2-container')
                 .find('.select2-selection')
                 .addClass('is-invalid');
@@ -153,7 +225,6 @@ function initcustomerMasterFormValidation() {
             clearFieldError(fieldName);
         }
 
-        // Auto-filled address fields clear once pincode selection populates them.
         if (fieldName === 'pincode' && !fieldErrors) {
             ['city', 'district', 'state'].forEach(function (autoField) {
                 const autoInput = form.querySelector('[name="' + autoField + '"]');
@@ -179,23 +250,18 @@ function initcustomerMasterFormValidation() {
     });
 
     if (window.jQuery) {
-        window.jQuery('#customerMasterPincodeSelect').on('select2:select select2:clear change', function () {
+        window.jQuery('#installedBaseCustomerModalPincodeSelect').on('select2:select select2:clear change', function () {
             validateField(form.querySelector('[name="pincode"]'));
         });
     }
 
-    function getRecordId() {
-        const recordId = document.getElementById('customerMasterRecordId');
-        return recordId && recordId.value !== '' ? parseInt(recordId.value, 10) : 0;
-    }
-
-    function checkUniqueFields(recordId) {
+    function checkUniqueFields() {
         return $.ajax({
             url: 'api/customer_master_check_unique.php',
             type: 'POST',
             dataType: 'json',
             data: {
-                record_id: recordId || 0,
+                record_id: 0,
                 email: form.querySelector('[name="email"]').value.trim(),
                 mobile: form.querySelector('[name="mobile"]').value.trim()
             }
@@ -203,7 +269,7 @@ function initcustomerMasterFormValidation() {
     }
 
     let isSubmitting = false;
-    const submitButton = document.getElementById('submitcustomerMasterBtn');
+    const submitButton = document.getElementById('installedBaseAddCustomerSubmitBtn');
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -214,12 +280,11 @@ function initcustomerMasterFormValidation() {
 
         const errors = validate(form, constraints);
         showErrors(errors);
-
         if (errors) {
             return;
         }
 
-        checkUniqueFields(getRecordId())
+        checkUniqueFields()
             .done(function (response) {
                 if (response && response.errors && Object.keys(response.errors).length > 0) {
                     showErrors(response.errors);
@@ -229,8 +294,61 @@ function initcustomerMasterFormValidation() {
                 isSubmitting = true;
                 if (submitButton) {
                     submitButton.classList.add('disabled_btn');
+                    submitButton.disabled = true;
                 }
-                form.submit();
+
+                const formData = $(form).serialize();
+
+                $.ajax({
+                    url: 'api/customer_master_create.php',
+                    type: 'POST',
+                    dataType: 'json',
+                    data: formData
+                }).done(function (result) {
+                    if (!result || !result.success || !result.id) {
+                        showInstalledBaseAddCustomerAlert((result && result.error) || 'Failed to save customer.');
+                        if (result && result.field_errors) {
+                            showErrors(result.field_errors);
+                        }
+                        return;
+                    }
+
+                    const label = result.text || result.customer_name || '';
+                    if (typeof setInstalledBaseCustomerSelect2 === 'function'
+                        && document.getElementById('installedBaseCustomerSelect')) {
+                        setInstalledBaseCustomerSelect2(result.id, label);
+                    }
+                    if (typeof setComplaintCustomerSelect2 === 'function'
+                        && document.getElementById('complaintCustomerSelect')) {
+                        setComplaintCustomerSelect2(result.id, label);
+                    }
+
+                    closeInstalledBaseAddCustomerModal();
+                }).fail(function (xhr) {
+                    let message = 'Failed to save customer.';
+                    let fieldErrors = null;
+                    try {
+                        const payload = xhr.responseJSON || JSON.parse(xhr.responseText || '{}');
+                        if (payload && payload.error) {
+                            message = payload.error;
+                        }
+                        if (payload && payload.field_errors) {
+                            fieldErrors = payload.field_errors;
+                        }
+                    } catch (err) {
+                        // keep default message
+                    }
+                    showInstalledBaseAddCustomerAlert(message);
+                    if (fieldErrors) {
+                        showErrors(fieldErrors);
+                    }
+                }).always(function () {
+                    isSubmitting = false;
+                    if (submitButton) {
+                        submitButton.classList.remove('disabled_btn');
+                        submitButton.disabled = false;
+                    }
+                });
             })
             .fail(function () {
                 showErrors({
@@ -240,191 +358,19 @@ function initcustomerMasterFormValidation() {
     });
 }
 
-function initcustomerMasterDatatable() {
-    const $table = $('#customerMasterTable');
-    if (!$table.length) {
-        return null;
-    }
-
-    return $table.DataTable({
-        processing: true,
-        serverSide: true,
-        ajax: {
-            url: 'api/customer_master_datatable.php',
-            type: 'POST'
-        },
-        order: [[0, 'desc']],
-        pageLength: 10,
-        columns: [
-            { data: 'id' },
-            { data: 'customer_name' },
-            { data: 'email' },
-            { data: 'mobile' },
-            { data: 'city' },
-            { data: 'state' },
-            { data: 'contact_count' },
-            { data: 'created_at' },
-            { data: 'actions', orderable: false, searchable: false }
-        ],
-        language: {
-            emptyTable: 'No customers found.',
-            zeroRecords: 'No matching customers found.'
-        }
-    });
-}
-
-function fillcustomerMasterForm(record) {
-    const form = document.getElementById('customerMasterForm');
-    if (!form || !record) {
+function initInstalledBaseAddCustomerModal() {
+    const modalEl = document.getElementById('installedBaseAddCustomerModal');
+    const form = document.getElementById('installedBaseAddCustomerForm');
+    if (!modalEl || !form) {
         return;
     }
 
-    document.getElementById('customerMasterRecordId').value = record.id || '';
-    document.getElementById('customerMasterFormModeLabel').textContent = record.id
-        ? 'Edit Customer'
-        : 'Add Customer';
-    document.getElementById('submitcustomerMasterBtn').innerHTML = record.id
-        ? '<i class="bi bi-check-lg"></i> Update Customer'
-        : '<i class="bi bi-check-lg"></i> Save Customer';
-
-    form.querySelector('[name="customer_name"]').value = record.customer_name || '';
-    form.querySelector('[name="email"]').value = record.email || '';
-    form.querySelector('[name="mobile"]').value = record.mobile || '';
-    form.querySelector('[name="street_1"]').value = record.street_1 || '';
-    form.querySelector('[name="street_2"]').value = record.street_2 || '';
-
-    setPincodeSelect2(form, 'customerMasterPincodeSelect', {
-        pincode: record.pincode || '',
-        city: record.city || '',
-        district: record.district || '',
-        state: record.state || ''
+    initPincodeSelect2('installedBaseAddCustomerForm', 'installedBaseCustomerModalPincodeSelect', {
+        dropdownParent: $('#installedBaseAddCustomerModal')
     });
-}
+    initInstalledBaseAddCustomerFormValidation();
 
-function resetcustomerMasterForm() {
-    const form = document.getElementById('customerMasterForm');
-    if (!form) {
-        return;
-    }
-
-    form.reset();
-    document.getElementById('customerMasterRecordId').value = '';
-    document.getElementById('customerMasterFormModeLabel').textContent = 'Add Customer';
-    document.getElementById('submitcustomerMasterBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save Customer';
-    resetPincodeSelect2(form, 'customerMasterPincodeSelect');
-
-    form.querySelectorAll('.is-invalid').forEach(function (el) {
-        el.classList.remove('is-invalid');
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        resetInstalledBaseAddCustomerForm();
     });
-    form.querySelectorAll('.validation-msg').forEach(function (el) {
-        el.textContent = '';
-    });
-    $('#customerMasterPincodeSelect')
-        .next('.select2-container')
-        .find('.select2-selection')
-        .removeClass('is-invalid');
-}
-
-function opencustomerMasterFormPanel() {
-    const card = document.getElementById('customerMasterFormCard');
-    const openBtn = document.getElementById('opencustomerMasterForm');
-    const closeBtn = document.getElementById('closecustomerMasterForm');
-    if (card) {
-        card.classList.add('show');
-    }
-    if (openBtn) {
-        openBtn.style.display = 'none';
-    }
-    if (closeBtn) {
-        closeBtn.classList.add('show');
-    }
-}
-
-function closecustomerMasterFormPanel() {
-    const card = document.getElementById('customerMasterFormCard');
-    const openBtn = document.getElementById('opencustomerMasterForm');
-    const closeBtn = document.getElementById('closecustomerMasterForm');
-    if (card) {
-        card.classList.remove('show');
-    }
-    if (openBtn) {
-        openBtn.style.display = 'flex';
-    }
-    if (closeBtn) {
-        closeBtn.classList.remove('show');
-    }
-    resetcustomerMasterForm();
-}
-
-function bootcustomerMasterPage() {
-    const form = document.getElementById('customerMasterForm');
-    if (form) {
-        initPincodeSelect2('customerMasterForm', 'customerMasterPincodeSelect');
-        initcustomerMasterFormValidation();
-    }
-
-    const returnMode = !!window.customerMasterReturnMode;
-    const canEdit = !!window.customerMasterCanEdit;
-    const openBtn = document.getElementById('opencustomerMasterForm');
-    const closeBtn = document.getElementById('closecustomerMasterForm');
-    const cancelBtn = document.getElementById('cancelcustomerMasterForm');
-
-    if (!returnMode) {
-        initcustomerMasterDatatable();
-    } else if (form) {
-        opencustomerMasterFormPanel();
-        if (openBtn) {
-            openBtn.style.display = 'none';
-        }
-        if (closeBtn) {
-            closeBtn.style.display = 'none';
-        }
-    }
-
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', closecustomerMasterFormPanel);
-    }
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closecustomerMasterFormPanel);
-    }
-    if (openBtn) {
-        openBtn.addEventListener('click', function () {
-            resetcustomerMasterForm();
-            opencustomerMasterFormPanel();
-        });
-    }
-
-    if (!returnMode && canEdit) {
-        document.addEventListener('click', function (e) {
-            const editBtn = e.target.closest('.edit-customer-master-btn');
-            if (!editBtn) {
-                return;
-            }
-            const id = editBtn.getAttribute('data-id');
-            $.getJSON('api/customer_master_get.php', { id: id })
-                .done(function (record) {
-                    resetcustomerMasterForm();
-                    fillcustomerMasterForm(record);
-                    opencustomerMasterFormPanel();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                })
-                .fail(function () {
-                    alert('Failed to load customer details.');
-                });
-        });
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('open_form') === '1' && !returnMode && form) {
-        resetcustomerMasterForm();
-        opencustomerMasterFormPanel();
-    }
-
-    setTimeout(function () { $('.alert-success').fadeOut(); }, 3000);
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootcustomerMasterPage);
-} else {
-    bootcustomerMasterPage();
 }

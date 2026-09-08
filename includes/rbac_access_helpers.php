@@ -88,6 +88,12 @@ function rbac_page_access_rules(): array
         'amc_details.php' => ['module' => 'amc', 'permission' => 'view'],
         'delete_amc.php' => ['module' => 'amc', 'permission' => 'delete'],
         'warranty_claims.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
+        'customer_master.php' => ['module' => 'customer-master', 'permission' => 'view'],
+        'customer_master_details.php' => ['module' => 'customer-master', 'permission' => 'view'],
+        'delete_customer_master.php' => ['module' => 'customer-master', 'permission' => 'delete'],
+        'contact.php' => ['module' => 'contact', 'permission' => 'view'],
+        'contact_details.php' => ['module' => 'contact', 'permission' => 'view'],
+        'delete_contact.php' => ['module' => 'contact', 'permission' => 'delete'],
         'access_denied.php' => null,
         'notifications.php' => null,
     ];
@@ -124,6 +130,10 @@ function rbac_api_access_rules(): array
         'amc_details.php' => ['module' => 'amc', 'permission' => 'view'],
         'delete_amc.php' => ['module' => 'amc', 'permission' => 'delete'],
         'warranty_claims.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
+        'customer_master_datatable.php' => ['module' => 'customer-master', 'permission' => 'view'],
+        'customer_master_get.php' => ['module' => 'customer-master', 'permission' => 'view'],
+        'contact_datatable.php' => ['module' => 'contact', 'permission' => 'view'],
+        'contact_get.php' => ['module' => 'contact', 'permission' => 'view'],
     ];
 }
 
@@ -149,6 +159,8 @@ function rbac_sidebar_modules(): array
         'amc_details.php' => ['module' => 'amc', 'permission' => 'view'],
         'delete_amc.php' => ['module' => 'amc', 'permission' => 'delete'],
         'warranty_claims.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
+        'customer_master.php' => ['module' => 'customer-master', 'permission' => 'view'],
+        'contact.php' => ['module' => 'contact', 'permission' => 'view'],
     ];
 }
 
@@ -201,6 +213,8 @@ function rbac_modules_enforcing_role_permissions(): array
         'installed-base-capture',
         'service-log-capture',
         'spare-parts-consumption',
+        'customer-master',
+        'contact',
     ];
 }
 

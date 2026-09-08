@@ -160,10 +160,16 @@ function initInstalledBaseAddNewCustomerButton() {
     }
 
     btn.addEventListener('click', function () {
-        saveInstalledBaseFormDraftBeforeCustomerRedirect();
+        if (typeof openInstalledBaseAddCustomerModal === 'function') {
+            openInstalledBaseAddCustomerModal();
+            return;
+        }
 
+        // Fallback: legacy redirect if modal JS is unavailable.
+        if (typeof saveInstalledBaseFormDraftBeforeCustomerRedirect === 'function') {
+            saveInstalledBaseFormDraftBeforeCustomerRedirect();
+        }
         const returnUrl = 'installed_base.php?open_form=1';
-        const target = 'customer_master.php?open_form=1&return_url=' + encodeURIComponent(returnUrl);
-        window.location.href = target;
+        window.location.href = 'customer_master.php?open_form=1&return_url=' + encodeURIComponent(returnUrl);
     });
 }

@@ -104,11 +104,6 @@ function initContactFormValidation() {
             length: { maximum: 100, message: '^First Name cannot exceed 100 characters' },
             contactPersonName: true
         },
-        last_name: {
-            presence: { allowEmpty: false, message: '^Last Name is required' },
-            length: { maximum: 100, message: '^Last Name cannot exceed 100 characters' },
-            contactPersonName: true
-        },
         email: {
             presence: { allowEmpty: false, message: '^Email is required' },
             email: { message: '^Please enter a valid email address' },
@@ -398,8 +393,14 @@ function closeContactFormPanel() {
 }
 
 function bootContactPage() {
-    initContactCustomerSelect2();
-    initContactFormValidation();
+    const form = document.getElementById('contactForm');
+    const canAdd = !!window.contactCanAdd;
+    const canEdit = !!window.contactCanEdit;
+
+    if (form) {
+        initContactCustomerSelect2();
+        initContactFormValidation();
+    }
     initContactDatatable();
 
     const openBtn = document.getElementById('openContactForm');
@@ -419,23 +420,51 @@ function bootContactPage() {
         });
     }
 
-    document.addEventListener('click', function (e) {
-        const editBtn = e.target.closest('.edit-contact-btn');
-        if (!editBtn) {
+    // Prefill / open from Customer Master or edit deep-link.
+    (function applyContactQueryPrefill() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('open_form') !== '1' || !form) {
             return;
         }
-        const id = editBtn.getAttribute('data-id');
-        $.getJSON('api/contact_get.php', { id: id })
-            .done(function (record) {
-                resetContactForm();
-                fillContactForm(record);
-                openContactFormPanel();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            })
-            .fail(function () {
-                alert('Failed to load contact details.');
-            });
-    });
+
+        const contactId = (params.get('contact_id') || '').trim();
+        const customerId = (params.get('customer_id') || '').trim();
+
+        if (contactId && !canEdit) {
+            return;
+        }
+        if (!contactId && customerId && !canAdd) {
+            return;
+        }
+
+        resetContactForm();
+        openContactFormPanel();
+
+        if (contactId) {
+            $.getJSON('api/contact_get.php', { id: contactId })
+                .done(function (record) {
+                    fillContactForm(record);
+                })
+                .fail(function () {
+                    alert('Failed to load contact details.');
+                });
+        } else if (customerId) {
+            $.getJSON('api/customer_masters_search.php', { id: customerId })
+                .done(function (response) {
+                    const row = response && response.results && response.results[0] ? response.results[0] : null;
+                    if (row) {
+                        setContactCustomerSelect2(row.id, row.text || '');
+                    }
+                });
+        }
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete('customer_id');
+        url.searchParams.delete('contact_id');
+        url.searchParams.delete('open_form');
+        const nextUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+        window.history.replaceState({}, document.title, nextUrl);
+    })();
 
     setTimeout(function () { $('.alert-success').fadeOut(); }, 3000);
 }

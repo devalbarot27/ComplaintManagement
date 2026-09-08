@@ -6,10 +6,16 @@ include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/contact_helpers.php';
 require_once __DIR__ . '/includes/current_username_helpers.php';
+require_once __DIR__ . '/includes/rbac_access_helpers.php';
 
 admin_ensure_session_role($obconn);
 contact_require_page_access($obconn);
 contact_ensure_schema($obconn);
+contact_ensure_rbac($obconn);
+
+$contactPermissions = contact_action_permissions($obconn);
+$canAdd = $contactPermissions['add'];
+$canEdit = $contactPermissions['edit'];
 
 $success_message = '';
 $error_message = '';
@@ -20,29 +26,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_contact'])) {
     $data = contact_from_post($_POST);
     $isEdit = $recordId > 0;
 
-    $validationError = contact_validate($obconn, $data);
-
-    if ($validationError !== null) {
-        $error_message = $validationError;
-    } elseif (contact_email_exists($obconn, $data['email'], $recordId)) {
-        $error_message = 'Email already exists. Please choose a different email.';
-    } elseif (contact_mobile_exists($obconn, $data['mobile'], $recordId)) {
-        $error_message = 'Mobile already exists. Please choose a different mobile number.';
+    if ($isEdit && !$canEdit) {
+        $error_message = 'Access denied. You do not have permission to edit contacts.';
+    } elseif (!$isEdit && !$canAdd) {
+        $error_message = 'Access denied. You do not have permission to add contacts.';
     } else {
-        try {
-            if ($isEdit) {
-                if (!contact_get_by_id($obconn, $recordId)) {
-                    $error_message = 'Record not found or already deleted.';
+        $validationError = contact_validate($obconn, $data);
+
+        if ($validationError !== null) {
+            $error_message = $validationError;
+        } elseif (contact_email_exists($obconn, $data['email'], $recordId)) {
+            $error_message = 'Email already exists. Please choose a different email.';
+        } elseif (contact_mobile_exists($obconn, $data['mobile'], $recordId)) {
+            $error_message = 'Mobile already exists. Please choose a different mobile number.';
+        } else {
+            try {
+                if ($isEdit) {
+                    if (!contact_get_by_id($obconn, $recordId)) {
+                        $error_message = 'Record not found or already deleted.';
+                    } else {
+                        contact_update($obconn, $recordId, $data, $actorUsername);
+                        $success_message = 'Contact updated successfully.';
+                    }
                 } else {
-                    contact_update($obconn, $recordId, $data, $actorUsername);
-                    $success_message = 'Contact updated successfully.';
+                    contact_insert($obconn, $data, $actorUsername);
+                    $success_message = 'Contact saved successfully.';
                 }
-            } else {
-                contact_insert($obconn, $data, $actorUsername);
-                $success_message = 'Contact saved successfully.';
+            } catch (PDOException $e) {
+                $error_message = $isEdit ? 'Failed to update contact.' : 'Failed to save contact.';
             }
-        } catch (PDOException $e) {
-            $error_message = $isEdit ? 'Failed to update contact.' : 'Failed to save contact.';
         }
     }
 }
@@ -107,15 +119,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_contact'])) {
                     <div class="page-subtitle">Manage contacts linked to Customer Master.</div>
                 </div>
                 <div class="header-btn-group">
+                    <?php if ($canAdd) { ?>
                     <button class="new-order-btn btn-complaint-primary" id="openContactForm" type="button">
                         <i class="bi bi-plus-lg"></i> Add Contact
                     </button>
                     <button class="close-form-btn cancel-btn" id="closeContactForm" type="button">
                         <i class="bi bi-x-lg"></i> Cancel
                     </button>
+                    <?php } ?>
                 </div>
             </div>
 
+            <?php if ($canAdd || $canEdit) { ?>
             <div class="complaint-form-card" id="contactFormCard">
                 <div class="complaint-form-header">
                     <div class="complaint-form-header__main">
@@ -178,6 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_contact'])) {
                     </div>
                 </form>
             </div>
+            <?php } ?>
 
             <div class="booking-card">
                 <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -205,6 +221,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_contact'])) {
     </div>
 
     <script src="js/contact.js"></script>
+    <script>
+    window.contactCanAdd = <?php echo $canAdd ? 'true' : 'false'; ?>;
+    window.contactCanEdit = <?php echo $canEdit ? 'true' : 'false'; ?>;
+    </script>
 </body>
 
 </html>

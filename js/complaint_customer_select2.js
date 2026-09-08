@@ -152,7 +152,15 @@ function initComplaintAddNewCustomerButton() {
     }
 
     btn.addEventListener('click', function () {
-        saveComplaintFormDraftBeforeCustomerRedirect();
+        if (typeof openInstalledBaseAddCustomerModal === 'function') {
+            openInstalledBaseAddCustomerModal();
+            return;
+        }
+
+        // Fallback: legacy redirect if modal JS is unavailable.
+        if (typeof saveComplaintFormDraftBeforeCustomerRedirect === 'function') {
+            saveComplaintFormDraftBeforeCustomerRedirect();
+        }
         const returnUrl = 'new_complaint.php?open_form=1';
         window.location.href = 'customer_master.php?open_form=1&return_url=' + encodeURIComponent(returnUrl);
     });

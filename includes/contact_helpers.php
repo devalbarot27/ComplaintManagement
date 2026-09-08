@@ -97,14 +97,13 @@ function contact_validate(PDO $conn, array $data): ?string
         return 'First Name can contain only alphabetic characters and spaces.';
     }
 
-    if ($data['last_name'] === '') {
-        return 'Last Name is required.';
-    }
+    if ($data['last_name'] !== '') {
     if (strlen($data['last_name']) > 100) {
         return 'Last Name cannot exceed 100 characters.';
     }
     if (!preg_match(contact_name_pattern(), $data['last_name'])) {
         return 'Last Name can contain only alphabetic characters and spaces.';
+    }
     }
 
     if ($data['email'] === '') {
@@ -254,6 +253,39 @@ function contact_full_name(array $record): string
     return $full !== '' ? $full : '-';
 }
 
+/**
+ * Active contacts for a customer (Customer Master details).
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function contact_list_by_customer_id(PDO $conn, int $customerId): array
+{
+    contact_ensure_schema($conn);
+
+    if ($customerId <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare('
+        SELECT
+            id,
+            customer_id,
+            first_name,
+            last_name,
+            email,
+            mobile,
+            created_at
+        FROM contacts
+        WHERE customer_id = :customer_id
+          AND deleted_at IS NULL
+        ORDER BY id DESC
+    ');
+    $stmt->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function contact_customer_label(array $row): string
 {
     return customer_master_select2_label([
@@ -263,43 +295,100 @@ function contact_customer_label(array $row): string
     ]);
 }
 
-function contact_entry_actions(int $id): string
+function contact_entry_actions(int $id, array $permissions = []): string
 {
+    $permissions = contact_normalize_action_permissions($permissions);
     $encodedId = base64_encode((string) $id);
 
-    return '
-        <div class="d-flex gap-1">
+    $html = '<div class="d-flex gap-1">';
+
+    if ($permissions['view']) {
+        $html .= '
             <a href="contact_details.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark" title="View">
                 <i class="bi bi-eye"></i>
-            </a>
-            <button type="button" class="btn btn-sm btn-outline-dark edit-contact-btn"
-                data-id="' . $id . '" title="Edit">
+            </a>';
+    }
+
+    if ($permissions['edit']) {
+        $html .= '
+            <a href="contact.php?open_form=1&contact_id=' . (int) $id . '"
+                class="btn btn-sm btn-outline-dark" title="Edit">
                 <i class="bi bi-pencil"></i>
-            </button>
+            </a>';
+    }
+
+    if ($permissions['delete']) {
+        $html .= '
             <a href="delete_contact.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
                 onclick="return confirm(\'Delete this contact?\');" title="Delete">
                 <i class="bi bi-trash"></i>
-            </a>
-        </div>
-    ';
+            </a>';
+    }
+
+    $html .= '</div>';
+
+    return $html;
+}
+
+/**
+ * @return array{view: bool, add: bool, edit: bool, delete: bool}
+ */
+function contact_normalize_action_permissions(array $permissions): array
+{
+    return [
+        'view' => !empty($permissions['view']),
+        'add' => !empty($permissions['add']),
+        'edit' => !empty($permissions['edit']),
+        'delete' => !empty($permissions['delete']),
+    ];
+}
+
+/**
+ * @return array{view: bool, add: bool, edit: bool, delete: bool}
+ */
+function contact_action_permissions(PDO $conn): array
+{
+    require_once __DIR__ . '/rbac_access_helpers.php';
+
+    contact_ensure_rbac($conn);
+
+    return contact_normalize_action_permissions([
+        'view' => rbac_user_can($conn, 'contact', 'view'),
+        'add' => rbac_user_can($conn, 'contact', 'add'),
+        'edit' => rbac_user_can($conn, 'contact', 'edit'),
+        'delete' => rbac_user_can($conn, 'contact', 'delete'),
+    ]);
+}
+
+function contact_ensure_rbac(PDO $conn): void
+{
+    require_once __DIR__ . '/rbac_module_seed_helpers.php';
+    rbac_ensure_module_with_defaults(
+        $conn,
+        'Contact',
+        'contact',
+        'Manage customer contacts',
+        220
+    );
 }
 
 function contact_require_page_access(PDO $conn): void
 {
     require_once __DIR__ . '/admin_access_helpers.php';
     require_once __DIR__ . '/login_helpers.php';
+    require_once __DIR__ . '/rbac_access_helpers.php';
+
     login_enforce_session_version($conn);
     admin_ensure_session_role($conn);
+    contact_ensure_rbac($conn);
 
-    if (is_system_admin()) {
+    if (contact_action_permissions($conn)['view']) {
         return;
     }
 
-    $_SESSION['error_message'] = 'Access denied. System Admin privileges required.';
-    header('Location: dashboard.php');
-    exit;
+    rbac_access_denied_redirect();
 }
 
 function contact_insert(PDO $conn, array $data, string $username): int

@@ -2,12 +2,13 @@
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
-require_once dirname(__DIR__) . '/includes/admin_api_guard.php';
+require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/contact_helpers.php';
 require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
-admin_api_require_system_admin($obconn);
+rbac_require_api_access($obconn);
 contact_ensure_schema($obconn);
+contact_ensure_rbac($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 

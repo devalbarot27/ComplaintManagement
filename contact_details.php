@@ -5,9 +5,15 @@ session_start();
 include 'pdo_obconn.php';
 include 'includes/admin_access_helpers.php';
 include 'includes/contact_helpers.php';
+require_once __DIR__ . '/includes/rbac_access_helpers.php';
 
-require_system_admin($obconn);
+admin_ensure_session_role($obconn);
 contact_ensure_schema($obconn);
+contact_ensure_rbac($obconn);
+
+if (!contact_action_permissions($obconn)['view']) {
+    rbac_access_denied_redirect();
+}
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 

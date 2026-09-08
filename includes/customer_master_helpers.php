@@ -298,27 +298,92 @@ function customer_master_created_by_label(array $record): string
     return $username !== '' ? $username : '-';
 }
 
-function customer_master_entry_actions(int $id): string
+function customer_master_entry_actions(int $id, array $permissions = [], bool $canAddContact = false): string
 {
+    $permissions = customer_master_normalize_action_permissions($permissions);
     $encodedId = base64_encode((string) $id);
 
-    return '
-        <div class="d-flex gap-1">
+    $html = '<div class="d-flex gap-1">';
+
+    if ($permissions['view']) {
+        $html .= '
             <a href="customer_master_details.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark" title="View">
                 <i class="bi bi-eye"></i>
-            </a>
+            </a>';
+    }
+
+    if ($permissions['edit']) {
+        $html .= '
             <button type="button" class="btn btn-sm btn-outline-dark edit-customer-master-btn"
                 data-id="' . $id . '" title="Edit">
                 <i class="bi bi-pencil"></i>
-            </button>
+            </button>';
+    }
+
+    if ($canAddContact) {
+        $html .= '
+            <a href="contact.php?open_form=1&customer_id=' . (int) $id . '"
+                class="btn btn-sm btn-outline-dark" title="Add Contact">
+                <i class="bi bi-person-plus"></i>
+            </a>';
+    }
+
+    if ($permissions['delete']) {
+        $html .= '
             <a href="delete_customer_master.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
                 onclick="return confirm(\'Delete this customer?\');" title="Delete">
                 <i class="bi bi-trash"></i>
-            </a>
-        </div>
-    ';
+            </a>';
+    }
+
+    $html .= '</div>';
+
+    return $html;
+}
+
+/**
+ * @return array{view: bool, add: bool, edit: bool, delete: bool}
+ */
+function customer_master_normalize_action_permissions(array $permissions): array
+{
+    return [
+        'view' => !empty($permissions['view']),
+        'add' => !empty($permissions['add']),
+        'edit' => !empty($permissions['edit']),
+        'delete' => !empty($permissions['delete']),
+    ];
+}
+
+/**
+ * @return array{view: bool, add: bool, edit: bool, delete: bool}
+ */
+function customer_master_action_permissions(PDO $conn): array
+{
+    require_once __DIR__ . '/rbac_access_helpers.php';
+    require_once __DIR__ . '/rbac_module_seed_helpers.php';
+
+    customer_master_ensure_rbac($conn);
+
+    return customer_master_normalize_action_permissions([
+        'view' => rbac_user_can($conn, 'customer-master', 'view'),
+        'add' => rbac_user_can($conn, 'customer-master', 'add'),
+        'edit' => rbac_user_can($conn, 'customer-master', 'edit'),
+        'delete' => rbac_user_can($conn, 'customer-master', 'delete'),
+    ]);
+}
+
+function customer_master_ensure_rbac(PDO $conn): void
+{
+    require_once __DIR__ . '/rbac_module_seed_helpers.php';
+    rbac_ensure_module_with_defaults(
+        $conn,
+        'Customer Master',
+        'customer-master',
+        'Manage customer master records',
+        210
+    );
 }
 
 function customer_master_select2_label(array $row): string
@@ -421,10 +486,6 @@ function customer_master_user_can_create_from_return(PDO $conn, string $returnUr
 {
     require_once __DIR__ . '/rbac_access_helpers.php';
 
-    if (is_system_admin()) {
-        return true;
-    }
-
     $safeReturn = customer_master_sanitize_return_url($returnUrl);
     if ($safeReturn === '') {
         return false;
@@ -448,8 +509,7 @@ function customer_master_user_can_create_from_installed_base(PDO $conn): bool
 {
     require_once __DIR__ . '/rbac_access_helpers.php';
 
-    return is_system_admin()
-        || rbac_role_has_permission($conn, 'installed-base-capture', 'add')
+    return rbac_role_has_permission($conn, 'installed-base-capture', 'add')
         || rbac_role_has_permission($conn, 'complaint-entry', 'add');
 }
 
@@ -457,10 +517,13 @@ function customer_master_require_page_access(PDO $conn, string $returnUrl = ''):
 {
     require_once __DIR__ . '/admin_access_helpers.php';
     require_once __DIR__ . '/login_helpers.php';
+    require_once __DIR__ . '/rbac_access_helpers.php';
+
     login_enforce_session_version($conn);
     admin_ensure_session_role($conn);
+    customer_master_ensure_rbac($conn);
 
-    if (is_system_admin()) {
+    if (customer_master_action_permissions($conn)['view']) {
         return;
     }
 
@@ -468,9 +531,7 @@ function customer_master_require_page_access(PDO $conn, string $returnUrl = ''):
         return;
     }
 
-    $_SESSION['error_message'] = 'Access denied. System Admin privileges required.';
-    header('Location: dashboard.php');
-    exit;
+    rbac_access_denied_redirect();
 }
 
 function customer_master_insert(PDO $conn, array $data, string $username): int

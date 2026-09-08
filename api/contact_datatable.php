@@ -2,12 +2,15 @@
 session_start();
 require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
-require_once dirname(__DIR__) . '/includes/admin_api_guard.php';
+require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/contact_helpers.php';
 
-admin_api_require_system_admin($obconn);
+rbac_require_api_access($obconn);
 contact_ensure_schema($obconn);
+contact_ensure_rbac($obconn);
+
+$contactPermissions = contact_action_permissions($obconn);
 
 $allowedOrderColumns = [
     'ct.id',
@@ -79,7 +82,7 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'email' => htmlspecialchars(trim((string) ($row['email'] ?? '')), ENT_QUOTES, 'UTF-8'),
         'mobile' => htmlspecialchars(trim((string) ($row['mobile'] ?? '')), ENT_QUOTES, 'UTF-8'),
         'created_at' => rbac_format_datetime($row['created_at']),
-        'actions' => contact_entry_actions((int) $row['id']),
+        'actions' => contact_entry_actions((int) $row['id'], $contactPermissions),
     ];
 }
 

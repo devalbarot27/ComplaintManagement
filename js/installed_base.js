@@ -197,7 +197,9 @@ function initInstalledBasePage() {
     initInstalledBaseStaticSelect2();
     initInstalledBaseFormValidation();
     initInstalledBaseAddNewCustomerButton();
-
+    if (typeof initInstalledBaseAddCustomerModal === 'function') {
+        initInstalledBaseAddCustomerModal();
+    }
     const openBtn = document.getElementById('openInstalledBaseForm');
     const closeBtn = document.getElementById('closeInstalledBaseForm');
 
