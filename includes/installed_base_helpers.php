@@ -53,6 +53,10 @@ function installed_base_ensure_schema(PDO $conn): void
         $conn->exec('ALTER TABLE installed_base ADD COLUMN customer_id INTEGER NULL');
     }
 
+    if (!installed_base_table_has_column($conn, 'downstream')) {
+        $conn->exec("ALTER TABLE installed_base ADD COLUMN downstream VARCHAR(3) NULL");
+    }
+
     if (installed_base_table_has_column($conn, 'customer_name')) {
         installed_base_migrate_legacy_customer_fields($conn);
 
@@ -204,6 +208,7 @@ function installed_base_from_post(array $post): array
         'invoice_date' => trim((string) ($post['invoice_date'] ?? '')),
         'commissioning_date' => trim((string) ($post['commissioning_date'] ?? '')),
         'running_hours' => trim((string) ($post['running_hours'] ?? '')),
+        'downstream' => strtoupper(trim((string) ($post['downstream'] ?? ''))),
         'industry_segment' => trim((string) ($post['industry_segment'] ?? '')),
         'remarks' => trim((string) ($post['remarks'] ?? '')),
     ];
@@ -248,6 +253,14 @@ function installed_base_validate(PDO $conn, array $data): ?string
 
     if (!is_numeric($data['running_hours']) || (float) $data['running_hours'] <= 0) {
         return 'Running Hours must be greater than 0.';
+    }
+
+    if ($data['downstream'] === '') {
+        return 'Downstream is required.';
+    }
+
+    if (!in_array($data['downstream'], ['YES', 'NO'], true)) {
+        return 'Downstream must be YES or NO.';
     }
 
     if ($data['industry_segment'] === '') {
@@ -507,6 +520,7 @@ function installed_base_update_record(PDO $conn, int $id, array $data): void
             invoice_date = :invoice_date,
             commissioning_date = :commissioning_date,
             running_hours = :running_hours,
+            downstream = :downstream,
             industry_segment = :industry_segment,
             remarks = :remarks,
             updated_at = CURRENT_TIMESTAMP
@@ -524,6 +538,7 @@ function installed_base_update_record(PDO $conn, int $id, array $data): void
     $update->bindValue(':invoice_date', $data['invoice_date']);
     $update->bindValue(':commissioning_date', $data['commissioning_date']);
     $update->bindValue(':running_hours', $data['running_hours']);
+    $update->bindValue(':downstream', $data['downstream']);
     $update->bindValue(':industry_segment', $data['industry_segment']);
     $update->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
     $update->bindValue(':id', $id, PDO::PARAM_INT);
@@ -562,6 +577,7 @@ function installed_base_insert_record(PDO $conn, array $data, int $createdBy, st
             invoice_date,
             commissioning_date,
             running_hours,
+            downstream,
             industry_segment,
             remarks,
             created_by,
@@ -579,6 +595,7 @@ function installed_base_insert_record(PDO $conn, array $data, int $createdBy, st
             :invoice_date,
             :commissioning_date,
             :running_hours,
+            :downstream,
             :industry_segment,
             :remarks,
             :created_by,
@@ -596,6 +613,7 @@ function installed_base_insert_record(PDO $conn, array $data, int $createdBy, st
     $insert->bindValue(':invoice_date', $data['invoice_date']);
     $insert->bindValue(':commissioning_date', $data['commissioning_date']);
     $insert->bindValue(':running_hours', $data['running_hours']);
+    $insert->bindValue(':downstream', $data['downstream']);
     $insert->bindValue(':industry_segment', $data['industry_segment']);
     $insert->bindValue(':remarks', $data['remarks'] !== '' ? $data['remarks'] : null);
     $insert->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
@@ -760,6 +778,7 @@ function installed_base_latest_record_by_fab(PDO $conn, string $fabNumber): ?arr
             ib.remarks,
             ib.commissioning_date,
             ib.running_hours,
+            ib.downstream,
             ib.industry_segment,
             ib.machine_model_code,
             ib.machine_model

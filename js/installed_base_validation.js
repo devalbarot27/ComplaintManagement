@@ -54,6 +54,16 @@ function initInstalledBaseFormValidation() {
                 message: '^Running Hours must be greater than 0'
             }
         },
+        downstream: {
+            presence: {
+                allowEmpty: false,
+                message: '^Downstream is required'
+            },
+            inclusion: {
+                within: ['YES', 'NO'],
+                message: '^Downstream must be YES or NO'
+            }
+        },
         industry_segment: {
             presence: {
                 allowEmpty: false,
@@ -115,6 +125,10 @@ function initInstalledBaseFormValidation() {
 
             if (field === 'industry_segment') {
                 $('#industrySegmentSelect').addClass('is-invalid');
+            }
+
+            if (field === 'downstream') {
+                $('#downstreamSelect').addClass('is-invalid');
             }
 
             if (msg && errors[field] && errors[field].length) {
@@ -344,6 +358,7 @@ function initInstalledBaseFormValidation() {
         if (typeof resetInstalledBaseCustomerSelect2 === 'function') {
             resetInstalledBaseCustomerSelect2();
         }
+        resetStaticSelect2('downstreamSelect');
         resetStaticSelect2('industrySegmentSelect');
         resetMachineModelSelect2();
     });

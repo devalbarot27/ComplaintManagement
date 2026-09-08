@@ -94,6 +94,11 @@ $renderInstalledBaseDetailField = static function (
                     installed_base_display_value($installedBaseRecord['running_hours'] ?? null),
                     'col-md-4'
                 );
+                $renderInstalledBaseDetailField(
+                    'Downstream',
+                    installed_base_display_value($installedBaseRecord['downstream'] ?? null),
+                    'col-md-4'
+                );
                 ?>
             </div>
         </section>

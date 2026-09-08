@@ -90,6 +90,9 @@ $response = [
     'running_hours' => $hasInstalledBase
         ? (string) ($installedBaseRow['running_hours'] ?? '')
         : '',
+    'downstream' => $hasInstalledBase
+        ? (string) ($installedBaseRow['downstream'] ?? '')
+        : '',
     'industry_segment' => $hasInstalledBase
         ? (string) ($installedBaseRow['industry_segment'] ?? '')
         : '',

@@ -92,8 +92,9 @@ function fillInstalledBaseForm(record) {
         setInstalledBaseCustomerSelect2(record.customer_id || '', record.customer_label || record.customer_name || '');
     }
 
+    setStaticSelect2Value('downstreamSelect', record.downstream || '');
     setStaticSelect2Value('industrySegmentSelect', record.industry_segment || '');
-    // Edit loads an existing Installed Base FAB ù Machine Model is read-only.
+    // Edit loads an existing Installed Base FAB ? Machine Model is read-only.
     setMachineModelSelect2(record.machine_model_code || '', record.machine_model || '', {
         locked: true
     });
@@ -122,6 +123,7 @@ function resetInstalledBaseForm() {
     if (typeof resetInstalledBaseCustomerSelect2 === 'function') {
         resetInstalledBaseCustomerSelect2();
     }
+    resetStaticSelect2('downstreamSelect');
     resetStaticSelect2('industrySegmentSelect');
     resetMachineModelSelect2();
 
@@ -185,6 +187,11 @@ function initInstalledBaseStaticSelect2() {
         validationField: 'industry_segment',
         allowClear: false,
         noResultsText: 'No industry segment found'
+    });
+    initStaticSelect2('installedBaseForm', 'downstreamSelect', {
+        validationField: 'downstream',
+        allowClear: false,
+        noResultsText: 'No option found'
     });
 }
 

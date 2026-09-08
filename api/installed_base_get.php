@@ -87,6 +87,7 @@ echo json_encode([
     'invoice_date' => $formatted_invoice_date,
     'commissioning_date' => $formatted_commissioning_date,
     'running_hours' => $row['running_hours'],
+    'downstream' => $row['downstream'] ?? '',
     'industry_segment' => $row['industry_segment'],
     'remarks' => $row['remarks'],
 ]);

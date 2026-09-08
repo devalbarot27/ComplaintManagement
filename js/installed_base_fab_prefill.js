@@ -17,6 +17,7 @@ function resetInstalledBaseFabRecordFields(form) {
     });
 
     if (typeof resetStaticSelect2 === 'function') {
+        resetStaticSelect2('downstreamSelect');
         resetStaticSelect2('industrySegmentSelect');
     }
 }
@@ -43,6 +44,7 @@ function setInstalledBaseFabRecordFields(form, data) {
     });
 
     if (typeof setStaticSelect2Value === 'function') {
+        setStaticSelect2Value('downstreamSelect', data.downstream || '');
         setStaticSelect2Value('industrySegmentSelect', data.industry_segment || '');
     }
 }

@@ -81,6 +81,7 @@ function saveInstalledBaseFormDraftBeforeCustomerRedirect() {
         invoice_date: (form.querySelector('[name="invoice_date"]') || {}).value || '',
         commissioning_date: (form.querySelector('[name="commissioning_date"]') || {}).value || '',
         running_hours: (form.querySelector('[name="running_hours"]') || {}).value || '',
+        downstream: (form.querySelector('[name="downstream"]') || {}).value || '',
         industry_segment: (form.querySelector('[name="industry_segment"]') || {}).value || '',
         remarks: (form.querySelector('[name="remarks"]') || {}).value || ''
     };
@@ -139,6 +140,7 @@ function applyInstalledBaseFormDraft(draft) {
     });
 
     if (typeof setStaticSelect2Value === 'function') {
+        setStaticSelect2Value('downstreamSelect', draft.downstream || '');
         setStaticSelect2Value('industrySegmentSelect', draft.industry_segment || '');
     }
 

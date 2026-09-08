@@ -353,6 +353,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                         placeholder="Usage hours">
                                     <div class="text-danger validation-msg" data-field="running_hours"></div>
                                 </div>
+                                <div class="col-md-4 form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-diagram-3"></i>
+                                        Downstream <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-control" name="downstream" id="downstreamSelect"
+                                        data-placeholder="Select Downstream">
+                                        <option value=""></option>
+                                        <option value="YES">YES</option>
+                                        <option value="NO">NO</option>
+                                    </select>
+                                    <div class="text-danger validation-msg" data-field="downstream"></div>
+                                </div>
                             </div>
                         </section>
 
