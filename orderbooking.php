@@ -77,6 +77,92 @@ $freightPercentage = 4;
             color: #721c24;
             flex-shrink: 0;
         }
+
+        /* Delivery Date: keep jQuery UI datepicker readable above the form */
+        #ui-datepicker-div,
+        .ui-datepicker {
+            z-index: 3000 !important;
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 10px !important;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18) !important;
+            padding: 10px !important;
+            width: auto !important;
+        }
+
+        .ui-datepicker .ui-datepicker-header {
+            background: #f8fafc !important;
+            border: 0 !important;
+            border-radius: 8px !important;
+            padding: 6px 4px !important;
+            margin-bottom: 6px;
+        }
+
+        .ui-datepicker .ui-datepicker-title {
+            color: #0f172a !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            line-height: 1.4 !important;
+        }
+
+        .ui-datepicker .ui-datepicker-prev,
+        .ui-datepicker .ui-datepicker-next {
+            top: 8px !important;
+            cursor: pointer;
+        }
+
+        .ui-datepicker table {
+            background: #ffffff !important;
+            border-collapse: separate !important;
+            width: 100% !important;
+            margin: 0 !important;
+        }
+
+        .ui-datepicker th {
+            color: #64748b !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            padding: 4px !important;
+            background: transparent !important;
+        }
+
+        .ui-datepicker td {
+            padding: 2px !important;
+            background: transparent !important;
+        }
+
+        .ui-datepicker td span,
+        .ui-datepicker td a {
+            display: block !important;
+            text-align: center !important;
+            text-decoration: none !important;
+            color: #0f172a !important;
+            border: 0 !important;
+            border-radius: 6px !important;
+            padding: 6px !important;
+            background: #ffffff !important;
+        }
+
+        .ui-datepicker td a:hover {
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+
+        .ui-datepicker td.ui-datepicker-today a,
+        .ui-datepicker td.ui-datepicker-today span {
+            background: #dbeafe !important;
+            font-weight: 600 !important;
+        }
+
+        .ui-datepicker td.ui-datepicker-current-day a {
+            background: #1565d8 !important;
+            color: #ffffff !important;
+        }
+
+        .ui-datepicker td.ui-state-disabled span {
+            color: #94a3b8 !important;
+            background: #f8fafc !important;
+        }
     </style>
 </head>
 
@@ -516,7 +602,17 @@ $freightPercentage = 4;
             dateFormat: "dd.mm.yy",
             minDate: 0,
             maxDate: 90,
-            readonly: true
+            readonly: true,
+            beforeShow: function (input, inst) {
+                setTimeout(function () {
+                    if (inst && inst.dpDiv) {
+                        inst.dpDiv.css({
+                            zIndex: 3000,
+                            background: '#ffffff'
+                        });
+                    }
+                }, 0);
+            }
         });
 
     
