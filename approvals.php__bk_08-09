@@ -7,10 +7,8 @@ require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/installed_base_helpers.php';
 require_once 'includes/user_helpers.php';
-require_once 'includes/order_approval_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
-order_approval_ensure_schema($obconn);
 
 $approvalFlags = user_current_approval_flags($obconn);
 $canApproveL1Foc = $approvalFlags['l1'];
@@ -18,9 +16,8 @@ $canApproveL2Foc = $approvalFlags['l2'];
 $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
 $canApproveL1Service = true;
 $canApproval          = rbac_user_can($obconn, 'approvals', 'view');
-$canOrderApproval     = order_approval_can_access($obconn);
 
-if (!$canApproval && !$canOrderApproval) {
+if (!$canApproval) {
     header('Location: access_denied.php');
     exit;
 }
@@ -153,61 +150,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['l1_decision'])) {
     exit;
 }
 
-// Order-level L1 / L2 approval, then AO Number via LN
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['order_decision']) || isset($_POST['cart_decision']))) {
-    $requestId = (int) ($_POST['claim_id'] ?? 0);
-    $decision = trim((string) ($_POST['order_decision'] ?? $_POST['cart_decision'] ?? ''));
-    $remarks = trim((string) ($_POST['order_remarks'] ?? $_POST['cart_remarks'] ?? ''));
-    $request = order_approval_get_by_id($obconn, $requestId);
-
-    if (!$request) {
-        $_SESSION['error_message'] = 'Order approval request not found.';
-    } elseif (!order_approval_is_assigned_to_current_user($obconn, $request)) {
-        header('Location: access_denied.php');
-        exit;
-    } else {
-        $result = order_approval_decide($obconn, $request, $decision, $remarks, $userName);
-        if (!empty($result['error'])) {
-            $_SESSION['error_message'] = $result['error'];
-        } else {
-            $successMessage = trim((string) ($result['message'] ?? ''));
-            if ($successMessage === '') {
-                $successMessage = 'Order ' . ($request['refno'] ?? '') . ' has been ' . strtolower($decision) . '.';
-            }
-            if (!empty($result['generate_ao']) && trim((string) ($result['refno'] ?? '')) !== '') {
-                require_once __DIR__ . '/orderClass.php';
-                $aoMessage = preg_replace('/\s*AO Number will be generated\.?$/i', '', $successMessage);
-                $aoMessage = trim((string) $aoMessage);
-                if ($aoMessage === '') {
-                    $aoMessage = 'The order has been approved.';
-                }
-                try {
-                    $orderService = new orderClass($obconn, $dpconn);
-                    $aoError = $orderService->generateAoNumberAfterApproval((string) $result['refno']);
-                    if ($aoError !== null) {
-                        $aoMessage .= ' AO Number was not generated: ' . $aoError;
-                    } else {
-                        $aoMessage .= ' AO Number generation has been requested from LN.';
-                    }
-                } catch (Throwable $e) {
-                    error_log('generateAoNumberAfterApproval: ' . $e->getMessage() . ' @ ' . $e->getLine());
-                    $aoMessage .= ' AO Number was not generated. Please use Re-Push later.';
-                }
-                $_SESSION['approval_success_modal'] = [
-                    'title' => 'Order Approved Successfully',
-                    'message' => $aoMessage,
-                    'status' => (string) $result['refno'],
-                    'redirect' => 'recent_orders.php?order_no=' . rawurlencode((string) $result['refno']),
-                ];
-            } else {
-                $_SESSION['success_message'] = $successMessage;
-            }
-        }
-    }
-    header('Location: approvals.php');
-    exit;
-}
-
 // FOC: Lock-in Engineer (L1) Pending, or Business Head (L2) Pending after L1 Approved.
 // Service: Lock-in Engineer (L1) Pending only.
 $approvalItems = [];
@@ -319,14 +261,6 @@ try {
     // Table may not exist yet; silently continue
 }
 
-try {
-    foreach (order_approval_pending_items($obconn, $dpconn ?? null) as $orderItem) {
-        $approvalItems[] = $orderItem;
-    }
-} catch (PDOException $e) {
-    // Table may not exist yet; silently continue
-}
-
 usort($approvalItems, static function (array $a, array $b): int {
     return strtotime($b['created_at']) <=> strtotime($a['created_at']);
 });
@@ -345,9 +279,6 @@ foreach ($approvalItems as $item) {
 $focItemsByClaim = foc_claim_items_for_claims($obconn, $focClaimMap);
 $servicePartsByComplaint = complaint_service_log_parts_for_complaints($obconn, $serviceComplaintIds);
 foreach ($approvalItems as &$item) {
-    if (($item['claim_type'] ?? '') === 'cart') {
-        continue;
-    }
     $item['fab_html'] = installed_base_fab_link_html($obconn, (string) ($item['fab_number'] ?? ''), $installedBaseIdByFab);
     if (($item['claim_type'] ?? '') === 'foc') {
         $item['details_html'] = foc_parts_linked_summary_html($focItemsByClaim[(int) $item['id']] ?? []);
@@ -360,12 +291,6 @@ foreach ($approvalItems as &$item) {
     );
 }
 unset($item);
-
-$approvalSuccessModal = null;
-if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_success_modal'])) {
-    $approvalSuccessModal = $_SESSION['approval_success_modal'];
-    unset($_SESSION['approval_success_modal']);
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -382,7 +307,6 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
     <link href="css/datatable_custom.css" rel="stylesheet">
-    <link href="css/success_modal.css" rel="stylesheet">
     <style>
         .approval-detail-value {
             min-height: 0;
@@ -417,7 +341,6 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-    <script src="js/success_modal.js"></script>
 </head>
 
 <body>
@@ -445,7 +368,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
             <div class="page-header">
                 <div>
                     <div class="page-subtitle">
-                        Pending Lock-in Engineer and Business Head approvals for FOC Parts, Service Claims, and Order Approvals (Level 1 / Level 2).
+                        Pending Lock-in Engineer and Business Head approvals for FOC Parts, and pending Lock-in Engineer approvals for Service Claims.
                     </div>
                 </div>
             </div>
@@ -458,7 +381,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         </div>
                         <div>
                             <h2 class="complaint-form-header__title">Pending Approvals</h2>
-                            <p class="complaint-form-header__subtitle">FOC Parts, Service Claims, and orders waiting for Level 1 or Level 2 approval. AO Number is generated only after required order approvals are completed.</p>
+                            <p class="complaint-form-header__subtitle">FOC Parts pending Lock-in Engineer or Business Head approval, and Service Claims pending Lock-in Engineer approval.</p>
                         </div>
                     </div>
                 </div>
@@ -470,7 +393,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                     <th width="6%">#</th>
                                     <th width="10%">Type</th>
                                     <th width="10%">Call Ticket</th>
-                                    <th width="12%">Fab / Order Ref</th>
+                                    <th width="12%">Fab Number</th>
                                     <th width="14%">Customer</th>
                                     <th width="14%">Details</th>
                                     <th width="10%">Warranty / CCS</th>
@@ -484,14 +407,11 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                 <?php foreach ($approvalItems as $row): ?>
                                     <?php
                                     $claimId = (int) $row['id'];
-                                    $complaintId = (int) ($row['complaint_id'] ?? 0);
+                                    $complaintId = (int) $row['complaint_id'];
                                     $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
                                     $submittedOn = trim((string) ($row['created_at'] ?? ''));
                                     $submittedOnLabel = $submittedOn !== '' ? date('d M Y H:i', strtotime($submittedOn)) : '-';
-                                    $isCart = ($row['claim_type'] ?? '') === 'cart';
-                                    $typeLabel = $row['claim_type'] === 'foc'
-                                        ? 'FOC Parts'
-                                        : ($isCart ? 'Order Approval' : 'Service Claim');
+                                    $typeLabel = $row['claim_type'] === 'foc' ? 'FOC Parts' : 'Service Claim';
                                     ?>
                                     <tr>
                                         <td><?= $claimId ?></td>
@@ -499,39 +419,23 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                             <span class="status-badge border border-dark"><?= htmlspecialchars($typeLabel) ?></span>
                                         </td>
                                         <td>
-                                            <?php if ($isCart): ?>
-                                                -
-                                            <?php else: ?>
                                             <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                                 #<?= $complaintId ?>
                                             </a>
-                                            <?php endif; ?>
                                         </td>
-                                        <td>
-                                            <a href="recent_order_details.php?refno=<?= htmlspecialchars((string) ($row['ref_no'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
-                                            <?php if ($isCart): ?>
-                                                <?= htmlspecialchars((string) ($row['item_code'] ?? $row['fab_number'] ?? '-')) ?>
-                                            <?php else: ?>
-                                                <?= installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?>
-                                            <?php endif; ?>
-                                            </a>
-                                        </td>
+                                        <td><?= installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?></td>
                                         <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                                         <td>
-                                            <?php if (($row['claim_type'] ?? '') === 'foc' || $isCart): ?>
-                                                <?= !empty($row['details_html']) ? $row['details_html'] : htmlspecialchars((string) ($row['details'] ?? '-')) ?>
+                                            <?php if (($row['claim_type'] ?? '') === 'foc'): ?>
+                                                <?= $row['details_html'] !== '' ? $row['details_html'] : '-' ?>
                                             <?php else: ?>
                                                 <?= htmlspecialchars((string) ($row['details'] ?? '')) ?>
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <?php if ($isCart): ?>
-                                                -
-                                            <?php else: ?>
                                             <span class="status-badge border border-dark">
                                                 <?= htmlspecialchars((string) ($row['warranty_label'] ?? '-')) ?>
                                             </span>
-                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <span class="status-badge border border-dark">
@@ -562,29 +466,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                                 data-decision-field="<?= htmlspecialchars((string) ($row['decision_field'] ?? '')) ?>"
                                                 data-remarks-field="<?= htmlspecialchars((string) ($row['remarks_field'] ?? '')) ?>"
                                                 data-action-type="<?= htmlspecialchars((string) ($row['action_type'] ?? '')) ?>"
-                                                data-can-decide="<?= !empty($row['can_decide']) ? '1' : '0' ?>"
-                                                data-item-code="<?= htmlspecialchars((string) ($row['item_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-item-name="<?= htmlspecialchars((string) ($row['item_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-price-type="<?= htmlspecialchars((string) ($row['price_type_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-unit-price="<?= htmlspecialchars((string) ($row['unit_price'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-qty="<?= htmlspecialchars((string) ($row['qty'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-order-type="<?= htmlspecialchars((string) ($row['order_type_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-approval-level="<?= htmlspecialchars((string) ($row['approval_level_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-delivery-address-type="<?= htmlspecialchars((string) ($row['delivery_address_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-dealer-address="<?= htmlspecialchars((string) ($row['dealer_address'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-end-customer-name="<?= htmlspecialchars((string) ($row['end_customer_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-end-customer-email="<?= htmlspecialchars((string) ($row['end_customer_email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-end-customer-street1="<?= htmlspecialchars((string) ($row['end_customer_street1'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-end-customer-street2="<?= htmlspecialchars((string) ($row['end_customer_street2'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-end-customer-pincode="<?= htmlspecialchars((string) ($row['end_customer_pincode'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-end-customer-city="<?= htmlspecialchars((string) ($row['end_customer_city'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-end-customer-district="<?= htmlspecialchars((string) ($row['end_customer_district'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-end-customer-state="<?= htmlspecialchars((string) ($row['end_customer_state'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-l1-status="<?= htmlspecialchars((string) ($row['l1_status'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-l1-approved-by="<?= htmlspecialchars((string) ($row['l1_approved_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-l1-approved-at="<?= htmlspecialchars((string) ($row['l1_approved_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                                data-l1-remarks="<?= htmlspecialchars((string) ($row['l1_remarks'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                                            >
+                                                data-can-decide="<?= !empty($row['can_decide']) ? '1' : '0' ?>">
                                                 <i class="bi bi-eye"></i>
                                             </button>
                                         </td>
@@ -620,11 +502,11 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
                             <div>
-                                <h3 class="complaint-form-section__title" id="viewDetailsSectionTitle">Claim Details</h3>
-                                <p class="complaint-form-section__hint" id="viewDetailsSectionHint">Call ticket, customer and current review status.</p>
+                                <h3 class="complaint-form-section__title">Claim Details</h3>
+                                <p class="complaint-form-section__hint">Call ticket, customer and current review status.</p>
                             </div>
                         </div>
-                        <div class="row g-3" id="viewClaimFocFields">
+                        <div class="row g-3">
                             <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-ticket-detailed"></i> Call Ticket</label>
                                 <div class="approval-detail-value">
@@ -676,114 +558,6 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                             <div class="col-md-6 form-group">
                                 <label class="form-label"><i class="bi bi-calendar3"></i> Submitted On</label>
                                 <div class="approval-detail-value" id="viewClaimSubmittedOn"></div>
-                            </div>
-                        </div>
-                        <div class="row g-3 d-none" id="viewCartFields">
-                            <div class="col-md-6 form-group">
-                                <label class="form-label"><i class="bi bi-hash"></i> Order Ref</label>
-                                <div class="approval-detail-value" id="viewCartItemCode"></div>
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label class="form-label"><i class="bi bi-person"></i> Customer</label>
-                                <div class="approval-detail-value" id="viewCartCustomer"></div>
-                            </div>
-                            <div class="col-12 form-group d-none" id="viewCartDealerAddressWrap">
-                                <label class="form-label"><i class="bi bi-geo-alt"></i> Dealer Address</label>
-                                <div class="approval-detail-value" id="viewCartDealerAddress" style="white-space: pre-wrap;"></div>
-                            </div>
-                            <div class="col-12 d-none" id="viewCartEndCustomerWrap">
-                                <div class="row g-3">
-                                    <div class="col-12">
-                                        <label class="form-label mb-0"><i class="bi bi-geo-alt"></i> End Customer Details</label>
-                                    </div>
-                                    <div class="col-md-6 form-group">
-                                        <label class="form-label">End Customer Name</label>
-                                        <div class="approval-detail-value" id="viewCartEndCustomerName"></div>
-                                    </div>
-                                    <div class="col-md-6 form-group">
-                                        <label class="form-label">Email</label>
-                                        <div class="approval-detail-value" id="viewCartEndCustomerEmail"></div>
-                                    </div>
-                                    <div class="col-md-6 form-group">
-                                        <label class="form-label">Street 1</label>
-                                        <div class="approval-detail-value" id="viewCartEndCustomerStreet1"></div>
-                                    </div>
-                                    <div class="col-md-6 form-group">
-                                        <label class="form-label">Street 2</label>
-                                        <div class="approval-detail-value" id="viewCartEndCustomerStreet2"></div>
-                                    </div>
-                                    <div class="col-md-3 form-group">
-                                        <label class="form-label">Pincode</label>
-                                        <div class="approval-detail-value" id="viewCartEndCustomerPincode"></div>
-                                    </div>
-                                    <div class="col-md-3 form-group">
-                                        <label class="form-label">City</label>
-                                        <div class="approval-detail-value" id="viewCartEndCustomerCity"></div>
-                                    </div>
-                                    <div class="col-md-3 form-group">
-                                        <label class="form-label">District</label>
-                                        <div class="approval-detail-value" id="viewCartEndCustomerDistrict"></div>
-                                    </div>
-                                    <div class="col-md-3 form-group">
-                                        <label class="form-label">State</label>
-                                        <div class="approval-detail-value" id="viewCartEndCustomerState"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 form-group">
-                                <label class="form-label"><i class="bi bi-box-seam"></i> Products</label>
-                                <div class="approval-detail-value" id="viewCartItemName"></div>
-                            </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-list-ol"></i> Product Lines</label>
-                                <div class="approval-detail-value" id="viewCartQty"></div>
-                            </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-shield-check"></i> Approval Level</label>
-                                <div class="approval-detail-value" id="viewCartApprovalLevel"></div>
-                            </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-flag"></i> Status</label>
-                                <div class="approval-detail-value">
-                                    <span class="status-badge border border-dark" id="viewCartStatus"></span>
-                                </div>
-                            </div>
-                            <div class="col-md-4 form-group d-none">
-                                <label class="form-label"><i class="bi bi-currency-rupee"></i> Unit Price</label>
-                                <div class="approval-detail-value" id="viewCartUnitPrice"></div>
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label class="form-label"><i class="bi bi-person-check"></i> Requested By</label>
-                                <div class="approval-detail-value" id="viewCartRequestedBy"></div>
-                            </div>
-                            <div class="col-md-6 form-group">
-                                <label class="form-label"><i class="bi bi-calendar3"></i> Requested On</label>
-                                <div class="approval-detail-value" id="viewCartRequestedOn"></div>
-                            </div>
-                            <div class="col-12 d-none" id="viewCartL1ApprovalWrap">
-                                <div class="row g-3">
-                                    <div class="col-12">
-                                        <label class="form-label mb-0"><i class="bi bi-shield-check"></i> Level 1 Approval</label>
-                                    </div>
-                                    <div class="col-md-4 form-group">
-                                        <label class="form-label">L1 Approval Status</label>
-                                        <div class="approval-detail-value">
-                                            <span class="status-badge border border-dark" id="viewCartL1Status"></span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 form-group">
-                                        <label class="form-label">Approved By</label>
-                                        <div class="approval-detail-value" id="viewCartL1ApprovedBy"></div>
-                                    </div>
-                                    <div class="col-md-4 form-group">
-                                        <label class="form-label">Approval At</label>
-                                        <div class="approval-detail-value" id="viewCartL1ApprovedAt"></div>
-                                    </div>
-                                    <div class="col-12 form-group">
-                                        <label class="form-label">Remark</label>
-                                        <div class="approval-detail-value" id="viewCartL1Remarks" style="white-space: pre-wrap;"></div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </section>
@@ -851,7 +625,6 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     const canDecide = d.canDecide === '1';
                     const actionType = d.actionType || 'approve';
                     const isFoc = d.type === 'foc';
-                    const isCart = d.type === 'cart';
                     const submittedOn = d.submittedOn ? new Date(d.submittedOn.replace(' ', 'T')) : null;
                     const submittedOnLabel = submittedOn && !isNaN(submittedOn.getTime()) ?
                         submittedOn.toLocaleString('en-GB', {
@@ -863,105 +636,46 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         }) :
                         (d.submittedOn || '-');
 
-                    const focFields = document.getElementById('viewClaimFocFields');
-                    const cartFields = document.getElementById('viewCartFields');
-                    setHidden(focFields, isCart);
-                    setHidden(cartFields, !isCart);
-
-                    if (isCart) {
-                        document.getElementById('viewClaimTitle').textContent = 'Order Approval';
-                        document.getElementById('viewClaimSubtitle').textContent = 'Review the full order and take Level 1 or Level 2 action.';
-                        document.getElementById('viewClaimIcon').className = 'bi bi-clipboard-check';
-                        document.getElementById('viewDetailsSectionTitle').textContent = 'Order Details';
-                        document.getElementById('viewDetailsSectionHint').textContent = 'Entire order is approved at each level. AO Number is generated after required approvals.';
-                        document.getElementById('viewCartItemCode').textContent = d.itemCode || d.fabNumber || '-';
-                        document.getElementById('viewCartCustomer').textContent = d.customerName || '-';
-                        const endCustomerWrap = document.getElementById('viewCartEndCustomerWrap');
-                        const dealerAddressWrap = document.getElementById('viewCartDealerAddressWrap');
-                        const isEndCustomer = d.deliveryAddressType === 'end_customer';
-                        const isDealerAddress = d.deliveryAddressType === 'dealer';
-                        setHidden(endCustomerWrap, !isEndCustomer);
-                        setHidden(dealerAddressWrap, !isDealerAddress);
-                        if (isDealerAddress) {
-                            document.getElementById('viewCartDealerAddress').textContent = d.dealerAddress || '-';
-                        }
-                        if (isEndCustomer) {
-                            document.getElementById('viewCartEndCustomerName').textContent = d.endCustomerName || '-';
-                            document.getElementById('viewCartEndCustomerEmail').textContent = d.endCustomerEmail || '-';
-                            document.getElementById('viewCartEndCustomerStreet1').textContent = d.endCustomerStreet1 || '-';
-                            document.getElementById('viewCartEndCustomerStreet2').textContent = d.endCustomerStreet2 || '-';
-                            document.getElementById('viewCartEndCustomerPincode').textContent = d.endCustomerPincode || '-';
-                            document.getElementById('viewCartEndCustomerCity').textContent = d.endCustomerCity || '-';
-                            document.getElementById('viewCartEndCustomerDistrict').textContent = d.endCustomerDistrict || '-';
-                            document.getElementById('viewCartEndCustomerState').textContent = d.endCustomerState || '-';
-                        }
-                        const productsEl = document.getElementById('viewCartItemName');
-                        if (d.detailsHtml) {
-                            productsEl.innerHTML = d.detailsHtml;
-                        } else {
-                            productsEl.textContent = d.itemName || d.details || '-';
-                        }
-                        document.getElementById('viewCartUnitPrice').textContent = d.unitPrice || '-';
-                        document.getElementById('viewCartQty').textContent = d.qty || '-';
-                        document.getElementById('viewCartApprovalLevel').textContent = d.approvalLevel || '-';
-                        document.getElementById('viewCartStatus').textContent = d.overallStatus || 'Pending';
-                        document.getElementById('viewCartRequestedBy').textContent = d.submittedBy || '-';
-                        document.getElementById('viewCartRequestedOn').textContent = submittedOnLabel;
-                        const l1Wrap = document.getElementById('viewCartL1ApprovalWrap');
-                        const isL2Approval = d.level === 'level_2';
-                        setHidden(l1Wrap, !isL2Approval);
-                        if (isL2Approval) {
-                            document.getElementById('viewCartL1Status').textContent = d.l1Status || '-';
-                            document.getElementById('viewCartL1ApprovedBy').textContent = d.l1ApprovedBy || '-';
-                            document.getElementById('viewCartL1ApprovedAt').textContent = d.l1ApprovedAt || '-';
-                            document.getElementById('viewCartL1Remarks').textContent = d.l1Remarks || '-';
-                        }
+                    document.getElementById('viewClaimTitle').textContent = (isFoc ? 'FOC Parts Claim' : 'Service Claim') + ' #' + d.claimId;
+                    document.getElementById('viewClaimSubtitle').textContent = isFoc ?
+                        'Review FOC part claim details and take action.' :
+                        'Review service claim details and take action.';
+                    document.getElementById('viewClaimIcon').className = isFoc ? 'bi bi-shield-check' : 'bi bi-clipboard-check';
+                    document.getElementById('viewClaimTicket').textContent = d.complaintId;
+                    document.getElementById('viewClaimTicketLink').href = 'complaint_details.php?id=' + encodeURIComponent(btoa(d.complaintId));
+                    const fabEl = document.getElementById('viewClaimFab');
+                    if (d.fabHtml) {
+                        fabEl.innerHTML = d.fabHtml;
                     } else {
-                        document.getElementById('viewClaimTitle').textContent = (isFoc ? 'FOC Parts Claim' : 'Service Claim') + ' #' + d.claimId;
-                        document.getElementById('viewClaimSubtitle').textContent = isFoc ?
-                            'Review FOC part claim details and take action.' :
-                            'Review service claim details and take action.';
-                        document.getElementById('viewClaimIcon').className = isFoc ? 'bi bi-shield-check' : 'bi bi-clipboard-check';
-                        document.getElementById('viewDetailsSectionTitle').textContent = 'Claim Details';
-                        document.getElementById('viewDetailsSectionHint').textContent = 'Call ticket, customer and current review status.';
-                        document.getElementById('viewClaimTicket').textContent = d.complaintId;
-                        document.getElementById('viewClaimTicketLink').href = 'complaint_details.php?id=' + encodeURIComponent(btoa(d.complaintId));
-                        const fabEl = document.getElementById('viewClaimFab');
-                        if (d.fabHtml) {
-                            fabEl.innerHTML = d.fabHtml;
-                        } else {
-                            fabEl.textContent = d.fabNumber || '-';
-                        }
-                        document.getElementById('viewClaimCustomer').textContent = d.customerName || '-';
-                        const detailsEl = document.getElementById('viewClaimDetails');
-                        if (isFoc && d.detailsHtml) {
-                            detailsEl.innerHTML = d.detailsHtml;
-                        } else {
-                            detailsEl.textContent = d.details || '-';
-                        }
-                        const partsWrap = document.getElementById('viewClaimPartsWrap');
-                        const partsEl = document.getElementById('viewClaimParts');
-                        const partsHtml = d.partsHtml && d.partsHtml !== '-' ? d.partsHtml : '';
-                        if (!isFoc && partsHtml) {
-                            partsEl.innerHTML = partsHtml;
-                            setHidden(partsWrap, false);
-                        } else {
-                            partsEl.innerHTML = '';
-                            setHidden(partsWrap, true);
-                        }
-                        document.getElementById('viewClaimWarranty').textContent = d.warranty || '-';
-                        document.getElementById('viewClaimJustification').textContent = d.justification || '-';
-                        document.getElementById('viewClaimStage').textContent = d.stage || '-';
-                        document.getElementById('viewClaimOverall').textContent = d.overallStatus || '-';
-                        document.getElementById('viewClaimSubmittedBy').textContent = d.submittedBy || '-';
-                        document.getElementById('viewClaimSubmittedOn').textContent = submittedOnLabel;
-                        setHidden(document.getElementById('viewClaimJustificationWrap'), !isFoc || !d.justification);
+                        fabEl.textContent = d.fabNumber || '-';
                     }
+                    document.getElementById('viewClaimCustomer').textContent = d.customerName || '-';
+                    const detailsEl = document.getElementById('viewClaimDetails');
+                    if (isFoc && d.detailsHtml) {
+                        detailsEl.innerHTML = d.detailsHtml;
+                    } else {
+                        detailsEl.textContent = d.details || '-';
+                    }
+                    const partsWrap = document.getElementById('viewClaimPartsWrap');
+                    const partsEl = document.getElementById('viewClaimParts');
+                    const partsHtml = d.partsHtml && d.partsHtml !== '-' ? d.partsHtml : '';
+                    if (!isFoc && partsHtml) {
+                        partsEl.innerHTML = partsHtml;
+                        setHidden(partsWrap, false);
+                    } else {
+                        partsEl.innerHTML = '';
+                        setHidden(partsWrap, true);
+                    }
+                    document.getElementById('viewClaimWarranty').textContent = d.warranty || '-';
+                    document.getElementById('viewClaimJustification').textContent = d.justification || '-';
+                    document.getElementById('viewClaimStage').textContent = d.stage || '-';
+                    document.getElementById('viewClaimOverall').textContent = d.overallStatus || '-';
+                    document.getElementById('viewClaimSubmittedBy').textContent = d.submittedBy || '-';
+                    document.getElementById('viewClaimSubmittedOn').textContent = submittedOnLabel;
+                    setHidden(document.getElementById('viewClaimJustificationWrap'), !isFoc || !d.justification);
 
                     const decisionHint = document.getElementById('viewClaimDecisionHint');
-                    if (isCart) {
-                        decisionHint.textContent = 'Approve or reject this entire order. Remarks are required to reject.';
-                    } else if (actionType === 'ccs_service') {
+                    if (actionType === 'ccs_service') {
                         decisionHint.textContent = 'Mark whether this visit is eligible for a warranty claim.';
                     } else if (actionType === 'ccs_foc') {
                         decisionHint.textContent = 'Confirm the machine warranty status for this FOC claim.';
@@ -1041,19 +755,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         targets: -1
                     }],
                     language: {
-                        emptyTable: 'There are no pending Warranty / CCS or Order Approval items to show.'
-                    }
-                });
-            }
-
-            var approvalSuccessModal = <?= json_encode($approvalSuccessModal, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-            if (approvalSuccessModal && typeof SuccessModal !== 'undefined') {
-                SuccessModal.show({
-                    title: approvalSuccessModal.title || 'Order Approved Successfully',
-                    message: approvalSuccessModal.message || 'The order has been approved.',
-                    status: approvalSuccessModal.status || '',
-                    onClose: function() {
-                        window.location.href = approvalSuccessModal.redirect || 'recent_orders.php';
+                        emptyTable: 'There are no pending Warranty / CCS or approval items to show.'
                     }
                 });
             }

@@ -1,4 +1,5 @@
 <?php
+
 require_once __DIR__ . '/includes/login_helpers.php';
 login_start_php_session();
 // Check assigned permission
@@ -240,6 +241,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                 Export
             </button> -->
 
+<?php /* 
             <button class="action-btn" type="button" id="dashboardRefresh">
 
                 <i class="bi bi-arrow-clockwise"></i>
@@ -247,6 +249,11 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                 Refresh
 
             </button>
+*/ ?>
+      <a href="javascript:void(0)" class="action-btn" style="text-decoration: none;">
+                <i class="bi bi-file-earmark-medical"></i>
+                CDOC
+                </a>
 
         </div>
         <?php endif; ?>

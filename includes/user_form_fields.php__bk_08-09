@@ -8,10 +8,6 @@ if (!isset($salesCoordinatorOptions) || !is_array($salesCoordinatorOptions)) {
     $salesCoordinatorOptions = [];
 }
 
-if (!isset($approverOptions) || !is_array($approverOptions)) {
-    $approverOptions = [];
-}
-
 $formRecord = $formRecord ?? [
     'id' => 0,
     'role' => 0,
@@ -21,22 +17,22 @@ $formRecord = $formRecord ?? [
     'mobile_number' => '',
     'sales_coordinator_id' => 0,
     'customer_code' => '',
-    'level_1_approver_id' => 0,
-    'level_2_approver_id' => 0,
+    'level_1_approval' => false,
+    'level_2_approval' => false,
 ];
 
 $isEditForm = !empty($formRecord['id']);
 $selectedRole = (int) ($formRecord['role'] ?? 0);
 $selectedSalesCoordinatorId = (int) ($formRecord['sales_coordinator_id'] ?? 0);
 $selectedCustomerCode = trim((string) ($formRecord['customer_code'] ?? ''));
-$selectedLevel1ApproverId = (int) ($formRecord['level_1_approver_id'] ?? 0);
-$selectedLevel2ApproverId = (int) ($formRecord['level_2_approver_id'] ?? 0);
 $selectedCustomerLabel = '';
 if ($selectedCustomerCode !== '' && isset($obconn) && $obconn instanceof PDO) {
     $selectedCustomerLabel = user_customer_code_label($obconn, $selectedCustomerCode);
 }
 $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole);
 $showApprovalFields = user_role_has_approval_options($selectedRole);
+$level1Checked = !empty($formRecord['level_1_approval']);
+$level2Checked = !empty($formRecord['level_2_approval']);
 ?>
 <div class="row g-3">
     <div class="col-md-6 form-group">
@@ -57,7 +53,7 @@ $showApprovalFields = user_role_has_approval_options($selectedRole);
         <label class="form-label" for="salesCoordinatorSelect">
             <i class="bi bi-person-check"></i> Sales Coordinator <span class="text-danger">*</span>
         </label>
-        <select class="form-control" name="sales_coordinator_id" id="salesCoordinatorSelect" style="width:100%;">
+        <select class="form-control" name="sales_coordinator_id" id="salesCoordinatorSelect">
             <option value="">Select Sales Coordinator</option>
             <?php foreach ($salesCoordinatorOptions as $salesCoordinator) { ?>
             <?php $optionId = (int) ($salesCoordinator['id'] ?? 0); ?>
@@ -146,34 +142,20 @@ $showApprovalFields = user_role_has_approval_options($selectedRole);
         </small>
         <div class="text-danger validation-msg" data-field="password"></div>
     </div>
-    <div class="col-12" id="userApprovalFieldsWrap"<?php echo $showApprovalFields ? '' : ' style="display: none;"'; ?>>
-        <div class="row g-3">
-            
-            <div class="col-md-6 form-group">
-                <label class="form-label" for="userLevel1ApproverSelect">Level 1 Approval <span class="text-danger">*</span></label>
-                <select class="form-control" name="level_1_approver_id" id="userLevel1ApproverSelect" style="width:100%;">
-                    <option value="">Select Level 1 Approval</option>
-                    <?php foreach ($approverOptions as $approver) { ?>
-                    <?php $optionId = (int) ($approver['id'] ?? 0); ?>
-                    <option value="<?php echo $optionId; ?>"<?php echo $selectedLevel1ApproverId === $optionId ? ' selected' : ''; ?>>
-                        <?php echo htmlspecialchars(user_sales_coordinator_option_label($approver)); ?>
-                    </option>
-                    <?php } ?>
-                </select>
-                <div class="text-danger validation-msg" data-field="level_1_approver_id"></div>
+    <div class="col-12 form-group" id="userApprovalFieldsWrap"<?php echo $showApprovalFields ? '' : ' style="display: none;"'; ?>>
+        <label class="form-label d-block">
+            <i class="bi bi-check2-square"></i> Approval
+        </label>
+        <div class="d-flex flex-wrap gap-4">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="level_1_approval" value="1"
+                    id="userLevel1Approval"<?php echo $level1Checked ? ' checked' : ''; ?>>
+                <label class="form-check-label" for="userLevel1Approval">Level 1 Approval</label>
             </div>
-            <div class="col-md-6 form-group">
-                <label class="form-label" for="userLevel2ApproverSelect">Level 2 Approval <span class="text-danger">*</span></label>
-                <select class="form-control" name="level_2_approver_id" id="userLevel2ApproverSelect" style="width:100%;">
-                    <option value="">Select Level 2 Approval</option>
-                    <?php foreach ($approverOptions as $approver) { ?>
-                    <?php $optionId = (int) ($approver['id'] ?? 0); ?>
-                    <option value="<?php echo $optionId; ?>"<?php echo $selectedLevel2ApproverId === $optionId ? ' selected' : ''; ?>>
-                        <?php echo htmlspecialchars(user_sales_coordinator_option_label($approver)); ?>
-                    </option>
-                    <?php } ?>
-                </select>
-                <div class="text-danger validation-msg" data-field="level_2_approver_id"></div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="level_2_approval" value="1"
+                    id="userLevel2Approval"<?php echo $level2Checked ? ' checked' : ''; ?>>
+                <label class="form-check-label" for="userLevel2Approval">Level 2 Approval</label>
             </div>
         </div>
     </div>

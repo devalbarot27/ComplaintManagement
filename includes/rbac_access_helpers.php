@@ -405,9 +405,19 @@ function rbac_require_page_access(PDO $conn): void
         return;
     }
 
-    if (!rbac_has_permission($conn, $rule['module'], $rule['permission'])) {
-        rbac_access_denied_redirect();
+    if (rbac_has_permission($conn, $rule['module'], $rule['permission'])) {
+        return;
     }
+
+    // Approvals inbox is also used by assigned Order L1/L2 approvers.
+    if ($page === 'approvals.php') {
+        require_once __DIR__ . '/order_approval_helpers.php';
+        if (order_approval_can_access($conn)) {
+            return;
+        }
+    }
+
+    rbac_access_denied_redirect();
 }
 
 function rbac_require_api_access(PDO $conn): void

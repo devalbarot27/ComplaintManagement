@@ -1,4 +1,4 @@
-/* Recent Order Details ù layout inspired by order_data_new.php (independent stylesheet) */
+/* Recent Order Details ó layout inspired by order_data_new.php (independent stylesheet) */
 .oad-page {
     --oad-ink: #0f172a;
     --oad-muted: #64748b;
@@ -275,10 +275,6 @@
     gap: 14px;
 }
 
-.oad-address-pair--single {
-    grid-template-columns: 1fr;
-}
-
 .oad-address-card {
     background: #fff;
     border: 1px solid var(--oad-line);
@@ -325,20 +321,6 @@
     line-height: 1.7;
     color: #334155;
     white-space: pre-line;
-}
-
-.oad-address-card__body--meta {
-    white-space: normal;
-}
-
-.oad-approval-fields {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 16px;
-}
-
-.oad-approval-fields__full {
-    grid-column: 1 / -1;
 }
 
 .oad-lines-wrap {
@@ -527,8 +509,7 @@
     .oad-hero__badges { width: 100%; justify-content: flex-start; }
     .oad-spotlight,
     .oad-meta-grid,
-    .oad-address-pair,
-    .oad-approval-fields { grid-template-columns: 1fr; }
+    .oad-address-pair { grid-template-columns: 1fr; }
     .oad-body { padding: 16px; }
     .oad-page .table-responsive { max-height: none; }
 }

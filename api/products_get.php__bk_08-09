@@ -7,7 +7,6 @@ require_once dirname(__DIR__) . '/includes/product_helpers.php';
 require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 admin_api_require_system_admin($obconn);
-product_ensure_schema($obconn);
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -34,8 +33,6 @@ api_json_echo([
     'tplcode' => (string) ($row['tplcode'] ?? ''),
     'tpldesc' => (string) ($row['tpldesc'] ?? ''),
     'dealer_price' => (string) ($row['dealer_price'] ?? ''),
-    'level_1_approval_price' => (string) ($row['level_1_approval_price'] ?? ''),
-    'level_2_approval_price' => (string) ($row['level_2_approval_price'] ?? ''),
     'tod_flag' => product_normalize_yn((string) ($row['tod_flag'] ?? ''), 'N'),
     'excisable' => product_normalize_yn((string) ($row['excisable'] ?? ''), 'N'),
     'mc' => (string) ($row['mc'] ?? ''),

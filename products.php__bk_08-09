@@ -8,7 +8,6 @@ include 'includes/product_helpers.php';
 require_once __DIR__ . '/includes/module_create_guards/products_create_guard.php';
 
 require_system_admin($obconn);
-product_ensure_schema($obconn);
 
 $success_message = '';
 $error_message = '';
@@ -18,9 +17,8 @@ $orderTypeOptions = product_order_type_options();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
+    $data = product_from_post($_POST);
     $isEdit = $recordId > 0;
-    $existing = $isEdit ? product_get_by_id($obconn, $recordId) : null;
-    $data = product_from_post($_POST, $existing);
     $validationError = product_validate($data);
     $orderType = (int) ($data['order_type'] ?? 0);
     $abuseError = null;
@@ -38,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
     } else {
         try {
             if ($isEdit) {
-                if (!$existing) {
+                if (!product_get_by_id($obconn, $recordId)) {
                     $error_message = 'Product not found or already deleted.';
                 } else {
                     product_update($obconn, $recordId, $data, $updatedByUsername);
@@ -137,17 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
                             <div class="row g-3">
-                            <div class="col-md-3 form-group">
-                                    <label class="form-label">Order Type <span class="text-danger">*</span></label>
-                                    <select class="form-control" name="order_type" id="orderType">
-                                        <?php foreach ($orderTypeOptions as $value => $label) { ?>
-                                        <option value="<?php echo htmlspecialchars($value); ?>" <?php echo $value === '1' ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($label); ?>
-                                        </option>
-                                        <?php } ?>
-                                    </select>
-                                    <div class="text-danger validation-msg" data-field="order_type"></div>
-                                </div>
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">DPST <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" name="dpst" maxlength="10" placeholder="e.g. Y0001">
@@ -169,6 +156,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
                                     <div class="text-danger validation-msg" data-field="tpldesc"></div>
                                 </div>
 
+                                <div class="col-md-3 form-group">
+                                    <label class="form-label">Dealer Price</label>
+                                    <input type="text" class="form-control" name="dealer_price" maxlength="7" placeholder="0" inputmode="decimal" autocomplete="off">
+                                    <div class="text-danger validation-msg" data-field="dealer_price"></div>
+                                </div>
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">TOD Flag</label>
                                     <select class="form-control" name="tod_flag">
@@ -222,16 +214,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
                                     <input type="text" class="form-control" name="cos" maxlength="20" placeholder="0" inputmode="decimal" autocomplete="off">
                                     <div class="text-danger validation-msg" data-field="cos"></div>
                                 </div>
-                                <div class="col-md-3 form-group js-units-approval-price-field">
-                                    <label class="form-label">Level 1 Approval Price <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="level_1_approval_price" maxlength="20" placeholder="0" inputmode="decimal" autocomplete="off">
-                                    <div class="text-danger validation-msg" data-field="level_1_approval_price"></div>
-                                </div>
-                                <div class="col-md-3 form-group js-units-approval-price-field">
-                                    <label class="form-label">Level 2 Approval Price <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" name="level_2_approval_price" maxlength="20" placeholder="0" inputmode="decimal" autocomplete="off">
-                                    <div class="text-danger validation-msg" data-field="level_2_approval_price"></div>
-                                </div>
 
                                 <div class="col-md-3 form-group">
                                     <label class="form-label">Company <span class="text-danger">*</span></label>
@@ -248,7 +230,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
                                     <input type="text" class="form-control" name="otcode" maxlength="3" placeholder="e.g. OT1">
                                     <div class="text-danger validation-msg" data-field="otcode"></div>
                                 </div>
-                                
+                                <div class="col-md-3 form-group">
+                                    <label class="form-label">Order Type <span class="text-danger">*</span></label>
+                                    <select class="form-control" name="order_type" id="orderType">
+                                        <?php foreach ($orderTypeOptions as $value => $label) { ?>
+                                        <option value="<?php echo htmlspecialchars($value); ?>" <?php echo $value === '1' ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($label); ?>
+                                        </option>
+                                        <?php } ?>
+                                    </select>
+                                    <div class="text-danger validation-msg" data-field="order_type"></div>
+                                </div>
                             </div>
                         </section>
                     </div>
@@ -263,7 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
 
             <div class="booking-card">
                 <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div class="booking-title">Product Master List</div>
+                    <div class="booking-title">Product List</div>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <select class="form-control form-control-sm" id="productValidFilter" style="width:auto; min-width:130px;">
                             <option value="">All Valid</option>
@@ -283,8 +275,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_product'])) {
                                 <th>TPL Code</th>
                                 <th>TPL Description</th>
                                 <th>COS (Price)</th>
-                                <th>Level 1 Approval Price</th>
-                                <th>Level 2 Approval Price</th>
                                 <th>Valid</th>
                                 <th>Company</th>
                                 <th>Warehouse</th>

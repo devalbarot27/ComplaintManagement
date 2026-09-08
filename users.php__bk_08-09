@@ -9,8 +9,6 @@ include 'includes/user_helpers.php';
 require_system_admin($obconn);
 user_ensure_schema($obconn);
 
-
-
 $success_message = '';
 $error_message = '';
 
@@ -26,8 +24,8 @@ $formRecord = [
     'mobile_number' => '',
     'sales_coordinator_id' => 0,
     'customer_code' => '',
-    'level_1_approver_id' => 0,
-    'level_2_approver_id' => 0,
+    'level_1_approval' => false,
+    'level_2_approval' => false,
 ];
 $createdBy = current_username();
 
@@ -66,12 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
         }
     }
 }
-
-$approverOptions = user_approver_options_for_form(
-    $obconn,
-    (int) ($formRecord['level_1_approver_id'] ?? 0),
-    (int) ($formRecord['level_2_approver_id'] ?? 0)
-);
 ?>
 <!DOCTYPE html>
 <html lang="en">

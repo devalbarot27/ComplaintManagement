@@ -57,6 +57,7 @@ function change_password_resolve_redirect(string $redirect): string
         'complaint_categories.php',
         'notifications.php',
         'orderbooking.php',
+        'approvals.php',
     ];
 
     foreach ($allowedPages as $allowedPage) {

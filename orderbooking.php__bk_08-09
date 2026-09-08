@@ -34,7 +34,8 @@ $freightPercentage = 4;
     <link href="css/success_modal.css" rel="stylesheet" />
     <link href="css/select2_change.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.css">
+    <?php /* <link rel="stylesheet" href="https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.css"> */ ?>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery-ui@1.14.1/dist/themes/base/jquery-ui.min.css">
     <style>
         .select2-selection__rendered {
             font-size: 14px !important;
@@ -53,6 +54,8 @@ $freightPercentage = 4;
 
         .delivery-date-group {
             position: relative;
+            overflow: visible;
+            z-index: 5;
         }
 
          .delivery-date-note {
@@ -132,15 +135,14 @@ $freightPercentage = 4;
                                 <i class="bi bi-info-circle" aria-hidden="true"></i>
                                 Subject to availability
                             </span></label>
-                        <input type="text" class="form-control" id="dDate" placeholder="Delivery Date" autocomplete="false" readonly/>
+                        <input type="text" class="form-control" id="dDate" placeholder="Delivery Date" autocomplete="false" />
 
                     </div>
-                    <input type="hidden" name="deliveryTerm" value="CIF" />
-                    <!--<div class="form-group">
+                    <div class="form-group">
                         <label>Delivery Term <span class="text-danger">*</span></label>
                         <select class="form-control" id="deliveryTerm">
                             <option value="CIF">CIF</option>
-                            
+                            <?php /*
                             <option value="">Select</option>
                             <option value="ACP">EX-WORKS,FRIGHT BY ELGi</option>
                             <option value='CFR'>FREIGHT PAID - D/D AGST. C/C</option>
@@ -161,9 +163,9 @@ $freightPercentage = 4;
                             <option value='FOB'>TO PAY -DOOR DELIVERY (FDY)</option>
                             <option value='NPF'>DELIVERT AR NALLATIPALAYAM FAR</option>
                             <option value='RLY'>PAID - D/D AGNST C/COPY (LCV)</option>
-                            
+                            */ ?>
                         </select>
-                    </div>-->
+                    </div>
                     <div class="form-group">
                         <label>Payment Term <span class="text-danger">*</span></label>
                         <select class="form-control" id="paymentTerm" readonly style="cursor: not-allowed;pointer-events: none;background-color: #ededed;">
@@ -301,35 +303,32 @@ $freightPercentage = 4;
                     </div>
                     <div class="form-group">
                         <label>Order Type <span class="text-danger">*</span></label>
-                        <select class="form-control" name="orderType" id="orderType">
+                        <select class="form-control" name="orderType" id="orderType" onchange="toggleFocFields()">
                             <option value=1>Units</option>
                             <option value=2>Spares</option>
+                            <option value=3>FOC</option>
                         </select>
 
                     </div>
+                    <div class="form-group" id="complaintNumberGroup" style="display:none;">
+                        <label>Complaint Number <span class="text-danger">*</span></label>
+                        <div class="foc-complaint-row">
+                            <input type="text" class="form-control" id="complaintNumber" placeholder="Complaint Number" />
+                            <button type="button" class="add-item-btn" id="btnLoadComplaintItems" onclick="loadComplaintItems()">
+                                <i class="bi bi-search"></i> Load Items
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="order-form-card" id="orderFormCard">
-                <div class="order-form-grid order-form-grid--add-item">
-                    <div class="form-group order-form-grid--add-item__product">
+            <div class="order-form-card" id="productEntryCard">
+                <div class="order-form-grid">
+                    <div class="form-group">
                         <label>Product <span class="text-danger">*</span></label>
                         <select class="custom-input" id="item" onchange="enableBtn()">
                             <option>Select a product</option>
                         </select>
                     </div>
-
-                    <div class="form-group js-units-price-field">
-                        <label>CLP - Customer List Price</label>
-                        <input type="text" class="custom-input" id="clpPrice" readonly>
-                    </div>
-
-                    <div class="form-group js-units-price-field">
-                        <label>Dealer Price <span class="text-danger">*</span></label>
-                        <input type="text" class="custom-input" id="dealerPrice" placeholder="0.00" inputmode="decimal" autocomplete="off">
-                        <div id="dealerPriceError" class="text-danger small mt-1" style="display:none;">Price should not be accepted.</div>
-                    </div>
-
-                    <input type="hidden" id="l1Price" value="">
 
                     <div class="form-group">
                         <label>Quantity <span class="text-danger">*</span></label>
@@ -337,21 +336,42 @@ $freightPercentage = 4;
                     </div>
 
                     <div class="form-group">
-                        <label id="unitPriceLabel">Unit Price (&#8377;)</label>
-                        <input type="text" class="custom-input" id="unitPrice" readonly>
+                        <label>Unit Price (&#8377;)</label>
+                        <input type="text" class="custom-input" id="price" readonly>
                     </div>
                 </div>
-                <div id="l2ApprovalNote" class="delivery-date-note" style="display:none;" role="status">
-                    <i class="bi bi-info-circle" aria-hidden="true"></i>
-                    <span id="approvalLevelNoteText">This order will go for Level 1 approval.</span>
-                </div>
                 <div class="add-btn-wrapper">
-                    <button type="button" class="add-item-btn" id="addItemBtn" disabled onclick="addItemToCart()">
+                    <button class="add-item-btn" disabled onclick="addItemToCart()">
                         <i class="bi bi-plus-lg"></i>
                         Add Item
                     </button>
                 </div>
             </div>
+            <!-- FOC COMPLAINT ITEMS (inline, shown after "Load Items") -->
+            <div class="booking-card cart-section" id="divFocHeader" style="display:none;">
+                <div class="cart-section__header">
+                    <div class="cart-section__title-wrap">
+                        <div class="cart-section__title">
+                            <i class="bi bi-cart3"></i>
+                            <span>FOC Item(s)</span>
+                        </div>
+                    </div>
+                    <p class="cart-section__subtitle" id="focSectionSubtitle">Select the items to include for this complaint.</p>
+                </div>
+
+                <div class="cart-section__bodyFoc divFoc"></div>
+
+                <div class="cart-section__footer">
+                    <div class="cart-section__actions">
+                        <button type="button" class="btn btn-secondary" onclick="cancelFocSelection()">Cancel</button>
+                        <button type="button" class="add-item-btn cart-submit-btn" onclick="submitFocComplaint()">
+                            <i class="bi bi-check2-circle"></i> Submit
+                        </button>
+                    </div>
+                </div>
+                <input type="hidden" id="focComplaintNumberHidden" />
+            </div>
+
             <!-- CART ITEM -->
             <div class="booking-card cart-section" id="divCartHeader">
                 <div class="cart-section__header">
@@ -373,13 +393,10 @@ $freightPercentage = 4;
                         <span>Submitting order...</span>
                     </div>
                     <div class="cart-section__actions">
-                        <button type="button" class="add-item-btn cart-submit-btn d-none" id="divbtnUpload1" style="display:none" onclick="submitCartApi()">
+                        <button type="button" class="add-item-btn cart-submit-btn cart-submit-btn " id="divbtnUpload1" style="display:none" onclick="submitCartApi()">
                             <i class="bi bi-cloud-arrow-up"></i> Submit Order Api
                         </button>
                         <button type="button" class="add-item-btn cart-submit-btn d-none" id="divbtnUpload" style="display:none" onclick="submitCart()">
-                            <i class="bi bi-check2-circle"></i> Submit Order
-                        </button>
-                        <button type="button" class="add-item-btn cart-submit-btn" id="divbtnApproval" style="display:none" onclick="submitCartForApproval()">
                             <i class="bi bi-check2-circle"></i> Submit Order
                         </button>
                     </div>
@@ -457,6 +474,7 @@ $freightPercentage = 4;
             </div>
         </div>
     </div>
+
 </body>
 
 </html>
@@ -511,14 +529,201 @@ $freightPercentage = 4;
         setEndCustomerRequired(true);
     }
 
+    // ---- FOC (Free of Charge) order type handling ----
+
+    function toggleFocFields() {
+        var orderType = $('#orderType').val();
+        if (orderType == '3') {
+            // FOC selected: hide the manual product-entry card, show complaint number field
+            $('#complaintNumberGroup').show();
+            $('#productEntryCard').hide();
+        } else {
+            $('#complaintNumberGroup').hide();
+            $('#productEntryCard').show();
+            $('#complaintNumber').val('');
+            cancelFocSelection();
+        }
+    }
+
+    function loadComplaintItems() {
+        var complaintNo = $('#complaintNumber').val().trim();
+        if (!complaintNo) {
+            alert('Please enter a complaint number');
+            return;
+        }
+
+        $('#btnLoadComplaintItems').prop('disabled', true);
+
+        $.ajax({
+            url: 'orderRequest.php',
+            type: 'POST',
+            data: {
+                action: 'getComplaintItems',
+                complaintNo: complaintNo
+            },
+            dataType: 'json',
+            success: function(res) {
+                if (!res || !res.status) {
+                    alert((res && res.message) ? res.message : 'No items found for this complaint number.');
+                    return;
+                }
+                renderFocItemsSection(complaintNo, res.items || []);
+            },
+            error: function() {
+                alert('Unable to fetch complaint items.');
+            },
+            complete: function() {
+                $('#btnLoadComplaintItems').prop('disabled', false);
+            }
+        });
+    }
+
+    function renderFocItemsSection(complaintNo, items) {
+        var $body = $('.divFoc');
+        $body.empty();
+
+        if (!items.length) {
+            $body.html('<p class="text-muted">No items found for complaint number ' + $('<div>').text(complaintNo).html() + '.</p>');
+            $('#focSectionSubtitle').text('No items found for this complaint number.');
+        } else {
+            var $table = $('<table class="table foc-items-table"></table>');
+            var $thead = $(
+                '<thead><tr>' +
+                '<th style="width:36px;"></th>' +
+                '<th>Item Code</th>' +
+                '<th>Item Name</th>' +
+                '<th style="width:100px;">Qty</th>' +
+                '<th style="width:120px;">Price (&#8377;)</th>' +
+                '</tr></thead>'
+            );
+            var $tbody = $('<tbody></tbody>');
+
+            items.forEach(function(item) {
+                var itemCode = item.item_code || '';
+                var itemName = item.item_name || '';
+                var qty = item.qty || 0;
+                var price = parseFloat(item.price) || 0;
+
+                var $checkbox = $('<input>', {
+                    type: 'checkbox',
+                    class: 'form-check-input foc-item-checkbox',
+                    id: 'focItem' + item.id,
+                    value: item.id
+                });
+                $checkbox.data('item-code', itemCode);
+                $checkbox.data('item-name', itemName);
+                $checkbox.data('price', price);
+
+                var $qtyInput = $('<input>', {
+                    type: 'number',
+                    class: 'form-control foc-item-qty',
+                    id: 'focQty' + item.id,
+                    value: qty,
+                    min: 1,
+                    step: 1
+                });
+
+                // Editing qty implies the item is selected.
+                $qtyInput.on('input', function() {
+                    $checkbox.prop('checked', true);
+                });
+
+                var $row = $('<tr></tr>');
+                $row.append($('<td></td>').append($checkbox));
+                $row.append($('<td></td>').text(itemCode));
+                $row.append($('<td></td>').text(itemName));
+                $row.append($('<td></td>').append($qtyInput));
+                $row.append($('<td></td>').text(formatCartAmount(price)));
+
+                $tbody.append($row);
+            });
+
+            $table.append($thead).append($tbody);
+            $body.append($table);
+            $('#focSectionSubtitle').text('Select the items to include for this complaint.');
+        }
+
+        $('#focComplaintNumberHidden').val(complaintNo);
+        $('#divFocHeader').show();
+
+        // Scroll the section into view since it's appended lower on the page
+        document.getElementById('divFocHeader').scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest'
+        });
+    }
+
+    function cancelFocSelection() {
+        $('.divFoc').empty();
+        $('#focComplaintNumberHidden').val('');
+        $('#divFocHeader').hide();
+    }
+
+    function submitFocComplaint() {
+        var complaintNo = $('#focComplaintNumberHidden').val();
+        var selected = [];
+        var hasInvalidQty = false;
+
+        $('.foc-item-checkbox:checked').each(function() {
+            var itemId = $(this).val();
+            var $qtyInput = $('#focQty' + itemId);
+            var qty = parseFloat($qtyInput.val());
+
+            if (!Number.isFinite(qty) || qty <= 0) {
+                hasInvalidQty = true;
+                return;
+            }
+
+            selected.push({
+                id: itemId,
+                item_code: $(this).data('item-code'),
+                item_name: $(this).data('item-name'),
+                price: $(this).data('price'),
+                qty: qty
+            });
+        });
+
+        if (hasInvalidQty) {
+            alert('Please enter a valid quantity for each selected item.');
+            return;
+        }
+
+        if (!selected.length) {
+            alert('Please select at least one item.');
+            return;
+        }
+
+        $.ajax({
+            url: 'orderRequest.php',
+            type: 'POST',
+            data: {
+                action: 'submitFocComplaintItems',
+                complaintNo: complaintNo,
+                orderType: $('#orderType').val(),
+                items: JSON.stringify(selected)
+            },
+            dataType: 'json',
+            success: function(res) {
+                if (res && res.status) {
+                    alert('Complaint items added to cart successfully.');
+                    cancelFocSelection();
+                    $('#complaintNumber').val('');
+                    getItems();
+                } else {
+                    alert((res && res.message) ? res.message : 'Unable to submit complaint items.');
+                }
+            },
+            error: function() {
+                alert('Unable to submit complaint items.');
+            }
+        });
+    }
+
     $(document).ready(function() {
         $("#dDate").datepicker({
             dateFormat: "dd.mm.yy",
-            minDate: 0,
-            maxDate: 90,
-            readonly: true
+            minDate: 0
         });
-
     
         setTimeout(function() {
             $(".alert-info").hide();
@@ -556,7 +761,7 @@ $freightPercentage = 4;
             }
         });
 
-        $("#dealerPrice").on("input", function() {
+        $("#price").on("input", function() {
             let value = $(this).val();
 
             // Allow only numbers and one decimal point
@@ -569,41 +774,14 @@ $freightPercentage = 4;
             }
 
             $(this).val(value);
-            updateUnitPrice();
-            validateDealerPriceAgainstL2();
         });
-        $("#dealerPrice").on("blur", function() {
+        $("#price").on("blur", function() {
             let value = parseFloat($(this).val());
 
             if (!isNaN(value)) {
                 $(this).val(value.toFixed(2));
             }
-            updateUnitPrice();
-            validateDealerPriceAgainstL2();
         });
-        $("#qty").on("input change", function() {
-            updateUnitPrice();
-            if (isSparesOrderType()) {
-                validateSparesAddItem();
-            }
-        });
-
-        $("#orderType").on("change", function() {
-            var selected = String($(this).val() || '');
-            var cartRow = document.querySelector('#cartTable tbody tr.cart-item-row');
-            var cartType = cartRow ? String(cartRow.getAttribute('data-order-type') || '') : '';
-            if (cartType && cartType !== selected) {
-                $(this).val(cartType);
-                alert('Items with different order types cannot be added to the same cart. Please clear the cart or use the existing order type.');
-                syncOrderTypeProductUi();
-                return;
-            }
-            $("#item").val(null).trigger("change");
-            clearProductPrices();
-            syncOrderTypeProductUi();
-        });
-
-        syncOrderTypeProductUi();
 
         $('#customer_master').select2({
             placeholder: 'Search Customer',
@@ -631,6 +809,7 @@ $freightPercentage = 4;
 
         initPincodeSelect2('orderBookingForm', 'orderBookingPincodeSelect');
         changeAddressType($('#deliveryAddressType').val() || '1');
+        toggleFocFields();
 
         // Manual Freight Amount field   separate from per-line 4% freight calculation
         $('#fAmount').on('input', function() {
@@ -659,222 +838,11 @@ $freightPercentage = 4;
         input.value = value;
     }
 
-    function formatCatalogPrice(value) {
-        var parsed = parseFloat(value);
-        return isNaN(parsed) ? '' : parsed.toFixed(2);
-    }
-
-    function getCatalogClpPrice() {
-        var prices = window.currentProductPrices || {};
-        var clp = parseFloat(prices.clp);
-        return isNaN(clp) ? 0 : clp;
-    }
-
-    function getCatalogL1Price() {
-        var prices = window.currentProductPrices || {};
-        var l1 = parseFloat(prices.level_1);
-        if (isNaN(l1) || l1 <= 0) {
-            l1 = parseFloat($("#l1Price").val());
-        }
-        return isNaN(l1) ? 0 : l1;
-    }
-
-    function getCatalogL2Price() {
-        var prices = window.currentProductPrices || {};
-        var l2 = parseFloat(prices.level_2);
-        return isNaN(l2) ? 0 : l2;
-    }
-
-    function isSparesOrderType() {
-        return String($("#orderType").val() || '') === '2';
-    }
-
-    function cartIsSparesOrder() {
-        var row = document.querySelector('#cartTable tbody tr.cart-item-row');
-        if (!row) {
-            return isSparesOrderType();
-        }
-        return String(row.getAttribute('data-order-type') || '') === '2';
-    }
-
-    function syncOrderTypeProductUi() {
-        var spares = isSparesOrderType();
-        var grid = document.querySelector('.order-form-grid--add-item');
-        if (grid) {
-            grid.classList.toggle('is-spares', spares);
-        }
-        if (spares) {
-            var err = document.getElementById('dealerPriceError');
-            if (err) {
-                err.style.display = 'none';
-            }
-            var note = document.getElementById('l2ApprovalNote');
-            if (note) {
-                note.style.display = 'none';
-            }
-            updateUnitPrice();
-            validateSparesAddItem();
-        } else {
-            updateUnitPrice();
-            validateDealerPriceAgainstL2();
-        }
-        updateCartSubmitButtonLabel();
-    }
-
-    function validateSparesAddItem() {
-        var item = ($("#item").val() || '').trim();
-        var hasItem = item && item !== 'Select a product';
-        var clp = getCatalogClpPrice();
-        if (clp <= 0) {
-            clp = parseFloat($("#clpPrice").val());
-        }
-        var qty = parseFloat($("#qty").val());
-        var hasClp = !isNaN(clp) && clp > 0;
-        var hasQty = !isNaN(qty) && qty > 0;
-        setAddItemEnabled(hasItem && hasClp && hasQty);
-        return hasClp;
-    }
-
-    function isDealerPriceZeroOrNegative(dealerPrice) {
-        return !isNaN(dealerPrice) && dealerPrice <= 0;
-    }
-
-    function isDealerPriceAboveClp(dealerPrice) {
-        var clp = getCatalogClpPrice();
-        if (clp <= 0 || isNaN(dealerPrice)) {
-            return false;
-        }
-        return dealerPrice > clp;
-    }
-
-    function isDealerPriceBelowL2(dealerPrice) {
-        var l2 = getCatalogL2Price();
-        if (isNaN(dealerPrice) || l2 <= 0) {
-            return false;
-        }
-        return dealerPrice < l2;
-    }
-
-    function isDealerPriceRejected(dealerPrice) {
-        return isDealerPriceZeroOrNegative(dealerPrice)
-            || isDealerPriceAboveClp(dealerPrice)
-            || isDealerPriceBelowL2(dealerPrice);
-    }
-
-    function isL2ApprovalRequiredForDealerPrice(dealerPrice) {
-        var l1 = getCatalogL1Price();
-        if (isNaN(dealerPrice) || l1 <= 0) {
-            return false;
-        }
-        return dealerPrice < l1;
-    }
-
-    function updateL2ApprovalNote() {
-        var note = document.getElementById('l2ApprovalNote');
-        if (note) {
-            note.style.display = 'none';
-        }
-    }
-
-    function setAddItemEnabled(enabled) {
-        var btn = document.getElementById('addItemBtn');
-        if (btn) {
-            btn.disabled = !enabled;
-        }
-    }
-
-    function validateDealerPriceAgainstL2() {
-        if (isSparesOrderType()) {
-            var err = document.getElementById('dealerPriceError');
-            if (err) {
-                err.style.display = 'none';
-            }
-            return validateSparesAddItem();
-        }
-        var raw = ($("#dealerPrice").val() || '').trim();
-        var dealer = parseFloat(raw);
-        var invalid = isDealerPriceRejected(dealer);
-        var err = document.getElementById('dealerPriceError');
-        if (err) {
-            err.style.display = invalid ? 'block' : 'none';
-        }
-        var item = ($("#item").val() || '').trim();
-        var hasItem = item && item !== 'Select a product';
-        var hasValidPrice = raw !== '' && !isNaN(dealer) && !invalid;
-        setAddItemEnabled(hasItem && hasValidPrice);
-        updateL2ApprovalNote();
-        return !invalid;
-    }
-
-    function updateUnitPrice() {
-        if (isSparesOrderType()) {
-            var clp = parseFloat($("#clpPrice").val());
-            var qty = parseFloat($("#qty").val());
-            if (isNaN(clp) || clp <= 0 || isNaN(qty) || qty < 0) {
-                $("#unitPrice").val("");
-                return;
-            }
-            $("#unitPrice").val((qty * clp).toFixed(2));
-            return;
-        }
-        var dealer = parseFloat($("#dealerPrice").val());
-        var qty = parseFloat($("#qty").val());
-        if (isNaN(dealer) || isNaN(qty) || qty < 0) {
-            $("#unitPrice").val("");
-            return;
-        }
-        $("#unitPrice").val((dealer * qty).toFixed(2));
-    }
-
-    function clearProductPrices() {
-        $("#clpPrice").val("");
-        $("#dealerPrice").val("");
-        $("#l1Price").val("");
-        $("#unitPrice").val("");
-        window.currentProductPrices = null;
-        var err = document.getElementById('dealerPriceError');
-        if (err) {
-            err.style.display = 'none';
-        }
-        var note = document.getElementById('l2ApprovalNote');
-        if (note) {
-            note.style.display = 'none';
-        }
-    }
-
-    function fillProductPrices(prices) {
-        prices = prices || {};
-        var clp = parseFloat(prices.clp);
-        var l1 = parseFloat(prices.level_1);
-        var dealer = l1;
-
-        $("#clpPrice").val(formatCatalogPrice(clp));
-        $("#l1Price").val(formatCatalogPrice(l1));
-
-        if (isNaN(dealer) || dealer <= 0) {
-            dealer = clp;
-        }
-        $("#dealerPrice").val(formatCatalogPrice(dealer));
-        updateUnitPrice();
-        if (isSparesOrderType()) {
-            validateSparesAddItem();
-            return;
-        }
-        validateDealerPriceAgainstL2();
-    }
-
     function enableBtn() {
         $(".add-item-btn").prop("disabled", false);
-        var item = ($("#item").val() || '').trim();
+        var item = $("#item").val().trim();
         var orderType = $("#orderType").val();
         var type = "getPrice";
-        if (!item || item === 'Select a product') {
-            clearProductPrices();
-            if (isSparesOrderType()) {
-                validateSparesAddItem();
-            }
-            return;
-        }
         $.ajax({
             url: 'orderRequest.php',
             type: 'POST',
@@ -886,10 +854,8 @@ $freightPercentage = 4;
             dataType: "JSON",
             success: function(res) {
                 if (res.status == true) {
-                    window.currentProductPrices = res.prices || null;
-                    fillProductPrices(window.currentProductPrices);
+                    $("#price").val(res.price);
                 } else {
-                    clearProductPrices();
                     alert(res.message);
                 }
             },
@@ -902,8 +868,7 @@ $freightPercentage = 4;
     function addItemToCart() {
         var item = $("#item").val().trim();
         var qty = $("#qty").val().trim();
-        var spares = isSparesOrderType();
-        var price = spares ? $("#clpPrice").val().trim() : $("#dealerPrice").val().trim();
+        var price = $("#price").val().trim();
         var orderType = $("#orderType").val();
 
 
@@ -917,7 +882,7 @@ $freightPercentage = 4;
             },
             {
                 value: price,
-                message: spares ? "Please select a product with a valid CLP" : "Please enter a dealer price"
+                message: "Please enter a price"
             },
             {
                 value: orderType,
@@ -937,14 +902,6 @@ $freightPercentage = 4;
             return;
         }
 
-        if (spares) {
-            if (!validateSparesAddItem()) {
-                return;
-            }
-        } else if (!validateDealerPriceAgainstL2()) {
-            return;
-        }
-
         data = {
             item: item,
             qty: qty,
@@ -961,17 +918,13 @@ $freightPercentage = 4;
                 if (res == '1') {
                     alert('Item Added Successfully');
                     getItems();
-                    clearProductPrices();
+                    $("#price").val("");
                     $("#item").val("").trigger("change");
 
                 } else if (res == '0') {
                     alert('Unable to Add Item');
 
                 } else {
-                    if (res === 'Price should not be accepted.') {
-                        validateDealerPriceAgainstL2();
-                        return;
-                    }
                     alert(res);
                     console.error(res);
                 }
@@ -1030,13 +983,8 @@ $freightPercentage = 4;
                     badge.textContent = String(tCount);
                     badge.classList.toggle('is-empty', tCount === 0);
                 }
-                var cartRow = document.querySelector('#cartTable tbody tr.cart-item-row');
-                var cartType = cartRow ? String(cartRow.getAttribute('data-order-type') || '') : '';
-                if (cartType && $("#orderType").val() !== cartType) {
-                    $("#orderType").val(cartType);
-                }
-                syncOrderTypeProductUi();
-                (tCount > 0) ? setCartActionButtonsVisible(true) : setCartActionButtonsVisible(false);
+                (tCount > 0) ? $("#divbtnUpload").show(): $("#divbtnUpload").hide();
+                (tCount > 0) ? $("#divbtnUpload1").show(): $("#divbtnUpload1").hide();
                 $("#divCartHeader").show();
                 recalculateCartSummaryFromDom();
             }
@@ -1406,89 +1354,14 @@ $freightPercentage = 4;
         });
     }
 
-    // APPROVAL MODULE: Added Level 1 and Level 2 cart approval logic
-    function getCartApprovalSubmitBlockMessage() {
-        const pending = [];
-        const rejected = [];
-
-        document.querySelectorAll('#cartTable tbody tr.cart-item-row').forEach(function(row) {
-            const priceType = (row.getAttribute('data-price-type') || 'clp').toLowerCase();
-            if (priceType !== 'level_1' && priceType !== 'level_2') {
-                return;
-            }
-
-            const status = (row.getAttribute('data-approval-status') || 'pending').toLowerCase();
-            if (status === 'approved') {
-                return;
-            }
-
-            const itemCode = (row.getAttribute('data-item-code') || '').trim() || 'Unknown item';
-            const levelLabel = priceType === 'level_2' ? 'Level 2 Approval' : 'Level 1 Approval';
-            const entry = itemCode + ' (' + levelLabel + ')';
-
-            if (status === 'rejected') {
-                rejected.push(entry);
-            } else {
-                pending.push(entry);
-            }
-        });
-
-        const messages = [];
-        if (pending.length) {
-            messages.push('Cannot submit the order. Pending approval: ' + pending.join(', ') + '. Please wait for approval or remove rejected items before submitting.');
-        }
-        if (rejected.length) {
-            messages.push('Cannot submit the order. Rejected: ' + rejected.join(', ') + '. Please wait for approval or remove rejected items before submitting.');
-        }
-
-        return messages.join('\n');
-    }
-
-    function blockSubmitIfCartApprovalPending() {
-        const message = getCartApprovalSubmitBlockMessage();
-        if (message) {
-            alert(message);
-            return true;
-        }
-        return false;
-    }
-
-    function cartHasApprovalPriceItems() {
-        if (cartIsSparesOrder()) {
-            return false;
-        }
-        return document.querySelectorAll('#cartTable tbody tr.cart-item-row').length > 0;
-    }
-
-    function updateCartSubmitButtonLabel() {
-        const needsApproval = cartHasApprovalPriceItems();
-        const $btn = $("#divbtnApproval");
-        $btn.html(needsApproval
-            ? '<i class="bi bi-check2-square"></i> Submit for Approval'
-            : '<i class="bi bi-check2-circle"></i> Submit Order');
-    }
-
-    function setCartActionButtonsVisible(visible) {
+    function submitCart() {
+        $("#loader").show();
         $("#divbtnUpload").hide();
         $("#divbtnUpload1").hide();
-        if (visible) {
-            updateCartSubmitButtonLabel();
-            $("#divbtnApproval").show();
-        } else {
-            $("#divbtnApproval").hide();
-        }
-    }
-
-    function submitCart() {
-        if (blockSubmitIfCartApprovalPending()) {
-            return;
-        }
-        $("#loader").show();
-        setCartActionButtonsVisible(false);
         var dpst = $("#dpst").val().trim();
         var orderCategory = $("#orderCategory").val().trim();
         var addressCode = $("#customer_master").val().trim();
-        //var deliveryTerm = $("#deliveryTerm").val().trim();
+        var deliveryTerm = $("#deliveryTerm").val().trim();
         var paymentTerm = $("#paymentTerm").val().trim();
         var transporter = $("#transporter").val().trim();
         var fAmount = $("#fAmount").val().trim();
@@ -1503,10 +1376,10 @@ $freightPercentage = 4;
                 value: orderCategory,
                 message: "Please select a order category"
             },
-            /*{
+            {
                 value: deliveryTerm,
                 message: "Please select a delivery term"
-            },*/
+            },
             {
                 value: paymentTerm,
                 message: "Please select a payment term"
@@ -1568,7 +1441,8 @@ $freightPercentage = 4;
             if (!field.value) {
                 alert(field.message);
                 $("#loader").hide();
-                setCartActionButtonsVisible(true);
+                $("#divbtnUpload").show();
+                $("#divbtnUpload1").show();
                 return;
             }
         }
@@ -1586,7 +1460,7 @@ $freightPercentage = 4;
             dpst: dpst,
             orderCategory: orderCategory,
             addressCode: addressCode,
-            //deliveryTerm: deliveryTerm,
+            deliveryTerm: deliveryTerm,
             paymentTerm: paymentTerm,
             transporter: transporter,
             freightAmount: fAmount,
@@ -1615,11 +1489,12 @@ $freightPercentage = 4;
             success: function(res) {
                 if (res.status == "success") {
                     $("#loader").hide();
-                    setCartActionButtonsVisible(true);
+                    $("#divbtnUpload").show();
+                    $("#divbtnUpload1").show();
                     getItems();
                     $("#orderCategory").val("").trigger("change");
                     $("#customer_master").val("").trigger("change");
-                    //$("#deliveryTerm").val("").trigger("change");
+                    $("#deliveryTerm").val("").trigger("change");
                     $("#paymentTerm").val("").trigger("change");
                     $("#transporter").val("").trigger("change");
                     $("#fAmount").val("");
@@ -1633,23 +1508,19 @@ $freightPercentage = 4;
                         }
                     });
                 } else {
-                    $("#loader").hide();
-                    setCartActionButtonsVisible(true);
-                    alert((res && res.message) ? res.message : "Error in placing order ! Please contact IT");
+                    alert("Error in placing order ! Please contact IT");
                 }
             }
         });
     }
 
     function submitCartApi() {
-        if (blockSubmitIfCartApprovalPending()) {
-            return;
-        }
         $("#loader").show();
-        setCartActionButtonsVisible(false);
+        $("#divbtnUpload").hide();
+        $("#divbtnUpload1").hide();
         var orderCategory = $("#orderCategory").val().trim();
         var addressCode = $("#customer_master").val().trim();
-        //var deliveryTerm = $("#deliveryTerm").val().trim();
+        var deliveryTerm = $("#deliveryTerm").val().trim();
         var paymentTerm = $("#paymentTerm").val().trim();
         var transporter = $("#transporter").val().trim();
         var fAmount = $("#fAmount").val().trim();
@@ -1662,10 +1533,10 @@ $freightPercentage = 4;
                 value: orderCategory,
                 message: "Please select a order category"
             },
-            /*{
+            {
                 value: deliveryTerm,
                 message: "Please select a delivery term"
-            },*/
+            },
             {
                 value: paymentTerm,
                 message: "Please select a payment term"
@@ -1729,7 +1600,8 @@ $freightPercentage = 4;
             if (!field.value) {
                 alert(field.message);
                 $("#loader").hide();
-                setCartActionButtonsVisible(true);
+                $("#divbtnUpload").show();
+                $("#divbtnUpload1").show();
                 return;
             }
         }
@@ -1745,7 +1617,7 @@ $freightPercentage = 4;
         data = {
             orderCategory: orderCategory,
             addressCode: addressCode,
-            //deliveryTerm: deliveryTerm,
+            deliveryTerm: deliveryTerm,
             paymentTerm: paymentTerm,
             transporter: transporter,
             freightAmount: fAmount,
@@ -1776,13 +1648,14 @@ $freightPercentage = 4;
             data: data,
             dataType: "json",
             success: function(res) {
-                if (res.status && res.status !== 'error' && res.status !== false) {
+                if (res.status) {
                     setTimeout(function() {
-                        setCartActionButtonsVisible(true);
+                        $("#divbtnUpload").show();
+                        $("#divbtnUpload1").show();
                         getItems();
                         $("#orderCategory").val("").trigger("change");
                         $("#customer_master").val("").trigger("change");
-                        //$("#deliveryTerm").val("").trigger("change");
+                        $("#deliveryTerm").val("").trigger("change");
                         $("#paymentTerm").val("").trigger("change");
                         $("#transporter").val("").trigger("change");
                         $("#fAmount").val("");
@@ -1799,177 +1672,8 @@ $freightPercentage = 4;
                     }, 4000);
                 } else {
                     $("#loader").hide();
-                    setCartActionButtonsVisible(true);
-                    alert((res && res.message) ? res.message : "Error in placing order ! Please contact IT");
+                    alert("Error in placing order ! Please contact IT");
                 }
-            }
-        });
-    }
-
-    // APPROVAL MODULE: Save order without AO number and send items for approval
-    function submitCartForApproval() {
-        $("#loader").show();
-        setCartActionButtonsVisible(false);
-        var orderCategory = $("#orderCategory").val().trim();
-        var addressCode = $("#customer_master").val().trim();
-        //var deliveryTerm = $("#deliveryTerm").val().trim();
-        var paymentTerm = $("#paymentTerm").val().trim();
-        var transporter = $("#transporter").val().trim();
-        var fAmount = $("#fAmount").val().trim();
-        var area = ($("#areaCode").val() || "").trim();
-        var ddate = $("#dDate").val().trim();
-        var pono = $("#pono").val().trim();
-        var orderType = $("#orderType").val().trim();
-        const fields = [{
-                value: orderCategory,
-                message: "Please select a order category"
-            },
-            /* {
-                value: deliveryTerm,
-                message: "Please select a delivery term"
-            }, */
-            {
-                value: paymentTerm,
-                message: "Please select a payment term"
-            },
-            {
-                value: transporter,
-                message: "Please select a transporter"
-            },
-            {
-                value: area,
-                message: "Please select area"
-            },
-            {
-                value: ddate,
-                message: "Please select delivery date"
-            },
-            {
-                value: pono,
-                message: "Please enter PO Number"
-            },
-            {
-                value: orderType,
-                message: "Please select ordertype"
-            },
-        ];
-
-        const deliveryAddressType = $("#deliveryAddressType").val();
-
-        if (deliveryAddressType == "1") {
-            fields.push({
-                value: addressCode,
-                message: "Please select an address"
-            });
-        } else {
-            fields.push({
-                value: $("#endCustomerName").val().trim(),
-                message: "Please enter name"
-            }, {
-                value: $("#endCustomerEmail").val().trim(),
-                message: "Please enter email"
-            }, {
-                value: $("#endCustomerStreet1").val(),
-                message: "Please enter street 1"
-            }, {
-                value: $("#orderBookingPincodeSelect").val(),
-                message: "Please select pincode"
-            }, {
-                value: $("#endCustomerCity").val(),
-                message: "Please enter city"
-            }, {
-                value: $("#endCustomerDistrict").val(),
-                message: "Please enter district"
-            }, {
-                value: $("#endCustomerState").val(),
-                message: "Please enter state"
-            });
-        }
-
-        for (const field of fields) {
-            if (!field.value) {
-                alert(field.message);
-                $("#loader").hide();
-                setCartActionButtonsVisible(true);
-                return;
-            }
-        }
-        if (deliveryAddressType == "2") {
-            const endCustomerEmail = $("#endCustomerEmail").val().trim();
-            if (!isValidEmailAddress(endCustomerEmail)) {
-                alert("Please enter a valid email address");
-                $("#endCustomerEmail").focus();
-                $("#loader").hide();
-                setCartActionButtonsVisible(true);
-                return;
-            }
-        }
-
-        var data = {
-            orderCategory: orderCategory,
-            addressCode: addressCode,
-            //deliveryTerm: deliveryTerm,
-            paymentTerm: paymentTerm,
-            transporter: transporter,
-            freightAmount: fAmount,
-            deliveryAddressType: deliveryAddressType,
-            area: area,
-            pono: pono,
-            ddate: ddate,
-            orderType: orderType,
-            action: "submitCartForApproval"
-        };
-
-        if (deliveryAddressType == "2") {
-            data.end_customer_name = $("#endCustomerName").val().trim();
-            data.end_customer_email = $("#endCustomerEmail").val().trim();
-            data.street_1 = $("#endCustomerStreet1").val().trim();
-            data.street_2 = $("#endCustomerStreet2").val().trim();
-            data.pincode = ($("#orderBookingPincodeSelect").val() || "").trim();
-            data.city = $("#endCustomerCity").val().trim();
-            data.district = $("#endCustomerDistrict").val().trim();
-            data.state = $("#endCustomerState").val().trim();
-            data.state_code = $("#state_code").val().trim();
-        }
-
-        $.ajax({
-            url: 'orderRequest.php',
-            type: 'POST',
-            data: data,
-            dataType: "json",
-            success: function(res) {
-                if (res.status === "success") {
-                    getItems();
-                    $("#orderCategory").val("").trigger("change");
-                    $("#customer_master").val("").trigger("change");
-                    //$("#deliveryTerm").val("").trigger("change");
-                    $("#paymentTerm").val("").trigger("change");
-                    $("#transporter").val("").trigger("change");
-                    $("#fAmount").val("");
-                    $("#loader").hide();
-                    var needsApproval = res.needs_approval === true || res.needs_approval === 1 || res.needs_approval === "1";
-                    SuccessModal.show({
-                        title: needsApproval ? 'Order Sent for Approval' : 'Order Submitted Successfully',
-                        message: res.message
-                            ? res.message
-                            : (needsApproval
-                                ? 'Your order has been saved without an AO Number and sent for Level 1 approval.'
-                                : 'Order submitted successfully. AO Number generation has been requested from LN.'),
-                        status: res.order_no,
-                        onClose: function() {
-                            window.location.href = "recent_orders.php?order_no=" + res.order_no;
-                        }
-                    });
-                } else {
-                    $("#loader").hide();
-                    setCartActionButtonsVisible(true);
-                    alert((res && res.message) ? res.message : "Error in placing order ! Please contact IT");
-                }
-            },
-            error: function() {
-                $("#loader").hide();
-                setCartActionButtonsVisible(true);
-                alert("Error in placing order ! Please contact IT");
             }
         });
     }

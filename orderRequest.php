@@ -76,6 +76,9 @@ switch ($_POST['action']) {
      case 'submitCartApi':
           echo $ordInstance->submitCartApi();
           break;
+     case 'submitCartForApproval':
+          echo $ordInstance->submitCartForApproval();
+          break;
      case 'rePushOrder':
           echo $ordInstance->rePushOrder();
           break;

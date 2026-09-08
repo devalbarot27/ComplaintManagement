@@ -21,19 +21,12 @@ function initProductFormValidation() {
             presence: { allowEmpty: false, message: '^TPL Description is required' },
             length: { maximum: 60, message: '^TPL Description cannot exceed 60 characters' }
         },
-        level_1_approval_price: {
-            presence: { allowEmpty: false, message: '^Level 1 Approval Price is required' },
+        dealer_price: {
             format: {
                 pattern: /^-?\d+(\.\d+)?$/,
-                message: '^Level 1 Approval Price must be numeric'
-            }
-        },
-        level_2_approval_price: {
-            presence: { allowEmpty: false, message: '^Level 2 Approval Price is required' },
-            format: {
-                pattern: /^-?\d+(\.\d+)?$/,
-                message: '^Level 2 Approval Price must be numeric'
-            }
+                message: '^Dealer Price must be numeric'
+            },
+            length: { maximum: 7, message: '^Dealer Price cannot exceed 7 characters' }
         },
         mc: {
             format: {
@@ -140,15 +133,11 @@ function initProductFormValidation() {
 
     function getActiveConstraints(values) {
         const activeConstraints = Object.assign({}, constraints);
-        ['mc', 'vc', 'fc', 'otcode'].forEach(function (field) {
+        ['dealer_price', 'mc', 'vc', 'fc', 'otcode'].forEach(function (field) {
             if (values[field] === '' || values[field] == null) {
                 delete activeConstraints[field];
             }
         });
-        if (String(values.order_type || '') === '2') {
-            delete activeConstraints.level_1_approval_price;
-            delete activeConstraints.level_2_approval_price;
-        }
         return activeConstraints;
     }
 
@@ -188,15 +177,6 @@ function initProductFormValidation() {
         });
     });
 
-    const orderTypeInput = form.querySelector('[name="order_type"]');
-    if (orderTypeInput) {
-        orderTypeInput.addEventListener('change', function () {
-            syncProductApprovalPriceFields();
-        });
-    }
-
-    syncProductApprovalPriceFields();
-
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         const values = validate.collectFormValues(form);
@@ -208,33 +188,9 @@ function initProductFormValidation() {
         }
     });
 
-    ['level_1_approval_price', 'level_2_approval_price', 'mc', 'vc', 'fc', 'cos'].forEach(function (fieldName) {
+    ['dealer_price', 'mc', 'vc', 'fc', 'cos'].forEach(function (fieldName) {
         initNumericOnlyInput(form.querySelector('[name="' + fieldName + '"]'));
     });
-}
-
-function syncProductApprovalPriceFields() {
-    const form = document.getElementById('productForm');
-    if (!form) {
-        return;
-    }
-    const orderTypeInput = form.querySelector('[name="order_type"]');
-    const spares = String((orderTypeInput && orderTypeInput.value) || '') === '2';
-    form.querySelectorAll('.js-units-approval-price-field').forEach(function (el) {
-        el.hidden = spares;
-    });
-    if (spares) {
-        ['level_1_approval_price', 'level_2_approval_price'].forEach(function (fieldName) {
-            const input = form.querySelector('[name="' + fieldName + '"]');
-            const msg = form.querySelector('.validation-msg[data-field="' + fieldName + '"]');
-            if (input) {
-                input.classList.remove('is-invalid');
-            }
-            if (msg) {
-                msg.textContent = '';
-            }
-        });
-    }
 }
 
 function initNumericOnlyInput(input) {
@@ -336,8 +292,6 @@ function initProductDatatable() {
             { data: 'tplcode' },
             { data: 'tpldesc' },
             { data: 'cos' },
-            { data: 'level_1_approval_price' },
-            { data: 'level_2_approval_price' },
             { data: 'valid' },
             { data: 'company' },
             { data: 'warehouse' },
@@ -367,8 +321,7 @@ function fillProductForm(record) {
         : '<i class="bi bi-check-lg"></i> Save Product';
 
     const fields = [
-        'dpst', 'product_group', 'tplcode', 'tpldesc',
-        'level_1_approval_price', 'level_2_approval_price',
+        'dpst', 'product_group', 'tplcode', 'tpldesc', 'dealer_price',
         'tod_flag', 'excisable', 'mc', 'vc', 'fc', 'cos', 'valid',
         'company', 'warehouse', 'otcode', 'order_type'
     ];
@@ -379,7 +332,6 @@ function fillProductForm(record) {
             input.value = record[field] != null ? record[field] : '';
         }
     });
-    syncProductApprovalPriceFields();
 }
 
 function resetProductForm() {
@@ -401,7 +353,6 @@ function resetProductForm() {
     form.querySelectorAll('.validation-msg').forEach(function (el) {
         el.textContent = '';
     });
-    syncProductApprovalPriceFields();
 }
 
 function openProductFormPanel() {

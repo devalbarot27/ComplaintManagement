@@ -84,7 +84,7 @@
     } else if ($currentPage == 'reason_details.php') {
         $pageName = "Reason Details";
     } else if ($currentPage == 'products.php') {
-        $pageName = "Products";
+        $pageName = "Product Master";
     } else if ($currentPage == 'product_details.php') {
         $pageName = "Product Details";
     } else if ($currentPage == 'customers.php') {
@@ -303,6 +303,10 @@
             $canFocParts = rbac_can_access_menu($obconn, 'foc_parts.php');
             $canServiceClaims = rbac_can_access_menu($obconn, 'service_claims.php');
             $canshowApprovals = rbac_can_access_menu($obconn, 'approvals.php');
+            if (!$canshowApprovals) {
+                require_once __DIR__ . '/includes/order_approval_helpers.php';
+                $canshowApprovals = order_approval_can_access($obconn);
+            }
             $canWarrantyClaims = rbac_can_access_menu($obconn, 'warranty_claims.php');
             $showWarrantyManagement = $canFocParts || $canServiceClaims || $canshowApprovals || $canWarrantyClaims;
             ?>
@@ -418,7 +422,7 @@
                   <a href="products.php"
                       class="menu-item <?= in_array($currentPage, ['products.php', 'product_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-box-seam"></i>
-                      Products
+                      Product Master
                   </a>
 
                  <a href="customers.php"

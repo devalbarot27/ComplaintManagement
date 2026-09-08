@@ -58,11 +58,6 @@ $salesCoordinatorOptions = user_sales_coordinator_options_for_form(
     $obconn,
     (int) ($formRecord['sales_coordinator_id'] ?? 0)
 );
-$approverOptions = user_approver_options_for_form(
-    $obconn,
-    (int) ($formRecord['level_1_approver_id'] ?? 0),
-    (int) ($formRecord['level_2_approver_id'] ?? 0)
-);
 
 $displayName = user_display_value($formRecord['name']);
 $pageTitle = $displayName !== '-' ? $displayName : user_display_value($formRecord['username']);

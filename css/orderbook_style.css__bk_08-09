@@ -102,49 +102,6 @@
   align-items: end;
 }
 
-.order-form-grid--add-item {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  align-items: start;
-}
-
-.order-form-grid--add-item__product {
-  grid-column: span 2;
-}
-
-.order-form-grid--add-item.is-spares {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.order-form-grid--add-item.is-spares .order-form-grid--add-item__product {
-  grid-column: span 1;
-}
-
-.order-form-grid--add-item.is-spares .js-units-price-field {
-  display: none;
-}
-
-.order-form-grid--add-item > .form-group {
-  min-width: 0;
-}
-
-.order-form-grid--add-item .custom-input,
-.order-form-grid--add-item .select2-container {
-  width: 100% !important;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.order-form-grid--add-item .form-group label {
-  min-height: 36px;
-  line-height: 1.25;
-}
-
-.custom-input[readonly] {
-  background-color: #ededed;
-  cursor: not-allowed;
-}
-
 /* GROUP */
 
 .form-group {
@@ -201,20 +158,6 @@
 
 /* MOBILE */
 
-@media (max-width: 1200px) {
-  .order-form-grid--add-item {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .order-form-grid--add-item__product {
-    grid-column: span 1;
-  }
-
-  .order-form-grid--add-item.is-spares {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 768px) {
   .order-form-top {
     flex-direction: column;
@@ -228,10 +171,6 @@
   }
 
   .order-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .order-form-grid--add-item {
     grid-template-columns: 1fr;
   }
 
@@ -836,19 +775,6 @@
 
 .cart-col-desc {
   min-width: 180px;
-}
-
-/* PRICE TYPE: Added for CLP / Level 1 / Level 2 Approval Price */
-.cart-col-price-type {
-  min-width: 160px;
-}
-
-/* APPROVAL MODULE: Order-level L1 / L2 approval */
-.cart-col-price-type .order-approval-badge,
-.cart-col-price-type .cart-approval-badge {
-  display: inline-block;
-  margin-top: 4px;
-  font-weight: 600;
 }
 
 .cart-col-qty {

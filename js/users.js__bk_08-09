@@ -24,24 +24,10 @@ function roleHasApprovalOptions(roleId) {
     return getRolesWithApprovalOptions().indexOf(role) !== -1;
 }
 
-function setUserSelectValue(select, value) {
-    if (!select) {
-        return;
-    }
-
-    const nextValue = value === undefined || value === null ? '' : String(value);
-    if (window.jQuery && window.jQuery(select).hasClass('select2-hidden-accessible')) {
-        window.jQuery(select).val(nextValue).trigger('change');
-        return;
-    }
-
-    select.value = nextValue;
-}
-
-function toggleApprovalFields(roleId, selectedIds) {
+function toggleApprovalFields(roleId, flags) {
     const wrap = document.getElementById('userApprovalFieldsWrap');
-    const level1 = document.getElementById('userLevel1ApproverSelect');
-    const level2 = document.getElementById('userLevel2ApproverSelect');
+    const level1 = document.getElementById('userLevel1Approval');
+    const level2 = document.getElementById('userLevel2Approval');
     if (!wrap || !level1 || !level2) {
         return;
     }
@@ -50,28 +36,14 @@ function toggleApprovalFields(roleId, selectedIds) {
     wrap.style.display = isAllowed ? '' : 'none';
 
     if (!isAllowed) {
-        setUserSelectValue(level1, '');
-        setUserSelectValue(level2, '');
-        level1.classList.remove('is-invalid');
-        level2.classList.remove('is-invalid');
-        const msg1 = document.querySelector('.validation-msg[data-field="level_1_approver_id"]');
-        const msg2 = document.querySelector('.validation-msg[data-field="level_2_approver_id"]');
-        if (msg1) {
-            msg1.textContent = '';
-        }
-        if (msg2) {
-            msg2.textContent = '';
-        }
+        level1.checked = false;
+        level2.checked = false;
         return;
     }
 
-    if (selectedIds) {
-        if (selectedIds.level_1_approver_id !== undefined && selectedIds.level_1_approver_id !== null && String(selectedIds.level_1_approver_id) !== '') {
-            setUserSelectValue(level1, selectedIds.level_1_approver_id);
-        }
-        if (selectedIds.level_2_approver_id !== undefined && selectedIds.level_2_approver_id !== null && String(selectedIds.level_2_approver_id) !== '') {
-            setUserSelectValue(level2, selectedIds.level_2_approver_id);
-        }
+    if (flags) {
+        level1.checked = !!flags.level_1_approval;
+        level2.checked = !!flags.level_2_approval;
     }
 }
 
@@ -86,7 +58,7 @@ function toggleSalesCoordinatorField(roleId, selectedSalesCoordinatorId) {
     wrap.style.display = isRequired ? '' : 'none';
 
     if (!isRequired) {
-        setUserSelectValue(select, '');
+        select.value = '';
         select.classList.remove('is-invalid');
         const msg = document.querySelector('.validation-msg[data-field="sales_coordinator_id"]');
         if (msg) {
@@ -96,7 +68,7 @@ function toggleSalesCoordinatorField(roleId, selectedSalesCoordinatorId) {
     }
 
     if (selectedSalesCoordinatorId !== undefined && selectedSalesCoordinatorId !== null && String(selectedSalesCoordinatorId) !== '') {
-        setUserSelectValue(select, selectedSalesCoordinatorId);
+        select.value = String(selectedSalesCoordinatorId);
     }
 }
 
@@ -197,18 +169,6 @@ function initUsersFormValidation() {
         return null;
     };
 
-    validate.validators.userApproverRequired = function (value, options, key, attributes) {
-        if (!roleHasApprovalOptions(attributes.role)) {
-            return null;
-        }
-        if (!value || String(value).trim() === '') {
-            return key === 'level_2_approver_id'
-                ? '^Level 2 Approval is required'
-                : '^Level 1 Approval is required';
-        }
-        return null;
-    };
-
     const constraints = {
         role: {
             presence: { allowEmpty: false, message: '^Role is required' }
@@ -241,12 +201,6 @@ function initUsersFormValidation() {
         },
         sales_coordinator_id: {
             userSalesCoordinatorRequired: true
-        },
-        level_1_approver_id: {
-            userApproverRequired: true
-        },
-        level_2_approver_id: {
-            userApproverRequired: true
         }
     };
 
@@ -291,7 +245,7 @@ function initUsersFormValidation() {
             input.classList.remove('is-invalid');
         });
         if (window.jQuery) {
-            window.jQuery('#userForm .select2-selection').removeClass('is-invalid');
+            window.jQuery('#userCustomerCodeSelect').next('.select2-container').find('.select2-selection').removeClass('is-invalid');
         }
     }
 
@@ -306,8 +260,8 @@ function initUsersFormValidation() {
             if (input) {
                 input.classList.add('is-invalid');
             }
-            if (window.jQuery && input) {
-                window.jQuery(input).next('.select2-container').find('.select2-selection').addClass('is-invalid');
+            if (field === 'customer_code' && window.jQuery) {
+                window.jQuery('#userCustomerCodeSelect').next('.select2-container').find('.select2-selection').addClass('is-invalid');
             }
             if (msg && errors[field]) {
                 msg.textContent = errors[field][0];
@@ -435,18 +389,6 @@ function initUsersDatatable() {
     });
 }
 
-function initUserFormSelect2() {
-    ['#salesCoordinatorSelect', '#userLevel1ApproverSelect', '#userLevel2ApproverSelect'].forEach(function (selector) {
-        const $select = $(selector);
-        if (!$select.length || typeof $select.select2 !== 'function' || $select.hasClass('select2-hidden-accessible')) {
-            return;
-        }
-        $select.select2({
-            width: '100%'
-        });
-    });
-}
-
 function initUserCustomerCodeSelect2() {
     const $select = $('#userCustomerCodeSelect');
     if (!$select.length || typeof $select.select2 !== 'function') {
@@ -507,8 +449,8 @@ function fillUserForm(record) {
     form.querySelector('[name="role"]').value = record.role || '';
     toggleSalesCoordinatorField(record.role, record.sales_coordinator_id || '');
     toggleApprovalFields(record.role, {
-        level_1_approver_id: record.level_1_approver_id || '',
-        level_2_approver_id: record.level_2_approver_id || ''
+        level_1_approval: !!record.level_1_approval,
+        level_2_approval: !!record.level_2_approval
     });
     form.querySelector('[name="username"]').value = record.username || '';
     form.querySelector('[name="name"]').value = record.name || '';
@@ -539,9 +481,6 @@ function resetUserForm() {
     }
     form.reset();
     document.getElementById('userRecordId').value = '';
-    ['salesCoordinatorSelect', 'userLevel1ApproverSelect', 'userLevel2ApproverSelect'].forEach(function (id) {
-        setUserSelectValue(document.getElementById(id), '');
-    });
     toggleSalesCoordinatorField('');
     toggleApprovalFields('');
     setUserCustomerCodeSelect2Value('', '');
@@ -598,7 +537,6 @@ function closeUserFormPanel() {
 }
 
 function bootUserEditPage() {
-    initUserFormSelect2();
     initUserCustomerCodeSelect2();
 
     const roleSelect = document.getElementById('userRoleSelect');
@@ -608,10 +546,7 @@ function bootUserEditPage() {
             toggleApprovalFields(roleSelect.value);
         });
         toggleSalesCoordinatorField(roleSelect.value, document.getElementById('salesCoordinatorSelect')?.value || '');
-        toggleApprovalFields(roleSelect.value, {
-            level_1_approver_id: document.getElementById('userLevel1ApproverSelect')?.value || '',
-            level_2_approver_id: document.getElementById('userLevel2ApproverSelect')?.value || ''
-        });
+        toggleApprovalFields(roleSelect.value);
     }
 
     const cancelBtn = document.getElementById('cancelUserForm');
@@ -624,7 +559,6 @@ function bootUserEditPage() {
 }
 
 function bootUsersPage() {
-    initUserFormSelect2();
     initUserCustomerCodeSelect2();
     initUsersFormValidation();
 

@@ -8,7 +8,6 @@ include 'includes/product_helpers.php';
 require_once 'includes/record_details_layout.php';
 
 require_system_admin($obconn);
-product_ensure_schema($obconn);
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
@@ -73,11 +72,8 @@ $validBadge = product_yn_badge((string) ($record['valid'] ?? ''));
             record_details_section_end();
 
             record_details_section_start(2, 'Pricing & Commercial Flags', 'Price and commercial indicators');
+            record_details_field('Dealer Price', product_display_value($record['dealer_price'] ?? ''), 'col-md-3');
             record_details_field('COS (Price)', product_format_cos($record['cos'] ?? ''), 'col-md-3');
-            if ((int) ($record['order_type'] ?? 0) !== 2) {
-                record_details_field('Level 1 Approval Price', product_format_cos($record['level_1_approval_price'] ?? ''), 'col-md-3');
-                record_details_field('Level 2 Approval Price', product_format_cos($record['level_2_approval_price'] ?? ''), 'col-md-3');
-            }
             record_details_field('TOD Flag', product_yn_badge((string) ($record['tod_flag'] ?? '')), 'col-md-3', false, true);
             record_details_field('Excisable', product_yn_badge((string) ($record['excisable'] ?? '')), 'col-md-3', false, true);
             record_details_section_end();
@@ -96,7 +92,7 @@ $validBadge = product_yn_badge((string) ($record['valid'] ?? ''));
             record_details_section_end();
 
             record_details_section_start(5, 'Audit Trail', 'Last update history', true);
-            record_details_field('Updated By', product_display_value(product_updated_by_display_name($obconn, $record['updated_by'] ?? '')), 'col-md-6');
+            record_details_field('Updated By', product_display_value($record['updated_by'] ?? ''), 'col-md-6');
             record_details_field('Updated Date', rbac_format_datetime($record['updated_date'] ?? null), 'col-md-6');
             record_details_section_end();
 

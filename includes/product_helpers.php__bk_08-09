@@ -2,25 +2,6 @@
 
 require_once __DIR__ . '/rbac_helpers.php';
 
-function product_ensure_schema(PDO $conn): void
-{
-    static $ensured = false;
-    if ($ensured) {
-        return;
-    }
-
-    $conn->exec('
-        ALTER TABLE product_master_vayu
-        ADD COLUMN IF NOT EXISTS level_1_approval_price NUMERIC NULL
-    ');
-    $conn->exec('
-        ALTER TABLE product_master_vayu
-        ADD COLUMN IF NOT EXISTS level_2_approval_price NUMERIC NULL
-    ');
-
-    $ensured = true;
-}
-
 function product_yn_options(): array
 {
     return [
@@ -64,20 +45,14 @@ function product_normalize_yn(?string $value, string $default = ''): string
     return $default;
 }
 
-function product_from_post(array $post, ?array $existing = null): array
+function product_from_post(array $post): array
 {
-    $dealerPrice = array_key_exists('dealer_price', $post)
-        ? trim((string) $post['dealer_price'])
-        : trim((string) ($existing['dealer_price'] ?? ''));
-
-    $data = [
+    return [
         'dpst' => trim((string) ($post['dpst'] ?? '')),
         'product_group' => trim((string) ($post['product_group'] ?? '')),
         'tplcode' => trim((string) ($post['tplcode'] ?? '')),
         'tpldesc' => trim((string) ($post['tpldesc'] ?? '')),
-        'dealer_price' => $dealerPrice,
-        'level_1_approval_price' => trim((string) ($post['level_1_approval_price'] ?? '')),
-        'level_2_approval_price' => trim((string) ($post['level_2_approval_price'] ?? '')),
+        'dealer_price' => trim((string) ($post['dealer_price'] ?? '')),
         'tod_flag' => product_normalize_yn($post['tod_flag'] ?? 'N', 'N'),
         'excisable' => product_normalize_yn($post['excisable'] ?? 'N', 'N'),
         'mc' => trim((string) ($post['mc'] ?? '')),
@@ -90,13 +65,6 @@ function product_from_post(array $post, ?array $existing = null): array
         'company' => trim((string) ($post['company'] ?? '')),
         'order_type' => trim((string) ($post['order_type'] ?? '')),
     ];
-
-    if ((int) $data['order_type'] === 2) {
-        $data['level_1_approval_price'] = '';
-        $data['level_2_approval_price'] = '';
-    }
-
-    return $data;
 }
 
 function product_is_numeric_value(string $value): bool
@@ -152,22 +120,6 @@ function product_validate(array $data): ?string
     }
     if (strlen($data['dealer_price']) > 7) {
         return 'Dealer Price cannot exceed 7 characters.';
-    }
-
-    if ((int) ($data['order_type'] ?? 0) !== 2) {
-        if ($data['level_1_approval_price'] === '') {
-            return 'Level 1 Approval Price is required.';
-        }
-        if (!product_is_numeric_value($data['level_1_approval_price'])) {
-            return 'Level 1 Approval Price must be numeric.';
-        }
-
-        if ($data['level_2_approval_price'] === '') {
-            return 'Level 2 Approval Price is required.';
-        }
-        if (!product_is_numeric_value($data['level_2_approval_price'])) {
-            return 'Level 2 Approval Price must be numeric.';
-        }
     }
 
     if ($data['tod_flag'] !== '' && !array_key_exists($data['tod_flag'], product_yn_options())) {
@@ -274,8 +226,6 @@ function product_search_filter(string $searchValue): array
         'tplcode',
         'tpldesc',
         'dealer_price',
-        'CAST(level_1_approval_price AS TEXT)',
-        'CAST(level_2_approval_price AS TEXT)',
         'tod_flag',
         'excisable',
         'CAST(mc AS TEXT)',
@@ -286,7 +236,6 @@ function product_search_filter(string $searchValue): array
         'warehouse',
         'otcode',
         'CAST(company AS TEXT)',
-        'CASE order_type WHEN 1 THEN \'Units\' WHEN 2 THEN \'Spares\' ELSE CAST(order_type AS TEXT) END',
         'CAST(order_type AS TEXT)',
         'status',
         'updated_by',
@@ -295,8 +244,6 @@ function product_search_filter(string $searchValue): array
 
 function product_get_by_id(PDO $conn, int $id): ?array
 {
-    product_ensure_schema($conn);
-
     $stmt = $conn->prepare('
         SELECT *
         FROM product_master_vayu
@@ -363,27 +310,6 @@ function product_resolve_updated_by(?string $username, ?int $userId = null): ?st
     return null;
 }
 
-function product_updated_by_display_name(PDO $conn, ?string $username): string
-{
-    $username = trim((string) $username);
-    if ($username === '') {
-        return '-';
-    }
-
-    $stmt = $conn->prepare('
-        SELECT COALESCE(NULLIF(TRIM(name), \'\'), NULLIF(TRIM(username), \'\')) AS display_name
-        FROM user_master
-        WHERE TRIM(username) = :username
-          AND deleted_at IS NULL
-        LIMIT 1
-    ');
-    $stmt->bindValue(':username', $username);
-    $stmt->execute();
-    $name = trim((string) $stmt->fetchColumn());
-
-    return $name !== '' ? $name : $username;
-}
-
 function product_bind_common(PDOStatement $stmt, array $data): void
 {
     $stmt->bindValue(':dpst', $data['dpst']);
@@ -394,8 +320,6 @@ function product_bind_common(PDOStatement $stmt, array $data): void
         ':dealer_price',
         $data['dealer_price'] !== '' ? $data['dealer_price'] : '0'
     );
-    $stmt->bindValue(':level_1_approval_price', product_nullable_numeric($data['level_1_approval_price'] ?? ''));
-    $stmt->bindValue(':level_2_approval_price', product_nullable_numeric($data['level_2_approval_price'] ?? ''));
     $stmt->bindValue(':tod_flag', $data['tod_flag'] !== '' ? $data['tod_flag'] : 'N');
     $stmt->bindValue(':excisable', $data['excisable'] !== '' ? $data['excisable'] : 'N');
     $stmt->bindValue(':mc', product_nullable_numeric($data['mc']));
@@ -415,18 +339,14 @@ function product_bind_common(PDOStatement $stmt, array $data): void
 
 function product_insert(PDO $conn, array $data, ?string $updatedBy): void
 {
-    product_ensure_schema($conn);
-
     $stmt = $conn->prepare('
         INSERT INTO product_master_vayu (
             dpst, product_group, tplcode, tpldesc, dealer_price,
-            level_1_approval_price, level_2_approval_price,
             tod_flag, excisable, mc, vc, fc, cos, valid,
             warehouse, otcode, company, order_type,
             status, updated_by, updated_date
         ) VALUES (
             :dpst, :product_group, :tplcode, :tpldesc, :dealer_price,
-            :level_1_approval_price, :level_2_approval_price,
             :tod_flag, :excisable, :mc, :vc, :fc, :cos, :valid,
             :warehouse, :otcode, :company, :order_type,
             :status, :updated_by, CURRENT_TIMESTAMP
@@ -446,8 +366,6 @@ function product_insert(PDO $conn, array $data, ?string $updatedBy): void
 
 function product_update(PDO $conn, int $id, array $data, ?string $updatedBy): void
 {
-    product_ensure_schema($conn);
-
     $stmt = $conn->prepare('
         UPDATE product_master_vayu SET
             dpst = :dpst,
@@ -455,8 +373,6 @@ function product_update(PDO $conn, int $id, array $data, ?string $updatedBy): vo
             tplcode = :tplcode,
             tpldesc = :tpldesc,
             dealer_price = :dealer_price,
-            level_1_approval_price = :level_1_approval_price,
-            level_2_approval_price = :level_2_approval_price,
             tod_flag = :tod_flag,
             excisable = :excisable,
             mc = :mc,

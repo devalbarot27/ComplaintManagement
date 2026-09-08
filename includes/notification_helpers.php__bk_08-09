@@ -411,13 +411,6 @@ function notification_resolve_redirect_url(
         case 'order-booking':
             return 'order_details.php?id=' . $encodedId;
 
-        // APPROVAL MODULE: Order-level L1 / L2 approval
-        case 'order-approval':
-        case 'order_approval':
-        case 'cart-approval':
-        case 'cart_approval':
-            return 'approvals.php';
-
         default:
             return null;
     }
