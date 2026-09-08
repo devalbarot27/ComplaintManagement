@@ -487,7 +487,9 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                     $complaintId = (int) ($row['complaint_id'] ?? 0);
                                     $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
                                     $submittedOn = trim((string) ($row['created_at'] ?? ''));
-                                    $submittedOnLabel = $submittedOn !== '' ? date('d M Y H:i', strtotime($submittedOn)) : '-';
+                                    $submittedOnTs = $submittedOn !== '' ? strtotime($submittedOn) : 0;
+                                    $submittedOnLabel = $submittedOnTs ? date('d M Y H:i', $submittedOnTs) : '-';
+                                    $submittedOnSort = $submittedOnTs ? date('Y-m-d H:i:s', $submittedOnTs) : '';
                                     $isCart = ($row['claim_type'] ?? '') === 'cart';
                                     $typeLabel = $row['claim_type'] === 'foc'
                                         ? 'FOC Parts'
@@ -539,7 +541,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                             </span>
                                         </td>
                                         <td><?= htmlspecialchars((string) ($row['created_by'] ?? '-')) ?></td>
-                                        <td><?= htmlspecialchars($submittedOnLabel) ?></td>
+                                        <td data-order="<?= htmlspecialchars($submittedOnSort, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($submittedOnLabel) ?></td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-outline-dark btn-view-claim" title="View"
                                                 data-type="<?= htmlspecialchars($row['claim_type']) ?>"
@@ -1033,7 +1035,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
             if (typeof $.fn.DataTable !== 'undefined' && document.getElementById('approvalsTable')) {
                 $('#approvalsTable').DataTable({
                     order: [
-                        [0, 'desc']
+                        [9, 'desc']
                     ],
                     pageLength: 10,
                     columnDefs: [{
