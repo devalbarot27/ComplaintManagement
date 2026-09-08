@@ -145,18 +145,19 @@ $freightPercentage = 4;
 
         .ui-datepicker .ui-datepicker-prev::before,
         .ui-datepicker .ui-datepicker-next::before {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             line-height: 1;
             color: #0f172a;
+            font-family: Arial, Helvetica, sans-serif;
         }
 
         .ui-datepicker .ui-datepicker-prev::before {
-            content: '‹';
+            content: '<';
         }
 
         .ui-datepicker .ui-datepicker-next::before {
-            content: '›';
+            content: '>';
         }
 
         .ui-datepicker .ui-datepicker-prev:hover,
