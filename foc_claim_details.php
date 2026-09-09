@@ -21,6 +21,11 @@ if (!$record) {
     die('FOC claim not found.');
 }
 
+if (!foc_parts_user_can_access_claim($obconn, $record)) {
+    rbac_access_denied_redirect();
+}
+
+$canSeeSubmittedBy = foc_parts_user_can_see_submitted_by($obconn);
 $complaintId = (int) ($record['complaint_id'] ?? 0);
 $items = foc_claim_items_for_claim($obconn, $id, $complaintId);
 $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
@@ -135,8 +140,10 @@ $partsTable .= '</tbody></table></div>';
             record_details_section_end();
 
             record_details_section_start(4, 'Audit Trail', 'Creation and update history', true);
-            record_details_field('Submitted By', rbac_display_value($record['created_by_name'] ?? $record['created_by_username'] ?? ''), 'col-md-6');
-            record_details_field('Created At', rbac_format_datetime($record['created_at'] ?? null), 'col-md-6');
+            if ($canSeeSubmittedBy) {
+                record_details_field('Submitted By', rbac_display_value($record['created_by_name'] ?? $record['created_by_username'] ?? ''), 'col-md-6');
+            }
+            record_details_field('Created At', rbac_format_datetime($record['created_at'] ?? null), $canSeeSubmittedBy ? 'col-md-6' : 'col-md-4');
             record_details_section_end();
 
             record_details_card_end();

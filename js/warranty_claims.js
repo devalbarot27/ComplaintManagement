@@ -7,6 +7,7 @@ $(function () {
     $table.DataTable({
         processing: true,
         serverSide: true,
+        autoWidth: false,
         ajax: {
             url: 'api/warranty_claims_datatable.php',
             type: 'POST'
@@ -15,19 +16,34 @@ $(function () {
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         columns: [
-            { data: 'id' },
-            { data: 'fab_number' },
-            { data: 'customer_name' },
-            { data: 'machine_model' },
-            { data: 'commissioning_date' },
-            { data: 'warranty_status', orderable: false },
-            // { data: 'actions', orderable: false, searchable: false }
+            { data: 'id', width: '8%' },
+            { data: 'fab_number', width: '14%' },
+            { data: 'customer_name', width: '22%' },
+            { data: 'machine_model', width: '24%' },
+            { data: 'commissioning_date', width: '14%' },
+            { data: 'warranty_status', orderable: false, searchable: false, width: '18%' }
+        ],
+        columnDefs: [
+            { className: 'align-middle', targets: '_all' }
         ],
         language: {
+            processing: 'Loading warranty status...',
             emptyTable: 'No installed base records found.',
-            zeroRecords: 'No matching records found.'
+            zeroRecords: 'No matching records found.',
+            search: 'Search:',
+            lengthMenu: 'Show _MENU_ entries',
+            info: 'Showing _START_ to _END_ of _TOTAL_ records',
+            infoEmpty: 'Showing 0 to 0 of 0 records',
+            paginate: {
+                previous: 'Prev',
+                next: 'Next'
+            }
         }
     });
+
+    setTimeout(function () {
+        $('.alert-success').fadeOut();
+    }, 3000);
 
     initCommissionUpdateModal();
 });
@@ -106,4 +122,3 @@ function initCommissionUpdateModal() {
         }
     });
 }
-

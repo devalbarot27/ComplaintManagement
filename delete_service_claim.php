@@ -16,8 +16,15 @@ if ($id <= 0) {
 }
 
 try {
-    if (!service_claim_get_by_id($obconn, $id)) {
+    $record = service_claim_get_by_id($obconn, $id);
+    if (!$record) {
         $_SESSION['error_message'] = 'Service claim not found or already deleted.';
+        header('Location: service_claims.php');
+        exit;
+    }
+
+    if (!service_claims_user_can_access_claim($obconn, $record)) {
+        $_SESSION['error_message'] = 'Access denied. You cannot delete this service claim.';
         header('Location: service_claims.php');
         exit;
     }

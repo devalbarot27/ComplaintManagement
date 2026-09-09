@@ -130,6 +130,8 @@ function rbac_api_access_rules(): array
         'amc_details.php' => ['module' => 'amc', 'permission' => 'view'],
         'delete_amc.php' => ['module' => 'amc', 'permission' => 'delete'],
         'warranty_claims.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
+        'warranty_claims_datatable.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
+        'warranty_claims_fab_search.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
         'customer_master_datatable.php' => ['module' => 'customer-master', 'permission' => 'view'],
         'customer_master_get.php' => ['module' => 'customer-master', 'permission' => 'view'],
         'contact_datatable.php' => ['module' => 'contact', 'permission' => 'view'],

@@ -19,6 +19,7 @@ $canCreateFoc = rbac_user_can($obconn, 'foc-parts', 'create-foc');
 $approvalFlags = user_current_approval_flags($obconn);
 $canApproveL1 = $approvalFlags['l1'];
 $canApproveL2 = $approvalFlags['l2'];
+$canSeeSubmittedBy = foc_parts_user_can_see_submitted_by($obconn);
 
 // --- Handle FOC Claim Submission (Process 1, steps 1-6) -------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) {
@@ -167,7 +168,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
 // --- Fetch existing claims for the datatable ---------------------------------
 $claims = [];
 try {
-    $claimStmt = $obconn->query("
+    $listScope = foc_parts_list_scope($obconn);
+    $claimStmt = $obconn->prepare("
         SELECT
             fc.id, fc.complaint_id, fc.justification,
             fc.warranty_status, fc.l1_status, fc.l1_by_username, fc.l1_at, fc.l1_remarks,
@@ -198,9 +200,13 @@ try {
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(fc.created_by_username))
            AND um.deleted_at IS NULL
-        WHERE fc.deleted_at IS NULL
+        WHERE {$listScope['where']}
         ORDER BY fc.created_at DESC
     ");
+    foreach ($listScope['params'] as $key => $value) {
+        $claimStmt->bindValue($key, $value);
+    }
+    $claimStmt->execute();
     $claims = $claimStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     // Table may not exist yet; silently continue
@@ -527,7 +533,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <th width="10%">Lock-in Engineer</th>
                                 <th width="10%">Business Head</th>
                                 <th width="14%">Overall Status</th>
+                                <?php if ($canSeeSubmittedBy) { ?>
                                 <th width="10%">Submitted By</th>
+                                <?php } ?>
                                 <th width="8%">Action</th>
                             </tr>
                         </thead>
@@ -571,7 +579,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <?= htmlspecialchars((string) ($row['overall_status'] ?? '-')) ?>
                                     </span>
                                 </td>
+                                <?php if ($canSeeSubmittedBy) { ?>
                                 <td><?= htmlspecialchars((string) ($row['created_by_name'] ?? $row['created_by_username'] ?? '-')) ?></td>
+                                <?php } ?>
                                 <td>
                                     <div class="d-flex gap-1">
                                         <a href="foc_claim_details.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"

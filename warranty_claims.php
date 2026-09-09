@@ -58,6 +58,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_commissioning_
     <link href="css/datatable_custom.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link href="css/select2_change.css" rel="stylesheet" />
+    <style>
+        .warranty-claims-page .warranty-grid-id {
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: 0.01em;
+        }
+
+        .warranty-claims-page .warranty-grid-fab {
+            font-weight: 700;
+            color: #1565d8;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .warranty-claims-page .warranty-grid-model {
+            color: #334155;
+            display: inline-block;
+            max-width: 280px;
+            white-space: normal;
+            line-height: 1.35;
+        }
+
+        .warranty-claims-page .warranty-grid-date {
+            font-variant-numeric: tabular-nums;
+            color: #475569;
+            white-space: nowrap;
+        }
+
+        .warranty-claims-page .warranty-status-badge {
+            border: 1px solid transparent;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .warranty-claims-page .warranty-status--standard {
+            background: #dcfce7;
+            color: #166534;
+            border-color: #86efac;
+        }
+
+        .warranty-claims-page .warranty-status--uptime {
+            background: #e0f2fe;
+            color: #075985;
+            border-color: #7dd3fc;
+        }
+
+        .warranty-claims-page .warranty-status--out {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #fca5a5;
+        }
+
+        .warranty-claims-page .warranty-status--unknown {
+            background: #f1f5f9;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
+
+        .warranty-claims-page #warrantyClaimsTable tbody td {
+            vertical-align: middle;
+        }
+
+        .warranty-claims-page #warrantyClaimsTable thead th:nth-child(6),
+        .warranty-claims-page #warrantyClaimsTable tbody td:nth-child(6) {
+            text-align: center;
+        }
+    </style>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -70,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_commissioning_
     <div class="main-wrapper" id="mainWrapper">
         <?php include 'sidebar.php'; ?>
 
-        <div class="content">
+        <div class="content warranty-claims-page">
             <?php if (!empty($_SESSION['success_message'])) { ?>
             <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
                 <?php echo htmlspecialchars($_SESSION['success_message']); ?>
@@ -93,36 +162,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_commissioning_
                 </div>
 
                 <div class="header-btn-group">
-<?php if ($canUpdateCommissioningDate) { ?>
-                    <button class="new-order-btn btn-complaint-primary" type="button" data-bs-toggle="modal" data-bs-target="#updateCommissionModal">
-                        <i class="bi bi-plus-lg"></i>
-                        New
+                    <?php if ($canUpdateCommissioningDate) { ?>
+                    <button class="new-order-btn btn-complaint-primary" type="button"
+                        data-bs-toggle="modal" data-bs-target="#updateCommissionModal">
+                        <i class="bi bi-calendar-check"></i>
+                        Update Commissioning Date
                     </button>
-<?php } ?>
+                    <?php } ?>
                 </div>
             </div>
 
-
-            <div class="booking-card">
-                <div class="booking-header">
-                    <div class="booking-title">Installed Base Warranty Status</div>
+            <div class="complaint-form-card show" id="warrantyTableCard">
+                <div class="complaint-form-header">
+                    <div class="complaint-form-header__main">
+                        <div class="complaint-form-header__icon">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <div>
+                            <h2 class="complaint-form-header__title">Installed Base Warranty Status</h2>
+                            <p class="complaint-form-header__subtitle">
+                                Standard (0–12 months) · Uptime (13–36 months) · Out of Warranty (after 36 months)
+                            </p>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="table-responsive">
-                    <table class="table table-hover booking-table w-100" id="warrantyClaimsTable">
-                        <thead>
-                            <tr>
-                                <th width="10%">Capture Data ID</th>
-                                <th width="12%">Fab Number</th>
-                                <th width="18%">Customer Name</th>
-                                <th width="18%">Machine Model</th>
-                                <th width="12%">Commissioned Date</th>
-                                <th width="12%">Warranty Status</th>
-                                <!-- <th width="18%">Action</th> -->
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                <div class="complaint-form-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover booking-table w-100" id="warrantyClaimsTable">
+                            <thead>
+                                <tr>
+                                    <th width="8%">ID</th>
+                                    <th width="14%">Fab Number</th>
+                                    <th width="22%">Customer</th>
+                                    <th width="24%">Machine Model</th>
+                                    <th width="14%">Commissioned</th>
+                                    <th width="18%">Warranty Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -160,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_commissioning_
                         <input type="date" class="form-control" name="commissioning_date" id="commissionDateInput">
                         <div class="text-danger validation-msg" data-field="commissioning_date"></div>
                     </div>
-                    <div class="complaint-form-actions mt-3">
+                    <div class="complaint-form-actions pb-0">
                         <button type="button" class="cancel-btn" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="submit-btn btn-complaint-primary" name="update_commissioning_date" value="1" id="submitCommissionUpdateBtn">
                             <i class="bi bi-check-lg"></i> Submit

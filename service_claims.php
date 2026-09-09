@@ -19,6 +19,7 @@ $userName        = current_username();
 
 $canCreateClaim  = rbac_user_can($obconn, 'service-claims', 'create-service-claims');
 $canDeleteClaim  = rbac_user_can($obconn, 'service-claims', 'delete');
+$canSeeSubmittedBy = service_claims_user_can_see_submitted_by($obconn);
 //$canMarkCcs      = rbac_user_can($obconn, 'service-claims', 'mark-warranty');
 //$canApproveL1    = rbac_user_can($obconn, 'service-claims', 'approve-l1');
 //$canRaiseInvoice = rbac_user_can($obconn, 'service-claims', 'raise-invoice');
@@ -327,7 +328,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['settle_claim'])) {
 // --- Fetch existing claims for the datatable ---------------------------------
 $claims = [];
 try {
-    $claimStmt = $obconn->query("
+    $listScope = service_claims_list_scope($obconn);
+    $claimStmt = $obconn->prepare("
         SELECT
             sc.*, c.fab_number, cm.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
@@ -339,9 +341,13 @@ try {
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
            AND um.deleted_at IS NULL
-        WHERE sc.deleted_at IS NULL
+        WHERE {$listScope['where']}
         ORDER BY sc.created_at ASC
     ");
+    foreach ($listScope['params'] as $key => $value) {
+        $claimStmt->bindValue($key, $value);
+    }
+    $claimStmt->execute();
     $claims = $claimStmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     // Table may not exist yet; silently continue
@@ -572,7 +578,9 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             <th width="10%">Invoice</th>
                             <th width="10%">Settlement</th>
                             <th width="14%">Overall Status</th>
+                            <?php if ($canSeeSubmittedBy) { ?>
                             <th width="10%">Submitted By</th>
+                            <?php } ?>
                             <th width="8%">Action</th>
                         </tr>
                     </thead>
@@ -632,7 +640,9 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                     <?= htmlspecialchars($overallStatus !== '' ? $overallStatus : '-') ?>
                                 </span>
                             </td>
+                            <?php if ($canSeeSubmittedBy) { ?>
                             <td><?= htmlspecialchars((string) ($row['created_by_name'] ?? $row['created_by_username'] ?? '-')) ?></td>
+                            <?php } ?>
                             <td>
                                 <div class="d-flex gap-1">
                                     <a href="service_claim_details.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"

@@ -14,6 +14,131 @@
 require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/installed_base_helpers.php';
+require_once __DIR__ . '/admin_access_helpers.php';
+
+/**
+ * System Admin / CCS Admin / Management see all FOC claims.
+ * Other roles see only claims they submitted.
+ *
+ * @return array{where: string, params: array<string, mixed>, see_all: bool}
+ */
+function foc_parts_list_scope(PDO $conn): array
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
+        return [
+            'where' => 'fc.deleted_at IS NULL',
+            'params' => [],
+            'see_all' => true,
+        ];
+    }
+
+    return [
+        'where' => 'fc.deleted_at IS NULL
+            AND LOWER(TRIM(COALESCE(fc.created_by_username, \'\'))) = LOWER(TRIM(:foc_scope_username))',
+        'params' => [
+            ':foc_scope_username' => current_username(),
+        ],
+        'see_all' => false,
+    ];
+}
+
+function foc_parts_user_can_see_submitted_by(PDO $conn): bool
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    return is_system_admin() || is_ccs_admin_user() || is_management_user();
+}
+
+/**
+ * Whether the current user may open a FOC claim details record.
+ */
+function foc_parts_user_can_access_claim(PDO $conn, ?array $record): bool
+{
+    if ($record === null) {
+        return false;
+    }
+
+    if (foc_parts_user_can_see_submitted_by($conn)) {
+        return true;
+    }
+
+    $createdBy = trim((string) ($record['created_by_username'] ?? ''));
+    if ($createdBy !== '' && strcasecmp($createdBy, current_username()) === 0) {
+        return true;
+    }
+
+    // L1/L2 approvers may open claims from the Approvals inbox.
+    require_once __DIR__ . '/user_helpers.php';
+    $flags = user_current_approval_flags($conn);
+
+    return !empty($flags['l1']) || !empty($flags['l2']);
+}
+
+/**
+ * System Admin / CCS Admin / Management see all service claims.
+ * Other roles see only claims they submitted.
+ *
+ * @return array{where: string, params: array<string, mixed>, see_all: bool}
+ */
+function service_claims_list_scope(PDO $conn): array
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
+        return [
+            'where' => 'sc.deleted_at IS NULL',
+            'params' => [],
+            'see_all' => true,
+        ];
+    }
+
+    return [
+        'where' => 'sc.deleted_at IS NULL
+            AND LOWER(TRIM(COALESCE(sc.created_by_username, \'\'))) = LOWER(TRIM(:sc_scope_username))',
+        'params' => [
+            ':sc_scope_username' => current_username(),
+        ],
+        'see_all' => false,
+    ];
+}
+
+function service_claims_user_can_see_submitted_by(PDO $conn): bool
+{
+    return foc_parts_user_can_see_submitted_by($conn);
+}
+
+/**
+ * Whether the current user may open a service claim details record.
+ */
+function service_claims_user_can_access_claim(PDO $conn, ?array $record): bool
+{
+    if ($record === null) {
+        return false;
+    }
+
+    if (service_claims_user_can_see_submitted_by($conn)) {
+        return true;
+    }
+
+    $createdBy = trim((string) ($record['created_by_username'] ?? ''));
+    if ($createdBy !== '' && strcasecmp($createdBy, current_username()) === 0) {
+        return true;
+    }
+
+    // Approvers / settlement actors may open claims from Approvals.
+    require_once __DIR__ . '/user_helpers.php';
+    $flags = user_current_approval_flags($conn);
+
+    return !empty($flags['l1']) || !empty($flags['l2']);
+}
 
 /** Warranty flag values shown to approvers (Process 1 step 7 / Process 2 step 5). */
 const WARRANTY_STATUS_UNDER = 'Under Warranty';
@@ -813,7 +938,7 @@ function installed_base_warranty_status(?string $commissioningDate): array
     if ($commissioningDate === '') {
         return [
             'status' => 'Unknown',
-            'badge_class' => 'bg-secondary',
+            'badge_class' => 'warranty-status--unknown',
             'can_request_approval' => false,
             'months_elapsed' => null,
         ];
@@ -824,7 +949,7 @@ function installed_base_warranty_status(?string $commissioningDate): array
     if ($timestamp === false) {
         return [
             'status' => 'Unknown',
-            'badge_class' => 'bg-secondary',
+            'badge_class' => 'warranty-status--unknown',
             'can_request_approval' => false,
             'months_elapsed' => null,
         ];
@@ -856,12 +981,22 @@ function installed_base_warranty_status(?string $commissioningDate): array
 function installed_base_warranty_status_badge_class(string $status): string
 {
     $map = [
-        INSTALLED_BASE_WARRANTY_STANDARD => 'bg-success',
-        INSTALLED_BASE_WARRANTY_UPTIME => 'bg-info text-dark',
-        INSTALLED_BASE_WARRANTY_OUT => 'bg-danger',
+        INSTALLED_BASE_WARRANTY_STANDARD => 'warranty-status--standard',
+        INSTALLED_BASE_WARRANTY_UPTIME => 'warranty-status--uptime',
+        INSTALLED_BASE_WARRANTY_OUT => 'warranty-status--out',
     ];
 
-    return $map[$status] ?? 'bg-secondary';
+    return $map[$status] ?? 'warranty-status--unknown';
+}
+
+function installed_base_warranty_status_badge_html(array $warranty): string
+{
+    $status = trim((string) ($warranty['status'] ?? 'Unknown'));
+    $badgeClass = trim((string) ($warranty['badge_class'] ?? 'warranty-status--unknown'));
+
+    return '<span class="status-badge border border-dark">'
+        . htmlspecialchars($status !== '' ? $status : 'Unknown', ENT_QUOTES, 'UTF-8')
+        . '</span>';
 }
 
 function foc_stage_badge_class(string $stage): string
