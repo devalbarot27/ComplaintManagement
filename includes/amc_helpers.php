@@ -8,6 +8,9 @@
 
 require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/rbac_access_helpers.php';
+require_once __DIR__ . '/after_market_access_helpers.php';
+require_once __DIR__ . '/installed_base_helpers.php';
+require_once __DIR__ . '/warranty_claims_helpers.php';
 
 const AMC_OBLIGATION_OPTIONS = [
     'win' => 'Within Warranty',
@@ -106,7 +109,10 @@ function amc_ensure_schema(PDO $conn): void
     $conn->exec("
         ALTER TABLE amc_contracts
         ADD COLUMN IF NOT EXISTS district_name VARCHAR(100) NULL,
-        ADD COLUMN IF NOT EXISTS state_name VARCHAR(100) NULL
+        ADD COLUMN IF NOT EXISTS state_name VARCHAR(100) NULL,
+        ADD COLUMN IF NOT EXISTS installed_base_id INTEGER NULL,
+        ADD COLUMN IF NOT EXISTS customer_id INTEGER NULL,
+        ADD COLUMN IF NOT EXISTS warranty_status VARCHAR(50) NULL
     ");
 
     if (!$tableExists($conn, 'amc_visits')) {
@@ -139,26 +145,29 @@ function amc_action_permissions(PDO $conn): array
 function amc_from_post(array $post): array
 {
     return [
-        'product_group' => trim((string) ($post['product_group'] ?? '')),
-        'product_model' => trim((string) ($post['product_model'] ?? '')),
-        'fab_number' => trim((string) ($post['fab_number'] ?? '')),
-        'obligation' => trim((string) ($post['obligation'] ?? '')),
-        'customer_name' => trim((string) ($post['customer_name'] ?? '')),
-        'contact_person' => trim((string) ($post['contact_person'] ?? '')),
-        'telephone_number' => trim((string) ($post['telephone_number'] ?? '')),
-        'email_id' => trim((string) ($post['email_id'] ?? '')),
-        'address_line1' => trim((string) ($post['address_line1'] ?? '')),
-        'address_line2' => trim((string) ($post['address_line2'] ?? '')),
-        'city_name' => trim((string) ($post['city'] ?? '')),
-        'district_name' => trim((string) ($post['district'] ?? '')),
-        'state_name' => trim((string) ($post['state'] ?? '')),
-        'post_code' => trim((string) ($post['post_code'] ?? '')),
-        'customer_group' => trim((string) ($post['customer_group'] ?? '')),
-        'business_line' => trim((string) ($post['business_line'] ?? '')),
-        'environment' => trim((string) ($post['environment'] ?? '')),
+        'installed_base_id' => trim((string) ($post['installed_base_id'] ?? '')),
+        'product_group' => '',
+        'product_model' => '',
+        'fab_number' => '',
+        'obligation' => '',
+        'warranty_status' => '',
+        'customer_id' => '',
+        'customer_name' => '',
+        'contact_person' => '',
+        'telephone_number' => '',
+        'email_id' => '',
+        'address_line1' => '',
+        'address_line2' => '',
+        'city_name' => '',
+        'district_name' => '',
+        'state_name' => '',
+        'post_code' => '',
+        'customer_group' => '',
+        'business_line' => '',
+        'environment' => '',
         'amc_type' => trim((string) ($post['amc_type'] ?? '')),
-        'amc_type_remarks' => trim((string) ($post['amc_type_remarks'] ?? '')),
-        'mode_of_call' => trim((string) ($post['mode_of_call'] ?? '')),
+        'amc_type_remarks' => '',
+        'mode_of_call' => '',
         'amc_start_date' => trim((string) ($post['amc_start_date'] ?? '')),
         'amc_end_date' => trim((string) ($post['amc_end_date'] ?? '')),
         'visit_start_date' => trim((string) ($post['visit_start_date'] ?? '')),
@@ -167,34 +176,169 @@ function amc_from_post(array $post): array
     ];
 }
 
+function amc_obligation_from_warranty_status(string $status): string
+{
+    if ($status === INSTALLED_BASE_WARRANTY_OUT) {
+        return 'wout';
+    }
+    if ($status === INSTALLED_BASE_WARRANTY_STANDARD || $status === INSTALLED_BASE_WARRANTY_UPTIME) {
+        return 'win';
+    }
+
+    return '';
+}
+
+function amc_installed_base_option_from_row(array $row): array
+{
+    $installedBaseId = (int) ($row['id'] ?? 0);
+    $fabNumber = trim((string) ($row['fab_number'] ?? ''));
+    $customerName = trim((string) ($row['customer_name'] ?? ''));
+    $machineModel = installed_base_machine_model_label($row);
+    $warranty = installed_base_warranty_status($row['commissioning_date'] ?? null);
+    $warrantyStatus = trim((string) ($warranty['status'] ?? 'Unknown'));
+    $label = '#' . $installedBaseId . ' - ' . ($fabNumber !== '' ? $fabNumber : '-') . ' - ' . ($customerName !== '' ? $customerName : '-');
+
+    return [
+        'id' => $installedBaseId,
+        'text' => $label,
+        'installed_base_id' => $installedBaseId,
+        'fab_number' => $fabNumber,
+        'product_model' => $machineModel !== '-' ? $machineModel : '',
+        'machine_model' => $machineModel !== '-' ? $machineModel : '',
+        'warranty_status' => $warrantyStatus,
+        'warranty_badge_class' => (string) ($warranty['badge_class'] ?? 'warranty-status--unknown'),
+        'customer_id' => (int) ($row['customer_id'] ?? 0),
+        'customer_name' => $customerName,
+        'contact_person' => $customerName,
+        'telephone_number' => trim((string) ($row['mobile'] ?? '')),
+        'email_id' => trim((string) ($row['email'] ?? '')),
+        'address_line1' => trim((string) ($row['street_1'] ?? '')),
+        'address_line2' => trim((string) ($row['street_2'] ?? '')),
+        'city_name' => trim((string) ($row['city'] ?? '')),
+        'district_name' => trim((string) ($row['district'] ?? '')),
+        'state_name' => trim((string) ($row['state'] ?? '')),
+        'post_code' => trim((string) ($row['pincode'] ?? '')),
+        'dealer_name' => trim((string) (($row['customer_dealer_name'] ?? '') !== '' ? $row['customer_dealer_name'] : ($row['dealer_name'] ?? ''))),
+    ];
+}
+
+function amc_installed_base_select_sql(): string
+{
+    return '
+        SELECT
+            ib.id,
+            ib.fab_number,
+            ib.machine_model,
+            ib.machine_model_code,
+            ib.commissioning_date,
+            ib.dealer_name,
+            ib.customer_id,
+            cm.customer_name,
+            cm.email,
+            cm.mobile,
+            cm.street_1,
+            cm.street_2,
+            cm.pincode,
+            cm.city,
+            cm.district,
+            cm.state,
+            cm.dealer_name AS customer_dealer_name
+        FROM installed_base ib
+        ' . installed_base_customer_join_sql('ib', 'cm') . '
+    ';
+}
+
+function amc_installed_base_snapshot(PDO $conn, int $installedBaseId): ?array
+{
+    installed_base_ensure_schema($conn);
+
+    if ($installedBaseId <= 0 || !after_market_user_can_access_record($conn, 'installed_base', $installedBaseId)) {
+        return null;
+    }
+
+    $stmt = $conn->prepare(amc_installed_base_select_sql() . '
+        WHERE ib.id = :id
+          AND ib.deleted_at IS NULL
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $installedBaseId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ? amc_attach_coverage_to_options($conn, [amc_installed_base_option_from_row($row)])[0] : null;
+}
+
+function amc_search_installed_base(PDO $conn, string $term): array
+{
+    installed_base_ensure_schema($conn);
+
+    $scope = after_market_list_scope($conn);
+    $scopeWhere = after_market_scope_where_for_alias($scope['where'], 'ib');
+
+    $sql = amc_installed_base_select_sql() . " WHERE {$scopeWhere}";
+    if ($term !== '') {
+        $sql .= '
+          AND (
+                ib.fab_number ILIKE :term
+             OR cm.customer_name ILIKE :term
+             OR ib.machine_model ILIKE :term
+             OR ib.machine_model_code ILIKE :term
+             OR CAST(ib.id AS TEXT) ILIKE :term
+          )
+        ';
+    }
+    $sql .= '
+        ORDER BY ib.id DESC
+        LIMIT 25
+    ';
+
+    $stmt = $conn->prepare($sql);
+    foreach ($scope['params'] as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    if ($term !== '') {
+        $stmt->bindValue(':term', '%' . $term . '%');
+    }
+    $stmt->execute();
+
+    $results = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $results[] = amc_installed_base_option_from_row($row);
+    }
+
+    return amc_attach_coverage_to_options($conn, $results);
+}
+
+function amc_merge_installed_base_snapshot(array $data, array $snapshot): array
+{
+    $data['installed_base_id'] = (string) ((int) ($snapshot['installed_base_id'] ?? 0));
+    $data['fab_number'] = trim((string) ($snapshot['fab_number'] ?? ''));
+    $data['product_model'] = trim((string) ($snapshot['product_model'] ?? ''));
+    $data['warranty_status'] = trim((string) ($snapshot['warranty_status'] ?? ''));
+    $data['obligation'] = amc_obligation_from_warranty_status($data['warranty_status']);
+    $data['customer_id'] = (string) ((int) ($snapshot['customer_id'] ?? 0));
+    $data['customer_name'] = trim((string) ($snapshot['customer_name'] ?? ''));
+    $data['contact_person'] = trim((string) ($snapshot['contact_person'] ?? ''));
+    $data['telephone_number'] = trim((string) ($snapshot['telephone_number'] ?? ''));
+    $data['email_id'] = trim((string) ($snapshot['email_id'] ?? ''));
+    $data['address_line1'] = trim((string) ($snapshot['address_line1'] ?? ''));
+    $data['address_line2'] = trim((string) ($snapshot['address_line2'] ?? ''));
+    $data['city_name'] = trim((string) ($snapshot['city_name'] ?? ''));
+    $data['district_name'] = trim((string) ($snapshot['district_name'] ?? ''));
+    $data['state_name'] = trim((string) ($snapshot['state_name'] ?? ''));
+    $data['post_code'] = trim((string) ($snapshot['post_code'] ?? ''));
+
+    return $data;
+}
+
 function amc_validate(array $data): ?string
 {
-    if ($data['customer_name'] === '') {
-        return 'Customer Name is required.';
-    }
-
-    if ($data['product_group'] === '' || !in_array($data['product_group'], AMC_PRODUCT_GROUP_OPTIONS, true)) {
-        return 'Please select a valid Product Group.';
-    }
-
-    if ($data['obligation'] === '' || !array_key_exists($data['obligation'], AMC_OBLIGATION_OPTIONS)) {
-        return 'Please select a valid Obligation.';
+    if ($data['installed_base_id'] === '' || (int) $data['installed_base_id'] <= 0) {
+        return 'Please search for and select an Installed Base machine.';
     }
 
     if ($data['amc_type'] === '' || !array_key_exists($data['amc_type'], AMC_TYPE_OPTIONS)) {
         return 'Please select a valid AMC Type.';
-    }
-
-    if ($data['amc_type'] === 'S' && strlen($data['amc_type_remarks']) < 5) {
-        return 'AMC Type Remarks cannot be blank for Standard AMC (min 5 characters).';
-    }
-
-    if ($data['telephone_number'] !== '' && !preg_match('/^[0-9+\-\s]{6,20}$/', $data['telephone_number'])) {
-        return 'Telephone Number is invalid.';
-    }
-
-    if ($data['email_id'] !== '' && !filter_var($data['email_id'], FILTER_VALIDATE_EMAIL)) {
-        return 'Email Id must be a valid email address.';
     }
 
     foreach (['amc_start_date', 'amc_end_date', 'visit_start_date'] as $dateField) {
@@ -204,15 +348,15 @@ function amc_validate(array $data): ?string
     }
 
     if ($data['amc_end_date'] <= $data['amc_start_date']) {
-        return 'AMC End Date must be after AMC Start Date.';
+        return 'AMC End Date must be later than the AMC Start Date.';
     }
 
     if ($data['visit_start_date'] < $data['amc_start_date'] || $data['visit_start_date'] > $data['amc_end_date']) {
         return 'Visit Start Date must fall within the AMC start/end dates.';
     }
 
-    if (!is_numeric($data['no_of_visits']) || (int) $data['no_of_visits'] <= 0) {
-        return 'Number of Visits must be a positive number.';
+    if (!preg_match('/^[1-9]\d*$/', $data['no_of_visits'])) {
+        return 'Number of Visits must be a positive whole number.';
     }
 
     if (!is_numeric($data['amc_value']) || (float) $data['amc_value'] <= 0) {
@@ -273,7 +417,8 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
     $stmt = $conn->prepare("
         INSERT INTO amc_contracts
         (
-            contract_number, product_group, product_model, fab_number, obligation,
+            contract_number, installed_base_id, customer_id, product_group, product_model, fab_number,
+            obligation, warranty_status,
             customer_name, contact_person, telephone_number, email_id,
             address_line1, address_line2, city_name, post_code,
             district_name, state_name,
@@ -283,7 +428,8 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
         )
         VALUES
         (
-            :contract_number, :product_group, :product_model, :fab_number, :obligation,
+            :contract_number, :installed_base_id, :customer_id, :product_group, :product_model, :fab_number,
+            :obligation, :warranty_status,
             :customer_name, :contact_person, :telephone_number, :email_id,
             :address_line1, :address_line2, :city_name, :post_code,
             :district_name, :state_name,
@@ -294,10 +440,15 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
         RETURNING id
     ");
 
-    $stmt->bindValue(':product_group', $data['product_group']);
+    $installedBaseId = (int) ($data['installed_base_id'] ?? 0);
+    $customerId = (int) ($data['customer_id'] ?? 0);
+    $stmt->bindValue(':installed_base_id', $installedBaseId > 0 ? $installedBaseId : null, $installedBaseId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
+    $stmt->bindValue(':customer_id', $customerId > 0 ? $customerId : null, $customerId > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
+    $stmt->bindValue(':product_group', $data['product_group'] !== '' ? $data['product_group'] : null);
     $stmt->bindValue(':product_model', $data['product_model'] !== '' ? $data['product_model'] : null);
     $stmt->bindValue(':fab_number', $data['fab_number'] !== '' ? $data['fab_number'] : null);
-    $stmt->bindValue(':obligation', $data['obligation']);
+    $stmt->bindValue(':obligation', $data['obligation'] !== '' ? $data['obligation'] : null);
+    $stmt->bindValue(':warranty_status', $data['warranty_status'] !== '' ? $data['warranty_status'] : null);
     $stmt->bindValue(':customer_name', $data['customer_name']);
     $stmt->bindValue(':contact_person', $data['contact_person'] !== '' ? $data['contact_person'] : null);
     $stmt->bindValue(':telephone_number', $data['telephone_number'] !== '' ? $data['telephone_number'] : null);
@@ -320,7 +471,7 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
     $stmt->bindValue(':no_of_visits', (int) $data['no_of_visits'], PDO::PARAM_INT);
     $stmt->bindValue(':amc_value', (float) $data['amc_value']);
     $stmt->bindValue(':dealer_name', $dealerName !== '' ? $dealerName : null);
-    $stmt->bindValue(':status', AMC_STATUS_ACTIVE);
+    $stmt->bindValue(':status', amc_status_from_dates($data['amc_start_date'], $data['amc_end_date']));
     $stmt->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
     $stmt->bindValue(':username', $username);
 
@@ -414,6 +565,19 @@ function amc_mark_visit_status(PDO $conn, int $visitId, int $contractId, string 
     return $stmt->execute();
 }
 
+function amc_warranty_badge_html(?string $status): string
+{
+    $status = trim((string) $status);
+    if ($status === '') {
+        return '-';
+    }
+
+    return installed_base_warranty_status_badge_html([
+        'status' => $status,
+        'badge_class' => installed_base_warranty_status_badge_class($status),
+    ]);
+}
+
 function amc_status_badge_class(string $status): string
 {
     switch ($status) {
@@ -431,4 +595,291 @@ function amc_status_badge_class(string $status): string
 function amc_visit_status_badge_class(string $status): string
 {
     return $status === AMC_VISIT_COMPLETED ? 'bg-success' : 'bg-warning text-dark';
+}
+
+function amc_normalize_date(?string $value): string
+{
+    $value = trim((string) $value);
+    if ($value === '') {
+        return '';
+    }
+
+    return substr($value, 0, 10);
+}
+
+function amc_status_from_dates(string $startDate, string $endDate): string
+{
+    $today = date('Y-m-d');
+    if (amc_normalize_date($endDate) < $today) {
+        return AMC_STATUS_EXPIRED;
+    }
+
+    return AMC_STATUS_ACTIVE;
+}
+
+function amc_contract_is_cancelled(array $row): bool
+{
+    return trim((string) ($row['status'] ?? '')) === AMC_STATUS_CANCELLED;
+}
+
+function amc_contract_is_active(array $row, ?string $today = null): bool
+{
+    if (amc_contract_is_cancelled($row)) {
+        return false;
+    }
+
+    $today = $today ?? date('Y-m-d');
+    $start = amc_normalize_date($row['amc_start_date'] ?? '');
+    $end = amc_normalize_date($row['amc_end_date'] ?? '');
+
+    return $start !== '' && $end !== '' && $start <= $today && $end >= $today;
+}
+
+function amc_display_status(array $row): string
+{
+    if (amc_contract_is_cancelled($row)) {
+        return AMC_STATUS_CANCELLED;
+    }
+
+    return amc_contract_is_active($row) ? AMC_STATUS_ACTIVE : AMC_STATUS_EXPIRED;
+}
+
+function amc_coverage_none(): array
+{
+    return [
+        'under_amc' => false,
+        'end_date' => '',
+        'end_date_label' => '-',
+        'contract_id' => 0,
+        'contract_number' => '',
+        'installed_base_id' => 0,
+        'fab_number' => '',
+    ];
+}
+
+function amc_coverage_from_contract(array $row): array
+{
+    if (!amc_contract_is_active($row)) {
+        return amc_coverage_none();
+    }
+
+    $end = amc_normalize_date($row['amc_end_date'] ?? '');
+
+    return [
+        'under_amc' => true,
+        'end_date' => $end,
+        'end_date_label' => installed_base_format_date($end),
+        'contract_id' => (int) ($row['id'] ?? 0),
+        'contract_number' => trim((string) ($row['contract_number'] ?? '')),
+        'installed_base_id' => (int) ($row['installed_base_id'] ?? 0),
+        'fab_number' => trim((string) ($row['fab_number'] ?? '')),
+    ];
+}
+
+function amc_coverage_lookup(PDO $conn, array $installedBaseIds = [], array $fabNumbers = []): array
+{
+    amc_ensure_schema($conn);
+
+    $ids = [];
+    foreach ($installedBaseIds as $id) {
+        $id = (int) $id;
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
+    }
+
+    $fabs = [];
+    foreach ($fabNumbers as $fab) {
+        $fab = strtolower(trim((string) $fab));
+        if ($fab !== '') {
+            $fabs[$fab] = $fab;
+        }
+    }
+
+    if ($fabs !== []) {
+        $placeholders = [];
+        $params = [];
+        $index = 0;
+        foreach ($fabs as $fab) {
+            $key = ':xfab' . $index++;
+            $placeholders[] = $key;
+            $params[$key] = $fab;
+        }
+        $stmt = $conn->prepare('
+            SELECT id, fab_number
+            FROM installed_base
+            WHERE deleted_at IS NULL
+              AND LOWER(TRIM(fab_number)) IN (' . implode(', ', $placeholders) . ')
+        ');
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        $stmt->execute();
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $ids[(int) $row['id']] = (int) $row['id'];
+            $fabKey = strtolower(trim((string) ($row['fab_number'] ?? '')));
+            if ($fabKey !== '') {
+                $fabs[$fabKey] = $fabKey;
+            }
+        }
+    }
+
+    if ($ids === [] && $fabs === []) {
+        return ['by_id' => [], 'by_fab' => []];
+    }
+
+    $clauses = [];
+    $params = [];
+    if ($ids !== []) {
+        $placeholders = [];
+        $index = 0;
+        foreach ($ids as $id) {
+            $key = ':ib' . $index++;
+            $placeholders[] = $key;
+            $params[$key] = $id;
+        }
+        $clauses[] = 'installed_base_id IN (' . implode(', ', $placeholders) . ')';
+    }
+    if ($fabs !== []) {
+        $placeholders = [];
+        $index = 0;
+        foreach ($fabs as $fab) {
+            $key = ':fab' . $index++;
+            $placeholders[] = $key;
+            $params[$key] = $fab;
+        }
+        $clauses[] = 'LOWER(TRIM(fab_number)) IN (' . implode(', ', $placeholders) . ')';
+    }
+
+    $stmt = $conn->prepare('
+        SELECT *
+        FROM amc_contracts
+        WHERE deleted_at IS NULL
+          AND (' . implode(' OR ', $clauses) . ')
+        ORDER BY amc_end_date DESC, id DESC
+    ');
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $stmt->execute();
+
+    $byId = [];
+    $byFab = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (!amc_contract_is_active($row)) {
+            continue;
+        }
+        $coverage = amc_coverage_from_contract($row);
+        $ibId = (int) ($row['installed_base_id'] ?? 0);
+        $fabKey = strtolower(trim((string) ($row['fab_number'] ?? '')));
+        if ($ibId > 0 && !isset($byId[$ibId])) {
+            $byId[$ibId] = $coverage;
+        }
+        if ($fabKey !== '' && !isset($byFab[$fabKey])) {
+            $byFab[$fabKey] = $coverage;
+        }
+    }
+
+    return ['by_id' => $byId, 'by_fab' => $byFab];
+}
+
+function amc_coverage_resolve(array $lookup, int $installedBaseId = 0, string $fabNumber = ''): array
+{
+    if ($installedBaseId > 0 && isset($lookup['by_id'][$installedBaseId])) {
+        return $lookup['by_id'][$installedBaseId];
+    }
+
+    $fabKey = strtolower(trim($fabNumber));
+    if ($fabKey !== '' && isset($lookup['by_fab'][$fabKey])) {
+        return $lookup['by_fab'][$fabKey];
+    }
+
+    return amc_coverage_none();
+}
+
+function amc_coverage_for_machine(PDO $conn, int $installedBaseId = 0, string $fabNumber = ''): array
+{
+    return amc_coverage_resolve(
+        amc_coverage_lookup($conn, [$installedBaseId], [$fabNumber]),
+        $installedBaseId,
+        $fabNumber
+    );
+}
+
+function amc_attach_coverage_to_options(PDO $conn, array $options): array
+{
+    $ids = [];
+    $fabs = [];
+    foreach ($options as $option) {
+        $ids[] = (int) ($option['installed_base_id'] ?? $option['id'] ?? 0);
+        $fabs[] = (string) ($option['fab_number'] ?? '');
+    }
+
+    $lookup = amc_coverage_lookup($conn, $ids, $fabs);
+    foreach ($options as $index => $option) {
+        $coverage = amc_coverage_resolve(
+            $lookup,
+            (int) ($option['installed_base_id'] ?? $option['id'] ?? 0),
+            (string) ($option['fab_number'] ?? '')
+        );
+        $options[$index]['under_amc'] = !empty($coverage['under_amc']) ? 'Yes' : 'No';
+        $options[$index]['amc_end_date'] = !empty($coverage['under_amc']) ? (string) $coverage['end_date'] : '';
+        $options[$index]['amc_end_date_label'] = !empty($coverage['under_amc']) ? (string) $coverage['end_date_label'] : '';
+    }
+
+    return $options;
+}
+
+function amc_coverage_meta_html(array $coverage): string
+{
+    $yes = !empty($coverage['under_amc']);
+    $html = '<div class="amc-coverage-meta">';
+    $html .= '<div>Under AMC: <strong>' . ($yes ? 'Yes' : 'No') . '</strong></div>';
+    if ($yes) {
+        $html .= '<div>AMC end date: '
+            . htmlspecialchars((string) $coverage['end_date_label'], ENT_QUOTES, 'UTF-8')
+            . '</div>';
+    }
+    $html .= '</div>';
+
+    return $html;
+}
+
+function amc_with_coverage_html(string $primaryHtml, array $coverage): string
+{
+    return $primaryHtml . amc_coverage_meta_html($coverage);
+}
+
+function amc_list_for_installed_base(PDO $conn, int $installedBaseId, string $fabNumber = ''): array
+{
+    amc_ensure_schema($conn);
+
+    $clauses = [];
+    $params = [];
+    if ($installedBaseId > 0) {
+        $clauses[] = 'installed_base_id = :installed_base_id';
+        $params[':installed_base_id'] = $installedBaseId;
+    }
+    $fabNumber = trim($fabNumber);
+    if ($fabNumber !== '') {
+        $clauses[] = 'LOWER(TRIM(fab_number)) = LOWER(TRIM(:fab_number))';
+        $params[':fab_number'] = $fabNumber;
+    }
+    if ($clauses === []) {
+        return [];
+    }
+
+    $stmt = $conn->prepare('
+        SELECT *
+        FROM amc_contracts
+        WHERE deleted_at IS NULL
+          AND (' . implode(' OR ', $clauses) . ')
+        ORDER BY amc_end_date DESC, id DESC
+    ');
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

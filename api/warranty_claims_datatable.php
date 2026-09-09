@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/warranty_claims_helpers.php';
+require_once dirname(__DIR__) . '/includes/amc_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -97,7 +98,13 @@ try {
     $dataStmt->execute();
 
     $data = [];
-    foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+    $amcLookup = amc_coverage_lookup(
+        $obconn,
+        array_map(static fn ($row) => (int) ($row['id'] ?? 0), $rows),
+        array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+    );
+    foreach ($rows as $row) {
         $warranty = installed_base_warranty_status($row['commissioning_date'] ?? null);
         $customerName = trim((string) ($row['customer_name'] ?? ''));
         $fabNumber = trim((string) ($row['fab_number'] ?? ''));
@@ -106,16 +113,19 @@ try {
         $fabHref = $installedBaseId > 0
             ? 'installed_base_details.php?id=' . rawurlencode(base64_encode((string) $installedBaseId))
             : '';
+        $coverage = amc_coverage_resolve($amcLookup, $installedBaseId, $fabNumber);
+
+        $fabHtml = ($fabNumber !== '' && $fabHref !== '')
+            ? '<a href="' . htmlspecialchars($fabHref, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">'
+                . htmlspecialchars($fabNumber, ENT_QUOTES, 'UTF-8')
+                . '</a>'
+            : ($fabNumber !== ''
+                ? '<span class="warranty-grid-fab">' . htmlspecialchars($fabNumber, ENT_QUOTES, 'UTF-8') . '</span>'
+                : '<span class="text-muted">-</span>');
 
         $data[] = [
             'id' => '<span class="warranty-grid-idd">#' . $installedBaseId . '</span>',
-            'fab_number' => ($fabNumber !== '' && $fabHref !== '')
-                ? '<a href="' . htmlspecialchars($fabHref, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">'
-                    . htmlspecialchars($fabNumber, ENT_QUOTES, 'UTF-8')
-                    . '</a>'
-                : ($fabNumber !== ''
-                    ? '<span class="warranty-grid-fab">' . htmlspecialchars($fabNumber, ENT_QUOTES, 'UTF-8') . '</span>'
-                    : '<span class="text-muted">-</span>'),
+            'fab_number' => amc_with_coverage_html($fabHtml, $coverage),
             'customer_name' => $customerName !== ''
                 ? htmlspecialchars($customerName, ENT_QUOTES, 'UTF-8')
                 : '<span class="text-muted">-</span>',

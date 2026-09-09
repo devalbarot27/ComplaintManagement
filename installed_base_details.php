@@ -11,6 +11,7 @@ require_once 'includes/after_market_access_helpers.php';
 require_once 'includes/complaint_service_log_helpers.php';
 require_once 'includes/complaint_category_helpers.php';
 require_once 'includes/complaint_address_helpers.php';
+require_once 'includes/amc_helpers.php';
 
 $active_menu = 'installed_base';
 
@@ -128,7 +129,21 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                 <div>
                     <h5 class="mb-2">Installed Base #<?php echo htmlspecialchars((string) (int) $installedBaseRecord['id'], ENT_QUOTES, 'UTF-8'); ?></h5>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                        
+                        <?php
+                        $headerAmcCoverage = amc_coverage_for_machine(
+                            $obconn,
+                            (int) $installedBaseRecord['id'],
+                            (string) ($installedBaseRecord['fab_number'] ?? '')
+                        );
+                        ?>
+                        <span class="badge border border-dark text-dark">
+                            Under AMC: <?= !empty($headerAmcCoverage['under_amc']) ? 'Yes' : 'No' ?>
+                        </span>
+                        <?php if (!empty($headerAmcCoverage['under_amc'])) { ?>
+                        <span class="text-muted small">
+                            AMC end date: <?= htmlspecialchars((string) $headerAmcCoverage['end_date_label'], ENT_QUOTES, 'UTF-8') ?>
+                        </span>
+                        <?php } ?> 
                         <?php if ($serviceLogCount > 0) { ?>
                         <span class="badge border border-secondary text-secondary">
                             <?php echo htmlspecialchars((string) (int) $serviceLogCount, ENT_QUOTES, 'UTF-8'); ?>
@@ -158,6 +173,81 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
             </div>
 
             <?php include __DIR__ . '/includes/installed_base_record_details_section.php'; ?>
+
+            <?php
+            $installedBaseAmcContracts = amc_list_for_installed_base(
+                $obconn,
+                (int) $installedBaseRecord['id'],
+                (string) ($installedBaseRecord['fab_number'] ?? '')
+            );
+            ?>
+            <div class="card border-1 shadow-sm mb-3">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-text text-secondary"></i>
+                        <strong>AMC Records</strong>
+                    </div>
+                    <?php if ($installedBaseAmcContracts !== []) { ?>
+                    <span class="badge border border-secondary text-secondary">
+                        <?php echo htmlspecialchars((string) count($installedBaseAmcContracts), ENT_QUOTES, 'UTF-8'); ?>
+                        record<?php echo count($installedBaseAmcContracts) === 1 ? '' : 's'; ?>
+                    </span>
+                    <?php } ?>
+                </div>
+                <div class="card-body complaint-form-body px-3 pt-3 pb-3">
+                    <?php if ($installedBaseAmcContracts === []) { ?>
+                    <div class="border rounded p-4 bg-white text-center text-muted">
+                        <i class="bi bi-file-earmark-x fs-4 d-block mb-2"></i>
+                        No AMC contracts linked to this installed base yet.
+                    </div>
+                    <?php } else { ?>
+                    <div class="table-responsive">
+                        <table class="table table-hover booking-table mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Contract No.</th>
+                                    <th>AMC Type</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Visits</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($installedBaseAmcContracts as $amcRow) {
+                                    $encodedAmcId = rawurlencode(base64_encode((string) (int) $amcRow['id']));
+                                    ?>
+                                <tr>
+                                    <td>
+                                        <a href="amc_details.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="text-primary fw-semibold text-decoration-none">
+                                            <?= htmlspecialchars((string) ($amcRow['contract_number'] ?? '-')) ?>
+                                        </a>
+                                    </td>
+                                    <td><?= htmlspecialchars(AMC_TYPE_OPTIONS[$amcRow['amc_type']] ?? ($amcRow['amc_type'] ?: '-')) ?></td>
+                                    <td><?= htmlspecialchars(installed_base_format_date($amcRow['amc_start_date'] ?? null)) ?></td>
+                                    <td><?= htmlspecialchars(installed_base_format_date($amcRow['amc_end_date'] ?? null)) ?></td>
+                                    <td><?= (int) ($amcRow['no_of_visits'] ?? 0) ?></td>
+                                    <td>
+                                        <span class="status-badge border border-dark">
+                                            <?= htmlspecialchars(amc_display_status($amcRow)) ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="amc_details.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="btn btn-sm btn-outline-dark" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <?php } ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php } ?>
+                </div>
+            </div>
 
             <div class="card border-1 shadow-sm mb-3">
                 <div class="card-header bg-white d-flex  flex-wrap gap-2">

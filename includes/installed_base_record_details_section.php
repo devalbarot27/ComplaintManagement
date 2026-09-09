@@ -4,6 +4,7 @@
  * Expects: $installedBaseRecord (array)
  * Optional: $installedBaseHideRecordHeader (bool)
  */
+require_once __DIR__ . '/amc_helpers.php';
 $installedBaseHideRecordHeader = !empty($installedBaseHideRecordHeader);
 $recordId = (int) ($installedBaseRecord['id'] ?? 0);
 
@@ -74,6 +75,25 @@ $renderInstalledBaseDetailField = static function (
                     installed_base_display_value($installedBaseRecord['fab_number'] ?? null),
                     'col-md-4'
                 );
+                $amcCoverage = (isset($obconn) && $obconn instanceof PDO)
+                    ? amc_coverage_for_machine(
+                        $obconn,
+                        (int) ($installedBaseRecord['id'] ?? 0),
+                        (string) ($installedBaseRecord['fab_number'] ?? '')
+                    )
+                    : amc_coverage_none();
+                $renderInstalledBaseDetailField(
+                    'Under AMC',
+                    !empty($amcCoverage['under_amc']) ? 'Yes' : 'No',
+                    'col-md-4'
+                );
+                if (!empty($amcCoverage['under_amc'])) {
+                    $renderInstalledBaseDetailField(
+                        'AMC End Date',
+                        (string) $amcCoverage['end_date_label'],
+                        'col-md-4'
+                    );
+                }
                 $renderInstalledBaseDetailField(
                     'Machine Model',
                     installed_base_machine_model_label($installedBaseRecord),

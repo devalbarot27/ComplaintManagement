@@ -113,6 +113,8 @@
         $pageName = "AR Statement";
     } else if ($currentPage == 'amc.php') {
         $pageName = "AMC";
+    } else if ($currentPage == 'amc_details.php') {
+        $pageName = "AMC Contract Details";
     }
 
 

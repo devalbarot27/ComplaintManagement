@@ -31,6 +31,7 @@ $dealerName = current_assignee_name();
 
 $formData = [];
 $reopenAmcForm = false;
+$installedBaseSnapshot = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_amc'])) {
     if (!$canAddAmc) {
@@ -38,6 +39,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_amc'])) {
     } else {
         $data = amc_from_post($_POST);
         $validationError = amc_validate($data);
+
+        if ((int) ($data['installed_base_id'] ?? 0) > 0) {
+            $installedBaseSnapshot = amc_installed_base_snapshot($obconn, (int) $data['installed_base_id']);
+        }
+
+        if ($validationError === null) {
+            if ($installedBaseSnapshot === null) {
+                $validationError = 'Please search for and select a valid Installed Base machine.';
+            } elseif (trim((string) ($installedBaseSnapshot['fab_number'] ?? '')) === '') {
+                $validationError = 'The selected Installed Base record does not have a FAB number.';
+            } elseif (trim((string) ($installedBaseSnapshot['customer_name'] ?? '')) === '') {
+                $validationError = 'Customer details are not available for the selected Installed Base record.';
+            } else {
+                $data = amc_merge_installed_base_snapshot($data, $installedBaseSnapshot);
+            }
+        }
 
         if ($validationError !== null) {
             $error_message = $validationError;
@@ -80,20 +97,55 @@ $amcContracts = amc_list($obconn);
     <link href="css/datatable_custom.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
     <link href="css/select2_change.css" rel="stylesheet">
+    <style>
+        .amc-page .warranty-status-badge {
+            border: 1px solid transparent;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.2;
+            display: inline-block;
+        }
+        .amc-page .warranty-status--standard {
+            background: #dcfce7;
+            color: #166534;
+            border-color: #86efac;
+        }
+        .amc-page .warranty-status--uptime {
+            background: #e0f2fe;
+            color: #075985;
+            border-color: #7dd3fc;
+        }
+        .amc-page .warranty-status--out {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #fca5a5;
+        }
+        .amc-page .warranty-status--unknown {
+            background: #f1f5f9;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
+        .amc-page #amcContractsTable tbody td {
+            vertical-align: middle;
+        }
+        .amc-page #amcContractsTable tbody td:last-child {
+            white-space: nowrap;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <script src="js/pincode_select2.js"></script>
-    <script src="js/fabno_select2.js"></script>
 </head>
 <body>
 <div class="main-wrapper" id="mainWrapper">
 
     <?php include 'sidebar.php'; ?>
 
-    <div class="content">
+        <div class="content amc-page">
 
         <?php if ($error_message !== ''): ?>
         <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
@@ -111,7 +163,7 @@ $amcContracts = amc_list($obconn);
         <div class="page-header">
             <div>
                 <div class="page-subtitle">
-                    Register and track Annual Maintenance Contracts (AMC) for customer machines.
+                    Register AMC contracts against an Installed Base machine. FAB number, model, warranty and customer details are filled from the selected record.
                 </div>
             </div>
             <?php if ($canAddAmc): ?>
@@ -136,7 +188,7 @@ $amcContracts = amc_list($obconn);
                     <div>
                         <h2 class="complaint-form-header__title">New AMC Registration</h2>
                         <p class="complaint-form-header__subtitle">
-                            Capture product, customer and contract details to register a new AMC.
+                            Select an Installed Base machine, then enter AMC contract details.
                         </p>
                     </div>
                 </div>
@@ -149,41 +201,56 @@ $amcContracts = amc_list($obconn);
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
                             <div>
-                                <h3 class="complaint-form-section__title">Product Details</h3>
+                                <h3 class="complaint-form-section__title">Installed Base</h3>
+                                <p class="complaint-form-section__hint">Search and select a machine. FAB number, model and warranty status are filled automatically.</p>
                             </div>
                         </div>
                         <div class="row g-3">
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">Product Group <span class="text-danger">*</span></label>
-                                <select class="form-control" name="product_group" required>
-                                    <option value="">-- Select --</option>
-                                    <?php foreach (AMC_PRODUCT_GROUP_OPTIONS as $pg): ?>
-                                    <option value="<?= htmlspecialchars($pg) ?>" <?= (($formData['product_group'] ?? '') === $pg) ? 'selected' : '' ?>><?= htmlspecialchars($pg) ?></option>
-                                    <?php endforeach; ?>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label" for="amcInstalledBaseSelect">
+                                    Installed Base Search <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-control" name="installed_base_id" id="amcInstalledBaseSelect"
+                                    data-placeholder="Search by FAB number, customer or model" required>
+                                    <option value=""></option>
                                 </select>
+                                <div class="text-danger validation-msg" data-field="installed_base_id"></div>
+                            </div>
+                            <div class="col-md-3 form-group">
+                                <label class="form-label">FAB Number</label>
+                                <input type="text" class="form-control address-auto-field" id="amcFabNumber"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['fab_number'] ?? '') ?>">
                             </div>
                             <div class="col-md-3 form-group">
                                 <label class="form-label">Equipment Model</label>
-                                <select class="form-control" name="product_model" id="machineModelSelect"
-                                    data-placeholder="Search or select machine model">
-                                    <option value=""></option>
-                                </select>
+                                <input type="text" class="form-control address-auto-field" id="amcEquipmentModel"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['product_model'] ?? '') ?>">
                             </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">Fab No</label>
-                                <select class="form-control" name="fab_number" id="fabNumberSelect"
-                                    data-placeholder="Search or select fab number">
-                                    <option value=""></option>
-                                </select>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label">Warranty Status</label>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <input type="text" class="form-control address-auto-field" id="amcWarrantyStatus"
+                                        placeholder="Auto-filled from the selected machine" readonly
+                                        value="<?= htmlspecialchars($installedBaseSnapshot['warranty_status'] ?? '') ?>">
+                                    <span id="amcWarrantyBadge" class="warranty-status-badge <?= htmlspecialchars($installedBaseSnapshot['warranty_badge_class'] ?? 'warranty-status--unknown') ?>"
+                                        style="<?= empty($installedBaseSnapshot['warranty_status']) ? 'display:none;' : '' ?>">
+                                        <?= htmlspecialchars($installedBaseSnapshot['warranty_status'] ?? '') ?>
+                                    </span>
+                                </div>
                             </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">Obligation <span class="text-danger">*</span></label>
-                                <select class="form-control" name="obligation" required>
-                                    <option value="">-- Select --</option>
-                                    <?php foreach (AMC_OBLIGATION_OPTIONS as $val => $label): ?>
-                                    <option value="<?= htmlspecialchars($val) ?>" <?= (($formData['obligation'] ?? '') === $val) ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label">Under AMC</label>
+                                <input type="text" class="form-control address-auto-field" id="amcUnderAmc"
+                                    placeholder="Auto-filled from the selected machine" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['under_amc'] ?? '') ?>">
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label">AMC End Date</label>
+                                <input type="text" class="form-control address-auto-field" id="amcExistingEndDate"
+                                    placeholder="Shown when the machine is under AMC" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['amc_end_date_label'] ?? '') ?>">
                             </div>
                         </div>
                     </section>
@@ -193,73 +260,63 @@ $amcContracts = amc_list($obconn);
                             <span class="complaint-form-section__badge">2</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Customer Details</h3>
+                                <p class="complaint-form-section__hint">Populated from the customer linked to the selected Installed Base record.</p>
                             </div>
                         </div>
                         <div class="row g-3">
                             <div class="col-md-4 form-group">
-                                <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="customer_name" maxlength="150" required value="<?= htmlspecialchars($formData['customer_name'] ?? '') ?>">
+                                <label class="form-label">Customer Name</label>
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerName"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['customer_name'] ?? '') ?>">
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label">Contact Person</label>
-                                <input type="text" class="form-control" name="contact_person" maxlength="150" value="<?= htmlspecialchars($formData['contact_person'] ?? '') ?>">
-                            </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label">Telephone</label>
-                                <input type="text" class="form-control" name="telephone_number" maxlength="50" value="<?= htmlspecialchars($formData['telephone_number'] ?? '') ?>">
+                                <label class="form-label">Mobile</label>
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerMobile"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['telephone_number'] ?? '') ?>">
                             </div>
                             <div class="col-md-4 form-group">
                                 <label class="form-label">Email</label>
-                                <input type="email" class="form-control" name="email_id" maxlength="150" value="<?= htmlspecialchars($formData['email_id'] ?? '') ?>">
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerEmail"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['email_id'] ?? '') ?>">
                             </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label">Address Line 1</label>
-                                <input type="text" class="form-control" name="address_line1" maxlength="255" value="<?= htmlspecialchars($formData['address_line1'] ?? '') ?>">
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Street 1</label>
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerStreet1"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['address_line1'] ?? '') ?>">
                             </div>
-                            <div class="col-md-4 form-group">
-                                <label class="form-label">Address Line 2</label>
-                                <input type="text" class="form-control" name="address_line2" maxlength="255" value="<?= htmlspecialchars($formData['address_line2'] ?? '') ?>">
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Street 2</label>
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerStreet2"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['address_line2'] ?? '') ?>">
                             </div>
                             <div class="col-md-3 form-group">
-                                <label class="form-label" for="amcPincodeSelect">Pin Code</label>
-                                <select class="form-control" name="post_code" id="amcPincodeSelect"
-                                    data-placeholder="Search or select pincode">
-                                    <option value=""></option>
-                                </select>
-                                <div class="text-danger validation-msg" data-field="pincode"></div>
+                                <label class="form-label">Pincode</label>
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerPincode"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['post_code'] ?? '') ?>">
                             </div>
                             <div class="col-md-3 form-group">
                                 <label class="form-label">City</label>
-                                <input type="text" class="form-control address-auto-field" name="city"
-                                    maxlength="100" placeholder="Auto-filled from pincode" readonly value="<?= htmlspecialchars($formData['city_name'] ?? '') ?>">
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerCity"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['city_name'] ?? '') ?>">
                             </div>
                             <div class="col-md-3 form-group">
                                 <label class="form-label">District</label>
-                                <input type="text" class="form-control address-auto-field" name="district"
-                                    maxlength="100" placeholder="Auto-filled from pincode" readonly value="<?= htmlspecialchars($formData['district_name'] ?? '') ?>">
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerDistrict"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['district_name'] ?? '') ?>">
                             </div>
                             <div class="col-md-3 form-group">
                                 <label class="form-label">State</label>
-                                <input type="text" class="form-control address-auto-field" name="state"
-                                    maxlength="100" placeholder="Auto-filled from pincode" readonly value="<?= htmlspecialchars($formData['state_name'] ?? '') ?>">
-                            </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">Customer Group</label>
-                                <select class="form-control" name="customer_group">
-                                    <option value="">-- Select --</option>
-                                    <?php foreach (AMC_CUSTOMER_GROUP_OPTIONS as $cg): ?>
-                                    <option value="<?= htmlspecialchars($cg) ?>" <?= (($formData['customer_group'] ?? '') === $cg) ? 'selected' : '' ?>><?= htmlspecialchars($cg) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">Business Line</label>
-                                <select class="form-control" name="business_line">
-                                    <option value="">-- Select --</option>
-                                    <?php foreach (AMC_BUSINESS_LINE_OPTIONS as $bl): ?>
-                                    <option value="<?= htmlspecialchars($bl) ?>" <?= (($formData['business_line'] ?? '') === $bl) ? 'selected' : '' ?>><?= htmlspecialchars($bl) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <input type="text" class="form-control address-auto-field" id="amcCustomerState"
+                                    placeholder="Auto-filled from Installed Base" readonly
+                                    value="<?= htmlspecialchars($installedBaseSnapshot['state_name'] ?? '') ?>">
                             </div>
                         </div>
                     </section>
@@ -269,60 +326,52 @@ $amcContracts = amc_list($obconn);
                             <span class="complaint-form-section__badge">3</span>
                             <div>
                                 <h3 class="complaint-form-section__title">AMC Details</h3>
+                                <p class="complaint-form-section__hint">Enter the contract type, value, dates and visit plan.</p>
                             </div>
                         </div>
                         <div class="row g-3">
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">Environment</label>
-                                <select class="form-control" name="environment">
-                                    <option value="">-- Select --</option>
-                                    <?php foreach (AMC_ENVIRONMENT_OPTIONS as $env): ?>
-                                    <option value="<?= htmlspecialchars($env) ?>" <?= (($formData['environment'] ?? '') === $env) ? 'selected' : '' ?>><?= htmlspecialchars($env) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">AMC Type <span class="text-danger">*</span></label>
-                                <select class="form-control" name="amc_type" id="amcType" required>
-                                    <option value="">-- Select --</option>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label" for="amcType">
+                                    <i class="bi bi-tags"></i> AMC Type <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-control" name="amc_type" id="amcType"
+                                    data-placeholder="Select AMC type" required>
+                                    <option value=""></option>
                                     <?php foreach (AMC_TYPE_OPTIONS as $val => $label): ?>
                                     <option value="<?= htmlspecialchars($val) ?>" <?= (($formData['amc_type'] ?? '') === $val) ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
                                     <?php endforeach; ?>
                                 </select>
+                                <div class="text-danger validation-msg" data-field="amc_type"></div>
                             </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">Mode of Call</label>
-                                <select class="form-control" name="mode_of_call">
-                                    <option value="">-- Select --</option>
-                                    <?php foreach (AMC_MODE_OF_CALL_OPTIONS as $val => $label): ?>
-                                    <option value="<?= htmlspecialchars($val) ?>" <?= (($formData['mode_of_call'] ?? '') === $val) ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label">AMC Value <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" min="0.01" class="form-control" name="amc_value" required value="<?= htmlspecialchars($formData['amc_value'] ?? '') ?>">
+                                <input type="number" step="0.01" min="0.01" class="form-control" name="amc_value" required
+                                    value="<?= htmlspecialchars($formData['amc_value'] ?? '') ?>">
+                                <div class="text-danger validation-msg" data-field="amc_value"></div>
                             </div>
-                            <div class="col-md-12 form-group">
-                                <label class="form-label">AMC Type Remarks</label>
-                                <textarea class="form-control" name="amc_type_remarks" rows="2" maxlength="500"><?= htmlspecialchars($formData['amc_type_remarks'] ?? '') ?></textarea>
-                                <small class="text-muted">Required (min 5 characters) when AMC Type is Standard.</small>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label">Number of Visits <span class="text-danger">*</span></label>
+                                <input type="number" min="1" max="52" step="1" class="form-control" name="no_of_visits" required
+                                    value="<?= htmlspecialchars($formData['no_of_visits'] ?? '') ?>">
+                                <div class="text-danger validation-msg" data-field="no_of_visits"></div>
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label">AMC Start Date <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" name="amc_start_date" required value="<?= htmlspecialchars($formData['amc_start_date'] ?? '') ?>">
+                                <input type="date" class="form-control" name="amc_start_date" required
+                                    value="<?= htmlspecialchars($formData['amc_start_date'] ?? '') ?>">
+                                <div class="text-danger validation-msg" data-field="amc_start_date"></div>
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label">AMC End Date <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" name="amc_end_date" required value="<?= htmlspecialchars($formData['amc_end_date'] ?? '') ?>">
+                                <input type="date" class="form-control" name="amc_end_date" required
+                                    value="<?= htmlspecialchars($formData['amc_end_date'] ?? '') ?>">
+                                <div class="text-danger validation-msg" data-field="amc_end_date"></div>
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label">Visit Start Date <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" name="visit_start_date" required value="<?= htmlspecialchars($formData['visit_start_date'] ?? '') ?>">
-                            </div>
-                            <div class="col-md-3 form-group">
-                                <label class="form-label">No. of Visits <span class="text-danger">*</span></label>
-                                <input type="number" min="1" max="52" class="form-control" name="no_of_visits" required value="<?= htmlspecialchars($formData['no_of_visits'] ?? '') ?>">
+                                <input type="date" class="form-control" name="visit_start_date" required
+                                    value="<?= htmlspecialchars($formData['visit_start_date'] ?? '') ?>">
+                                <div class="text-danger validation-msg" data-field="visit_start_date"></div>
                             </div>
                         </div>
                     </section>
@@ -341,55 +390,95 @@ $amcContracts = amc_list($obconn);
         </div>
         <?php endif; ?>
 
-        <div class="card mt-3" id="amcTableCard" style="<?= $reopenAmcForm ? 'display:none;' : '' ?>">
-            <div class="card-header d-flex align-items-center gap-2">
-                <i class="bi bi-list-ul"></i>
-                <strong>AMC Contracts</strong>
+        <div class="complaint-form-card show" id="amcTableCard" style="<?= $reopenAmcForm ? 'display:none;' : '' ?>">
+            <div class="complaint-form-header">
+                <div class="complaint-form-header__main">
+                    <div class="complaint-form-header__icon">
+                        <i class="bi bi-file-earmark-text"></i>
+                    </div>
+                    <div>
+                        <h2 class="complaint-form-header__title">AMC Contracts</h2>
+                        <p class="complaint-form-header__subtitle">
+                            Track registered AMC contracts, warranty status and visit coverage.
+                        </p>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="padding:10px;">
-                    <table id="amcContractsTable" class="table table-hover mb-0 datatable-standard">
+            <div class="complaint-form-body">
+                <div class="table-responsive">
+                    <table id="amcContractsTable" class="table table-hover booking-table w-100">
                         <thead>
                             <tr>
-                                <th>#</th>
-                                <th>Contract No.</th>
-                                <th>Customer</th>
-                                <th>Product Model</th>
-                                <th>Fab No</th>
-                                <th>AMC Type</th>
-                                <th>Start Date</th>
-                                <th>End Date</th>
-                                <th>Visits</th>
-                                <th>Value</th>
-                                <th>Status</th>
-                                <th>Action</th>
+                                <th width="6%">#</th>
+                                <th width="12%">Contract No.</th>
+                                <th width="14%">Customer</th>
+                                <th width="14%">Equipment Model</th>
+                                <th width="10%">FAB Number</th>
+                                <th width="12%">Warranty</th>
+                                <th width="10%">AMC Type</th>
+                                <th width="10%">Start Date</th>
+                                <th width="10%">End Date</th>
+                                <th width="6%">Visits</th>
+                                <th width="8%">Value</th>
+                                <th width="8%">Status</th>
+                                <th width="8%">Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($amcContracts as $i => $row): ?>
+                            <?php foreach ($amcContracts as $row): ?>
+                            <?php
+                                $amcId = (int) $row['id'];
+                                $encodedAmcId = rawurlencode(base64_encode((string) $amcId));
+                                $installedBaseId = (int) ($row['installed_base_id'] ?? 0);
+                                $fabNumber = trim((string) ($row['fab_number'] ?? ''));
+                            ?>
                             <tr>
-                                <td><?= $i + 1 ?></td>
-                                <td><?= htmlspecialchars($row['contract_number']) ?></td>
-                                <td><?= htmlspecialchars($row['customer_name']) ?></td>
-                                <td><?= htmlspecialchars($row['product_model'] ?? '-') ?></td>
-                                <td><?= htmlspecialchars($row['fab_number'] ?? '-') ?></td>
-                                <td><?= htmlspecialchars(AMC_TYPE_OPTIONS[$row['amc_type']] ?? $row['amc_type']) ?></td>
-                                <td><?= htmlspecialchars($row['amc_start_date']) ?></td>
-                                <td><?= htmlspecialchars($row['amc_end_date']) ?></td>
+                                <td><?= $amcId ?></td>
+                                <td>
+                                    <a href="amc_details.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
+                                        class="text-primary fw-semibold text-decoration-none">
+                                        <?= htmlspecialchars($row['contract_number']) ?>
+                                    </a>
+                                </td>
+                                <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
+                                <td><?= htmlspecialchars((string) ($row['product_model'] ?? '-')) ?></td>
+                                <td>
+                                    <?php if ($installedBaseId > 0 && $fabNumber !== ''): ?>
+                                    <a href="installed_base_details.php?id=<?= htmlspecialchars(rawurlencode(base64_encode((string) $installedBaseId)), ENT_QUOTES, 'UTF-8') ?>"
+                                        target="_blank" rel="noopener"
+                                        class="text-primary fw-semibold text-decoration-none">
+                                        <?= htmlspecialchars($fabNumber) ?>
+                                    </a>
+                                    <?php else: ?>
+                                    <?= htmlspecialchars($fabNumber !== '' ? $fabNumber : '-') ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td><span class="status-badge border border-dark"><?= $row['warranty_status'] ?></span></td>
+                                <td>
+                                    <span class="status-badge border border-dark">
+                                        <?= htmlspecialchars(AMC_TYPE_OPTIONS[$row['amc_type']] ?? ($row['amc_type'] ?: '-')) ?>
+                                    </span>
+                                </td>
+                                <td><?= htmlspecialchars((string) ($row['amc_start_date'] ?? '-')) ?></td>
+                                <td><?= htmlspecialchars((string) ($row['amc_end_date'] ?? '-')) ?></td>
                                 <td><?= (int) $row['no_of_visits'] ?></td>
                                 <td><?= htmlspecialchars(number_format((float) $row['amc_value'], 2)) ?></td>
-                                <td><span class="badge <?= amc_status_badge_class($row['status']) ?>"><?= htmlspecialchars($row['status']) ?></span></td>
-                                <td class="text-nowrap">
+                                <td>
+                                    <span class="status-badge border border-dark">
+                                        <?= htmlspecialchars(amc_display_status($row)) ?>
+                                    </span>
+                                </td>
+                                <td>
                                     <div class="d-flex gap-1">
-                                        <a href="amc_details.php?id=<?= rawurlencode(base64_encode((string) $row['id'])) ?>"
-                                            class="btn btn-sm btn-outline-dark">
-                                            <i class="bi bi-eye"></i> View
+                                        <a href="amc_details.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="btn btn-sm btn-outline-dark" title="View">
+                                            <i class="bi bi-eye"></i>
                                         </a>
                                         <?php if ($canDeleteAmc): ?>
-                                        <a href="delete_amc.php?id=<?= rawurlencode(base64_encode((string) $row['id'])) ?>"
-                                            class="btn btn-sm btn-outline-dark"
+                                        <a href="delete_amc.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="btn btn-sm btn-outline-dark" title="Delete"
                                             onclick="return confirm('Delete this AMC contract?');">
-                                            <i class="bi bi-trash"></i> Delete
+                                            <i class="bi bi-trash"></i>
                                         </a>
                                         <?php endif; ?>
                                     </div>
@@ -406,100 +495,8 @@ $amcContracts = amc_list($obconn);
 </div>
 
 <script>
-(function () {
-    const openBtn = document.getElementById('openAmcForm');
-    const closeBtn = document.getElementById('closeAmcForm');
-    const cancelBtn = document.getElementById('cancelAmcForm');
-    const formCard = document.getElementById('amcFormCard');
-    const tableCard = document.getElementById('amcTableCard');
-
-    function showForm() {
-        if (!formCard) return;
-        formCard.style.display = 'block';
-        tableCard.style.display = 'none';
-        if (openBtn) openBtn.style.display = 'none';
-        if (closeBtn) closeBtn.style.display = '';
-        formCard.scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function hideForm() {
-        if (!formCard) return;
-        formCard.style.display = 'none';
-        tableCard.style.display = 'block';
-        if (openBtn) openBtn.style.display = '';
-        if (closeBtn) closeBtn.style.display = 'none';
-    }
-
-    if (openBtn) openBtn.addEventListener('click', showForm);
-    if (closeBtn) closeBtn.addEventListener('click', hideForm);
-    if (cancelBtn) cancelBtn.addEventListener('click', hideForm);
-
-    $(document).ready(function () {
-        $('#amcContractsTable').DataTable({
-            order: [[0, 'desc']]
-        });
-
-        const $machineModelSelect = $('#machineModelSelect');
-        $machineModelSelect.select2({
-            width: '100%',
-            placeholder: $machineModelSelect.data('placeholder') || 'Search or select machine model',
-            allowClear: true,
-            minimumInputLength: 0,
-            ajax: {
-                url: 'api/machine_model_search.php',
-                dataType: 'json',
-                delay: 250,
-                data: function (params) {
-                    return { q: params.term || '' };
-                },
-                processResults: function (data) {
-                    return data;
-                },
-                cache: true
-            },
-            language: {
-                noResults: function () { return 'No machine model found'; },
-                searching: function () { return 'Searching...'; }
-            }
-        });
-
-        function setAmcMachineModel(code, description) {
-            $machineModelSelect.val(null).trigger('change');
-
-            if (!code) {
-                return;
-            }
-
-            const label = description ? code + ' - ' + description : code;
-            const option = new Option(label, code, true, true);
-            $machineModelSelect.append(option).trigger('change');
-        }
-
-        initFabnoSelect2('amcForm', 'fabNumberSelect', {
-            onSelect: function (data) {
-                setAmcMachineModel(data.machine_model_code || '', data.machine_model || '');
-            },
-            onClear: function () {
-                setAmcMachineModel('', '');
-            }
-        });
-
-        initPincodeSelect2('amcForm', 'amcPincodeSelect');
-
-        <?php if ($reopenAmcForm): ?>
-        setAmcMachineModel(<?= json_encode($formData['product_model'] ?? '') ?>, '');
-        setFabNumberSelect2('fabNumberSelect', 'amcForm', <?= json_encode($formData['fab_number'] ?? '') ?>);
-        <?php if (($formData['post_code'] ?? '') !== ''): ?>
-        setPincodeSelect2($('#amcForm')[0], 'amcPincodeSelect', {
-            pincode: <?= json_encode($formData['post_code']) ?>,
-            city: <?= json_encode($formData['city_name'] ?? '') ?>,
-            district: <?= json_encode($formData['district_name'] ?? '') ?>,
-            state: <?= json_encode($formData['state_name'] ?? '') ?>
-        });
-        <?php endif; ?>
-        <?php endif; ?>
-    });
-})();
+window.amcPreselectedInstalledBase = <?= json_encode($installedBaseSnapshot ?: null, JSON_UNESCAPED_UNICODE) ?>;
 </script>
+<script src="js/amc.js"></script>
 </body>
 </html>

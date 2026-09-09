@@ -129,6 +129,7 @@ function rbac_api_access_rules(): array
         'amc.php' => ['module' => 'amc', 'permission' => 'view'],
         'amc_details.php' => ['module' => 'amc', 'permission' => 'view'],
         'delete_amc.php' => ['module' => 'amc', 'permission' => 'delete'],
+        'amc_installed_base_search.php' => ['module' => 'amc', 'permission' => 'add'],
         'warranty_claims.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
         'warranty_claims_datatable.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
         'warranty_claims_fab_search.php' => ['module' => 'warranty-claims', 'permission' => 'view'],

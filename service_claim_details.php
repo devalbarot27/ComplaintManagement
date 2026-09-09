@@ -7,6 +7,7 @@ require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
 require_once 'includes/installed_base_helpers.php';
 require_once 'includes/record_details_layout.php';
+require_once 'includes/amc_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
 
@@ -98,6 +99,11 @@ $visitPrice = $record['visit_charge_price'] ?? '';
                 );
             } else {
                 record_details_field('Fab Number', $fabNumber, 'col-md-4');
+            }
+            $serviceClaimAmcCoverage = amc_coverage_for_machine($obconn, (int) ($installedBaseId ?? 0), $fabNumber);
+            record_details_field('Under AMC', !empty($serviceClaimAmcCoverage['under_amc']) ? 'Yes' : 'No', 'col-md-4');
+            if (!empty($serviceClaimAmcCoverage['under_amc'])) {
+                record_details_field('AMC End Date', (string) $serviceClaimAmcCoverage['end_date_label'], 'col-md-4');
             }
             record_details_section_end();
 

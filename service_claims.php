@@ -7,6 +7,7 @@ require_once 'includes/current_username_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/distance_wise_price_helpers.php';
 require_once 'includes/installed_base_helpers.php';
+require_once 'includes/amc_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
 distance_wise_price_ensure_schema($obconn);
@@ -585,7 +586,13 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($claims as $row): ?>
+                        <?php
+                        $serviceClaimAmcLookup = amc_coverage_lookup(
+                            $obconn,
+                            [],
+                            array_map(static fn ($claimRow) => (string) ($claimRow['fab_number'] ?? ''), $claims)
+                        );
+                        foreach ($claims as $row): ?>
                         <?php
                             $claimId = (int) $row['id'];
                             $complaintId = (int) $row['complaint_id'];
@@ -600,6 +607,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                 : distance_wise_price_format_number($priceValue);
                             $ccsClaim = trim((string) ($row['ccs_warranty_claim'] ?? ''));
                             $overallStatus = trim((string) ($row['overall_status'] ?? ''));
+                            $serviceClaimCoverage = amc_coverage_resolve($serviceClaimAmcLookup, 0, (string) ($row['fab_number'] ?? ''));
                         ?>
                         <tr>
                             <td><?= $claimId ?></td>
@@ -608,7 +616,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                     #<?= $complaintId ?>
                                 </a>
                             </td>
-                            <td><?= installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?></td>
+                            <td><?= amc_with_coverage_html(installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab), $serviceClaimCoverage) ?></td>
                             <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                             <td>
                                 <div class="fw-semibold"><?= htmlspecialchars($kmLabel === '-' ? '' : $kmLabel) ?><?= $kmLabel !== '-' ? ' KM' : '-' ?></div>

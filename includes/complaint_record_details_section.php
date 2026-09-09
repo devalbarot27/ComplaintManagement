@@ -3,6 +3,7 @@
  * Renders complaint record details.
  * Expects: $complaint (array), $statusMap (array)
  */
+require_once __DIR__ . '/amc_helpers.php';
 
 $renderComplaintDetailField = static function (
     string $label,
@@ -46,6 +47,25 @@ $complaintStatusLabel = $statusMap[$complaint['status']] ?? 'Unknown';
                     (string) ($complaint['fab_number'] ?? ''),
                     'col-md-4'
                 );
+                $amcCoverage = (isset($obconn) && $obconn instanceof PDO)
+                    ? amc_coverage_for_machine(
+                        $obconn,
+                        (int) ($complaint['installed_base_id'] ?? 0),
+                        (string) ($complaint['fab_number'] ?? '')
+                    )
+                    : amc_coverage_none();
+                $renderComplaintDetailField(
+                    'Under AMC',
+                    !empty($amcCoverage['under_amc']) ? 'Yes' : 'No',
+                    'col-md-4'
+                );
+                if (!empty($amcCoverage['under_amc'])) {
+                    $renderComplaintDetailField(
+                        'AMC End Date',
+                        (string) $amcCoverage['end_date_label'],
+                        'col-md-4'
+                    );
+                }
                 $renderComplaintDetailField(
                     'Complaint Category',
                     complaint_category_display_name($complaint),

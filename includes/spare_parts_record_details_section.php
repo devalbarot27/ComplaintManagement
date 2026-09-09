@@ -5,6 +5,7 @@
  * Optional: $sparePartsHideRecordHeader (bool), $sparePartsEmbeddedInInstalledBase (bool),
  *           $sparePartsRecordNumber (int), $sparePartsRecordTotal (int), $canViewSparePartsDetails (bool)
  */
+require_once __DIR__ . '/amc_helpers.php';
 $sparePartsHideRecordHeader = !empty($sparePartsHideRecordHeader);
 $sparePartsEmbeddedInInstalledBase = !empty($sparePartsEmbeddedInInstalledBase);
 $isLastSparePartsRecord = !empty($isLastSparePartsRecord);
@@ -110,6 +111,25 @@ $renderSparePartsDetailField = static function (
 
                 $renderSparePartsDetailField('Installed Base', $installedBaseHtml, 'col-md-6', false, true);
                 $renderSparePartsDetailField('Fab Number', spare_parts_display_value($sparePartsRecord['fab_number'] ?? null), 'col-md-3');
+                $sparePartsAmcCoverage = (isset($obconn) && $obconn instanceof PDO)
+                    ? amc_coverage_for_machine(
+                        $obconn,
+                        $installedBaseId,
+                        (string) ($sparePartsRecord['fab_number'] ?? '')
+                    )
+                    : amc_coverage_none();
+                $renderSparePartsDetailField(
+                    'Under AMC',
+                    !empty($sparePartsAmcCoverage['under_amc']) ? 'Yes' : 'No',
+                    'col-md-3'
+                );
+                if (!empty($sparePartsAmcCoverage['under_amc'])) {
+                    $renderSparePartsDetailField(
+                        'AMC End Date',
+                        (string) $sparePartsAmcCoverage['end_date_label'],
+                        'col-md-3'
+                    );
+                }
                 $renderSparePartsDetailField('Serial Number', spare_parts_display_value($sparePartsRecord['serial_number'] ?? null), 'col-md-3');
                 $renderSparePartsDetailField('Machine Model', spare_parts_display_value($sparePartsRecord['machine_model'] ?? null), 'col-md-3');
                 $renderSparePartsDetailField('Customer Name', spare_parts_display_value($sparePartsRecord['customer_name'] ?? null), 'col-md-3');

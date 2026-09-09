@@ -5,7 +5,7 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
 rbac_require_api_access($obconn);
 require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
-require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
+require_once dirname(__DIR__) . '/includes/amc_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 
@@ -114,13 +114,23 @@ if (!isset($_SESSION['role'])) {
 
 $data = [];
 $installedBasePermissions = installed_base_action_permissions($obconn);
+$rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+$amcLookup = amc_coverage_lookup(
+    $obconn,
+    array_map(static fn ($row) => (int) ($row['id'] ?? 0), $rows),
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
 
-foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+foreach ($rows as $row) {
     $hasServiceLog = (int) ($row['service_log_count'] ?? 0) > 0;
+    $coverage = amc_coverage_resolve($amcLookup, (int) $row['id'], (string) ($row['fab_number'] ?? ''));
     $data[] = [
         'id' => '#' . (int) $row['id'],
         'order_id' => htmlspecialchars((string) $row['order_id'], ENT_QUOTES, 'UTF-8'),
-        'fab_number' => htmlspecialchars((string) ($row['fab_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'fab_number' => amc_with_coverage_html(
+            htmlspecialchars((string) ($row['fab_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
+            $coverage
+        ),
         'customer_name' => htmlspecialchars(trim((string) ($row['customer_name'] ?? '')) !== '' ? (string) $row['customer_name'] : '-', ENT_QUOTES, 'UTF-8'),
         'dealer_name' => htmlspecialchars((string) ($row['dealer_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'machine_model' => htmlspecialchars(installed_base_machine_model_label($row), ENT_QUOTES, 'UTF-8'),

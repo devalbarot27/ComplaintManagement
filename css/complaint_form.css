@@ -72,6 +72,17 @@
     cursor: default;
 }
 
+.amc-coverage-meta {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #475569;
+}
+
+.amc-coverage-meta strong {
+    color: #0f172a;
+}
+
 .complaint-form-header {
     display: flex;
     align-items: center;

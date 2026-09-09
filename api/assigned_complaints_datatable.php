@@ -9,6 +9,7 @@ require_once dirname(__DIR__) . '/includes/complaint_category_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_assignment_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_address_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
+require_once dirname(__DIR__) . '/includes/amc_helpers.php';
 
 complaint_ensure_schema($obconn);
 
@@ -139,15 +140,24 @@ $dataStmt->execute();
 $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 $data = [];
 $assignedComplaintPermissions = complaint_assigned_action_permissions($obconn);
+$amcLookup = amc_coverage_lookup(
+    $obconn,
+    [],
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
 
 foreach ($rows as $row) {
     $status = (int) $row['status'];
     $hasServiceUpdate = (int) ($row['is_service_updated'] ?? 0) === 1;
+    $coverage = amc_coverage_resolve($amcLookup, 0, (string) ($row['fab_number'] ?? ''));
 
     $rowData = [
         'id' => '#' . (int) $row['c_id'],
         'c_id' => '#' . (int) $row['id'],
-        'fab_number' => htmlspecialchars($row['fab_number'], ENT_QUOTES, 'UTF-8'),
+        'fab_number' => amc_with_coverage_html(
+            htmlspecialchars((string) ($row['fab_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
+            $coverage
+        ),
         'customer_name' => htmlspecialchars((string) ($row['customer_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'complaint_category' => htmlspecialchars(complaint_category_display_name($row), ENT_QUOTES, 'UTF-8'),
         'username' => htmlspecialchars((string) ($row['username'] ?? ''), ENT_QUOTES, 'UTF-8'),

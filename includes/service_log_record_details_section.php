@@ -5,6 +5,7 @@
  * Optional: $serviceLogEmbeddedInInstalledBase (bool), $installedBaseRecord (array)
  */
 require_once __DIR__ . '/service_log_draft_helpers.php';
+require_once __DIR__ . '/amc_helpers.php';
 
 $serviceLogEmbeddedInInstalledBase = !empty($serviceLogEmbeddedInInstalledBase);
 $serviceLogId = (int) ($serviceLogRecord['id'] ?? 0);
@@ -158,6 +159,27 @@ $renderServiceLogDetailField = static function (
                     service_log_format_serial_number_for_display($serviceLogRecord['serial_number'] ?? null),
                     'col-md-4'
                 );
+                $serviceLogAmcCoverage = (isset($obconn) && $obconn instanceof PDO)
+                    ? amc_coverage_for_machine(
+                        $obconn,
+                        (int) ($serviceLogRecord['installed_base_id'] ?? ((is_array($installedBaseRecord ?? null) ? ($installedBaseRecord['id'] ?? 0) : 0))),
+                        (string) ((is_array($installedBaseRecord ?? null) && trim((string) ($installedBaseRecord['fab_number'] ?? '')) !== '')
+                            ? $installedBaseRecord['fab_number']
+                            : ($linkedInstalledBaseFields['fab_number'] ?? ''))
+                    )
+                    : amc_coverage_none();
+                $renderServiceLogDetailField(
+                    'Under AMC',
+                    !empty($serviceLogAmcCoverage['under_amc']) ? 'Yes' : 'No',
+                    'col-md-4'
+                );
+                if (!empty($serviceLogAmcCoverage['under_amc'])) {
+                    $renderServiceLogDetailField(
+                        'AMC End Date',
+                        (string) $serviceLogAmcCoverage['end_date_label'],
+                        'col-md-4'
+                    );
+                }
                 $renderServiceLogDetailField(
                     'Service Type',
                     service_log_display_value($serviceLogRecord['warranty_chargeable'] ?? null),
