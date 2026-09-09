@@ -42,7 +42,7 @@ $id = (int) ($_GET['id'] ?? 0);
 
 if ($id > 0) {
     $row = customer_master_get_by_id($obconn, $id);
-    if ($row === null) {
+    if ($row === null || !customer_master_user_can_access_record($obconn, $row)) {
         echo json_encode(['results' => []]);
         exit;
     }

@@ -405,12 +405,16 @@ $freightPercentage = 4;
                                         <option value=""></option>
                                     </select>
                                 </div>
-                                <button type="button" class="btn btn-outline-dark btn-sm mt-1"
+                               
+                            </div>
+                        </div>
+                        <div class="form-group">
+                        <button type="button" class="btn btn-outline-dark btn-sm mt-1 w-50"
                                     id="addNewCustomerFromOrderBookingBtn" title="Add New Customer">
                                     <i class="bi bi-plus-lg"></i> Add New Customer
                                 </button>
-                            </div>
                         </div>
+
                         <div class="form-group d-none">
                             <label>End Customer Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="endCustomerName" name="end_customer_name"
@@ -628,6 +632,7 @@ $freightPercentage = 4;
 <script src="https://code.jquery.com/ui/1.14.2/jquery-ui.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
 <script src="js/pincode_select2.js"></script>
+<script src="js/customer_master_dealer_select2.js"></script>
 <script src="js/installed_base_customer_modal.js"></script>
 <script src="js/order_booking_end_customer.js"></script>
 <script src="js/success_modal.js"></script>

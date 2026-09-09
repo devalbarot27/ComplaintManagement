@@ -30,9 +30,14 @@ if (!$record) {
     die('Customer not found.');
 }
 
+if (!customer_master_user_can_access_record($obconn, $record)) {
+    rbac_access_denied_redirect();
+}
+
 $contacts = contact_list_by_customer_id($obconn, $id);
 $contactPermissions = contact_action_permissions($obconn);
 $canAddContact = $contactPermissions['add'];
+$isDealerUser = is_dealer_user();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -74,13 +79,18 @@ $canAddContact = $contactPermissions['add'];
                         <div class="col-md-4"><strong>Customer Name:</strong><br><?php echo htmlspecialchars((string) ($record['customer_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>Email:</strong><br><?php echo htmlspecialchars((string) ($record['email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>Mobile:</strong><br><?php echo htmlspecialchars((string) ($record['mobile'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
+                        <?php if (!$isDealerUser) { ?>
+                        <div class="col-md-4"><strong>Dealer Name:</strong><br><?php echo htmlspecialchars(customer_master_dealer_display_label($record), ENT_QUOTES, 'UTF-8'); ?></div>
+                        <?php } ?>
+                        <div class="col-md-4"><strong>GST Number:</strong><br><?php echo htmlspecialchars(trim((string) ($record['gst_number'] ?? '')) !== '' ? (string) $record['gst_number'] : '-', ENT_QUOTES, 'UTF-8'); ?></div>
+                        <div class="col-md-4"><strong>PAN Number:</strong><br><?php echo htmlspecialchars(trim((string) ($record['pan_number'] ?? '')) !== '' ? (string) $record['pan_number'] : '-', ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>Pincode:</strong><br><?php echo htmlspecialchars((string) ($record['pincode'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>Street 1:</strong><br><?php echo htmlspecialchars((string) ($record['street_1'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>Street 2:</strong><br><?php echo htmlspecialchars((string) ($record['street_2'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>City:</strong><br><?php echo htmlspecialchars((string) ($record['city'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>District:</strong><br><?php echo htmlspecialchars((string) ($record['district'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>State:</strong><br><?php echo htmlspecialchars((string) ($record['state'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></div>
-                        <div class="col-md-4"><strong>Created By:</strong><br><?php echo htmlspecialchars(customer_master_created_by_label($record), ENT_QUOTES, 'UTF-8'); ?></div>
+                        <div class="col-md-4"><strong>Added By:</strong><br><?php echo htmlspecialchars(customer_master_created_by_label($record), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>Created At:</strong><br><?php echo htmlspecialchars(rbac_format_datetime($record['created_at'] ?? null), ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="col-md-4"><strong>Contacts:</strong><br><?php echo count($contacts); ?></div>
                     </div>

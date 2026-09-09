@@ -27,8 +27,15 @@ if ($id <= 0) {
 }
 
 try {
-    if (!customer_master_get_by_id($obconn, $id)) {
+    $record = customer_master_get_by_id($obconn, $id);
+    if (!$record) {
         $_SESSION['error_message'] = 'Record not found or already deleted.';
+        header('Location: customer_master.php');
+        exit;
+    }
+
+    if (!customer_master_user_can_access_record($obconn, $record)) {
+        $_SESSION['error_message'] = 'Access denied. You cannot delete this customer.';
         header('Location: customer_master.php');
         exit;
     }

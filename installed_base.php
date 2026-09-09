@@ -553,6 +553,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
 
     <script src="js/static_select2.js"></script>
     <script src="js/pincode_select2.js"></script>
+    <script src="js/customer_master_dealer_select2.js"></script>
     <script src="js/fabno_select2.js"></script>
     <script src="js/installed_base_customer_select2.js"></script>
     <script src="js/installed_base_customer_modal.js"></script>

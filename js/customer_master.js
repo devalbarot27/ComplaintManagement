@@ -26,6 +26,30 @@ function initcustomerMasterFormValidation() {
         };
     }
 
+    if (typeof validate.validators.ccmGstNumber === 'undefined') {
+        validate.validators.ccmGstNumber = function (value) {
+            const gst = String(value || '').trim().toUpperCase();
+            if (gst === '') {
+                return;
+            }
+            // if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst)) {
+            //     return '^Enter a valid 15-character GSTIN or leave blank';
+            // }
+        };
+    }
+
+    if (typeof validate.validators.ccmPanNumber === 'undefined') {
+        validate.validators.ccmPanNumber = function (value) {
+            const pan = String(value || '').trim().toUpperCase();
+            if (pan === '') {
+                return;
+            }
+            if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) {
+                return '^Enter a valid 10-character PAN or leave blank';
+            }
+        };
+    }
+
     const constraints = {
         customer_name: {
             presence: { allowEmpty: false, message: '^Customer Name is required' },
@@ -64,12 +88,23 @@ function initcustomerMasterFormValidation() {
         },
         state: {
             presence: { allowEmpty: false, message: '^State is required' }
+        },
+        dealer_code: {
+            presence: { allowEmpty: false, message: '^Dealer Name is required' }
+        },
+        gst_number: {
+            ccmGstNumber: true
+        },
+        pan_number: {
+            ccmPanNumber: true
         }
     };
 
     function bindInputRestrictions() {
         const mobileInput = form.querySelector('[name="mobile"]');
         const emailInput = form.querySelector('[name="email"]');
+        const gstInput = form.querySelector('[name="gst_number"]');
+        const panInput = form.querySelector('[name="pan_number"]');
 
         if (mobileInput) {
             mobileInput.addEventListener('input', function () {
@@ -80,6 +115,18 @@ function initcustomerMasterFormValidation() {
         if (emailInput) {
             emailInput.addEventListener('input', function () {
                 emailInput.value = emailInput.value.replace(/[^A-Za-z0-9._%+\-@]/g, '');
+            });
+        }
+
+        if (gstInput) {
+            gstInput.addEventListener('input', function () {
+                gstInput.value = gstInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 15);
+            });
+        }
+
+        if (panInput) {
+            panInput.addEventListener('input', function () {
+                panInput.value = panInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10);
             });
         }
     }
@@ -110,6 +157,12 @@ function initcustomerMasterFormValidation() {
                 .find('.select2-selection')
                 .removeClass('is-invalid');
         }
+        if (fieldName === 'dealer_code' && window.jQuery) {
+            window.jQuery('#customerMasterDealerSelect')
+                .next('.select2-container')
+                .find('.select2-selection')
+                .removeClass('is-invalid');
+        }
     }
 
     function setFieldError(fieldName, message) {
@@ -120,6 +173,12 @@ function initcustomerMasterFormValidation() {
         }
         if (fieldName === 'pincode' && window.jQuery) {
             window.jQuery('#customerMasterPincodeSelect')
+                .next('.select2-container')
+                .find('.select2-selection')
+                .addClass('is-invalid');
+        }
+        if (fieldName === 'dealer_code' && window.jQuery) {
+            window.jQuery('#customerMasterDealerSelect')
                 .next('.select2-container')
                 .find('.select2-selection')
                 .addClass('is-invalid');
@@ -182,6 +241,13 @@ function initcustomerMasterFormValidation() {
         window.jQuery('#customerMasterPincodeSelect').on('select2:select select2:clear change', function () {
             validateField(form.querySelector('[name="pincode"]'));
         });
+        window.jQuery('#customerMasterDealerSelect').on('select2:select select2:clear change', function () {
+            const dealerInput = form.querySelector('#customerMasterDealerCodeLocked')
+                || form.querySelector('[name="dealer_code"]');
+            if (dealerInput) {
+                validateField(dealerInput);
+            }
+        });
     }
 
     function getRecordId() {
@@ -212,7 +278,13 @@ function initcustomerMasterFormValidation() {
             return;
         }
 
-        const errors = validate(form, constraints);
+        const values = validate.collectFormValues(form);
+        const lockedDealer = document.getElementById('customerMasterDealerCodeLocked');
+        if (lockedDealer && String(lockedDealer.value || '').trim() !== '') {
+            values.dealer_code = String(lockedDealer.value).trim();
+        }
+
+        const errors = validate(values, constraints);
         showErrors(errors);
 
         if (errors) {
@@ -246,6 +318,26 @@ function initcustomerMasterDatatable() {
         return null;
     }
 
+    const isDealer = !!window.customerMasterIsDealer;
+    const columns = [
+        { data: 'id' },
+        { data: 'customer_name' },
+        { data: 'email' },
+        { data: 'mobile' },
+        { data: 'address' }
+    ];
+
+    if (!isDealer) {
+        columns.push({ data: 'dealer_name' });
+        columns.push({ data: 'added_by' });
+    }
+
+    columns.push(
+        { data: 'contact_count' },
+        { data: 'created_at' },
+        { data: 'actions', orderable: false, searchable: false }
+    );
+
     return $table.DataTable({
         processing: true,
         serverSide: true,
@@ -255,17 +347,7 @@ function initcustomerMasterDatatable() {
         },
         order: [[0, 'desc']],
         pageLength: 10,
-        columns: [
-            { data: 'id' },
-            { data: 'customer_name' },
-            { data: 'email' },
-            { data: 'mobile' },
-            { data: 'city' },
-            { data: 'state' },
-            { data: 'contact_count' },
-            { data: 'created_at' },
-            { data: 'actions', orderable: false, searchable: false }
-        ],
+        columns: columns,
         language: {
             emptyTable: 'No customers found.',
             zeroRecords: 'No matching customers found.'
@@ -299,6 +381,27 @@ function fillcustomerMasterForm(record) {
         district: record.district || '',
         state: record.state || ''
     });
+
+    const dealerCtx = getCustomerMasterDealerContext();
+    const dealerLocked = !!(dealerCtx && dealerCtx.locked);
+    const dealerCode = dealerLocked ? dealerCtx.code : (record.dealer_code || '');
+    const dealerName = dealerLocked ? dealerCtx.name : (record.dealer_name || '');
+    const dealerText = dealerLocked
+        ? dealerCtx.text
+        : (dealerName ? (dealerName + (dealerCode ? ' - [' + dealerCode + ']' : '')) : dealerCode);
+
+    setCustomerMasterDealerSelect2(
+        'customerMasterDealerSelect',
+        'customerMasterDealerName',
+        'customerMasterDealerCodeLocked',
+        dealerCode,
+        dealerName,
+        dealerText,
+        { locked: dealerLocked }
+    );
+
+    form.querySelector('[name="gst_number"]').value = record.gst_number || '';
+    form.querySelector('[name="pan_number"]').value = record.pan_number || '';
 }
 
 function resetcustomerMasterForm() {
@@ -312,6 +415,11 @@ function resetcustomerMasterForm() {
     document.getElementById('customerMasterFormModeLabel').textContent = 'Add Customer';
     document.getElementById('submitcustomerMasterBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save Customer';
     resetPincodeSelect2(form, 'customerMasterPincodeSelect');
+    resetCustomerMasterDealerSelect2(
+        'customerMasterDealerSelect',
+        'customerMasterDealerName',
+        'customerMasterDealerCodeLocked'
+    );
 
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
@@ -320,6 +428,10 @@ function resetcustomerMasterForm() {
         el.textContent = '';
     });
     $('#customerMasterPincodeSelect')
+        .next('.select2-container')
+        .find('.select2-selection')
+        .removeClass('is-invalid');
+    $('#customerMasterDealerSelect')
         .next('.select2-container')
         .find('.select2-selection')
         .removeClass('is-invalid');
@@ -360,6 +472,11 @@ function bootcustomerMasterPage() {
     const form = document.getElementById('customerMasterForm');
     if (form) {
         initPincodeSelect2('customerMasterForm', 'customerMasterPincodeSelect');
+        initCustomerMasterDealerSelect2(
+            'customerMasterDealerSelect',
+            'customerMasterDealerName',
+            'customerMasterDealerCodeLocked'
+        );
         initcustomerMasterFormValidation();
     }
 

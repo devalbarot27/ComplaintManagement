@@ -41,6 +41,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 }
 
 $data = customer_master_from_post($_POST);
+$data = customer_master_apply_dealer_rules($obconn, $data);
 $validationError = customer_master_validate($obconn, $data);
 
 if ($validationError !== null) {

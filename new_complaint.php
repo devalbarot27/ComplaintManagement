@@ -255,6 +255,7 @@ if(isset($_POST['submit_complaint']))
 <script src="js/fabno_select2.js"></script>
 <script src="js/complaint_customer_select2.js"></script>
 <script src="js/pincode_select2.js"></script>
+<script src="js/customer_master_dealer_select2.js"></script>
 <script src="js/installed_base_customer_modal.js"></script>
 <script src="js/complaint_fab_prefill.js"></script>
 <script src="js/assign_to_select2.js"></script>

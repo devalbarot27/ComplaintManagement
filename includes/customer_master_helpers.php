@@ -31,41 +31,72 @@ function customer_master_ensure_schema(PDO $conn): void
         $conn->exec('ALTER TABLE customer_contact_masters RENAME TO customer_masters');
         $conn->exec('ALTER INDEX IF EXISTS customer_contact_masters_email_active_uidx RENAME TO customer_masters_email_active_uidx');
         $conn->exec('ALTER INDEX IF EXISTS customer_contact_masters_mobile_active_uidx RENAME TO customer_masters_mobile_active_uidx');
-        return;
+        $hasNew = true;
     }
 
-    if ($hasNew) {
-        return;
+    if (!$hasNew) {
+        $conn->exec("
+            CREATE TABLE customer_masters (
+                id SERIAL PRIMARY KEY,
+                customer_name VARCHAR(150) NOT NULL,
+                email VARCHAR(150) NOT NULL,
+                mobile VARCHAR(15) NOT NULL,
+                street_1 VARCHAR(255) NOT NULL,
+                street_2 VARCHAR(255) NOT NULL,
+                pincode VARCHAR(10) NOT NULL,
+                city VARCHAR(100) NOT NULL,
+                district VARCHAR(100) NOT NULL,
+                state VARCHAR(100) NOT NULL,
+                dealer_code VARCHAR(50) NULL,
+                dealer_name VARCHAR(150) NULL,
+                gst_number VARCHAR(30) NULL,
+                pan_number VARCHAR(20) NULL,
+                added_by VARCHAR(150) NULL,
+                created_by VARCHAR(150) NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_by VARCHAR(150) NULL,
+                updated_at TIMESTAMP NULL,
+                deleted_at TIMESTAMP NULL
+            )
+        ");
+        $conn->exec("
+            CREATE UNIQUE INDEX customer_masters_email_active_uidx
+            ON customer_masters (LOWER(TRIM(email)))
+            WHERE deleted_at IS NULL
+        ");
+        $conn->exec("
+            CREATE UNIQUE INDEX customer_masters_mobile_active_uidx
+            ON customer_masters (TRIM(mobile))
+            WHERE deleted_at IS NULL
+        ");
     }
 
     $conn->exec("
-        CREATE TABLE customer_masters (
-            id SERIAL PRIMARY KEY,
-            customer_name VARCHAR(150) NOT NULL,
-            email VARCHAR(150) NOT NULL,
-            mobile VARCHAR(15) NOT NULL,
-            street_1 VARCHAR(255) NOT NULL,
-            street_2 VARCHAR(255) NOT NULL,
-            pincode VARCHAR(10) NOT NULL,
-            city VARCHAR(100) NOT NULL,
-            district VARCHAR(100) NOT NULL,
-            state VARCHAR(100) NOT NULL,
-            created_by VARCHAR(150) NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_by VARCHAR(150) NULL,
-            updated_at TIMESTAMP NULL,
-            deleted_at TIMESTAMP NULL
-        )
+        ALTER TABLE customer_masters
+        ADD COLUMN IF NOT EXISTS dealer_code VARCHAR(50) NULL
     ");
     $conn->exec("
-        CREATE UNIQUE INDEX customer_masters_email_active_uidx
-        ON customer_masters (LOWER(TRIM(email)))
-        WHERE deleted_at IS NULL
+        ALTER TABLE customer_masters
+        ADD COLUMN IF NOT EXISTS dealer_name VARCHAR(150) NULL
     ");
     $conn->exec("
-        CREATE UNIQUE INDEX customer_masters_mobile_active_uidx
-        ON customer_masters (TRIM(mobile))
-        WHERE deleted_at IS NULL
+        ALTER TABLE customer_masters
+        ADD COLUMN IF NOT EXISTS gst_number VARCHAR(30) NULL
+    ");
+    $conn->exec("
+        ALTER TABLE customer_masters
+        ADD COLUMN IF NOT EXISTS pan_number VARCHAR(20) NULL
+    ");
+    $conn->exec("
+        ALTER TABLE customer_masters
+        ADD COLUMN IF NOT EXISTS added_by VARCHAR(150) NULL
+    ");
+    $conn->exec("
+        UPDATE customer_masters
+        SET added_by = created_by
+        WHERE (added_by IS NULL OR TRIM(added_by) = '')
+          AND created_by IS NOT NULL
+          AND TRIM(created_by) <> ''
     ");
 }
 
@@ -76,6 +107,9 @@ function customer_master_email_pattern(): string
 
 function customer_master_from_post(array $post): array
 {
+    $dealerCode = trim((string) ($post['dealer_code'] ?? ''));
+    $dealerName = trim((string) ($post['dealer_name'] ?? ''));
+
     return [
         'customer_name' => trim((string) ($post['customer_name'] ?? '')),
         'email' => trim((string) ($post['email'] ?? '')),
@@ -86,7 +120,372 @@ function customer_master_from_post(array $post): array
         'city' => trim((string) ($post['city'] ?? '')),
         'district' => trim((string) ($post['district'] ?? '')),
         'state' => trim((string) ($post['state'] ?? '')),
+        'dealer_code' => $dealerCode,
+        'dealer_name' => $dealerName,
+        'gst_number' => strtoupper(trim((string) ($post['gst_number'] ?? ''))),
+        'pan_number' => strtoupper(trim((string) ($post['pan_number'] ?? ''))),
     ];
+}
+
+/**
+ * Resolve dealer code from a user_master row (customer_code, else customer_number).
+ */
+function customer_master_dealer_code_from_user_row(array $row): string
+{
+    $code = trim((string) ($row['customer_code'] ?? ''));
+    if ($code !== '') {
+        return $code;
+    }
+
+    return trim((string) ($row['customer_number'] ?? ''));
+}
+
+/**
+ * @return array{code: string, name: string, text: string}|null
+ */
+function customer_master_dealer_get(PDO $conn, string $cuno): ?array
+{
+    require_once __DIR__ . '/admin_access_helpers.php';
+
+    $cuno = trim($cuno);
+    if ($cuno === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT
+            TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\'))) AS dealer_code,
+            TRIM(COALESCE(
+                NULLIF(TRIM(cm.cuname), \'\'),
+                NULLIF(TRIM(um.name), \'\'),
+                NULLIF(TRIM(um.username), \'\'),
+                TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\')))
+            )) AS dealer_name
+        FROM user_master um
+        LEFT JOIN customer_master cm
+            ON TRIM(cm.cuno) = TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\')))
+        WHERE um.deleted_at IS NULL
+          AND um.role = :dealer_role
+          AND TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\'))) = TRIM(:cuno)
+        ORDER BY um.name ASC NULLS LAST, um.username ASC
+        LIMIT 1
+    ');
+    $stmt->bindValue(':dealer_role', DEALER_USER_ROLE, PDO::PARAM_INT);
+    $stmt->bindValue(':cuno', $cuno);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return null;
+    }
+
+    $code = trim((string) ($row['dealer_code'] ?? ''));
+    $name = trim((string) ($row['dealer_name'] ?? ''));
+    if ($code === '') {
+        return null;
+    }
+
+    return [
+        'code' => $code,
+        'name' => $name !== '' ? $name : $code,
+        'text' => ($name !== '' ? $name : $code) . ' - [' . $code . ']',
+    ];
+}
+
+/**
+ * Active Dealer role users only (excludes soft-deleted users).
+ *
+ * @return array<int, array{id: string, text: string, name: string}>
+ */
+function customer_master_dealer_search(PDO $conn, string $search, int $limit = 50): array
+{
+    require_once __DIR__ . '/admin_access_helpers.php';
+
+    $limit = max(1, min(100, $limit));
+    $search = trim($search);
+
+    $sql = '
+        SELECT
+            dealer_code,
+            MIN(dealer_name) AS dealer_name
+        FROM (
+            SELECT
+                TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\'))) AS dealer_code,
+                TRIM(COALESCE(
+                    NULLIF(TRIM(cm.cuname), \'\'),
+                    NULLIF(TRIM(um.name), \'\'),
+                    NULLIF(TRIM(um.username), \'\'),
+                    TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\')))
+                )) AS dealer_name
+            FROM user_master um
+            LEFT JOIN customer_master cm
+                ON TRIM(cm.cuno) = TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\')))
+            WHERE um.deleted_at IS NULL
+              AND um.role = :dealer_role
+              AND TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\'))) <> \'\'
+        ) dealers
+        WHERE 1 = 1
+    ';
+    $params = [':dealer_role' => DEALER_USER_ROLE];
+    if ($search !== '') {
+        $sql .= ' AND (
+            LOWER(dealer_name) LIKE LOWER(:search)
+            OR LOWER(dealer_code) LIKE LOWER(:search)
+        )';
+        $params[':search'] = '%' . $search . '%';
+    }
+    $sql .= ' GROUP BY dealer_code ORDER BY dealer_name ASC NULLS LAST, dealer_code ASC LIMIT ' . (int) $limit;
+
+    $stmt = $conn->prepare($sql);
+    foreach ($params as $key => $value) {
+        if ($key === ':dealer_role') {
+            $stmt->bindValue($key, $value, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue($key, $value);
+        }
+    }
+    $stmt->execute();
+
+    $results = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $code = trim((string) ($row['dealer_code'] ?? ''));
+        if ($code === '') {
+            continue;
+        }
+        $name = trim((string) ($row['dealer_name'] ?? ''));
+        $labelName = $name !== '' ? $name : $code;
+        $results[] = [
+            'id' => $code,
+            'text' => $labelName . ' - [' . $code . ']',
+            'name' => $labelName,
+        ];
+    }
+
+    return $results;
+}
+
+/**
+ * Dealer role users only see customers added by their dealer (same dealer code users).
+ * Other roles see all customers.
+ *
+ * @return array{sql: string, params: array<string, mixed>}
+ */
+function customer_master_list_scope_filter(PDO $conn): array
+{
+    require_once __DIR__ . '/admin_access_helpers.php';
+    require_once __DIR__ . '/current_username_helpers.php';
+
+    if (!is_dealer_user()) {
+        return ['sql' => '', 'params' => []];
+    }
+
+    $username = current_username();
+    $dealerCtx = customer_master_logged_in_dealer_context($conn);
+    $dealerCode = trim((string) ($dealerCtx['code'] ?? ''));
+
+    if ($dealerCode !== '') {
+        return [
+            'sql' => ' AND LOWER(TRIM(COALESCE(added_by, created_by, \'\'))) IN (
+                SELECT LOWER(TRIM(um.username))
+                FROM user_master um
+                WHERE um.deleted_at IS NULL
+                  AND um.role = :cm_scope_dealer_role
+                  AND TRIM(COALESCE(
+                      NULLIF(TRIM(um.customer_code), \'\'),
+                      NULLIF(TRIM(um.customer_number), \'\')
+                  )) = TRIM(:cm_scope_dealer_code)
+            )',
+            'params' => [
+                ':cm_scope_dealer_role' => DEALER_USER_ROLE,
+                ':cm_scope_dealer_code' => $dealerCode,
+            ],
+        ];
+    }
+
+    if ($username === '') {
+        return [
+            'sql' => ' AND 1 = 0',
+            'params' => [],
+        ];
+    }
+
+    return [
+        'sql' => ' AND LOWER(TRIM(COALESCE(added_by, created_by, \'\'))) = LOWER(TRIM(:cm_scope_username))',
+        'params' => [':cm_scope_username' => $username],
+    ];
+}
+
+/**
+ * Whether the current user may view/edit this customer master record.
+ */
+function customer_master_user_can_access_record(PDO $conn, ?array $record): bool
+{
+    require_once __DIR__ . '/admin_access_helpers.php';
+
+    if ($record === null) {
+        return false;
+    }
+
+    if (!is_dealer_user()) {
+        return true;
+    }
+
+    $addedBy = trim((string) ($record['added_by'] ?? ''));
+    if ($addedBy === '') {
+        $addedBy = trim((string) ($record['created_by'] ?? ''));
+    }
+    if ($addedBy === '') {
+        return false;
+    }
+
+    $dealerCtx = customer_master_logged_in_dealer_context($conn);
+    $dealerCode = trim((string) ($dealerCtx['code'] ?? ''));
+
+    if ($dealerCode !== '') {
+        $stmt = $conn->prepare('
+            SELECT 1
+            FROM user_master um
+            WHERE um.deleted_at IS NULL
+              AND um.role = :dealer_role
+              AND LOWER(TRIM(um.username)) = LOWER(TRIM(:username))
+              AND TRIM(COALESCE(
+                  NULLIF(TRIM(um.customer_code), \'\'),
+                  NULLIF(TRIM(um.customer_number), \'\')
+              )) = TRIM(:dealer_code)
+            LIMIT 1
+        ');
+        $stmt->bindValue(':dealer_role', DEALER_USER_ROLE, PDO::PARAM_INT);
+        $stmt->bindValue(':username', $addedBy);
+        $stmt->bindValue(':dealer_code', $dealerCode);
+        $stmt->execute();
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    require_once __DIR__ . '/current_username_helpers.php';
+
+    return strcasecmp($addedBy, current_username()) === 0;
+}
+
+/**
+ * Format dealer label for list/details (dealer who owns / added the customer).
+ */
+function customer_master_dealer_display_label(array $row): string
+{
+    $dealerName = trim((string) ($row['dealer_name'] ?? ''));
+    $dealerCode = trim((string) ($row['dealer_code'] ?? ''));
+
+    if ($dealerName !== '' && $dealerCode !== '') {
+        return $dealerName . ' - [' . $dealerCode . ']';
+    }
+    if ($dealerName !== '') {
+        return $dealerName;
+    }
+    if ($dealerCode !== '') {
+        return $dealerCode;
+    }
+
+    return '-';
+}
+
+/**
+ * Full address line for Customer Master list/details.
+ */
+function customer_master_full_address_label(array $row): string
+{
+    $parts = [];
+    foreach (['street_1', 'street_2', 'city', 'district', 'state', 'pincode'] as $field) {
+        $value = trim((string) ($row[$field] ?? ''));
+        if ($value !== '') {
+            $parts[] = $value;
+        }
+    }
+
+    return $parts !== [] ? implode(', ', $parts) : '-';
+}
+
+/**
+ * Logged-in Dealer User context for auto-filling Dealer Name.
+ *
+ * @return array{code: string, name: string, text: string, locked: bool}|null
+ */
+function customer_master_logged_in_dealer_context(PDO $conn): ?array
+{
+    require_once __DIR__ . '/admin_access_helpers.php';
+    require_once __DIR__ . '/current_username_helpers.php';
+
+    if (!is_dealer_user()) {
+        return null;
+    }
+
+    $username = current_username();
+    $code = '';
+    if ($username !== '') {
+        $stmt = $conn->prepare('
+            SELECT
+                TRIM(COALESCE(customer_code, \'\')) AS customer_code,
+                TRIM(COALESCE(customer_number, \'\')) AS customer_number
+            FROM user_master
+            WHERE deleted_at IS NULL
+              AND LOWER(TRIM(username)) = LOWER(TRIM(:username))
+            LIMIT 1
+        ');
+        $stmt->bindValue(':username', $username);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $code = trim((string) ($row['customer_code'] ?? ''));
+        if ($code === '') {
+            $code = trim((string) ($row['customer_number'] ?? ''));
+        }
+    }
+    if ($code === '') {
+        $code = trim((string) ($_SESSION['customer_number_vayu'] ?? ''));
+    }
+    if ($code === '') {
+        return null;
+    }
+
+    $dealer = customer_master_dealer_get($conn, $code);
+    if ($dealer === null) {
+        $dealer = [
+            'code' => $code,
+            'name' => $code,
+            'text' => $code . ' - [' . $code . ']',
+        ];
+    }
+
+    return [
+        'code' => $dealer['code'],
+        'name' => $dealer['name'],
+        'text' => $dealer['text'],
+        'locked' => true,
+    ];
+}
+
+/**
+ * Force dealer fields for logged-in dealer users; resolve dealer_name from code for others.
+ *
+ * @param array<string, mixed> $data
+ * @return array<string, mixed>
+ */
+function customer_master_apply_dealer_rules(PDO $conn, array $data): array
+{
+    $lockedDealer = customer_master_logged_in_dealer_context($conn);
+    if ($lockedDealer !== null) {
+        $data['dealer_code'] = $lockedDealer['code'];
+        $data['dealer_name'] = $lockedDealer['name'];
+        return $data;
+    }
+
+    $dealerCode = trim((string) ($data['dealer_code'] ?? ''));
+    if ($dealerCode !== '') {
+        $dealer = customer_master_dealer_get($conn, $dealerCode);
+        if ($dealer !== null) {
+            $data['dealer_code'] = $dealer['code'];
+            $data['dealer_name'] = $dealer['name'];
+        }
+    }
+
+    return $data;
 }
 
 function customer_master_lookup_pincode(PDO $conn, string $pincode): ?array
@@ -191,6 +590,49 @@ function customer_master_validate(PDO $conn, array $data): ?string
         return 'State is required.';
     }
 
+    $dealerCode = trim((string) ($data['dealer_code'] ?? ''));
+    $dealerName = trim((string) ($data['dealer_name'] ?? ''));
+    if ($dealerCode === '') {
+        return 'Dealer Name is required.';
+    }
+    if (strlen($dealerCode) > 50) {
+        return 'Dealer code cannot exceed 50 characters.';
+    }
+    if ($dealerName === '') {
+        return 'Dealer Name is required.';
+    }
+    if (strlen($dealerName) > 150) {
+        return 'Dealer Name cannot exceed 150 characters.';
+    }
+
+    $lockedDealer = customer_master_logged_in_dealer_context($conn);
+    if ($lockedDealer === null) {
+        $dealer = customer_master_dealer_get($conn, $dealerCode);
+        if ($dealer === null) {
+            return 'Selected dealer is invalid.';
+        }
+    }
+
+    $gstNumber = trim((string) ($data['gst_number'] ?? ''));
+    if ($gstNumber !== '') {
+        if (strlen($gstNumber) > 30) {
+            return 'GST Number cannot exceed 30 characters.';
+        }
+        // if (!preg_match('/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/', $gstNumber)) {
+        //     return 'Enter a valid 15-character GSTIN or leave blank.';
+        // }
+    }
+
+    $panNumber = trim((string) ($data['pan_number'] ?? ''));
+    if ($panNumber !== '') {
+        if (strlen($panNumber) > 20) {
+            return 'PAN Number cannot exceed 20 characters.';
+        }
+        if (!preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $panNumber)) {
+            return 'Enter a valid 10-character PAN or leave blank.';
+        }
+    }
+
     return null;
 }
 
@@ -257,6 +699,12 @@ function customer_master_search_filter(string $searchValue): array
             OR city ILIKE :search
             OR district ILIKE :search
             OR state ILIKE :search
+            OR dealer_code ILIKE :search
+            OR dealer_name ILIKE :search
+            OR gst_number ILIKE :search
+            OR pan_number ILIKE :search
+            OR added_by ILIKE :search
+            OR created_by ILIKE :search
         )',
         'params' => [':search' => '%' . $searchValue . '%'],
     ];
@@ -269,11 +717,21 @@ function customer_master_get_by_id(PDO $conn, int $id): ?array
     $stmt = $conn->prepare('
         SELECT
             cm.*,
-            COALESCE(NULLIF(TRIM(um.name), \'\'), NULLIF(TRIM(cm.created_by), \'\'), \'-\') AS created_by_name
+            COALESCE(NULLIF(TRIM(cm.added_by), \'\'), NULLIF(TRIM(cm.created_by), \'\'), \'\') AS added_by_username,
+            COALESCE(
+                NULLIF(TRIM(um_added.name), \'\'),
+                NULLIF(TRIM(um_created.name), \'\'),
+                NULLIF(TRIM(cm.added_by), \'\'),
+                NULLIF(TRIM(cm.created_by), \'\'),
+                \'-\'
+            ) AS created_by_name
         FROM customer_masters cm
-        LEFT JOIN user_master um
-            ON LOWER(TRIM(um.username)) = LOWER(TRIM(cm.created_by))
-           AND um.deleted_at IS NULL
+        LEFT JOIN user_master um_added
+            ON LOWER(TRIM(um_added.username)) = LOWER(TRIM(cm.added_by))
+           AND um_added.deleted_at IS NULL
+        LEFT JOIN user_master um_created
+            ON LOWER(TRIM(um_created.username)) = LOWER(TRIM(cm.created_by))
+           AND um_created.deleted_at IS NULL
         WHERE cm.id = :id
           AND cm.deleted_at IS NULL
         LIMIT 1
@@ -293,7 +751,10 @@ function customer_master_created_by_label(array $record): string
         return $name;
     }
 
-    $username = trim((string) ($record['created_by'] ?? ''));
+    $username = trim((string) ($record['added_by'] ?? ''));
+    if ($username === '') {
+        $username = trim((string) ($record['created_by'] ?? ''));
+    }
 
     return $username !== '' ? $username : '-';
 }
@@ -414,13 +875,14 @@ function customer_master_search_select2(PDO $conn, string $search, int $limit = 
 {
     customer_master_ensure_schema($conn);
     $limit = max(1, min(100, $limit));
+    $scope = customer_master_list_scope_filter($conn);
 
     $sql = '
         SELECT id, customer_name, email, mobile, street_1, street_2, pincode, city, district, state
         FROM customer_masters
         WHERE deleted_at IS NULL
-    ';
-    $params = [];
+    ' . $scope['sql'];
+    $params = $scope['params'];
 
     if ($search !== '') {
         $sql .= ' AND (
@@ -436,7 +898,11 @@ function customer_master_search_select2(PDO $conn, string $search, int $limit = 
 
     $stmt = $conn->prepare($sql);
     foreach ($params as $key => $value) {
-        $stmt->bindValue($key, $value);
+        if ($key === ':cm_scope_dealer_role') {
+            $stmt->bindValue($key, $value, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue($key, $value);
+        }
     }
     $stmt->execute();
 
@@ -541,10 +1007,14 @@ function customer_master_insert(PDO $conn, array $data, string $username): int
     $stmt = $conn->prepare('
         INSERT INTO customer_masters (
             customer_name, email, mobile, street_1, street_2,
-            pincode, city, district, state, created_by, created_at
+            pincode, city, district, state,
+            dealer_code, dealer_name, gst_number, pan_number,
+            added_by, created_by, created_at
         ) VALUES (
             :customer_name, :email, :mobile, :street_1, :street_2,
-            :pincode, :city, :district, :state, :created_by, CURRENT_TIMESTAMP
+            :pincode, :city, :district, :state,
+            :dealer_code, :dealer_name, :gst_number, :pan_number,
+            :added_by, :created_by, CURRENT_TIMESTAMP
         )
     ');
     $stmt->bindValue(':customer_name', $data['customer_name']);
@@ -556,9 +1026,15 @@ function customer_master_insert(PDO $conn, array $data, string $username): int
     $stmt->bindValue(':city', $data['city']);
     $stmt->bindValue(':district', $data['district']);
     $stmt->bindValue(':state', $data['state']);
+    $stmt->bindValue(':dealer_code', $data['dealer_code'] !== '' ? $data['dealer_code'] : null, $data['dealer_code'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
+    $stmt->bindValue(':dealer_name', $data['dealer_name'] !== '' ? $data['dealer_name'] : null, $data['dealer_name'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
+    $stmt->bindValue(':gst_number', $data['gst_number'] !== '' ? $data['gst_number'] : null, $data['gst_number'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
+    $stmt->bindValue(':pan_number', $data['pan_number'] !== '' ? $data['pan_number'] : null, $data['pan_number'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
     if ($username === '') {
+        $stmt->bindValue(':added_by', null, PDO::PARAM_NULL);
         $stmt->bindValue(':created_by', null, PDO::PARAM_NULL);
     } else {
+        $stmt->bindValue(':added_by', $username);
         $stmt->bindValue(':created_by', $username);
     }
     $stmt->execute();
@@ -581,6 +1057,10 @@ function customer_master_update(PDO $conn, int $id, array $data, string $usernam
             city = :city,
             district = :district,
             state = :state,
+            dealer_code = :dealer_code,
+            dealer_name = :dealer_name,
+            gst_number = :gst_number,
+            pan_number = :pan_number,
             updated_by = :updated_by,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
@@ -595,6 +1075,10 @@ function customer_master_update(PDO $conn, int $id, array $data, string $usernam
     $stmt->bindValue(':city', $data['city']);
     $stmt->bindValue(':district', $data['district']);
     $stmt->bindValue(':state', $data['state']);
+    $stmt->bindValue(':dealer_code', $data['dealer_code'] !== '' ? $data['dealer_code'] : null, $data['dealer_code'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
+    $stmt->bindValue(':dealer_name', $data['dealer_name'] !== '' ? $data['dealer_name'] : null, $data['dealer_name'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
+    $stmt->bindValue(':gst_number', $data['gst_number'] !== '' ? $data['gst_number'] : null, $data['gst_number'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
+    $stmt->bindValue(':pan_number', $data['pan_number'] !== '' ? $data['pan_number'] : null, $data['pan_number'] !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
     if ($username === '') {
         $stmt->bindValue(':updated_by', null, PDO::PARAM_NULL);
     } else {

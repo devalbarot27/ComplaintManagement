@@ -33,6 +33,11 @@ function resetInstalledBaseAddCustomerForm() {
     form.reset();
     clearInstalledBaseAddCustomerAlert();
     resetPincodeSelect2(form, 'installedBaseCustomerModalPincodeSelect');
+    resetCustomerMasterDealerSelect2(
+        'installedBaseCustomerModalDealerSelect',
+        'installedBaseCustomerModalDealerName',
+        'installedBaseCustomerModalDealerCodeLocked'
+    );
 
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
@@ -41,6 +46,10 @@ function resetInstalledBaseAddCustomerForm() {
         el.textContent = '';
     });
     $('#installedBaseCustomerModalPincodeSelect')
+        .next('.select2-container')
+        .find('.select2-selection')
+        .removeClass('is-invalid');
+    $('#installedBaseCustomerModalDealerSelect')
         .next('.select2-container')
         .find('.select2-selection')
         .removeClass('is-invalid');
@@ -97,6 +106,30 @@ function initInstalledBaseAddCustomerFormValidation() {
         };
     }
 
+    if (typeof validate.validators.ccmGstNumber === 'undefined') {
+        validate.validators.ccmGstNumber = function (value) {
+            const gst = String(value || '').trim().toUpperCase();
+            if (gst === '') {
+                return;
+            }
+            // if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst)) {
+            //     return '^Enter a valid 15-character GSTIN or leave blank';
+            // }
+        };
+    }
+
+    if (typeof validate.validators.ccmPanNumber === 'undefined') {
+        validate.validators.ccmPanNumber = function (value) {
+            const pan = String(value || '').trim().toUpperCase();
+            if (pan === '') {
+                return;
+            }
+            if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) {
+                return '^Enter a valid 10-character PAN or leave blank';
+            }
+        };
+    }
+
     const constraints = {
         customer_name: {
             presence: { allowEmpty: false, message: '^Customer Name is required' },
@@ -135,12 +168,23 @@ function initInstalledBaseAddCustomerFormValidation() {
         },
         state: {
             presence: { allowEmpty: false, message: '^State is required' }
+        },
+        dealer_code: {
+            presence: { allowEmpty: false, message: '^Dealer Name is required' }
+        },
+        gst_number: {
+            ccmGstNumber: true
+        },
+        pan_number: {
+            ccmPanNumber: true
         }
     };
 
     function bindInputRestrictions() {
         const mobileInput = form.querySelector('[name="mobile"]');
         const emailInput = form.querySelector('[name="email"]');
+        const gstInput = form.querySelector('[name="gst_number"]');
+        const panInput = form.querySelector('[name="pan_number"]');
 
         if (mobileInput) {
             mobileInput.addEventListener('input', function () {
@@ -151,6 +195,18 @@ function initInstalledBaseAddCustomerFormValidation() {
         if (emailInput) {
             emailInput.addEventListener('input', function () {
                 emailInput.value = emailInput.value.replace(/[^A-Za-z0-9._%+\-@]/g, '');
+            });
+        }
+
+        if (gstInput) {
+            gstInput.addEventListener('input', function () {
+                gstInput.value = gstInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 15);
+            });
+        }
+
+        if (panInput) {
+            panInput.addEventListener('input', function () {
+                panInput.value = panInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10);
             });
         }
     }
@@ -182,6 +238,12 @@ function initInstalledBaseAddCustomerFormValidation() {
                 .find('.select2-selection')
                 .removeClass('is-invalid');
         }
+        if (fieldName === 'dealer_code' && window.jQuery) {
+            window.jQuery('#installedBaseCustomerModalDealerSelect')
+                .next('.select2-container')
+                .find('.select2-selection')
+                .removeClass('is-invalid');
+        }
     }
 
     function setFieldError(fieldName, message) {
@@ -192,6 +254,12 @@ function initInstalledBaseAddCustomerFormValidation() {
         }
         if (fieldName === 'pincode' && window.jQuery) {
             window.jQuery('#installedBaseCustomerModalPincodeSelect')
+                .next('.select2-container')
+                .find('.select2-selection')
+                .addClass('is-invalid');
+        }
+        if (fieldName === 'dealer_code' && window.jQuery) {
+            window.jQuery('#installedBaseCustomerModalDealerSelect')
                 .next('.select2-container')
                 .find('.select2-selection')
                 .addClass('is-invalid');
@@ -253,6 +321,13 @@ function initInstalledBaseAddCustomerFormValidation() {
         window.jQuery('#installedBaseCustomerModalPincodeSelect').on('select2:select select2:clear change', function () {
             validateField(form.querySelector('[name="pincode"]'));
         });
+        window.jQuery('#installedBaseCustomerModalDealerSelect').on('select2:select select2:clear change', function () {
+            const dealerInput = form.querySelector('#installedBaseCustomerModalDealerCodeLocked')
+                || form.querySelector('[name="dealer_code"]');
+            if (dealerInput) {
+                validateField(dealerInput);
+            }
+        });
     }
 
     function checkUniqueFields() {
@@ -278,7 +353,13 @@ function initInstalledBaseAddCustomerFormValidation() {
             return;
         }
 
-        const errors = validate(form, constraints);
+        const values = validate.collectFormValues(form);
+        const lockedDealer = document.getElementById('installedBaseCustomerModalDealerCodeLocked');
+        if (lockedDealer && String(lockedDealer.value || '').trim() !== '') {
+            values.dealer_code = String(lockedDealer.value).trim();
+        }
+
+        const errors = validate(values, constraints);
         showErrors(errors);
         if (errors) {
             return;
@@ -372,6 +453,12 @@ function initInstalledBaseAddCustomerModal() {
     initPincodeSelect2('installedBaseAddCustomerForm', 'installedBaseCustomerModalPincodeSelect', {
         dropdownParent: $('#installedBaseAddCustomerModal')
     });
+    initCustomerMasterDealerSelect2(
+        'installedBaseCustomerModalDealerSelect',
+        'installedBaseCustomerModalDealerName',
+        'installedBaseCustomerModalDealerCodeLocked',
+        { dropdownParent: $('#installedBaseAddCustomerModal') }
+    );
     initInstalledBaseAddCustomerFormValidation();
 
     modalEl.addEventListener('hidden.bs.modal', function () {

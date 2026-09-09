@@ -3,6 +3,12 @@
  * Add Customer modal for Installed Base Capture and Complaint Entry.
  * Fields and validation match Customer Master.
  */
+require_once __DIR__ . '/customer_master_helpers.php';
+
+$cmModalDealerContext = null;
+if (isset($obconn) && $obconn instanceof PDO) {
+    $cmModalDealerContext = customer_master_logged_in_dealer_context($obconn);
+}
 ?>
 <div class="modal fade" id="installedBaseAddCustomerModal" tabindex="-1" aria-hidden="true"
     aria-labelledby="installedBaseAddCustomerModalTitle">
@@ -81,6 +87,29 @@
                                 style="background-color: #f8f9fa;" placeholder="Auto-filled from pincode">
                             <div class="text-danger validation-msg" data-field="state"></div>
                         </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="installedBaseCustomerModalDealerSelect">
+                                Dealer Name <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-control" name="dealer_code" id="installedBaseCustomerModalDealerSelect"
+                                data-placeholder="Search dealer" style="width:100%;">
+                                <option value=""></option>
+                            </select>
+                            <input type="hidden" name="dealer_name" id="installedBaseCustomerModalDealerName" value="">
+                            <div class="text-danger validation-msg" data-field="dealer_code"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">GST Number</label>
+                            <input type="text" class="form-control" name="gst_number" maxlength="15"
+                                placeholder="GST number" style="text-transform: uppercase;">
+                            <div class="text-danger validation-msg" data-field="gst_number"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">PAN Number</label>
+                            <input type="text" class="form-control" name="pan_number" maxlength="10"
+                                placeholder="PAN number" style="text-transform: uppercase;">
+                            <div class="text-danger validation-msg" data-field="pan_number"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="complaint-form-actions px-4 pb-4">
@@ -93,3 +122,8 @@
         </div>
     </div>
 </div>
+<script>
+window.customerMasterDealerContext = <?php
+    echo $cmModalDealerContext ? json_encode($cmModalDealerContext, JSON_UNESCAPED_UNICODE) : 'null';
+?>;
+</script>

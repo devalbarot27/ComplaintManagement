@@ -34,6 +34,7 @@ $canAdd = $customerMasterPermissions['add'];
 $canEdit = $customerMasterPermissions['edit'];
 $canDelete = $customerMasterPermissions['delete'];
 $canAddContact = $contactPermissions['add'];
+$isDealerUser = is_dealer_user();
 $isReturnCreateMode = !$canViewList
     && $returnUrl !== ''
     && customer_master_user_can_create_from_return($obconn, $returnUrl);
@@ -45,6 +46,7 @@ $actorUsername = current_username();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_master'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = customer_master_from_post($_POST);
+    $data = customer_master_apply_dealer_rules($obconn, $data);
     $isEdit = $recordId > 0;
     $postedReturnUrl = customer_master_sanitize_return_url($_POST['return_url'] ?? '');
 
@@ -66,8 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
         } else {
             try {
                 if ($isEdit) {
-                    if (!customer_master_get_by_id($obconn, $recordId)) {
+                    $existing = customer_master_get_by_id($obconn, $recordId);
+                    if (!$existing) {
                         $error_message = 'Record not found or already deleted.';
+                    } elseif (!customer_master_user_can_access_record($obconn, $existing)) {
+                        $error_message = 'Access denied. You cannot edit this customer.';
                     } else {
                         customer_master_update($obconn, $recordId, $data, $actorUsername);
                         $success_message = 'Customer updated successfully.';
@@ -254,6 +259,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                                         style="background-color: #f8f9fa;" placeholder="Auto-filled from pincode">
                                     <div class="text-danger validation-msg" data-field="state"></div>
                                 </div>
+                                <div class="col-md-4 form-group">
+                                    <label class="form-label" for="customerMasterDealerSelect">
+                                        Dealer Name <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-control" name="dealer_code" id="customerMasterDealerSelect"
+                                        data-placeholder="Search dealer" style="width:100%;">
+                                        <option value=""></option>
+                                    </select>
+                                    <input type="hidden" name="dealer_name" id="customerMasterDealerName" value="">
+                                    <div class="text-danger validation-msg" data-field="dealer_code"></div>
+                                </div>
+                                <div class="col-md-4 form-group">
+                                    <label class="form-label">GST Number</label>
+                                    <input type="text" class="form-control" name="gst_number" maxlength="15"
+                                        placeholder="GST number" style="text-transform: uppercase;">
+                                    <div class="text-danger validation-msg" data-field="gst_number"></div>
+                                </div>
+                                <div class="col-md-4 form-group">
+                                    <label class="form-label">PAN Number</label>
+                                    <input type="text" class="form-control" name="pan_number" maxlength="10"
+                                        placeholder="PAN number" style="text-transform: uppercase;">
+                                    <div class="text-danger validation-msg" data-field="pan_number"></div>
+                                </div>
                             </div>
                         </section>
                     </div>
@@ -280,15 +308,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
                     <table class="table table-hover booking-table w-100" id="customerMasterTable">
                         <thead>
                             <tr>
-                                <th width="7%">ID</th>
-                                <th width="14%">Customer Name</th>
-                                <th width="14%">Email</th>
-                                <th width="11%">Mobile</th>
-                                <th width="10%">City</th>
-                                <th width="10%">State</th>
-                                <th width="9%">Contacts</th>
-                                <th width="12%">Created At</th>
-                                <th width="13%">Action</th>
+                                <th width="5%">ID</th>
+                                <th width="12%">Customer Name</th>
+                                <th width="12%">Email</th>
+                                <th width="9%">Mobile</th>
+                                <th width="18%">Address</th>
+                                <?php if (!$isDealerUser) { ?>
+                                <th width="12%">Dealer Name</th>
+                                <th width="9%">Added By</th>
+                                <?php } ?>
+                                <th width="7%">Contacts</th>
+                                <th width="9%">Created At</th>
+                                <th width="7%">Action</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -300,10 +331,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
     </div>
 
     <script src="js/pincode_select2.js"></script>
+    <script src="js/customer_master_dealer_select2.js"></script>
     <script src="js/customer_master.js"></script>
     <script>
     window.customerMasterReturnMode = <?php echo $isReturnCreateMode || $openFormFromReturn ? 'true' : 'false'; ?>;
     window.customerMasterCanEdit = <?php echo $canEdit ? 'true' : 'false'; ?>;
+    window.customerMasterIsDealer = <?php echo $isDealerUser ? 'true' : 'false'; ?>;
+    window.customerMasterDealerContext = <?php
+        $dealerCtx = customer_master_logged_in_dealer_context($obconn);
+        echo $dealerCtx ? json_encode($dealerCtx, JSON_UNESCAPED_UNICODE) : 'null';
+    ?>;
     </script>
 </body>
 
