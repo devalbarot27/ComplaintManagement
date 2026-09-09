@@ -217,13 +217,19 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                             <tbody>
                                 <?php foreach ($installedBaseAmcContracts as $amcRow) {
                                     $encodedAmcId = rawurlencode(base64_encode((string) (int) $amcRow['id']));
+                                    $canOpenAmc = amc_user_can_access_record($obconn, $amcRow);
+                                    $amcContractNumber = (string) ($amcRow['contract_number'] ?? '-');
                                     ?>
                                 <tr>
                                     <td>
+                                        <?php if ($canOpenAmc): ?>
                                         <a href="amc_details.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
                                             class="text-primary fw-semibold text-decoration-none">
-                                            <?= htmlspecialchars((string) ($amcRow['contract_number'] ?? '-')) ?>
+                                            <?= htmlspecialchars($amcContractNumber) ?>
                                         </a>
+                                        <?php else: ?>
+                                        <?= htmlspecialchars($amcContractNumber) ?>
+                                        <?php endif; ?>
                                     </td>
                                     <td><?= htmlspecialchars(AMC_TYPE_OPTIONS[$amcRow['amc_type']] ?? ($amcRow['amc_type'] ?: '-')) ?></td>
                                     <td><?= htmlspecialchars(installed_base_format_date($amcRow['amc_start_date'] ?? null)) ?></td>
@@ -235,10 +241,14 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                                         </span>
                                     </td>
                                     <td>
+                                        <?php if ($canOpenAmc): ?>
                                         <a href="amc_details.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
                                             class="btn btn-sm btn-outline-dark" title="View">
                                             <i class="bi bi-eye"></i>
                                         </a>
+                                        <?php else: ?>
+                                        -
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php } ?>

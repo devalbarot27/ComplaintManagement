@@ -21,7 +21,12 @@ if (!$amcContract) {
     die('AMC contract not found.');
 }
 
+if (!amc_user_can_access_record($obconn, $amcContract)) {
+    rbac_access_denied_redirect();
+}
+
 $amcPermissions = amc_action_permissions($obconn);
+$canSeeAddedBy = amc_can_view_added_by($obconn);
 $canEditAmc = $amcPermissions['edit'];
 
 $success_message = '';
@@ -130,6 +135,9 @@ $amcVisits = amc_visits_for_contract($obconn, $id);
                     <div class="col-md-3"><strong>AMC End Date:</strong><br><?= htmlspecialchars($amcContract['amc_end_date']) ?></div>
                     <div class="col-md-3"><strong>Visit Start Date:</strong><br><?= htmlspecialchars($amcContract['visit_start_date']) ?></div>
                     <div class="col-md-3"><strong>Number of Visits:</strong><br><?= (int) $amcContract['no_of_visits'] ?></div>
+                    <?php if ($canSeeAddedBy): ?>
+                    <div class="col-md-3"><strong>Added By:</strong><br><?= htmlspecialchars(amc_added_by_label($amcContract)) ?></div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

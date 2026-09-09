@@ -142,6 +142,157 @@ function amc_action_permissions(PDO $conn): array
     ];
 }
 
+/**
+ * Added By is visible to System Admin, CCS Admin, and Management only.
+ */
+function amc_can_view_added_by(?PDO $conn = null): bool
+{
+    if ($conn !== null && (!isset($_SESSION['role']) || current_user_role() <= 0)) {
+        admin_ensure_session_role($conn);
+    }
+
+    return is_system_admin() || is_ccs_admin_user() || is_management_user();
+}
+
+/**
+ * System Admin, CCS Admin, and Management see all AMC records.
+ */
+function amc_sees_all_records(?PDO $conn = null): bool
+{
+    return amc_can_view_added_by($conn);
+}
+
+/**
+ * @return array{where: string, params: array<string, mixed>, see_all: bool}
+ */
+function amc_list_scope(PDO $conn): array
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (amc_sees_all_records($conn)) {
+        return [
+            'where' => 'ac.deleted_at IS NULL',
+            'params' => [],
+            'see_all' => true,
+        ];
+    }
+
+    return [
+        'where' => 'ac.deleted_at IS NULL
+            AND (
+                ac.created_by = :amc_scope_user_id
+                OR LOWER(TRIM(COALESCE(ac.username, \'\'))) = LOWER(TRIM(:amc_scope_username))
+            )',
+        'params' => [
+            ':amc_scope_user_id' => (int) (current_user_id($conn) ?? 0),
+            ':amc_scope_username' => current_username(),
+        ],
+        'see_all' => false,
+    ];
+}
+
+/**
+ * Installed Base search for AMC registration uses the same role split:
+ * System Admin / CCS Admin / Management see all machines; others see only their own.
+ *
+ * @return array{where: string, params: array<string, mixed>}
+ */
+function amc_installed_base_list_scope(PDO $conn): array
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (amc_sees_all_records($conn)) {
+        return [
+            'where' => 'deleted_at IS NULL',
+            'params' => [],
+        ];
+    }
+
+    return [
+        'where' => 'deleted_at IS NULL AND username = :username',
+        'params' => [
+            ':username' => current_username(),
+        ],
+    ];
+}
+
+function amc_user_can_access_installed_base(PDO $conn, int $installedBaseId): bool
+{
+    if ($installedBaseId <= 0) {
+        return false;
+    }
+
+    $scope = amc_installed_base_list_scope($conn);
+    $stmt = $conn->prepare("
+        SELECT id
+        FROM installed_base
+        WHERE id = :id
+          AND {$scope['where']}
+        LIMIT 1
+    ");
+    foreach ($scope['params'] as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $stmt->bindValue(':id', $installedBaseId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function amc_user_can_access_record(PDO $conn, ?array $record): bool
+{
+    if ($record === null) {
+        return false;
+    }
+
+    if (amc_sees_all_records($conn)) {
+        return true;
+    }
+
+    $createdBy = (int) ($record['created_by'] ?? 0);
+    $currentId = (int) (current_user_id($conn) ?? 0);
+    if ($createdBy > 0 && $currentId > 0 && $createdBy === $currentId) {
+        return true;
+    }
+
+    $username = trim((string) ($record['username'] ?? ''));
+
+    return $username !== '' && strcasecmp($username, current_username()) === 0;
+}
+
+function amc_added_by_select_sql(string $alias = 'ac', string $userAlias = 'um_added'): string
+{
+    return "COALESCE(
+        NULLIF(TRIM({$userAlias}.name), ''),
+        NULLIF(TRIM({$userAlias}.username), ''),
+        NULLIF(TRIM({$alias}.username), ''),
+        '-'
+    ) AS added_by_name";
+}
+
+function amc_added_by_join_sql(string $alias = 'ac', string $userAlias = 'um_added'): string
+{
+    return "LEFT JOIN user_master {$userAlias}
+        ON {$userAlias}.id = {$alias}.created_by
+       AND {$userAlias}.deleted_at IS NULL";
+}
+
+function amc_added_by_label(array $row): string
+{
+    $name = trim((string) ($row['added_by_name'] ?? ''));
+    if ($name !== '') {
+        return $name;
+    }
+
+    $username = trim((string) ($row['username'] ?? ''));
+
+    return $username !== '' ? $username : '-';
+}
+
 function amc_from_post(array $post): array
 {
     return [
@@ -252,7 +403,7 @@ function amc_installed_base_snapshot(PDO $conn, int $installedBaseId): ?array
 {
     installed_base_ensure_schema($conn);
 
-    if ($installedBaseId <= 0 || !after_market_user_can_access_record($conn, 'installed_base', $installedBaseId)) {
+    if ($installedBaseId <= 0 || !amc_user_can_access_installed_base($conn, $installedBaseId)) {
         return null;
     }
 
@@ -272,7 +423,7 @@ function amc_search_installed_base(PDO $conn, string $term): array
 {
     installed_base_ensure_schema($conn);
 
-    $scope = after_market_list_scope($conn);
+    $scope = amc_installed_base_list_scope($conn);
     $scopeWhere = after_market_scope_where_for_alias($scope['where'], 'ib');
 
     $sql = amc_installed_base_select_sql() . " WHERE {$scopeWhere}";
@@ -514,19 +665,36 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
 
 function amc_list(PDO $conn): array
 {
-    $stmt = $conn->query("
-        SELECT *
-        FROM amc_contracts
-        WHERE deleted_at IS NULL
-        ORDER BY created_at DESC
-    ");
+    $scope = amc_list_scope($conn);
+    $stmt = $conn->prepare('
+        SELECT
+            ac.*,
+            ' . amc_added_by_select_sql() . '
+        FROM amc_contracts ac
+        ' . amc_added_by_join_sql() . '
+        WHERE ' . $scope['where'] . '
+        ORDER BY ac.created_at DESC
+    ');
+    foreach ($scope['params'] as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $stmt->execute();
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 function amc_find_by_id(PDO $conn, int $id): ?array
 {
-    $stmt = $conn->prepare('SELECT * FROM amc_contracts WHERE id = :id AND deleted_at IS NULL');
+    $stmt = $conn->prepare('
+        SELECT
+            ac.*,
+            ' . amc_added_by_select_sql() . '
+        FROM amc_contracts ac
+        ' . amc_added_by_join_sql() . '
+        WHERE ac.id = :id
+          AND ac.deleted_at IS NULL
+        LIMIT 1
+    ');
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);

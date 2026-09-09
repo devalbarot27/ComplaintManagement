@@ -24,6 +24,7 @@ if (isset($_SESSION['error_message'])) {
 $amcPermissions = amc_action_permissions($obconn);
 $canAddAmc = $amcPermissions['add'];
 $canDeleteAmc = $amcPermissions['delete'];
+$canSeeAddedBy = amc_can_view_added_by($obconn);
 
 $userName = current_username();
 $createdBy = current_user_id($obconn);
@@ -132,6 +133,9 @@ $amcContracts = amc_list($obconn);
         }
         .amc-page #amcContractsTable tbody td:last-child {
             white-space: nowrap;
+        }
+        #amcWarrantyBadge{
+            display: none !important;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -421,6 +425,9 @@ $amcContracts = amc_list($obconn);
                                 <th width="6%">Visits</th>
                                 <th width="8%">Value</th>
                                 <th width="8%">Status</th>
+                                <?php if ($canSeeAddedBy): ?>
+                                <th width="10%">Added By</th>
+                                <?php endif; ?>
                                 <th width="8%">Action</th>
                             </tr>
                         </thead>
@@ -468,6 +475,9 @@ $amcContracts = amc_list($obconn);
                                         <?= htmlspecialchars(amc_display_status($row)) ?>
                                     </span>
                                 </td>
+                                <?php if ($canSeeAddedBy): ?>
+                                <td><?= htmlspecialchars(amc_added_by_label($row)) ?></td>
+                                <?php endif; ?>
                                 <td>
                                     <div class="d-flex gap-1">
                                         <a href="amc_details.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"

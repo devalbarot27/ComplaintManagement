@@ -20,6 +20,13 @@ if (!amc_action_permissions($obconn)['delete']) {
     exit;
 }
 
+$amcContract = amc_find_by_id($obconn, $id);
+if (!$amcContract || !amc_user_can_access_record($obconn, $amcContract)) {
+    $_SESSION['error_message'] = 'Access denied. You do not have permission to delete this AMC contract.';
+    header('Location: amc.php');
+    exit;
+}
+
 try {
     $stmt = $obconn->prepare('
         UPDATE amc_contracts
