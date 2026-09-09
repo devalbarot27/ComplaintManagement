@@ -8,12 +8,14 @@ require_once 'includes/current_username_helpers.php';
 require_once 'includes/service_log_helpers.php';
 require_once 'includes/spare_parts_helpers.php';
 require_once 'includes/after_market_access_helpers.php';
+require_once 'includes/customer_master_helpers.php';
 
 $active_menu = 'installed_base';
 $success_message = '';
 $error_message = '';
 
 installed_base_ensure_schema($obconn);
+customer_master_ensure_rbac($obconn);
 
 if (isset($_GET['service_log_draft_added']) && (string) $_GET['service_log_draft_added'] === '1') {
     $success_message = 'Service log saved as draft successfully.';
@@ -40,6 +42,7 @@ $canAddInstalledBase = $installedBasePermissions['add'];
 $canEditInstalledBase = $installedBasePermissions['edit'];
 $canAddServiceLog = $installedBasePermissions['service_log_add'];
 $canAddSpareParts = $installedBasePermissions['spare_parts_add'];
+$canAddCustomerMaster = customer_master_action_permissions($obconn)['add'];
 $industrySegments = installed_base_industry_segments($obconn);
 $serviceLogWarrantyTypes = service_log_warranty_types($obconn);
 $sparePartsWarrantyTypes = spare_parts_warranty_types($obconn);
@@ -391,7 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                             </select>
                                             <div class="text-danger validation-msg" data-field="customer_id"></div>
                                         </div>
-                                        <?php if ($canAddInstalledBase) { ?>
+                                        <?php if ($canAddCustomerMaster) { ?>
                                         <button type="button" class="btn btn-outline-dark btn-sm mt-1" id="addNewCustomerFromInstalledBaseBtn"
                                             title="Add New Customer">
                                             <i class="bi bi-plus-lg"></i> Add New Customer
@@ -539,7 +542,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
         </div>
     </div>
 
-    <?php if ($canAddInstalledBase) { ?>
+    <?php if ($canAddCustomerMaster) { ?>
     <?php include 'includes/installed_base_customer_modal.php'; ?>
     <?php } ?>
 

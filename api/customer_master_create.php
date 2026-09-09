@@ -22,10 +22,7 @@ admin_ensure_session_role($obconn);
 customer_master_ensure_schema($obconn);
 customer_master_ensure_rbac($obconn);
 
-$canCreate = rbac_has_permission($obconn, 'customer-master', 'add')
-    || rbac_has_permission($obconn, 'installed-base-capture', 'add')
-    || rbac_has_permission($obconn, 'complaint-entry', 'add')
-    || rbac_has_permission($obconn, 'order-booking', 'create-order');
+$canCreate = rbac_has_permission($obconn, 'customer-master', 'add');
 
 if (!$canCreate) {
     http_response_code(403);

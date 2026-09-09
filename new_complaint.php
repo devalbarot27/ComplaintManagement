@@ -28,6 +28,7 @@ $complaintCategoryOptionsHtml = complaint_category_render_options($complaintCate
 $complaintEntryPermissions = complaint_entry_action_permissions($obconn);
 $canAddComplaint = $complaintEntryPermissions['add'];
 $canAssignComplaint = $complaintEntryPermissions['assign'];
+$canAddCustomerMaster = customer_master_action_permissions($obconn)['add'];
 $canReassignComplaint = $complaintEntryPermissions['reassign'];
 $canShowComplaintClosure = $complaintEntryPermissions['closure'];
 $showAddedByColumn = complaint_can_view_added_by_column($obconn);
@@ -387,7 +388,7 @@ if(isset($_POST['submit_complaint']))
                                             </select>
                                             <div class="text-danger validation-msg" data-field="customer_id"></div>
                                         </div>
-                                        <?php if ($canAddComplaint) { ?>
+                                        <?php if ($canAddCustomerMaster) { ?>
                                         <button type="button" class="btn btn-outline-dark btn-sm mt-1" id="addNewCustomerFromComplaintBtn"
                                             title="Add New Customer">
                                             <i class="bi bi-plus-lg"></i> Add New Customer
@@ -724,7 +725,7 @@ if(isset($_POST['submit_complaint']))
     </div>
 <?php } ?>
 
-<?php if ($canAddComplaint) { ?>
+<?php if ($canAddCustomerMaster) { ?>
 <?php include 'includes/installed_base_customer_modal.php'; ?>
 <?php } ?>
 

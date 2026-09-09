@@ -19,6 +19,10 @@ if (!rbac_user_can($obconn, 'order-booking', 'create-order')) {
     header('Location: access_denied.php');
     exit;
 }
+
+require_once __DIR__ . '/includes/customer_master_helpers.php';
+customer_master_ensure_rbac($obconn);
+$canAddCustomerMaster = customer_master_action_permissions($obconn)['add'];
 //end
 $freightPercentage = 4;
 ?>
@@ -409,10 +413,12 @@ $freightPercentage = 4;
                             </div>
                         </div>
                         <div class="form-group">
+                        <?php if ($canAddCustomerMaster) { ?>
                         <button type="button" class="btn btn-outline-dark btn-sm mt-1 w-50"
                                     id="addNewCustomerFromOrderBookingBtn" title="Add New Customer">
                                     <i class="bi bi-plus-lg"></i> Add New Customer
                                 </button>
+                        <?php } ?>
                         </div>
 
                         <div class="form-group d-none">
@@ -624,7 +630,9 @@ $freightPercentage = 4;
         </div>
     </div>
 
+    <?php if ($canAddCustomerMaster) { ?>
     <?php include 'includes/installed_base_customer_modal.php'; ?>
+    <?php } ?>
 </body>
 
 </html>
