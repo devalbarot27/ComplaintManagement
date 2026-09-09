@@ -43,10 +43,19 @@ switch ($action) {
         $complaintId = (int) ($_GET['complaint_id'] ?? $_POST['complaint_id'] ?? 0);
         $complaint = warranty_claims_find_complaint($obconn, $complaintId);
         if ($complaint === null) {
-            echo json_encode(['items' => []]);
+            echo json_encode([
+                'items' => [],
+                'warranty_status' => '',
+                'warranty_label' => '',
+            ]);
             break;
         }
-        echo json_encode(['items' => warranty_claims_existing_items_for_complaint($obconn, $complaintId)]);
+        $warranty = warranty_claims_resolve_status_for_complaint($obconn, $complaintId);
+        echo json_encode([
+            'items' => warranty_claims_existing_items_for_complaint($obconn, $complaintId),
+            'warranty_status' => (string) ($warranty['status'] ?? ''),
+            'warranty_label' => (string) ($warranty['status'] ?? ''),
+        ]);
         break;
 
     default:

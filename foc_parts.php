@@ -29,10 +29,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
     }
     $complaintId    = (int) ($_POST['complaint_id'] ?? 0);
     $justification  = trim($_POST['justification'] ?? '');
-    $warrantyStatus = trim($_POST['warranty_status'] ?? '');
     $cartItems      = json_decode($_POST['cart_items'] ?? '[]', true);
 
     $complaint = warranty_claims_find_complaint($obconn, $complaintId);
+    $resolvedWarranty = $complaint !== null
+        ? warranty_claims_resolve_status_for_complaint($obconn, $complaintId)
+        : installed_base_warranty_status(null);
+    $warrantyStatus = trim((string) ($resolvedWarranty['status'] ?? ''));
     $items     = [];
     $hasNewParts = false;
 
@@ -63,8 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
         $error_message = $field_errors['complaint_id'];
     } elseif ($items === []) {
         $error_message = 'Please add at least one part to the cart.';
-    } elseif (!in_array($warrantyStatus, [WARRANTY_STATUS_UNDER, WARRANTY_STATUS_NOT_UNDER], true)) {
-        $field_errors['warranty_status'] = 'Please select the Machine Warranty Status.';
+    } elseif (!in_array($warrantyStatus, warranty_claims_workflow_statuses(), true)) {
+        $field_errors['warranty_status'] = 'Warranty status could not be determined for this call ticket. Ensure the fab has a commissioning date in Installed Base.';
         $error_message = $field_errors['warranty_status'];
     } elseif ($hasNewParts && $justification === '') {
         $error_message = 'Justification is required.';
@@ -221,6 +224,15 @@ $focItemsByClaim = foc_claim_items_for_claims($obconn, $focItemsByClaim);
 
 $recentComplaints = warranty_claims_recent_complaints($obconn);
 
+$selectedComplaintIdForForm = (int) ($_POST['complaint_id'] ?? 0);
+$formWarrantyStatus = '';
+if ($selectedComplaintIdForForm > 0) {
+    $formWarrantyStatus = (string) (warranty_claims_resolve_status_for_complaint($obconn, $selectedComplaintIdForForm)['status'] ?? '');
+    if ($formWarrantyStatus === 'Unknown') {
+        $formWarrantyStatus = '';
+    }
+}
+
 $postedCartItems = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $decodedCart = json_decode((string) ($_POST['cart_items'] ?? '[]'), true);
@@ -371,22 +383,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </a>
                             </div>
                             <div class="col-md-6 form-group">
-                                <label class="form-label" for="warrantyStatus">
+                                <label class="form-label" for="warrantyStatusDisplay">
                                     <i class="bi bi-shield-check"></i> Machine Warranty Status <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-control<?= isset($field_errors['warranty_status']) ? ' is-invalid' : '' ?>" id="warrantyStatus" name="warranty_status">
-                                    <option value="">-- Select Warranty Status --</option>
-                                    <option value="<?= WARRANTY_STATUS_UNDER ?>"
-                                        <?= (($_POST['warranty_status'] ?? '') === WARRANTY_STATUS_UNDER) ? 'selected' : '' ?>>
-                                        Under Warranty
-                                    </option>
-                                    <option value="<?= WARRANTY_STATUS_NOT_UNDER ?>"
-                                        <?= (($_POST['warranty_status'] ?? '') === WARRANTY_STATUS_NOT_UNDER) ? 'selected' : '' ?>>
-                                        Not Under Warranty
-                                    </option>
-                                </select>
+                                <input type="hidden" id="warrantyStatus" name="warranty_status"
+                                    value="<?= htmlspecialchars($formWarrantyStatus, ENT_QUOTES, 'UTF-8') ?>">
+                                <input type="text"
+                                    class="form-control<?= isset($field_errors['warranty_status']) ? ' is-invalid' : '' ?>"
+                                    id="warrantyStatusDisplay"
+                                    value="<?= htmlspecialchars($formWarrantyStatus, ENT_QUOTES, 'UTF-8') ?>"
+                                    placeholder="Select a call ticket to load warranty status"
+                                    style="cursor: not-allowed; background-color: #f8f9fa;"
+                                    readonly>
                                 <div class="text-danger validation-msg" data-field="warranty_status"><?= htmlspecialchars($field_errors['warranty_status'] ?? '') ?></div>
-                                <small class="text-muted">Shown to L1/L2 approvers to help their decision. To be auto-populated once ERP LN warranty lookup is integrated.</small>
+                                <small class="text-muted">Auto-filled from the Warranty Claims workflow (commissioning date). Not editable.</small>
                             </div>
                         </div>
                     </section>
@@ -560,7 +570,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <td><?= nl2br(htmlspecialchars($row['part_names'] ?? '')) ?></td>
                                 <td><?= nl2br(htmlspecialchars($row['part_qtys'] ?? '')) ?></td>
                                 <td>
-                                    <span class="status-badge border border-dark ">
+                                    <span class="status-badge border border-dark">
                                         <?= htmlspecialchars((string) ($row['warranty_status'] ?? '-')) ?>
                                     </span>
                                 </td>
@@ -615,11 +625,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (typeof $ !== 'undefined' && $.fn.select2) {
         $('#complaintId').select2({
             placeholder: '-- Select Call Ticket --',
-            allowClear: true,
-            width: '100%'
-        });
-        $('#warrantyStatus').select2({
-            placeholder: '-- Select Warranty Status --',
             allowClear: true,
             width: '100%'
         });
@@ -797,6 +802,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         existingBody.dataset.items = JSON.stringify(items);
     }
 
+    const warrantyStatusInput = document.getElementById('warrantyStatus');
+    const warrantyStatusDisplay = document.getElementById('warrantyStatusDisplay');
+
+    function setWarrantyStatus(status) {
+        const value = String(status || '').trim();
+        const known = value !== '' && value.toLowerCase() !== 'unknown';
+        if (warrantyStatusInput) {
+            warrantyStatusInput.value = known ? value : '';
+        }
+        if (warrantyStatusDisplay) {
+            warrantyStatusDisplay.value = known ? value : '';
+            warrantyStatusDisplay.classList.remove('is-invalid');
+        }
+        const msg = document.querySelector('.validation-msg[data-field="warranty_status"]');
+        if (msg) {
+            msg.textContent = '';
+        }
+    }
+
+    function clearWarrantyStatus() {
+        setWarrantyStatus('');
+    }
+
     function loadExistingItemsForComplaint(complaintId, options) {
         options = options || {};
         const keepCart = !!options.keepCart;
@@ -807,15 +835,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         lastLoadedComplaintId = normalizedId;
 
-        if (!existingPanel || !existingBody) {
-            return;
-        }
-
         if (!normalizedId) {
-            existingPanel.style.display = 'none';
+            if (existingPanel) existingPanel.style.display = 'none';
             if (existingEmpty) existingEmpty.style.display = 'none';
-            existingBody.innerHTML = '';
-            existingBody.dataset.items = '[]';
+            if (existingBody) {
+                existingBody.innerHTML = '';
+                existingBody.dataset.items = '[]';
+            }
+            clearWarrantyStatus();
             if (!keepCart) {
                 cart = [];
                 renderCart();
@@ -829,7 +856,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dataType: 'json',
             data: { action: 'complaint_items', complaint_id: normalizedId }
         }).done(function (res) {
+            setWarrantyStatus((res && res.warranty_status) || '');
+
             const items = (res && res.items) || [];
+            if (!existingPanel || !existingBody) {
+                return;
+            }
+
             if (items.length === 0) {
                 existingPanel.style.display = 'none';
                 if (existingEmpty) existingEmpty.style.display = 'block';
@@ -851,8 +884,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 renderCart();
             }
         }).fail(function () {
-            existingPanel.style.display = 'none';
+            if (existingPanel) existingPanel.style.display = 'none';
             if (existingEmpty) existingEmpty.style.display = 'none';
+            clearWarrantyStatus();
         });
     }
 
@@ -937,7 +971,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     const focClaimForm = document.getElementById('focClaimForm');
-    const warrantySelect = document.getElementById('warrantyStatus');
     const justificationInput = document.getElementById('justification');
 
     function setFieldError(field, message) {
@@ -964,16 +997,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             });
         }
     }
-    if (warrantySelect) {
-        warrantySelect.addEventListener('change', function () {
-            clearFieldError('warranty_status', warrantySelect);
-        });
-        if (typeof $ !== 'undefined') {
-            $(warrantySelect).on('change select2:select select2:clear', function () {
-                clearFieldError('warranty_status', warrantySelect);
-            });
-        }
-    }
 
     if (focClaimForm) {
         focClaimForm.addEventListener('submit', function (e) {
@@ -991,12 +1014,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 complaintSelect.classList.add('is-invalid');
                 firstInvalid = firstInvalid || complaintSelect;
             }
-            if (warrantySelect && String(warrantySelect.value || '').trim() === '') {
+            if (warrantyStatusInput && String(warrantyStatusInput.value || '').trim() === '') {
                 e.preventDefault();
                 blocked = true;
-                setFieldError('warranty_status', 'Please select the Machine Warranty Status.');
-                warrantySelect.classList.add('is-invalid');
-                firstInvalid = firstInvalid || warrantySelect;
+                setFieldError(
+                    'warranty_status',
+                    'Warranty status could not be determined. Ensure the fab has a commissioning date in Installed Base.'
+                );
+                if (warrantyStatusDisplay) {
+                    warrantyStatusDisplay.classList.add('is-invalid');
+                }
+                firstInvalid = firstInvalid || complaintSelect || warrantyStatusDisplay;
             }
             if (cart.length === 0) {
                 e.preventDefault();

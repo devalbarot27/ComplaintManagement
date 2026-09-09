@@ -713,7 +713,17 @@ function foc_claim_get_by_id(PDO $conn, int $id): ?array
 
     $stmt = $conn->prepare("
         SELECT
-            fc.*, c.fab_number, cm.customer_name,
+            fc.*,
+            c.fab_number,
+            cm.customer_name,
+            cm.email AS customer_email,
+            cm.mobile AS customer_mobile,
+            cm.street_1 AS customer_street_1,
+            cm.street_2 AS customer_street_2,
+            cm.pincode AS customer_pincode,
+            cm.city AS customer_city,
+            cm.district AS customer_district,
+            cm.state AS customer_state,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(fc.created_by_username), ''), '-') AS created_by_name,
             COALESCE(NULLIF(TRIM(um_l1.name), ''), NULLIF(TRIM(fc.l1_by_username), ''), '-') AS l1_by_name,
             COALESCE(NULLIF(TRIM(um_l2.name), ''), NULLIF(TRIM(fc.l2_by_username), ''), '-') AS l2_by_name
@@ -924,7 +934,18 @@ function service_claim_apply_l1_decision(
 
 function warranty_status_badge_class(?string $status): string
 {
-    return $status === WARRANTY_STATUS_UNDER ? 'bg-success' : 'bg-secondary';
+    $status = trim((string) $status);
+    if ($status === WARRANTY_STATUS_UNDER
+        || $status === INSTALLED_BASE_WARRANTY_STANDARD
+        || $status === INSTALLED_BASE_WARRANTY_UPTIME
+    ) {
+        return 'bg-success';
+    }
+    if ($status === INSTALLED_BASE_WARRANTY_OUT || $status === WARRANTY_STATUS_NOT_UNDER) {
+        return 'bg-secondary';
+    }
+
+    return 'bg-secondary';
 }
 
 /**
@@ -994,9 +1015,48 @@ function installed_base_warranty_status_badge_html(array $warranty): string
     $status = trim((string) ($warranty['status'] ?? 'Unknown'));
     $badgeClass = trim((string) ($warranty['badge_class'] ?? 'warranty-status--unknown'));
 
-    return '<span class="status-badge border border-dark">'
+    return '<span class="status-badge warranty-status-badge ' . htmlspecialchars($badgeClass, ENT_QUOTES, 'UTF-8') . '">'
         . htmlspecialchars($status !== '' ? $status : 'Unknown', ENT_QUOTES, 'UTF-8')
         . '</span>';
+}
+
+/**
+ * Resolve Warranty Claims workflow status for a call ticket via its fab's commissioning date.
+ *
+ * @return array{status: string, badge_class: string, can_request_approval: bool, months_elapsed: ?int}
+ */
+function warranty_claims_resolve_status_for_complaint(PDO $conn, int $complaintId): array
+{
+    if ($complaintId <= 0) {
+        return installed_base_warranty_status(null);
+    }
+
+    $stmt = $conn->prepare("
+        SELECT ib.commissioning_date
+        FROM complaints c
+        INNER JOIN installed_base ib
+            ON LOWER(TRIM(ib.fab_number)) = LOWER(TRIM(c.fab_number))
+           AND ib.deleted_at IS NULL
+        WHERE c.id = :complaint_id
+          AND c.deleted_at IS NULL
+        ORDER BY COALESCE(ib.updated_at, ib.created_at) DESC, ib.id DESC
+        LIMIT 1
+    ");
+    $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+    $stmt->execute();
+    $commissioningDate = $stmt->fetchColumn();
+
+    return installed_base_warranty_status($commissioningDate !== false ? (string) $commissioningDate : null);
+}
+
+/** Known Warranty Claims workflow statuses that may be stored on an FOC claim. */
+function warranty_claims_workflow_statuses(): array
+{
+    return [
+        INSTALLED_BASE_WARRANTY_STANDARD,
+        INSTALLED_BASE_WARRANTY_UPTIME,
+        INSTALLED_BASE_WARRANTY_OUT,
+    ];
 }
 
 function foc_stage_badge_class(string $stage): string

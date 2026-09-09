@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_commissioning_
                         <div>
                             <h2 class="complaint-form-header__title">Installed Base Warranty Status</h2>
                             <p class="complaint-form-header__subtitle">
-                                Standard (0–12 months) · Uptime (13–36 months) · Out of Warranty (after 36 months)
+                                Standard (0-12 months) . Uptime (13-36 months) . Out of Warranty (after 36 months)
                             </p>
                         </div>
                     </div>

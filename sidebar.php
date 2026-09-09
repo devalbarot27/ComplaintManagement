@@ -105,8 +105,10 @@
         $pageName = "Notifications";
     } else if ($currentPage == 'foc_parts.php') {
         $pageName = "FOC Part & Service Claim";
+    } else if ($currentPage == 'service_claims.php') {
+        $pageName = "Warranty Service Claims";
     } else if ($currentPage == 'warranty_claims.php') {
-        $pageName = "Warranty Claim";
+        $pageName = "Installed Base Warranty Claims";
     } else if ($currentPage == 'ar_statement.php') {
         $pageName = "AR Statement";
     } else if ($currentPage == 'amc.php') {
@@ -316,7 +318,7 @@
 
                   <?php if ($canFocParts) { ?>
                       <a href="foc_parts.php"
-                          class="menu-item <?= ($currentPage == 'foc_parts.php') ? 'active' : '' ?>">
+                          class="menu-item <?= ($currentPage == 'foc_parts.php' || $currentPage == 'foc_claim_details.php') ? 'active' : '' ?>">
                           <i class="bi bi-shield-check"></i>
                           FOC Parts
                       </a>

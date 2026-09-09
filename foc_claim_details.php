@@ -38,6 +38,15 @@ $l1Badge = '<span class="status-badge border border-dark">'
     . htmlspecialchars((string) ($record['l1_status'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</span>';
 $l2Badge = '<span class="status-badge border border-dark">'
     . htmlspecialchars((string) ($record['l2_status'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</span>';
+$lnAoNumber = trim((string) ($record['ln_order_number'] ?? ''));
+$headerMeta = [
+    record_details_id_chip((int) $record['id']),
+    '<span class="status-badge border border-dark">' . htmlspecialchars((string) ($record['overall_status'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>',
+];
+if ($lnAoNumber !== '') {
+    $headerMeta[] = '<span class="record-details-chip"><i class="bi bi-upc-scan"></i> LN - AO: '
+        . htmlspecialchars($lnAoNumber, ENT_QUOTES, 'UTF-8') . '</span>';
+}
 
 $partsTable = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0">'
     . '<thead><tr><th>Part Number</th><th>Description</th><th style="width:90px;">Qty</th><th style="width:110px;">Source</th></tr></thead><tbody>';
@@ -89,10 +98,7 @@ $partsTable .= '</tbody></table></div>';
                 'foc_parts.php',
                 'Back to List',
                 'bi-wrench-adjustable',
-                [
-                    record_details_id_chip((int) $record['id']),
-                    '<span class="status-badge border border-dark">' . htmlspecialchars((string) ($record['overall_status'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>',
-                ]
+                $headerMeta
             );
 
             record_details_card_start();
@@ -118,28 +124,39 @@ $partsTable .= '</tbody></table></div>';
             } else {
                 record_details_field('Fab Number', $fabNumber, 'col-md-4');
             }
-            record_details_field('Customer', (string) ($record['customer_name'] ?? ''), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(2, 'Parts', 'Parts requested on this FOC claim');
+            record_details_section_start(2, 'Customer Details', 'Customer linked to the call ticket');
+            record_details_field('Customer Name', (string) ($record['customer_name'] ?? ''), 'col-md-4');
+            record_details_field('Email', (string) ($record['customer_email'] ?? ''), 'col-md-4');
+            record_details_field('Mobile', (string) ($record['customer_mobile'] ?? ''), 'col-md-4');
+            record_details_field('Street 1', (string) ($record['customer_street_1'] ?? ''), 'col-md-4');
+            record_details_field('Street 2', (string) ($record['customer_street_2'] ?? ''), 'col-md-4');
+            record_details_field('Pincode', (string) ($record['customer_pincode'] ?? ''), 'col-md-4');
+            record_details_field('City', (string) ($record['customer_city'] ?? ''), 'col-md-4');
+            record_details_field('District', (string) ($record['customer_district'] ?? ''), 'col-md-4');
+            record_details_field('State', (string) ($record['customer_state'] ?? ''), 'col-md-4');
+            record_details_section_end();
+
+            record_details_section_start(3, 'Parts', 'Parts requested on this FOC claim');
             record_details_field('Parts', $partsTable, 'col-md-12', false, true);
             record_details_field('Justification', (string) ($record['justification'] ?? ''), 'col-md-12', true);
             record_details_section_end();
 
-            record_details_section_start(3, 'Warranty & Approval', 'Warranty flag and L1/L2 decisions');
+            record_details_section_start(4, 'Warranty & Approval', 'Warranty flag, L1/L2 decisions, and LN AO number');
             record_details_field('Machine Warranty Status', $warrantyBadge, 'col-md-4', false, true);
             record_details_field('Lock-in Engineer', $l1Badge, 'col-md-4', false, true);
             record_details_field('Business Head', $l2Badge, 'col-md-4', false, true);
+            record_details_field('LN - AO Number', $lnAoNumber, 'col-md-4');
             record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
             record_details_field('L1 By', (string) ($record['l1_by_name'] ?? $record['l1_by_username'] ?? ''), 'col-md-4');
             record_details_field('L1 At', rbac_format_datetime($record['l1_at'] ?? null), 'col-md-4');
             record_details_field('L2 Remarks', (string) ($record['l2_remarks'] ?? ''), 'col-md-4');
             record_details_field('L2 By', (string) ($record['l2_by_name'] ?? $record['l2_by_username'] ?? ''), 'col-md-4');
             record_details_field('L2 At', rbac_format_datetime($record['l2_at'] ?? null), 'col-md-4');
-            record_details_field('LN Order Number', (string) ($record['ln_order_number'] ?? ''), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(4, 'Audit Trail', 'Creation and update history', true);
+            record_details_section_start(5, 'Audit Trail', 'Creation and update history', true);
             if ($canSeeSubmittedBy) {
                 record_details_field('Submitted By', rbac_display_value($record['created_by_name'] ?? $record['created_by_username'] ?? ''), 'col-md-6');
             }
