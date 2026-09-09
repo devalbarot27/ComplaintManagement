@@ -408,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <span class="complaint-form-section__badge">2</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Parts</h3>
-                                <p class="complaint-form-section__hint">Parts recorded on the selected call ticket are added automatically. You can remove items or search and add a new part.</p>
+                                <p class="complaint-form-section__hint">Select recorded parts from the call ticket to add them to the cart, or search and add a new part.</p>
                             </div>
                         </div>
 
@@ -780,21 +780,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         });
     }
 
-    function ticketPartsToCartItems(items) {
-        return (items || []).map(function (item) {
-            const qty = parseInt(item.qty, 10);
-            return {
-                part_number: item.part_number,
-                part_description: item.part_description || '',
-                qty: qty > 0 ? qty : 1,
-                source: 'existing',
-                source_reference_id: item.source_reference_id || null
-            };
-        }).filter(function (item) {
-            return !!item.part_number;
-        });
-    }
-
     function renderExistingItemsTable(items) {
         if (!existingBody) {
             return;
@@ -871,26 +856,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return;
             }
 
+            if (!keepCart) {
+                cart = [];
+                renderCart();
+            }
+
             if (items.length === 0) {
                 existingPanel.style.display = 'none';
                 if (existingEmpty) existingEmpty.style.display = 'block';
                 existingBody.innerHTML = '';
                 existingBody.dataset.items = '[]';
-                if (!keepCart) {
-                    cart = [];
-                    renderCart();
-                }
                 return;
             }
 
             if (existingEmpty) existingEmpty.style.display = 'none';
             existingPanel.style.display = 'block';
             renderExistingItemsTable(items);
-
-            if (!keepCart) {
-                cart = ticketPartsToCartItems(items);
-                renderCart();
-            }
         }).fail(function () {
             if (existingPanel) existingPanel.style.display = 'none';
             if (existingEmpty) existingEmpty.style.display = 'none';

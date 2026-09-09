@@ -45,8 +45,8 @@ $headerMeta = [
     '<span class="status-badge border border-dark">' . htmlspecialchars((string) ($record['overall_status'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>',
 ];
 if ($lnAoNumber !== '') {
-    $headerMeta[] = '<span class="record-details-chip"><i class="bi bi-upc-scan"></i> LN - AO: '
-        . htmlspecialchars($lnAoNumber, ENT_QUOTES, 'UTF-8') . '</span>';
+    /*$headerMeta[] = '<span class="record-details-chip"><i class="bi bi-upc-scan"></i> LN - AO: '
+        . htmlspecialchars($lnAoNumber, ENT_QUOTES, 'UTF-8') . '</span>';*/
 }
 
 $partsTable = '<div class="table-responsive"><table class="table table-sm table-bordered mb-0">'
@@ -153,7 +153,7 @@ $partsTable .= '</tbody></table></div>';
             record_details_field('Machine Warranty Status', $warrantyBadge, 'col-md-4', false, true);
             record_details_field('Lock-in Engineer', $l1Badge, 'col-md-4', false, true);
             record_details_field('Business Head', $l2Badge, 'col-md-4', false, true);
-            record_details_field('LN - AO Number', $lnAoNumber, 'col-md-4');
+            //record_details_field('LN - AO Number', $lnAoNumber, 'col-md-4');
             record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
             record_details_field('L1 By', (string) ($record['l1_by_name'] ?? $record['l1_by_username'] ?? ''), 'col-md-4');
             record_details_field('L1 At', rbac_format_datetime($record['l1_at'] ?? null), 'col-md-4');
