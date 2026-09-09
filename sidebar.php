@@ -339,7 +339,7 @@
                   <?php } ?>
                    <?php if ($canshowApprovals) { ?>
                       <a href="approvals.php"
-                          class="menu-item <?= ($currentPage == 'approvals.php' || $currentPage == 'approval_details.php') ? 'active' : '' ?>">
+                          class="menu-item <?= ($currentPage == 'approvals.php') ? 'active' : '' ?>">
                           <i class="bi bi-shield-check"></i>
                           Approvals
                       </a>
