@@ -313,6 +313,68 @@ function warranty_claims_ensure_schema(PDO $conn): void
     $ensured = true;
 }
 
+/**
+ * Call Ticket dropdown (FOC / service claims).
+ * System Admin, CCS Admin, and Management see all tickets.
+ * Other roles see only tickets they created or that are assigned to them.
+ *
+ * @return array{where: string, params: array<string, mixed>}
+ */
+function warranty_claims_call_ticket_scope(PDO $conn): array
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
+        return [
+            'where' => 'c.deleted_at IS NULL',
+            'params' => [],
+        ];
+    }
+
+    $username = current_username();
+    $userId = (int) (current_user_id($conn) ?? 0);
+
+    $where = 'c.deleted_at IS NULL
+        AND (
+            LOWER(TRIM(COALESCE(c.username, \'\'))) = LOWER(TRIM(:wc_ticket_username))
+            OR TRIM(COALESCE(c.added_by::text, \'\')) = :wc_ticket_user_id
+            OR LOWER(TRIM(COALESCE(c.added_by::text, \'\'))) = LOWER(TRIM(:wc_ticket_added_by_username))
+        ';
+    $params = [
+        ':wc_ticket_username' => $username,
+        ':wc_ticket_user_id' => (string) $userId,
+        ':wc_ticket_added_by_username' => $username,
+    ];
+
+    if ($userId > 0) {
+        $where .= '
+            OR EXISTS (
+                SELECT 1
+                FROM complaint_assignments ca
+                WHERE ca.complaint_id = c.id
+                  AND ca.assigned_to = :wc_ticket_assigned_to
+            )
+        ';
+        $params[':wc_ticket_assigned_to'] = $userId;
+    }
+
+    $where .= ')';
+
+    return [
+        'where' => $where,
+        'params' => $params,
+    ];
+}
+
+function warranty_claims_bind_scope_params(PDOStatement $stmt, array $params): void
+{
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+}
+
 /** Fetch a non-deleted call ticket (complaint) by id, or null. */
 function warranty_claims_find_complaint(PDO $conn, int $complaintId): ?array
 {
@@ -323,13 +385,15 @@ function warranty_claims_find_complaint(PDO $conn, int $complaintId): ?array
     require_once __DIR__ . '/complaint_address_helpers.php';
     complaint_ensure_schema($conn);
 
+    $scope = warranty_claims_call_ticket_scope($conn);
     $stmt = $conn->prepare("
         SELECT c.id, c.fab_number, cm.customer_name, c.status
         FROM complaints c
         " . complaint_customer_join_sql('c', 'cm') . "
         WHERE c.id = :id
-          AND c.deleted_at IS NULL
+          AND {$scope['where']}
     ");
+    warranty_claims_bind_scope_params($stmt, $scope['params']);
     $stmt->bindValue(':id', $complaintId, PDO::PARAM_INT);
     $stmt->execute();
 
@@ -344,14 +408,16 @@ function warranty_claims_recent_complaints(PDO $conn, int $limit = 200): array
     require_once __DIR__ . '/complaint_address_helpers.php';
     complaint_ensure_schema($conn);
 
+    $scope = warranty_claims_call_ticket_scope($conn);
     $stmt = $conn->prepare("
         SELECT c.id, c.fab_number, cm.customer_name
         FROM complaints c
         " . complaint_customer_join_sql('c', 'cm') . "
-        WHERE c.deleted_at IS NULL
+        WHERE {$scope['where']}
         ORDER BY c.id DESC
         LIMIT :limit
     ");
+    warranty_claims_bind_scope_params($stmt, $scope['params']);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->execute();
 
