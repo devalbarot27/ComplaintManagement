@@ -179,14 +179,16 @@ function amc_list_scope(PDO $conn): array
         ];
     }
 
+    $currentUserId = (string) (int) (current_user_id($conn) ?? 0);
+
     return [
         'where' => 'ac.deleted_at IS NULL
             AND (
-                ac.created_by = :amc_scope_user_id
-                OR LOWER(TRIM(COALESCE(ac.username, \'\'))) = LOWER(TRIM(:amc_scope_username))
+                TRIM(COALESCE(ac.created_by::text, \'\')) = :amc_scope_user_id
+                OR LOWER(TRIM(COALESCE(NULLIF(TRIM(ac.username), \'\'), NULLIF(TRIM(ac.created_by::text), \'\'), \'\'))) = LOWER(TRIM(:amc_scope_username))
             )',
         'params' => [
-            ':amc_scope_user_id' => (int) (current_user_id($conn) ?? 0),
+            ':amc_scope_user_id' => $currentUserId,
             ':amc_scope_username' => current_username(),
         ],
         'see_all' => false,
@@ -253,15 +255,19 @@ function amc_user_can_access_record(PDO $conn, ?array $record): bool
         return true;
     }
 
-    $createdBy = (int) ($record['created_by'] ?? 0);
-    $currentId = (int) (current_user_id($conn) ?? 0);
-    if ($createdBy > 0 && $currentId > 0 && $createdBy === $currentId) {
+    $createdBy = trim((string) ($record['created_by'] ?? ''));
+    $username = trim((string) ($record['username'] ?? ''));
+    $currentUsername = current_username();
+    if ($username !== '' && strcasecmp($username, $currentUsername) === 0) {
+        return true;
+    }
+    if ($createdBy !== '' && strcasecmp($createdBy, $currentUsername) === 0) {
         return true;
     }
 
-    $username = trim((string) ($record['username'] ?? ''));
+    $currentId = (string) (int) (current_user_id($conn) ?? 0);
 
-    return $username !== '' && strcasecmp($username, current_username()) === 0;
+    return $currentId !== '0' && $createdBy === $currentId;
 }
 
 function amc_added_by_select_sql(string $alias = 'ac', string $userAlias = 'um_added'): string
@@ -276,9 +282,22 @@ function amc_added_by_select_sql(string $alias = 'ac', string $userAlias = 'um_a
 
 function amc_added_by_join_sql(string $alias = 'ac', string $userAlias = 'um_added'): string
 {
+    // created_by may be INTEGER (user id) or VARCHAR (id or username) depending on the database.
     return "LEFT JOIN user_master {$userAlias}
-        ON {$userAlias}.id = {$alias}.created_by
-       AND {$userAlias}.deleted_at IS NULL";
+        ON {$userAlias}.deleted_at IS NULL
+       AND (
+            (
+                NULLIF(TRIM(COALESCE({$alias}.username, '')), '') IS NOT NULL
+                AND LOWER(TRIM({$userAlias}.username)) = LOWER(TRIM({$alias}.username))
+            )
+            OR (
+                NULLIF(TRIM(COALESCE({$alias}.username, '')), '') IS NULL
+                AND (
+                    {$userAlias}.id::text = NULLIF(TRIM({$alias}.created_by::text), '')
+                    OR LOWER(TRIM({$userAlias}.username)) = LOWER(TRIM({$alias}.created_by::text))
+                )
+            )
+       )";
 }
 
 function amc_added_by_label(array $row): string
@@ -623,7 +642,7 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
     $stmt->bindValue(':amc_value', (float) $data['amc_value']);
     $stmt->bindValue(':dealer_name', $dealerName !== '' ? $dealerName : null);
     $stmt->bindValue(':status', amc_status_from_dates($data['amc_start_date'], $data['amc_end_date']));
-    $stmt->bindValue(':created_by', $createdBy, PDO::PARAM_INT);
+    $stmt->bindValue(':created_by', (string) $createdBy);
     $stmt->bindValue(':username', $username);
 
     // contract_number is generated from a MAX() lookup, which is not safe against
