@@ -1093,7 +1093,17 @@ function service_claim_get_by_id(PDO $conn, int $id): ?array
 
     $stmt = $conn->prepare("
         SELECT
-            sc.*, c.fab_number, cm.customer_name,
+            sc.*,
+            c.fab_number,
+            cm.customer_name,
+            cm.email AS customer_email,
+            cm.mobile AS customer_mobile,
+            cm.street_1 AS customer_street_1,
+            cm.street_2 AS customer_street_2,
+            cm.pincode AS customer_pincode,
+            cm.city AS customer_city,
+            cm.district AS customer_district,
+            cm.state AS customer_state,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id

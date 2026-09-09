@@ -99,10 +99,21 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             } else {
                 record_details_field('Fab Number', $fabNumber, 'col-md-4');
             }
-            record_details_field('Customer', (string) ($record['customer_name'] ?? ''), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(2, 'Call Closure Details', 'Distance, visit charge and resolution');
+            record_details_section_start(2, 'Customer Details', 'Customer linked to the call ticket');
+            record_details_field('Customer Name', (string) ($record['customer_name'] ?? ''), 'col-md-4');
+            record_details_field('Email', (string) ($record['customer_email'] ?? ''), 'col-md-4');
+            record_details_field('Mobile', (string) ($record['customer_mobile'] ?? ''), 'col-md-4');
+            record_details_field('Street 1', (string) ($record['customer_street_1'] ?? ''), 'col-md-4');
+            record_details_field('Street 2', (string) ($record['customer_street_2'] ?? ''), 'col-md-4');
+            record_details_field('Pincode', (string) ($record['customer_pincode'] ?? ''), 'col-md-4');
+            record_details_field('City', (string) ($record['customer_city'] ?? ''), 'col-md-4');
+            record_details_field('District', (string) ($record['customer_district'] ?? ''), 'col-md-4');
+            record_details_field('State', (string) ($record['customer_state'] ?? ''), 'col-md-4');
+            record_details_section_end();
+
+            record_details_section_start(3, 'Call Closure Details', 'Distance, visit charge and resolution');
             record_details_field('Distance Travelled (KMs)', (string) ($record['km_travelled'] ?? ''), 'col-md-4');
             record_details_field(
                 'Price',
@@ -115,7 +126,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_field('Resolution Notes', (string) ($record['resolution_notes'] ?? ''), 'col-md-12', true);
             record_details_section_end();
 
-            record_details_section_start(3, 'Approval & Settlement', 'CCS, L1, invoice and settlement status');
+            record_details_section_start(4, 'Approval & Settlement', 'CCS, L1, invoice and settlement status');
             record_details_field('Warranty (CCS)', $ccsBadge, 'col-md-4', false, true);
             record_details_field('CCS Remarks', (string) ($record['ccs_remarks'] ?? ''), 'col-md-4');
             record_details_field('CCS Marked By', (string) ($record['ccs_marked_by_username'] ?? ''), 'col-md-4');
@@ -127,7 +138,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_field('Settlement', trim((string) (($record['settlement_type'] ?? '') . ' ' . ($record['settlement_reference'] ?? ''))), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(4, 'Audit Trail', 'Creation and update history', true);
+            record_details_section_start(5, 'Audit Trail', 'Creation and update history', true);
             if ($canSeeSubmittedBy) {
                 record_details_field('Submitted By', rbac_display_value($record['created_by_name'] ?? $record['created_by_username'] ?? ''), 'col-md-6');
             }
