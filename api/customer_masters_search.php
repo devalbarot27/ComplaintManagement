@@ -26,7 +26,8 @@ $canSearch = rbac_has_permission($obconn, 'installed-base-capture', 'view')
     || rbac_has_permission($obconn, 'customer-master', 'edit')
     || rbac_has_permission($obconn, 'contact', 'view')
     || rbac_has_permission($obconn, 'contact', 'add')
-    || rbac_has_permission($obconn, 'contact', 'edit');
+    || rbac_has_permission($obconn, 'contact', 'edit')
+    || rbac_has_permission($obconn, 'order-booking', 'create-order');
 
 if (!$canSearch) {
     http_response_code(403);

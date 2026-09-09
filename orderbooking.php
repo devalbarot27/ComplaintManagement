@@ -33,6 +33,7 @@ $freightPercentage = 4;
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link href="css/success_modal.css" rel="stylesheet" />
     <link href="css/select2_change.css" rel="stylesheet" />
+    <link href="css/complaint_form.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.14.2/themes/base/jquery-ui.css">
     <style>
@@ -396,29 +397,44 @@ $freightPercentage = 4;
                     ?>
                     <div id="endCustomerAddressDiv">
                         <div class="form-group">
+                            <label for="orderBookingEndCustomerSelect">Select Customer</label>
+                            <div class="d-flex gap-2 align-items-start flex-wrap">
+                                <div class="flex-grow-1" style="min-width:220px;">
+                                    <select class="form-control" id="orderBookingEndCustomerSelect"
+                                        data-placeholder="Search customer" style="width:100%;">
+                                        <option value=""></option>
+                                    </select>
+                                </div>
+                                <button type="button" class="btn btn-outline-dark btn-sm mt-1"
+                                    id="addNewCustomerFromOrderBookingBtn" title="Add New Customer">
+                                    <i class="bi bi-plus-lg"></i> Add New Customer
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group d-none">
                             <label>End Customer Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="endCustomerName" name="end_customer_name"
                                 placeholder="Name" autocomplete="email">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group d-none">
                             <label>Email <span class="text-danger">*</span></label>
                             <input type="email" class="form-control" id="endCustomerEmail" name="end_customer_email"
                                 placeholder="Email" autocomplete="email">
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group d-none">
                             <label>Street 1 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="endCustomerStreet1" name="street_1"
                                 placeholder="Street 1" maxlength="255">
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group d-none">
                             <label>Street 2</label>
                             <input type="text" class="form-control" id="endCustomerStreet2" name="street_2"
                                 placeholder="Street 2" maxlength="255">
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group d-none">
                             <label>Pincode <span class="text-danger">*</span></label>
                             <select class="form-control" name="pincode" id="orderBookingPincodeSelect"
                                 data-placeholder="Search pincode">
@@ -426,19 +442,19 @@ $freightPercentage = 4;
                             </select>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group d-none">
                             <label>City <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="city" id="endCustomerCity"
                                 placeholder="Auto-filled from pincode" maxlength="100" readonly>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group d-none">
                             <label>District <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="district" id="endCustomerDistrict"
                                 placeholder="Auto-filled from pincode" maxlength="100" readonly>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group d-none">
                             <label>State <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="state" id="endCustomerState"
                                 placeholder="Auto-filled from pincode" maxlength="100" readonly>
@@ -603,12 +619,17 @@ $freightPercentage = 4;
             </div>
         </div>
     </div>
+
+    <?php include 'includes/installed_base_customer_modal.php'; ?>
 </body>
 
 </html>
 <?php include('script_js.php'); ?>
 <script src="https://code.jquery.com/ui/1.14.2/jquery-ui.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
 <script src="js/pincode_select2.js"></script>
+<script src="js/installed_base_customer_modal.js"></script>
+<script src="js/order_booking_end_customer.js"></script>
 <script src="js/success_modal.js"></script>
 <script>
     const endCustomerFieldIds = [
@@ -786,6 +807,9 @@ $freightPercentage = 4;
         });
 
         initPincodeSelect2('orderBookingForm', 'orderBookingPincodeSelect');
+        if (typeof initOrderBookingEndCustomerCustomerUi === 'function') {
+            initOrderBookingEndCustomerCustomerUi();
+        }
         changeAddressType($('#deliveryAddressType').val() || '1');
 
         // Manual Freight Amount field   separate from per-line 4% freight calculation
@@ -1762,6 +1786,7 @@ $freightPercentage = 4;
             data.city = $("#endCustomerCity").val().trim();
             data.district = $("#endCustomerDistrict").val().trim();
             data.state = $("#endCustomerState").val().trim();
+            data.customer_id = ($("#orderBookingEndCustomerSelect").val() || "").trim();
         }
         $.ajax({
             url: 'orderRequest.php',
@@ -1775,6 +1800,9 @@ $freightPercentage = 4;
                     getItems();
                     $("#orderCategory").val("").trigger("change");
                     $("#customer_master").val("").trigger("change");
+                    if (typeof resetOrderBookingEndCustomerSelect2 === 'function') {
+                        resetOrderBookingEndCustomerSelect2();
+                    }
                     //$("#deliveryTerm").val("").trigger("change");
                     $("#paymentTerm").val("").trigger("change");
                     $("#transporter").val("").trigger("change");
@@ -1924,6 +1952,7 @@ $freightPercentage = 4;
             data.district = $("#endCustomerDistrict").val().trim();
             data.state = $("#endCustomerState").val().trim();
             data.state_code = $("#state_code").val().trim();
+            data.customer_id = ($("#orderBookingEndCustomerSelect").val() || "").trim();
         }
 
         $.ajax({
@@ -1938,6 +1967,9 @@ $freightPercentage = 4;
                         getItems();
                         $("#orderCategory").val("").trigger("change");
                         $("#customer_master").val("").trigger("change");
+                        if (typeof resetOrderBookingEndCustomerSelect2 === 'function') {
+                            resetOrderBookingEndCustomerSelect2();
+                        }
                         //$("#deliveryTerm").val("").trigger("change");
                         $("#paymentTerm").val("").trigger("change");
                         $("#transporter").val("").trigger("change");
@@ -2086,6 +2118,7 @@ $freightPercentage = 4;
             data.district = $("#endCustomerDistrict").val().trim();
             data.state = $("#endCustomerState").val().trim();
             data.state_code = $("#state_code").val().trim();
+            data.customer_id = ($("#orderBookingEndCustomerSelect").val() || "").trim();
         }
 
         $.ajax({
@@ -2098,6 +2131,9 @@ $freightPercentage = 4;
                     getItems();
                     $("#orderCategory").val("").trigger("change");
                     $("#customer_master").val("").trigger("change");
+                    if (typeof resetOrderBookingEndCustomerSelect2 === 'function') {
+                        resetOrderBookingEndCustomerSelect2();
+                    }
                     //$("#deliveryTerm").val("").trigger("change");
                     $("#paymentTerm").val("").trigger("change");
                     $("#transporter").val("").trigger("change");

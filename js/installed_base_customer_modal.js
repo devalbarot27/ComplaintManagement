@@ -322,6 +322,10 @@ function initInstalledBaseAddCustomerFormValidation() {
                         && document.getElementById('complaintCustomerSelect')) {
                         setComplaintCustomerSelect2(result.id, label);
                     }
+                    if (typeof applyOrderBookingEndCustomer === 'function'
+                        && document.getElementById('orderBookingEndCustomerSelect')) {
+                        applyOrderBookingEndCustomer(result);
+                    }
 
                     closeInstalledBaseAddCustomerModal();
                 }).fail(function (xhr) {

@@ -24,7 +24,8 @@ customer_master_ensure_rbac($obconn);
 
 $canCreate = rbac_has_permission($obconn, 'customer-master', 'add')
     || rbac_has_permission($obconn, 'installed-base-capture', 'add')
-    || rbac_has_permission($obconn, 'complaint-entry', 'add');
+    || rbac_has_permission($obconn, 'complaint-entry', 'add')
+    || rbac_has_permission($obconn, 'order-booking', 'create-order');
 
 if (!$canCreate) {
     http_response_code(403);
@@ -89,6 +90,12 @@ try {
         'customer_name' => trim((string) ($data['customer_name'] ?? '')),
         'email' => trim((string) ($data['email'] ?? '')),
         'mobile' => trim((string) ($data['mobile'] ?? '')),
+        'street_1' => trim((string) ($data['street_1'] ?? '')),
+        'street_2' => trim((string) ($data['street_2'] ?? '')),
+        'pincode' => trim((string) ($data['pincode'] ?? '')),
+        'city' => trim((string) ($data['city'] ?? '')),
+        'district' => trim((string) ($data['district'] ?? '')),
+        'state' => trim((string) ($data['state'] ?? '')),
     ]);
 } catch (PDOException $e) {
     http_response_code(500);

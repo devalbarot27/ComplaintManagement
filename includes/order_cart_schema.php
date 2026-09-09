@@ -24,6 +24,10 @@ function cart_ensure_schema(PDO $conn): void
         ALTER TABLE plexecom_customer_units
         ADD COLUMN IF NOT EXISTS price_type VARCHAR(50) NULL DEFAULT 'clp'
     ");
+    $conn->exec("
+        ALTER TABLE plexecom_customer_units
+        ADD COLUMN IF NOT EXISTS customer_id INTEGER NULL
+    ");
 
     $ensured = true;
 }

@@ -45,6 +45,43 @@ class orderClass
         }
     }
 
+    /**
+     * Store Customer Master id on order lines when Delivery Address = End Customer.
+     */
+    private function stampOrderEndCustomerId(string $refno, $addrType): void
+    {
+        $refno = trim($refno);
+        if ($refno === '') {
+            return;
+        }
+
+        cart_ensure_schema($this->obconn);
+
+        $customerId = 0;
+        if ((string) $addrType === '2' || (int) $addrType === 2) {
+            $customerId = (int) ($_POST['customer_id'] ?? 0);
+            if ($customerId > 0) {
+                require_once __DIR__ . '/includes/customer_master_helpers.php';
+                if (customer_master_get_by_id($this->obconn, $customerId) === null) {
+                    $customerId = 0;
+                }
+            }
+        }
+
+        $stmt = $this->obconn->prepare('
+            UPDATE plexecom_customer_units
+            SET customer_id = :customer_id
+            WHERE refno = :refno
+        ');
+        if ($customerId > 0) {
+            $stmt->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+        } else {
+            $stmt->bindValue(':customer_id', null, PDO::PARAM_NULL);
+        }
+        $stmt->bindValue(':refno', $refno);
+        $stmt->execute();
+    }
+
     public function getCartCount()
     {
         $cnt = $this->obconn->prepare("SELECT * FROM tbl_vayu_item_master WHERE status=0 AND created_by=:createdBy");
@@ -1663,6 +1700,8 @@ class orderClass
                     ':createdBy' => $this->userId
                 ]);
 
+                $this->stampOrderEndCustomerId($refno, $addrType);
+
                 $this->obconn->commit();
 
                 if ($httpCode == 201 && isset($data['status']) && $data['status'] === 'OK') {
@@ -2343,6 +2382,8 @@ class orderClass
                     ':createdBy' => $this->userId
                 ]);
 
+                $this->stampOrderEndCustomerId($refno, $addrType);
+
                 $this->obconn->commit();
 
                 if ($httpCode == 201 && isset($data['status']) && $data['status'] === 'OK') {
@@ -2723,6 +2764,8 @@ class orderClass
             if ($insertedCount < 1) {
                 throw new Exception('No valid cart items could be saved.');
             }
+
+            $this->stampOrderEndCustomerId($refno, $addrType);
 
             $needsApproval = ((int) $cartOrderType !== 2);
             $l2Required = order_approval_lines_require_l2($cartItems);
