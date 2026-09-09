@@ -195,15 +195,11 @@ function warranty_claims_find_complaint(PDO $conn, int $complaintId): ?array
         return null;
     }
 
-    require_once __DIR__ . '/../includes/complaint_address_helpers.php';
-    complaint_ensure_schema($conn);
-
     $stmt = $conn->prepare("
-        SELECT c.id, c.fab_number, cm.customer_name, c.status
-        FROM complaints c
-        " . complaint_customer_join_sql('c', 'cm') . "
-        WHERE c.id = :id
-          AND c.deleted_at IS NULL
+        SELECT id, fab_number, customer_name, status
+        FROM complaints
+        WHERE id = :id
+          AND deleted_at IS NULL
     ");
     $stmt->bindValue(':id', $complaintId, PDO::PARAM_INT);
     $stmt->execute();
@@ -216,15 +212,11 @@ function warranty_claims_find_complaint(PDO $conn, int $complaintId): ?array
 /** Recent call tickets for the "Call Ticket Number" select box. */
 function warranty_claims_recent_complaints(PDO $conn, int $limit = 200): array
 {
-    require_once __DIR__ . '/../includes/complaint_address_helpers.php';
-    complaint_ensure_schema($conn);
-
     $stmt = $conn->prepare("
-        SELECT c.id, c.fab_number, cm.customer_name
-        FROM complaints c
-        " . complaint_customer_join_sql('c', 'cm') . "
-        WHERE c.deleted_at IS NULL
-        ORDER BY c.id DESC
+        SELECT id, fab_number, customer_name
+        FROM complaints
+        WHERE deleted_at IS NULL
+        ORDER BY id DESC
         LIMIT :limit
     ");
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -588,15 +580,12 @@ function foc_claim_get_by_id(PDO $conn, int $id): ?array
 
     $stmt = $conn->prepare("
         SELECT
-            fc.*, c.fab_number, cm.customer_name,
+            fc.*, c.fab_number, c.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(fc.created_by_username), ''), '-') AS created_by_name,
             COALESCE(NULLIF(TRIM(um_l1.name), ''), NULLIF(TRIM(fc.l1_by_username), ''), '-') AS l1_by_name,
             COALESCE(NULLIF(TRIM(um_l2.name), ''), NULLIF(TRIM(fc.l2_by_username), ''), '-') AS l2_by_name
         FROM foc_claims fc
         INNER JOIN complaints c ON c.id = fc.complaint_id
-        LEFT JOIN customer_masters cm
-            ON cm.id = c.customer_id
-           AND cm.deleted_at IS NULL
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(fc.created_by_username))
            AND um.deleted_at IS NULL
@@ -898,13 +887,10 @@ function service_claim_get_by_id(PDO $conn, int $id): ?array
 
     $stmt = $conn->prepare("
         SELECT
-            sc.*, c.fab_number, cm.customer_name,
+            sc.*, c.fab_number, c.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
-        LEFT JOIN customer_masters cm
-            ON cm.id = c.customer_id
-           AND cm.deleted_at IS NULL
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
            AND um.deleted_at IS NULL

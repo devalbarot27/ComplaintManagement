@@ -9,13 +9,57 @@ function initComplaintFormValidation() {
         fab_number: {
             presence: {
                 allowEmpty: false,
-                message: '^Fab Number is required'
+                //message: 'Fab Number is required'
             }
         },
-        customer_id: {
+        customer_name: {
             presence: {
                 allowEmpty: false,
-                message: '^Customer is required'
+                message: '^Customer Name is required'
+            },
+            format: {
+                pattern: /^[A-Za-z]+(?:\s+[A-Za-z]+)*$/,
+                message: '^Customer Name can contain only alphabetic characters and spaces.'
+            }
+        },
+        street_1: {
+            presence: {
+                allowEmpty: false,
+                message: '^Street 1 is required'
+            }
+        },
+        street_2: {
+            length: {
+                maximum: 255,
+                message: '^Street 2 cannot exceed 255 characters'
+            }
+        },
+        pincode: {
+            presence: {
+                allowEmpty: false,
+                message: '^Pincode is required'
+            },
+            format: {
+                pattern: /^\d{6}$/,
+                message: '^Pincode must be a 6-digit number'
+            }
+        },
+        city: {
+            presence: {
+                allowEmpty: false,
+                message: '^City is required'
+            }
+        },
+        district: {
+            presence: {
+                allowEmpty: false,
+                message: '^District is required'
+            }
+        },
+        state: {
+            presence: {
+                allowEmpty: false,
+                message: '^State is required'
             }
         },
         complaint_description: {
@@ -43,6 +87,7 @@ function initComplaintFormValidation() {
 
     function showErrors(errors) {
         clearValidationState();
+
         if (!errors) {
             return;
         }
@@ -50,24 +95,50 @@ function initComplaintFormValidation() {
         Object.keys(errors).forEach(function (field) {
             const input = form.querySelector('[name="' + field + '"]');
             const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
+
             if (input) {
                 input.classList.add('is-invalid');
             }
-            if (field === 'customer_id') {
-                $('#complaintCustomerSelect').addClass('is-invalid');
-                $('#complaintCustomerSelect').next('.select2-container').find('.select2-selection').addClass('is-invalid');
-            }
-            if (msg && errors[field] && errors[field][0]) {
+
+            if (msg && errors[field] && errors[field].length) {
                 msg.textContent = errors[field][0];
             }
         });
     }
 
-    form.addEventListener('submit', function (event) {
-        const errors = validate(form, constraints);
-        if (errors) {
-            event.preventDefault();
-            showErrors(errors);
+    form.querySelectorAll('input, textarea, select').forEach(function (input) {
+        if (!constraints[input.name]) {
+            return;
         }
+
+        const eventName = input.tagName === 'SELECT' ? 'change' : 'input';
+
+        input.addEventListener(eventName, function () {
+            if (input.name === 'fab_number') {
+                input.value = input.value.replace(/\D/g, '');
+            }
+
+            const fieldErrors = validate.single(input.value, constraints[input.name]);
+            const msg = form.querySelector('.validation-msg[data-field="' + input.name + '"]');
+
+            input.classList.toggle('is-invalid', !!fieldErrors);
+
+            if (msg) {
+                msg.textContent = fieldErrors ? fieldErrors[0] : '';
+            }
+        });
+    });
+
+    form.addEventListener('submit', function (e) {
+        const errors = validate(form, constraints);
+        showErrors(errors);
+
+        if (errors) {
+            e.preventDefault();
+        }
+    });
+
+    form.addEventListener('reset', function () {
+        clearValidationState();
     });
 }
