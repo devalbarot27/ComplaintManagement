@@ -216,9 +216,13 @@ try {
     $stmt = $obconn->query("
         SELECT
             fc.id, fc.complaint_id, fc.warranty_status, fc.justification, fc.l1_status, fc.l2_status,
+            fc.l1_remarks, fc.l1_by_username, fc.l1_at,
+            fc.l2_remarks, fc.l2_by_username, fc.l2_at,
             fc.overall_status, fc.created_by_username, fc.created_at,
             c.fab_number, cm.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(fc.created_by_username), ''), '-') AS created_by_name,
+            COALESCE(NULLIF(TRIM(um_l1.name), ''), NULLIF(TRIM(fc.l1_by_username), ''), '-') AS l1_by_name,
+            COALESCE(NULLIF(TRIM(um_l2.name), ''), NULLIF(TRIM(fc.l2_by_username), ''), '-') AS l2_by_name,
             (
                 SELECT STRING_AGG(fci.part_number || ' x' || fci.qty, ', ' ORDER BY fci.id)
                 FROM foc_claim_items fci
@@ -232,6 +236,12 @@ try {
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(fc.created_by_username))
            AND um.deleted_at IS NULL
+        LEFT JOIN user_master um_l1
+            ON LOWER(TRIM(um_l1.username)) = LOWER(TRIM(fc.l1_by_username))
+           AND um_l1.deleted_at IS NULL
+        LEFT JOIN user_master um_l2
+            ON LOWER(TRIM(um_l2.username)) = LOWER(TRIM(fc.l2_by_username))
+           AND um_l2.deleted_at IS NULL
         WHERE fc.deleted_at IS NULL
           AND (
                 fc.l1_status = '" . FOC_STAGE_PENDING . "'
@@ -268,6 +278,12 @@ try {
             'remarks_field'  => 'approval_remarks',
             'action_type'    => 'approve',
             'can_decide'     => $canDecide,
+            'l1_remarks'     => (string) ($row['l1_remarks'] ?? ''),
+            'l1_by'          => (string) ($row['l1_by_name'] ?? $row['l1_by_username'] ?? ''),
+            'l1_at'          => !empty($row['l1_at']) ? date('d M Y h:i A', strtotime((string) $row['l1_at'])) : '',
+            'l2_remarks'     => (string) ($row['l2_remarks'] ?? ''),
+            'l2_by'          => (string) ($row['l2_by_name'] ?? $row['l2_by_username'] ?? ''),
+            'l2_at'          => !empty($row['l2_at']) ? date('d M Y h:i A', strtotime((string) $row['l2_at'])) : '',
         ];
     }
 } catch (PDOException $e) {
@@ -586,6 +602,11 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                                 data-l1-approved-by="<?= htmlspecialchars((string) ($row['l1_approved_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l1-approved-at="<?= htmlspecialchars((string) ($row['l1_approved_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l1-remarks="<?= htmlspecialchars((string) ($row['l1_remarks'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l1-by="<?= htmlspecialchars((string) ($row['l1_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l1-at="<?= htmlspecialchars((string) ($row['l1_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l2-remarks="<?= htmlspecialchars((string) ($row['l2_remarks'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l2-by="<?= htmlspecialchars((string) ($row['l2_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l2-at="<?= htmlspecialchars((string) ($row['l2_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                             >
                                                 <i class="bi bi-eye"></i>
                                             </button>
@@ -678,6 +699,42 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                             <div class="col-md-6 form-group">
                                 <label class="form-label"><i class="bi bi-calendar3"></i> Submitted On</label>
                                 <div class="approval-detail-value" id="viewClaimSubmittedOn"></div>
+                            </div>
+                            <div class="col-12 d-none" id="viewClaimFocApprovalWrap">
+                                <div class="row g-3">
+                                    <div class="col-12 d-none" id="viewClaimFocL1Wrap">
+                                        <div class="row g-3">
+                                            <div class="col-md-4 form-group">
+                                                <label class="form-label">L1 Remarks</label>
+                                                <div class="approval-detail-value" id="viewClaimL1Remarks" style="white-space: pre-wrap;"></div>
+                                            </div>
+                                            <div class="col-md-4 form-group">
+                                                <label class="form-label">L1 By</label>
+                                                <div class="approval-detail-value" id="viewClaimL1By"></div>
+                                            </div>
+                                            <div class="col-md-4 form-group">
+                                                <label class="form-label">L1 At</label>
+                                                <div class="approval-detail-value" id="viewClaimL1At"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 d-none" id="viewClaimFocL2Wrap">
+                                        <div class="row g-3">
+                                            <div class="col-md-4 form-group">
+                                                <label class="form-label">L2 Remarks</label>
+                                                <div class="approval-detail-value" id="viewClaimL2Remarks" style="white-space: pre-wrap;"></div>
+                                            </div>
+                                            <div class="col-md-4 form-group">
+                                                <label class="form-label">L2 By</label>
+                                                <div class="approval-detail-value" id="viewClaimL2By"></div>
+                                            </div>
+                                            <div class="col-md-4 form-group">
+                                                <label class="form-label">L2 At</label>
+                                                <div class="approval-detail-value" id="viewClaimL2At"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="row g-3 d-none" id="viewCartFields">
@@ -843,7 +900,15 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
             const focUnderBtn = document.getElementById('modalFocUnderBtn');
             const focNotUnderBtn = document.getElementById('modalFocNotUnderBtn');
 
+            function hasDetailValue(value) {
+                const v = String(value || '').trim();
+                return v !== '' && v !== '-';
+            }
+
             function setHidden(el, hidden) {
+                if (!el) {
+                    return;
+                }
                 el.classList.toggle('d-none', hidden);
             }
 
@@ -958,6 +1023,24 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         document.getElementById('viewClaimSubmittedBy').textContent = d.submittedBy || '-';
                         document.getElementById('viewClaimSubmittedOn').textContent = submittedOnLabel;
                         setHidden(document.getElementById('viewClaimJustificationWrap'), !isFoc || !d.justification);
+                        const focApprovalWrap = document.getElementById('viewClaimFocApprovalWrap');
+                        const l1Wrap = document.getElementById('viewClaimFocL1Wrap');
+                        const l2Wrap = document.getElementById('viewClaimFocL2Wrap');
+                        const showL1 = isFoc && (hasDetailValue(d.l1Remarks) || hasDetailValue(d.l1By) || hasDetailValue(d.l1At));
+                        const showL2 = isFoc && (hasDetailValue(d.l2Remarks) || hasDetailValue(d.l2By) || hasDetailValue(d.l2At));
+                        setHidden(focApprovalWrap, !showL1 && !showL2);
+                        setHidden(l1Wrap, !showL1);
+                        setHidden(l2Wrap, !showL2);
+                        if (showL1) {
+                            document.getElementById('viewClaimL1Remarks').textContent = d.l1Remarks || '-';
+                            document.getElementById('viewClaimL1By').textContent = d.l1By || '-';
+                            document.getElementById('viewClaimL1At').textContent = d.l1At || '-';
+                        }
+                        if (showL2) {
+                            document.getElementById('viewClaimL2Remarks').textContent = d.l2Remarks || '-';
+                            document.getElementById('viewClaimL2By').textContent = d.l2By || '-';
+                            document.getElementById('viewClaimL2At').textContent = d.l2At || '-';
+                        }
                     }
 
                     const decisionHint = document.getElementById('viewClaimDecisionHint');
