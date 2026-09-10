@@ -166,7 +166,7 @@ $partsTable .= '</tbody></table></div>';
                     . '" target="_blank" rel="noopener">'
                     . htmlspecialchars($lnRefNo, ENT_QUOTES, 'UTF-8') . '</a>';
                 record_details_field('Ref No', $refNoLink, 'col-md-4', false, true);
-                record_details_field('AO Number', $lnAoNumber !== '' ? $lnAoNumber : '-', 'col-md-4');
+                record_details_field('AO Number', $lnAoNumber !== '' ? $lnAoNumber : '-', 'col-md-8');
             }
             record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
             record_details_field('L1 By', (string) ($record['l1_by_name'] ?? $record['l1_by_username'] ?? ''), 'col-md-4');
