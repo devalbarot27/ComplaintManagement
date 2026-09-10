@@ -1017,10 +1017,11 @@ function amc_attach_coverage_to_options(PDO $conn, array $options): array
     return $options;
 }
 
-function amc_coverage_meta_html(array $coverage): string
+function amc_coverage_meta_html(array $coverage, $commissioningDate = null): string
 {
     $yes = !empty($coverage['under_amc']);
     $html = '<div class="amc-coverage-meta">';
+    $html .= installed_base_warranty_meta_html($commissioningDate !== null ? (string) $commissioningDate : null);
     $html .= '<div>Under AMC: <strong>' . ($yes ? 'Yes' : 'No') . '</strong></div>';
     if ($yes) {
         $html .= '<div>AMC end date: '
@@ -1032,9 +1033,9 @@ function amc_coverage_meta_html(array $coverage): string
     return $html;
 }
 
-function amc_with_coverage_html(string $primaryHtml, array $coverage): string
+function amc_with_coverage_html(string $primaryHtml, array $coverage, $commissioningDate = null): string
 {
-    return $primaryHtml . amc_coverage_meta_html($coverage);
+    return $primaryHtml . amc_coverage_meta_html($coverage, $commissioningDate);
 }
 
 function amc_list_for_installed_base(PDO $conn, int $installedBaseId, string $fabNumber = ''): array

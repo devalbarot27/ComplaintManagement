@@ -100,6 +100,10 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             } else {
                 record_details_field('Fab Number', $fabNumber, 'col-md-4');
             }
+            $serviceClaimCommissioningDate = installed_base_commissioning_date_for_machine($obconn, (int) ($installedBaseId ?? 0), $fabNumber);
+            foreach (installed_base_warranty_detail_fields($serviceClaimCommissioningDate) as $warrantyField) {
+                record_details_field($warrantyField['label'], $warrantyField['value'], 'col-md-4');
+            }
             $serviceClaimAmcCoverage = amc_coverage_for_machine($obconn, (int) ($installedBaseId ?? 0), $fabNumber);
             record_details_field('Under AMC', !empty($serviceClaimAmcCoverage['under_amc']) ? 'Yes' : 'No', 'col-md-4');
             if (!empty($serviceClaimAmcCoverage['under_amc'])) {

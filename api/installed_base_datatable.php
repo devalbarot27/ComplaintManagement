@@ -129,7 +129,8 @@ foreach ($rows as $row) {
         'order_id' => htmlspecialchars((string) $row['order_id'], ENT_QUOTES, 'UTF-8'),
         'fab_number' => amc_with_coverage_html(
             htmlspecialchars((string) ($row['fab_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
-            $coverage
+            $coverage,
+            $row['commissioning_date'] ?? null
         ),
         'customer_name' => htmlspecialchars(trim((string) ($row['customer_name'] ?? '')) !== '' ? (string) $row['customer_name'] : '-', ENT_QUOTES, 'UTF-8'),
         'dealer_name' => htmlspecialchars((string) ($row['dealer_name'] ?? ''), ENT_QUOTES, 'UTF-8'),

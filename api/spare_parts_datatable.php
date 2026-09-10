@@ -7,6 +7,7 @@ require_once dirname(__DIR__) . '/includes/complaint_datatable_helpers.php';
 require_once dirname(__DIR__) . '/includes/spare_parts_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
+require_once dirname(__DIR__) . '/includes/amc_helpers.php';
 
 $allowedOrderColumns = [
     'id',
@@ -94,6 +95,8 @@ $dataQuery = "
         sp.warranty_chargeable,
         sp.service_log_id,
         sp.created_at,
+        sp.installed_base_id,
+        sp.fab_number,
         COALESCE(spi_agg.item_count, 0) AS item_count,
         spi_first.spare_kit_number,
         COALESCE(spi_agg.total_qty, 0) AS quantity,
@@ -130,17 +133,42 @@ $dataStmt->execute();
 
 $data = [];
 $sparePartsPermissions = spare_parts_action_permissions($obconn);
+$rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+$amcLookup = amc_coverage_lookup(
+    $obconn,
+    array_map(static fn ($row) => (int) ($row['installed_base_id'] ?? 0), $rows),
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
+$commissioningLookup = installed_base_commissioning_lookup(
+    $obconn,
+    array_map(static fn ($row) => (int) ($row['installed_base_id'] ?? 0), $rows),
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
 
-foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+foreach ($rows as $row) {
     $itemCount = (int) ($row['item_count'] ?? 0);
     $firstKit = trim((string) ($row['spare_kit_number'] ?? ''));
     $kitDisplay = $firstKit !== ''
         ? spare_parts_format_kit_summary($firstKit, $itemCount)
         : '-';
+    $coverage = amc_coverage_resolve(
+        $amcLookup,
+        (int) ($row['installed_base_id'] ?? 0),
+        (string) ($row['fab_number'] ?? '')
+    );
+    $commissioningDate = installed_base_commissioning_resolve(
+        $commissioningLookup,
+        (int) ($row['installed_base_id'] ?? 0),
+        (string) ($row['fab_number'] ?? '')
+    );
 
     $data[] = [
         'id' => '#' . (int) $row['id'],
-        'serial_number' => htmlspecialchars($row['serial_number'], ENT_QUOTES, 'UTF-8'),
+        'serial_number' => amc_with_coverage_html(
+            htmlspecialchars($row['serial_number'], ENT_QUOTES, 'UTF-8'),
+            $coverage,
+            $commissioningDate
+        ),
         'consumption_date' => spare_parts_format_date($row['consumption_date']),
         'warranty_chargeable' => htmlspecialchars($row['warranty_chargeable'], ENT_QUOTES, 'UTF-8'),
         'spare_kit_number' => htmlspecialchars($kitDisplay, ENT_QUOTES, 'UTF-8'),

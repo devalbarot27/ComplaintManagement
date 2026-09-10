@@ -75,6 +75,9 @@ $renderInstalledBaseDetailField = static function (
                     installed_base_display_value($installedBaseRecord['fab_number'] ?? null),
                     'col-md-4'
                 );
+                foreach (installed_base_warranty_detail_fields($installedBaseRecord['commissioning_date'] ?? null) as $warrantyField) {
+                    $renderInstalledBaseDetailField($warrantyField['label'], $warrantyField['value'], 'col-md-4');
+                }
                 $amcCoverage = (isset($obconn) && $obconn instanceof PDO)
                     ? amc_coverage_for_machine(
                         $obconn,

@@ -304,6 +304,111 @@ function installed_base_find_id_by_fab(PDO $conn, string $fabNumber): ?int
     return $id !== false ? (int) $id : null;
 }
 
+/**
+ * Batch-load commissioning dates for installed-base ids and/or FAB numbers.
+ *
+ * @return array{by_id: array<int, ?string>, by_fab: array<string, ?string>}
+ */
+function installed_base_commissioning_lookup(PDO $conn, array $installedBaseIds = [], array $fabNumbers = []): array
+{
+    $ids = [];
+    foreach ($installedBaseIds as $id) {
+        $id = (int) $id;
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
+    }
+
+    $fabs = [];
+    foreach ($fabNumbers as $fab) {
+        $fab = strtolower(trim((string) $fab));
+        if ($fab !== '') {
+            $fabs[$fab] = $fab;
+        }
+    }
+
+    if ($ids === [] && $fabs === []) {
+        return ['by_id' => [], 'by_fab' => []];
+    }
+
+    $clauses = [];
+    $params = [];
+    if ($ids !== []) {
+        $placeholders = [];
+        $index = 0;
+        foreach ($ids as $id) {
+            $key = ':ib' . $index++;
+            $placeholders[] = $key;
+            $params[$key] = $id;
+        }
+        $clauses[] = 'id IN (' . implode(', ', $placeholders) . ')';
+    }
+    if ($fabs !== []) {
+        $placeholders = [];
+        $index = 0;
+        foreach ($fabs as $fab) {
+            $key = ':fab' . $index++;
+            $placeholders[] = $key;
+            $params[$key] = $fab;
+        }
+        $clauses[] = 'LOWER(TRIM(fab_number)) IN (' . implode(', ', $placeholders) . ')';
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id, fab_number, commissioning_date
+        FROM installed_base
+        WHERE deleted_at IS NULL
+          AND (' . implode(' OR ', $clauses) . ')
+        ORDER BY created_at ASC, id ASC
+    ');
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $stmt->execute();
+
+    $byId = [];
+    $byFab = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $id = (int) ($row['id'] ?? 0);
+        $fabKey = strtolower(trim((string) ($row['fab_number'] ?? '')));
+        $date = $row['commissioning_date'] ?? null;
+        $date = $date !== null && trim((string) $date) !== '' ? (string) $date : null;
+        if ($id > 0 && !array_key_exists($id, $byId)) {
+            $byId[$id] = $date;
+        }
+        if ($fabKey !== '' && !array_key_exists($fabKey, $byFab)) {
+            $byFab[$fabKey] = $date;
+        }
+    }
+
+    return ['by_id' => $byId, 'by_fab' => $byFab];
+}
+
+function installed_base_commissioning_resolve(array $lookup, int $installedBaseId = 0, string $fabNumber = ''): ?string
+{
+    if ($installedBaseId > 0 && array_key_exists($installedBaseId, $lookup['by_id'] ?? [])) {
+        $value = $lookup['by_id'][$installedBaseId];
+        return $value !== null && trim((string) $value) !== '' ? (string) $value : null;
+    }
+
+    $fabKey = strtolower(trim($fabNumber));
+    if ($fabKey !== '' && array_key_exists($fabKey, $lookup['by_fab'] ?? [])) {
+        $value = $lookup['by_fab'][$fabKey];
+        return $value !== null && trim((string) $value) !== '' ? (string) $value : null;
+    }
+
+    return null;
+}
+
+function installed_base_commissioning_date_for_machine(PDO $conn, int $installedBaseId = 0, string $fabNumber = ''): ?string
+{
+    return installed_base_commissioning_resolve(
+        installed_base_commissioning_lookup($conn, [$installedBaseId], [$fabNumber]),
+        $installedBaseId,
+        $fabNumber
+    );
+}
+
 function installed_base_fab_link_html(PDO $conn, string $fabNumber, array &$cache): string
 {
     $fabNumber = trim($fabNumber);

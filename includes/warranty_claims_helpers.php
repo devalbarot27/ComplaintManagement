@@ -1048,6 +1048,7 @@ function foc_approval_extra_html(PDO $conn, array $record): string
     $warranty = installed_base_warranty_status(null);
     $machineModel = '';
     $commissioned = '';
+    $ibCommissioningDate = null;
     if ($installedBaseId > 0) {
         try {
             $ibStmt = $conn->prepare('
@@ -1062,8 +1063,9 @@ function foc_approval_extra_html(PDO $conn, array $record): string
             $ibRow = $ibStmt->fetch(PDO::FETCH_ASSOC);
             if ($ibRow) {
                 $machineModel = installed_base_machine_model_label($ibRow);
-                $commissioned = installed_base_format_date($ibRow['commissioning_date'] ?? null);
-                $warranty = installed_base_warranty_status($ibRow['commissioning_date'] ?? null);
+                $ibCommissioningDate = $ibRow['commissioning_date'] ?? null;
+                $commissioned = installed_base_format_date($ibCommissioningDate);
+                $warranty = installed_base_warranty_status($ibCommissioningDate);
             }
         } catch (PDOException $e) {
             // Installed base lookup is optional extra context.
@@ -1120,7 +1122,14 @@ function foc_approval_extra_html(PDO $conn, array $record): string
         $html .= foc_approval_field_html('Machine Model', $machineModel);
     }
     $html .= foc_approval_field_html('Commissioned', $commissioned);
-    $html .= foc_approval_field_html('Machine Warranty', (string) ($warranty['status'] ?? $record['warranty_status'] ?? ''));
+    $warrantyDetails = installed_base_warranty_details($ibCommissioningDate);
+    $html .= foc_approval_field_html('Machine Warranty', (string) ($warrantyDetails['status'] ?? $warranty['status'] ?? $record['warranty_status'] ?? ''));
+    if (!empty($warrantyDetails['end_date_label']) && $warrantyDetails['end_date_label'] !== '-') {
+        $html .= foc_approval_field_html(
+            (string) $warrantyDetails['end_date_heading'],
+            (string) $warrantyDetails['end_date_label']
+        );
+    }
     $html .= foc_approval_field_html('Under AMC', !empty($coverage['under_amc']) ? 'Yes' : 'No');
     if (!empty($coverage['under_amc'])) {
         $html .= foc_approval_field_html('AMC End Date', (string) $coverage['end_date_label']);
@@ -1478,6 +1487,125 @@ function installed_base_warranty_status_badge_html(array $warranty): string
     return '<span class="status-badge border border-dark">'
         . htmlspecialchars($status !== '' ? $status : 'Unknown', ENT_QUOTES, 'UTF-8')
         . '</span>';
+}
+
+/**
+ * Warranty status plus the relevant end date for display with machine details.
+ *
+ * Standard Warranty ends at commissioned + 12 months.
+ * Uptime Warranty ends at commissioned + 36 months.
+ * Out of Warranty shows when coverage ended (uptime end).
+ *
+ * @return array{
+ *     status: string,
+ *     badge_class: string,
+ *     can_request_approval: bool,
+ *     months_elapsed: ?int,
+ *     end_date: string,
+ *     end_date_label: string,
+ *     end_date_heading: string
+ * }
+ */
+function installed_base_warranty_details(?string $commissioningDate): array
+{
+    $statusInfo = installed_base_warranty_status($commissioningDate);
+    $details = array_merge($statusInfo, [
+        'end_date' => '',
+        'end_date_label' => '',
+        'end_date_heading' => 'Warranty End Date',
+    ]);
+
+    $normalized = installed_base_format_date_for_input($commissioningDate);
+    if ($normalized === '') {
+        return $details;
+    }
+
+    $commissioned = DateTimeImmutable::createFromFormat('!Y-m-d', $normalized);
+    if (!$commissioned instanceof DateTimeImmutable) {
+        return $details;
+    }
+
+    $standardEnd = $commissioned->modify('+' . INSTALLED_BASE_WARRANTY_STANDARD_MONTHS . ' months');
+    $uptimeEnd = $commissioned->modify(
+        '+' . (INSTALLED_BASE_WARRANTY_STANDARD_MONTHS + INSTALLED_BASE_WARRANTY_UPTIME_MONTHS) . ' months'
+    );
+    $status = (string) ($details['status'] ?? 'Unknown');
+
+    if ($status === INSTALLED_BASE_WARRANTY_STANDARD) {
+        $details['end_date'] = $standardEnd->format('Y-m-d');
+        $details['end_date_label'] = installed_base_format_date($details['end_date']);
+        $details['end_date_heading'] = 'Warranty End Date';
+    } elseif ($status === INSTALLED_BASE_WARRANTY_UPTIME) {
+        $details['end_date'] = $uptimeEnd->format('Y-m-d');
+        $details['end_date_label'] = installed_base_format_date($details['end_date']);
+        $details['end_date_heading'] = 'Warranty End Date';
+    } elseif ($status === INSTALLED_BASE_WARRANTY_OUT) {
+        $details['end_date'] = $uptimeEnd->format('Y-m-d');
+        $details['end_date_label'] = installed_base_format_date($details['end_date']);
+        $details['end_date_heading'] = 'Warranty Ended On';
+    }
+
+    return $details;
+}
+
+/**
+ * Compact warranty lines for list cells (shown under FAB / machine).
+ */
+function installed_base_warranty_meta_html(?string $commissioningDate): string
+{
+    $details = installed_base_warranty_details($commissioningDate);
+    $html = '<div>Warranty: <strong>'
+        . htmlspecialchars((string) $details['status'], ENT_QUOTES, 'UTF-8')
+        . '</strong></div>';
+    if ($details['end_date_label'] !== '' && $details['end_date_label'] !== '-') {
+        $html .= '<div>'
+            . htmlspecialchars((string) $details['end_date_heading'], ENT_QUOTES, 'UTF-8')
+            . ': '
+            . htmlspecialchars((string) $details['end_date_label'], ENT_QUOTES, 'UTF-8')
+            . '</div>';
+    }
+
+    return $html;
+}
+
+/**
+ * Header badges used on installed-base / complaint / service-log pages.
+ */
+function installed_base_warranty_header_html(?string $commissioningDate): string
+{
+    $details = installed_base_warranty_details($commissioningDate);
+    $html = '<span class="badge border border-dark text-dark">'
+        . 'Machine Warranty: '
+        . htmlspecialchars((string) $details['status'], ENT_QUOTES, 'UTF-8')
+        . '</span>';
+    if ($details['end_date_label'] !== '' && $details['end_date_label'] !== '-') {
+        $html .= '<span class="text-muted small">'
+            . htmlspecialchars((string) $details['end_date_heading'], ENT_QUOTES, 'UTF-8')
+            . ': '
+            . htmlspecialchars((string) $details['end_date_label'], ENT_QUOTES, 'UTF-8')
+            . '</span>';
+    }
+
+    return $html;
+}
+
+/**
+ * @return array<int, array{label: string, value: string}>
+ */
+function installed_base_warranty_detail_fields(?string $commissioningDate): array
+{
+    $details = installed_base_warranty_details($commissioningDate);
+    $fields = [
+        ['label' => 'Machine Warranty', 'value' => (string) $details['status']],
+    ];
+    if ($details['end_date_label'] !== '' && $details['end_date_label'] !== '-') {
+        $fields[] = [
+            'label' => (string) $details['end_date_heading'],
+            'value' => (string) $details['end_date_label'],
+        ];
+    }
+
+    return $fields;
 }
 
 /**

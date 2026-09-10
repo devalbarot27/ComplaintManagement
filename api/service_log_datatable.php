@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/includes/service_log_helpers.php';
 require_once dirname(__DIR__) . '/includes/service_log_draft_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
+require_once dirname(__DIR__) . '/includes/amc_helpers.php';
 
 $allowedOrderColumns = [
     'id',
@@ -74,7 +75,9 @@ $dataQuery = "
         visit_date,
         closure_date,
         created_at,
-        is_draft
+        is_draft,
+        installed_base_id,
+        fab_number
     FROM service_logs
     WHERE {$filterWhere}
     ORDER BY {$req['orderColumn']} {$req['orderDir']}
@@ -91,17 +94,42 @@ $dataStmt->execute();
 
 $data = [];
 $serviceLogPermissions = service_log_action_permissions($obconn);
+$rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
+$amcLookup = amc_coverage_lookup(
+    $obconn,
+    array_map(static fn ($row) => (int) ($row['installed_base_id'] ?? 0), $rows),
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
+$commissioningLookup = installed_base_commissioning_lookup(
+    $obconn,
+    array_map(static fn ($row) => (int) ($row['installed_base_id'] ?? 0), $rows),
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
 
-foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+foreach ($rows as $row) {
     $serviceLogId = (int) $row['id'];
     $isDraft = service_log_is_draft_value($row['is_draft'] ?? 0);
+    $coverage = amc_coverage_resolve(
+        $amcLookup,
+        (int) ($row['installed_base_id'] ?? 0),
+        (string) ($row['fab_number'] ?? '')
+    );
+    $commissioningDate = installed_base_commissioning_resolve(
+        $commissioningLookup,
+        (int) ($row['installed_base_id'] ?? 0),
+        (string) ($row['fab_number'] ?? '')
+    );
 
     $data[] = [
         'id' => service_log_grid_id_cell_html($serviceLogId, $isDraft),
         'is_draft' => $isDraft ? 1 : 0,
         'order_id' => htmlspecialchars($row['order_id'], ENT_QUOTES, 'UTF-8'),
         'serial_number' => htmlspecialchars((string) $row['serial_number'], ENT_QUOTES, 'UTF-8'),
-        'machine_model' => htmlspecialchars((string) $row['machine_model'], ENT_QUOTES, 'UTF-8'),
+        'machine_model' => amc_with_coverage_html(
+            htmlspecialchars((string) $row['machine_model'], ENT_QUOTES, 'UTF-8'),
+            $coverage,
+            $commissioningDate
+        ),
         'warranty_chargeable' => htmlspecialchars($row['warranty_chargeable'], ENT_QUOTES, 'UTF-8'),
         'engineer_name' => htmlspecialchars($row['engineer_name'], ENT_QUOTES, 'UTF-8'),
         'visit_date' => service_log_format_date($row['visit_date']),

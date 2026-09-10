@@ -235,17 +235,24 @@ $amcLookup = amc_coverage_lookup(
     [],
     array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
 );
+$commissioningLookup = installed_base_commissioning_lookup(
+    $obconn,
+    [],
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
 
 foreach ($rows as $row) {
     $status = (int) $row['status'];
     $flags = dt_parse_closure_row_flags($row);
     $coverage = amc_coverage_resolve($amcLookup, 0, (string) ($row['fab_number'] ?? ''));
+    $commissioningDate = installed_base_commissioning_resolve($commissioningLookup, 0, (string) ($row['fab_number'] ?? ''));
 
     $rowData = [
         'id' => '#' . (int) $row['id'],
         'fab_number' => amc_with_coverage_html(
             htmlspecialchars((string) ($row['fab_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
-            $coverage
+            $coverage,
+            $commissioningDate
         ),
         'customer_name' => htmlspecialchars((string) ($row['customer_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'complaint_category' => htmlspecialchars(complaint_category_display_name($row), ENT_QUOTES, 'UTF-8'),

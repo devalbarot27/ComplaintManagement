@@ -3,11 +3,12 @@
  * Renders Complaint Details linked to a Service Log.
  * Shows only when a raised/linked complaint exists.
  * Expects: $serviceLogLinkedComplaint (array from complaint_service_log_linked_complaint_context)
- * Optional: $serviceLogLinkedComplaintEmbedded (bool) ó compact layout when nested in service log card
+ * Optional: $serviceLogLinkedComplaintEmbedded (bool) ù compact layout when nested in service log card
  */
 require_once __DIR__ . '/complaint_status.php';
 require_once __DIR__ . '/complaint_category_helpers.php';
 require_once __DIR__ . '/complaint_address_helpers.php';
+require_once __DIR__ . '/warranty_claims_helpers.php';
 
 $serviceLogLinkedComplaint = is_array($serviceLogLinkedComplaint ?? null)
     ? $serviceLogLinkedComplaint
@@ -126,6 +127,16 @@ $wrapperClass = $serviceLogLinkedComplaintEmbedded
                     (string) ($complaint['fab_number'] ?? ''),
                     'col-md-4'
                 );
+                $linkedComplaintCommissioningDate = (isset($obconn) && $obconn instanceof PDO)
+                    ? installed_base_commissioning_date_for_machine(
+                        $obconn,
+                        (int) ($complaint['installed_base_id'] ?? 0),
+                        (string) ($complaint['fab_number'] ?? '')
+                    )
+                    : null;
+                foreach (installed_base_warranty_detail_fields($linkedComplaintCommissioningDate) as $warrantyField) {
+                    $renderLinkedComplaintField($warrantyField['label'], $warrantyField['value'], 'col-md-4');
+                }
                 $renderLinkedComplaintField(
                     'Machine Model',
                     (string) ($serviceLogLinkedComplaint['machine_model'] ?? ''),

@@ -159,13 +159,23 @@ $renderServiceLogDetailField = static function (
                     service_log_format_serial_number_for_display($serviceLogRecord['serial_number'] ?? null),
                     'col-md-4'
                 );
+                $serviceLogInstalledBaseId = (int) ($serviceLogRecord['installed_base_id'] ?? ((is_array($installedBaseRecord ?? null) ? ($installedBaseRecord['id'] ?? 0) : 0)));
+                $serviceLogFabNumber = (string) ((is_array($installedBaseRecord ?? null) && trim((string) ($installedBaseRecord['fab_number'] ?? '')) !== '')
+                    ? $installedBaseRecord['fab_number']
+                    : ($linkedInstalledBaseFields['fab_number'] ?? ($serviceLogRecord['fab_number'] ?? '')));
+                $serviceLogCommissioningDate = (is_array($installedBaseRecord ?? null) && trim((string) ($installedBaseRecord['commissioning_date'] ?? '')) !== '')
+                    ? (string) $installedBaseRecord['commissioning_date']
+                    : ((isset($obconn) && $obconn instanceof PDO)
+                        ? installed_base_commissioning_date_for_machine($obconn, $serviceLogInstalledBaseId, $serviceLogFabNumber)
+                        : null);
+                foreach (installed_base_warranty_detail_fields($serviceLogCommissioningDate) as $warrantyField) {
+                    $renderServiceLogDetailField($warrantyField['label'], $warrantyField['value'], 'col-md-4');
+                }
                 $serviceLogAmcCoverage = (isset($obconn) && $obconn instanceof PDO)
                     ? amc_coverage_for_machine(
                         $obconn,
-                        (int) ($serviceLogRecord['installed_base_id'] ?? ((is_array($installedBaseRecord ?? null) ? ($installedBaseRecord['id'] ?? 0) : 0))),
-                        (string) ((is_array($installedBaseRecord ?? null) && trim((string) ($installedBaseRecord['fab_number'] ?? '')) !== '')
-                            ? $installedBaseRecord['fab_number']
-                            : ($linkedInstalledBaseFields['fab_number'] ?? ''))
+                        $serviceLogInstalledBaseId,
+                        $serviceLogFabNumber
                     )
                     : amc_coverage_none();
                 $renderServiceLogDetailField(

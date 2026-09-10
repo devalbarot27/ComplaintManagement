@@ -8,6 +8,7 @@ require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/installed_base_helpers.php';
 require_once 'includes/user_helpers.php';
 require_once 'includes/order_approval_helpers.php';
+require_once 'includes/amc_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
 order_approval_ensure_schema($obconn);
@@ -360,11 +361,19 @@ foreach ($approvalItems as $item) {
 }
 $focItemsByClaim = foc_claim_items_for_claims($obconn, $focClaimMap);
 $servicePartsByComplaint = complaint_service_log_parts_for_complaints($obconn, $serviceComplaintIds);
+$approvalFabs = array_map(static fn ($item) => (string) ($item['fab_number'] ?? ''), $approvalItems);
+$approvalAmcLookup = amc_coverage_lookup($obconn, [], $approvalFabs);
+$approvalCommissioningLookup = installed_base_commissioning_lookup($obconn, [], $approvalFabs);
 foreach ($approvalItems as &$item) {
     if (($item['claim_type'] ?? '') === 'cart') {
         continue;
     }
-    $item['fab_html'] = installed_base_fab_link_html($obconn, (string) ($item['fab_number'] ?? ''), $installedBaseIdByFab);
+    $fabNumber = (string) ($item['fab_number'] ?? '');
+    $item['fab_html'] = amc_with_coverage_html(
+        installed_base_fab_link_html($obconn, $fabNumber, $installedBaseIdByFab),
+        amc_coverage_resolve($approvalAmcLookup, 0, $fabNumber),
+        installed_base_commissioning_resolve($approvalCommissioningLookup, 0, $fabNumber)
+    );
     if (($item['claim_type'] ?? '') === 'foc') {
         $item['details_html'] = foc_parts_linked_summary_html($focItemsByClaim[(int) $item['id']] ?? []);
         $item['parts_html'] = $item['details_html'];
@@ -526,13 +535,13 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <a href="recent_order_details.php?refno=<?= htmlspecialchars((string) ($row['ref_no'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                             <?php if ($isCart): ?>
+                                            <a href="recent_order_details.php?refno=<?= htmlspecialchars((string) ($row['ref_no'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                                 <?= htmlspecialchars((string) ($row['item_code'] ?? $row['fab_number'] ?? '-')) ?>
-                                            <?php else: ?>
-                                                <?= installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?>
-                                            <?php endif; ?>
                                             </a>
+                                            <?php else: ?>
+                                                <?= $row['fab_html'] ?? installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?>
+                                            <?php endif; ?>
                                         </td>
                                         <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                                         <td>

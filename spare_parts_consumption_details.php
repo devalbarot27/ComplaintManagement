@@ -5,6 +5,7 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 include 'includes/spare_parts_helpers.php';
 require_once 'includes/after_market_access_helpers.php';
+require_once 'includes/warranty_claims_helpers.php';
 
 $id = (int) base64_decode($_GET['id'] ?? '', true);
 
@@ -64,6 +65,17 @@ $itemTotals = spare_parts_items_totals($sparePartsItems);
             <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
                 <div>
                     <h5 class="mb-1">Spare Parts Consumption #<?php echo (int) $sparePartsRecord['id']; ?></h5>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <?php
+                        echo installed_base_warranty_header_html(
+                            installed_base_commissioning_date_for_machine(
+                                $obconn,
+                                (int) ($sparePartsRecord['installed_base_id'] ?? 0),
+                                (string) ($sparePartsRecord['fab_number'] ?? '')
+                            )
+                        );
+                        ?>
+                    </div>
                     
                 </div>
                 <div class="d-flex gap-2 flex-wrap">

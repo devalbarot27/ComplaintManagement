@@ -432,12 +432,21 @@ $amcContracts = amc_list($obconn);
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($amcContracts as $row): ?>
+                            <?php
+                            $amcCommissioningLookup = installed_base_commissioning_lookup(
+                                $obconn,
+                                array_map(static fn ($contractRow) => (int) ($contractRow['installed_base_id'] ?? 0), $amcContracts),
+                                array_map(static fn ($contractRow) => (string) ($contractRow['fab_number'] ?? ''), $amcContracts)
+                            );
+                            foreach ($amcContracts as $row): ?>
                             <?php
                                 $amcId = (int) $row['id'];
                                 $encodedAmcId = rawurlencode(base64_encode((string) $amcId));
                                 $installedBaseId = (int) ($row['installed_base_id'] ?? 0);
                                 $fabNumber = trim((string) ($row['fab_number'] ?? ''));
+                                $amcRowWarranty = installed_base_warranty_details(
+                                    installed_base_commissioning_resolve($amcCommissioningLookup, $installedBaseId, $fabNumber)
+                                );
                             ?>
                             <tr>
                                 <td><?= $amcId ?></td>
@@ -460,7 +469,15 @@ $amcContracts = amc_list($obconn);
                                     <?= htmlspecialchars($fabNumber !== '' ? $fabNumber : '-') ?>
                                     <?php endif; ?>
                                 </td>
-                                <td><span class="status-badge border border-dark"><?= $row['warranty_status'] ?></span></td>
+                                <td>
+                                    <span class="status-badge border border-dark"><?= htmlspecialchars((string) $amcRowWarranty['status']) ?></span>
+                                    <?php if ($amcRowWarranty['end_date_label'] !== '' && $amcRowWarranty['end_date_label'] !== '-') { ?>
+                                    <div class="amc-coverage-meta">
+                                        <?= htmlspecialchars((string) $amcRowWarranty['end_date_heading']) ?>:
+                                        <?= htmlspecialchars((string) $amcRowWarranty['end_date_label']) ?>
+                                    </div>
+                                    <?php } ?>
+                                </td>
                                 <td>
                                     <span class="status-badge border border-dark">
                                         <?= htmlspecialchars(AMC_TYPE_OPTIONS[$row['amc_type']] ?? ($row['amc_type'] ?: '-')) ?>

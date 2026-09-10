@@ -10,6 +10,7 @@ require_once 'includes/after_market_access_helpers.php';
 require_once 'includes/complaint_service_log_helpers.php';
 require_once 'includes/complaint_category_helpers.php';
 require_once 'includes/complaint_address_helpers.php';
+require_once 'includes/warranty_claims_helpers.php';
 
 $active_menu = 'service_log';
 
@@ -98,6 +99,16 @@ $serviceLogEmbeddedInInstalledBase = false;
                         <?php if (service_log_is_draft_value($record['is_draft'] ?? 0)) { ?>
                         <?php echo service_log_draft_badge_html(); ?>
                         <?php } ?>
+                        <?php
+                        $serviceLogHeaderCommissioning = is_array($installedBaseRecord ?? null)
+                            ? ($installedBaseRecord['commissioning_date'] ?? null)
+                            : installed_base_commissioning_date_for_machine(
+                                $obconn,
+                                (int) ($record['installed_base_id'] ?? 0),
+                                (string) ($record['fab_number'] ?? '')
+                            );
+                        echo installed_base_warranty_header_html($serviceLogHeaderCommissioning);
+                        ?>
                     </div>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">

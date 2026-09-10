@@ -132,7 +132,7 @@ try {
 
         $data[] = [
             'id' => '<span class="warranty-grid-idd">#' . $installedBaseId . '</span>',
-            'fab_number' => amc_with_coverage_html($fabHtml, $coverage),
+            'fab_number' => amc_with_coverage_html($fabHtml, $coverage, $row['commissioning_date'] ?? null),
             'customer_name' => $customerName !== ''
                 ? htmlspecialchars($customerName, ENT_QUOTES, 'UTF-8')
                 : '<span class="text-muted">-</span>',

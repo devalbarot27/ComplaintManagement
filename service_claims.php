@@ -592,6 +592,11 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             [],
                             array_map(static fn ($claimRow) => (string) ($claimRow['fab_number'] ?? ''), $claims)
                         );
+                        $serviceClaimCommissioningLookup = installed_base_commissioning_lookup(
+                            $obconn,
+                            [],
+                            array_map(static fn ($claimRow) => (string) ($claimRow['fab_number'] ?? ''), $claims)
+                        );
                         foreach ($claims as $row): ?>
                         <?php
                             $claimId = (int) $row['id'];
@@ -608,6 +613,11 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             $ccsClaim = trim((string) ($row['ccs_warranty_claim'] ?? ''));
                             $overallStatus = trim((string) ($row['overall_status'] ?? ''));
                             $serviceClaimCoverage = amc_coverage_resolve($serviceClaimAmcLookup, 0, (string) ($row['fab_number'] ?? ''));
+                            $serviceClaimCommissioningDate = installed_base_commissioning_resolve(
+                                $serviceClaimCommissioningLookup,
+                                0,
+                                (string) ($row['fab_number'] ?? '')
+                            );
                         ?>
                         <tr>
                             <td><?= $claimId ?></td>
@@ -616,7 +626,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                     #<?= $complaintId ?>
                                 </a>
                             </td>
-                            <td><?= amc_with_coverage_html(installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab), $serviceClaimCoverage) ?></td>
+                            <td><?= amc_with_coverage_html(installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab), $serviceClaimCoverage, $serviceClaimCommissioningDate) ?></td>
                             <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                             <td>
                                 <div class="fw-semibold"><?= htmlspecialchars($kmLabel === '-' ? '' : $kmLabel) ?><?= $kmLabel !== '-' ? ' KM' : '-' ?></div>

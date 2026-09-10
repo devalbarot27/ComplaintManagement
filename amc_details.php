@@ -117,10 +117,22 @@ $amcVisits = amc_visits_for_contract($obconn, $id);
             <div class="card-header"><strong>Installed Base</strong></div>
             <div class="card-body">
                 <div class="row g-3">
+                    <?php
+                    $amcWarrantyDetails = installed_base_warranty_details(
+                        installed_base_commissioning_date_for_machine(
+                            $obconn,
+                            (int) ($amcContract['installed_base_id'] ?? 0),
+                            (string) ($amcContract['fab_number'] ?? '')
+                        )
+                    );
+                    ?>
                     <div class="col-md-3"><strong>Installed Base ID:</strong><br><?= htmlspecialchars($amcContract['installed_base_id'] ? ('#' . $amcContract['installed_base_id']) : '-') ?></div>
                     <div class="col-md-3"><strong>FAB Number:</strong><br><?= htmlspecialchars($amcContract['fab_number'] ?? '-') ?></div>
                     <div class="col-md-3"><strong>Equipment Model:</strong><br><?= htmlspecialchars($amcContract['product_model'] ?? '-') ?></div>
-                    <div class="col-md-3"><strong>Warranty Status:</strong><br><span class="status-badge border border-dark"><?= $amcContract['warranty_status']; ?></span></div>
+                    <div class="col-md-3"><strong>Machine Warranty:</strong><br><span class="status-badge border border-dark"><?= htmlspecialchars((string) $amcWarrantyDetails['status']) ?></span></div>
+                    <?php if ($amcWarrantyDetails['end_date_label'] !== '' && $amcWarrantyDetails['end_date_label'] !== '-') { ?>
+                    <div class="col-md-3"><strong><?= htmlspecialchars((string) $amcWarrantyDetails['end_date_heading']) ?>:</strong><br><?= htmlspecialchars((string) $amcWarrantyDetails['end_date_label']) ?></div>
+                    <?php } ?>
                 </div>
             </div>
         </div>

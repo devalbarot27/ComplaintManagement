@@ -111,6 +111,16 @@ $renderSparePartsDetailField = static function (
 
                 $renderSparePartsDetailField('Installed Base', $installedBaseHtml, 'col-md-6', false, true);
                 $renderSparePartsDetailField('Fab Number', spare_parts_display_value($sparePartsRecord['fab_number'] ?? null), 'col-md-3');
+                $sparePartsCommissioningDate = (isset($obconn) && $obconn instanceof PDO)
+                    ? installed_base_commissioning_date_for_machine(
+                        $obconn,
+                        $installedBaseId,
+                        (string) ($sparePartsRecord['fab_number'] ?? '')
+                    )
+                    : null;
+                foreach (installed_base_warranty_detail_fields($sparePartsCommissioningDate) as $warrantyField) {
+                    $renderSparePartsDetailField($warrantyField['label'], $warrantyField['value'], 'col-md-3');
+                }
                 $sparePartsAmcCoverage = (isset($obconn) && $obconn instanceof PDO)
                     ? amc_coverage_for_machine(
                         $obconn,

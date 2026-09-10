@@ -677,6 +677,11 @@ $showFocForm = $isEditMode || $error_message !== '';
                                 [],
                                 array_map(static fn ($claimRow) => (string) ($claimRow['fab_number'] ?? ''), $claims)
                             );
+                            $focCommissioningLookup = installed_base_commissioning_lookup(
+                                $obconn,
+                                [],
+                                array_map(static fn ($claimRow) => (string) ($claimRow['fab_number'] ?? ''), $claims)
+                            );
                             foreach ($claims as $i => $row): ?>
                             <?php
                                 $claimId = (int) $row['id'];
@@ -684,6 +689,11 @@ $showFocForm = $isEditMode || $error_message !== '';
                                 $encodedClaimId = rawurlencode(base64_encode((string) $claimId));
                                 $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
                                 $focCoverage = amc_coverage_resolve($focAmcLookup, 0, (string) ($row['fab_number'] ?? ''));
+                                $focCommissioningDate = installed_base_commissioning_resolve(
+                                    $focCommissioningLookup,
+                                    0,
+                                    (string) ($row['fab_number'] ?? '')
+                                );
                             ?>
                             <tr>
                                 <td><?= $claimId ?></td>
@@ -692,7 +702,7 @@ $showFocForm = $isEditMode || $error_message !== '';
                                         #<?= $complaintId ?>
                                     </a>
                                 </td>
-                                <td><?= amc_with_coverage_html(installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab), $focCoverage) ?></td>
+                                <td><?= amc_with_coverage_html(installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab), $focCoverage, $focCommissioningDate) ?></td>
                                 <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                                 <td><?= foc_parts_linked_cell_html($focItemsByClaim[$claimId] ?? []) ?></td>
                                 <td><?= nl2br(htmlspecialchars($row['part_names'] ?? '')) ?></td>

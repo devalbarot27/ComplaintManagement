@@ -135,6 +135,7 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                             (int) $installedBaseRecord['id'],
                             (string) ($installedBaseRecord['fab_number'] ?? '')
                         );
+                        echo installed_base_warranty_header_html($installedBaseRecord['commissioning_date'] ?? null);
                         ?>
                         <span class="badge border border-dark text-dark">
                             Under AMC: <?= !empty($headerAmcCoverage['under_amc']) ? 'Yes' : 'No' ?>

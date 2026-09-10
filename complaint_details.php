@@ -171,6 +171,11 @@ $serviceClaimId = (int) $warrantyClaimStatuses['service_id'];
 $assignmentCount = count($assignments);
 $serviceUpdateCount = count($serviceUpdates);
 $closureCount = count($closures);
+$machineCommissioningDate = installed_base_commissioning_date_for_machine(
+    $obconn,
+    (int) ($complaint['installed_base_id'] ?? 0),
+    (string) ($complaint['fab_number'] ?? '')
+);
 ?>
  
 <!DOCTYPE html>
@@ -223,6 +228,7 @@ $closureCount = count($closures);
                             <i class="bi bi-upc-scan"></i>
                             <?php echo htmlspecialchars($complaint['fab_number']); ?>
                         </span>
+                        <?php echo installed_base_warranty_header_html($machineCommissioningDate ?? null); ?>
                         <?php } ?>
                         <?php if ($assignmentCount > 0) { ?>
                         <span class="badge border border-secondary text-secondary complaint-details-meta-badge">

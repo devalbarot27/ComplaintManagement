@@ -47,6 +47,16 @@ $complaintStatusLabel = $statusMap[$complaint['status']] ?? 'Unknown';
                     (string) ($complaint['fab_number'] ?? ''),
                     'col-md-4'
                 );
+                $complaintCommissioningDate = $machineCommissioningDate ?? ((isset($obconn) && $obconn instanceof PDO)
+                    ? installed_base_commissioning_date_for_machine(
+                        $obconn,
+                        (int) ($complaint['installed_base_id'] ?? 0),
+                        (string) ($complaint['fab_number'] ?? '')
+                    )
+                    : null);
+                foreach (installed_base_warranty_detail_fields($complaintCommissioningDate) as $warrantyField) {
+                    $renderComplaintDetailField($warrantyField['label'], $warrantyField['value'], 'col-md-4');
+                }
                 $amcCoverage = (isset($obconn) && $obconn instanceof PDO)
                     ? amc_coverage_for_machine(
                         $obconn,
