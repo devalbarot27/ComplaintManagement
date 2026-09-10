@@ -47,7 +47,9 @@ $headerMeta = [
 ];
 if ($lnRefNo !== '') {
     $headerMeta[] = '<span class="record-details-chip"><i class="bi bi-hash"></i> Ref No: '
-        . htmlspecialchars($lnRefNo, ENT_QUOTES, 'UTF-8') . '</span>';
+        . '<a class="text-primary" href="recent_order_details.php?refno=' . htmlspecialchars(rawurlencode($lnRefNo), ENT_QUOTES, 'UTF-8')
+        . '" target="_blank" rel="noopener">'
+        . htmlspecialchars($lnRefNo, ENT_QUOTES, 'UTF-8') . '</a></span>';
 }
 if ($lnAoNumber !== '') {
     $headerMeta[] = '<span class="record-details-chip"><i class="bi bi-upc-scan"></i> AO Number: '
@@ -159,7 +161,11 @@ $partsTable .= '</tbody></table></div>';
             record_details_field('Lock-in Engineer', $l1Badge, 'col-md-4', false, true);
             record_details_field('Business Head', $l2Badge, 'col-md-4', false, true);
             if ($lnRefNo !== '') {
-                record_details_field('Ref No', $lnRefNo, 'col-md-4');
+                $refNoLink = '<a class="text-primary" href="recent_order_details.php?refno='
+                    . htmlspecialchars(rawurlencode($lnRefNo), ENT_QUOTES, 'UTF-8')
+                    . '" target="_blank" rel="noopener">'
+                    . htmlspecialchars($lnRefNo, ENT_QUOTES, 'UTF-8') . '</a>';
+                record_details_field('Ref No', $refNoLink, 'col-md-4', false, true);
                 record_details_field('AO Number', $lnAoNumber !== '' ? $lnAoNumber : '-', 'col-md-4');
             }
             record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
