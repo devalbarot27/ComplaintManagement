@@ -42,6 +42,7 @@ try {
     $filterWhere = $baseWhere;
 
     if ($req['searchValue'] !== '') {
+        $warrantyStatusSql = installed_base_warranty_status_sql('ib.commissioning_date');
         $filterWhere .= ' AND (
             ib.fab_number ILIKE :search
             OR ib.dealer_name ILIKE :search
@@ -49,6 +50,12 @@ try {
             OR ib.machine_model_code ILIKE :search
             OR cm.customer_name ILIKE :search
             OR CAST(ib.id AS TEXT) ILIKE :search
+            OR CAST(ib.commissioning_date AS TEXT) ILIKE :search
+            OR TO_CHAR(ib.commissioning_date, \'DD Mon YYYY\') ILIKE :search
+            OR TO_CHAR(ib.commissioning_date, \'DD/MM/YYYY\') ILIKE :search
+            OR TO_CHAR(ib.commissioning_date, \'DD.MM.YYYY\') ILIKE :search
+            OR TO_CHAR(ib.commissioning_date, \'YYYY-MM-DD\') ILIKE :search
+            OR (' . $warrantyStatusSql . ') ILIKE :search
         )';
         $filterParams[':search'] = '%' . $req['searchValue'] . '%';
     }

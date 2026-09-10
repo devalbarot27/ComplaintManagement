@@ -1106,12 +1106,29 @@ function installed_base_warranty_status_badge_class(string $status): string
     return $map[$status] ?? 'warranty-status--unknown';
 }
 
+/**
+ * SQL expression matching installed_base_warranty_status() for server-side search/filter.
+ */
+function installed_base_warranty_status_sql(string $dateExpr = 'ib.commissioning_date'): string
+{
+    $monthsElapsed = '(EXTRACT(YEAR FROM AGE(CURRENT_DATE, (' . $dateExpr . ')::date)) * 12
+        + EXTRACT(MONTH FROM AGE(CURRENT_DATE, (' . $dateExpr . ')::date)))';
+
+    return 'CASE
+        WHEN ' . $dateExpr . ' IS NULL THEN \'Unknown\'
+        WHEN CURRENT_DATE < (' . $dateExpr . ')::date THEN \'' . INSTALLED_BASE_WARRANTY_STANDARD . '\'
+        WHEN ' . $monthsElapsed . ' < ' . INSTALLED_BASE_WARRANTY_STANDARD_MONTHS . ' THEN \'' . INSTALLED_BASE_WARRANTY_STANDARD . '\'
+        WHEN ' . $monthsElapsed . ' < ' . (INSTALLED_BASE_WARRANTY_STANDARD_MONTHS + INSTALLED_BASE_WARRANTY_UPTIME_MONTHS) . ' THEN \'' . INSTALLED_BASE_WARRANTY_UPTIME . '\'
+        ELSE \'' . INSTALLED_BASE_WARRANTY_OUT . '\'
+    END';
+}
+
 function installed_base_warranty_status_badge_html(array $warranty): string
 {
     $status = trim((string) ($warranty['status'] ?? 'Unknown'));
     $badgeClass = trim((string) ($warranty['badge_class'] ?? 'warranty-status--unknown'));
 
-    return '<span class="status-badge warranty-status-badge ' . htmlspecialchars($badgeClass, ENT_QUOTES, 'UTF-8') . '">'
+    return '<span class="status-badge border border-dark">'
         . htmlspecialchars($status !== '' ? $status : 'Unknown', ENT_QUOTES, 'UTF-8')
         . '</span>';
 }

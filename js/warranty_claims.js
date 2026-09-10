@@ -21,7 +21,7 @@ $(function () {
             { data: 'customer_name', width: '22%' },
             { data: 'machine_model', width: '24%' },
             { data: 'commissioning_date', width: '14%' },
-            { data: 'warranty_status', orderable: false, searchable: false, width: '18%' }
+            { data: 'warranty_status', orderable: false, width: '18%' }
         ],
         columnDefs: [
             { className: 'align-middle', targets: '_all' }
