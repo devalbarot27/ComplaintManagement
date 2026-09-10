@@ -39,13 +39,18 @@ $l1Badge = '<span class="status-badge border border-dark">'
     . htmlspecialchars((string) ($record['l1_status'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</span>';
 $l2Badge = '<span class="status-badge border border-dark">'
     . htmlspecialchars((string) ($record['l2_status'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</span>';
-$lnAoNumber = trim((string) ($record['ln_order_number'] ?? ''));
+$lnRefNo = trim((string) ($record['ln_order_number'] ?? ''));
+$lnAoNumber = $lnRefNo !== '' ? foc_claim_ao_number_for_refno($obconn, $lnRefNo) : '';
 $headerMeta = [
     record_details_id_chip((int) $record['id']),
     '<span class="status-badge border border-dark">' . htmlspecialchars((string) ($record['overall_status'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>',
 ];
+if ($lnRefNo !== '') {
+    $headerMeta[] = '<span class="record-details-chip"><i class="bi bi-hash"></i> Ref No: '
+        . htmlspecialchars($lnRefNo, ENT_QUOTES, 'UTF-8') . '</span>';
+}
 if ($lnAoNumber !== '') {
-    $headerMeta[] = '<span class="record-details-chip"><i class="bi bi-upc-scan"></i> LN - AO: '
+    $headerMeta[] = '<span class="record-details-chip"><i class="bi bi-upc-scan"></i> AO Number: '
         . htmlspecialchars($lnAoNumber, ENT_QUOTES, 'UTF-8') . '</span>';
 }
 
@@ -149,12 +154,13 @@ $partsTable .= '</tbody></table></div>';
             record_details_field('Justification', (string) ($record['justification'] ?? ''), 'col-md-12', true);
             record_details_section_end();
 
-            record_details_section_start(4, 'Warranty & Approval', 'Warranty flag, L1/L2 decisions, and LN AO number');
+            record_details_section_start(4, 'Warranty & Approval', 'Warranty flag, L1/L2 decisions, Ref No and AO Number');
             record_details_field('Machine Warranty Status', $warrantyBadge, 'col-md-4', false, true);
             record_details_field('Lock-in Engineer', $l1Badge, 'col-md-4', false, true);
             record_details_field('Business Head', $l2Badge, 'col-md-4', false, true);
-            if ($lnAoNumber !== '') {
-                record_details_field('LN - AO Number', $lnAoNumber, 'col-md-4');
+            if ($lnRefNo !== '') {
+                record_details_field('Ref No', $lnRefNo, 'col-md-4');
+                record_details_field('AO Number', $lnAoNumber !== '' ? $lnAoNumber : '-', 'col-md-4');
             }
             record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
             record_details_field('L1 By', (string) ($record['l1_by_name'] ?? $record['l1_by_username'] ?? ''), 'col-md-4');

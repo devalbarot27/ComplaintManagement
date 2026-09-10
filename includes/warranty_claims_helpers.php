@@ -820,6 +820,36 @@ function foc_claim_get_by_id(PDO $conn, int $id): ?array
 }
 
 /**
+ * AO Number written back by LN onto plexecom_customer_units.order_number
+ * after the FOC refno (E/UNITS/...) has been processed.
+ */
+function foc_claim_ao_number_for_refno(PDO $conn, string $refno): string
+{
+    $refno = trim($refno);
+    if ($refno === '') {
+        return '';
+    }
+
+    try {
+        $stmt = $conn->prepare("
+            SELECT NULLIF(TRIM(order_number), '')
+            FROM plexecom_customer_units
+            WHERE TRIM(refno) = :refno
+              AND NULLIF(TRIM(order_number), '') IS NOT NULL
+            ORDER BY indent_date DESC NULLS LAST
+            LIMIT 1
+        ");
+        $stmt->bindValue(':refno', $refno);
+        $stmt->execute();
+        $aoNumber = $stmt->fetchColumn();
+
+        return $aoNumber !== false ? trim((string) $aoNumber) : '';
+    } catch (PDOException $e) {
+        return '';
+    }
+}
+
+/**
  * Notify every user whose role currently holds the given module/permission.
  * Keeps the approval hierarchy configurable via the existing Assign Permissions UI.
  */
