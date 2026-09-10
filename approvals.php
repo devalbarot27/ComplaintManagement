@@ -624,7 +624,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
 
     <!-- Shared claim details modal: view + decide (Approve/Reject with mandatory reject comment). -->
     <div class="modal fade" id="viewClaimModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" id="viewClaimDialog">
             <div class="modal-content complaint-form-modal">
                 <div class="complaint-form-header">
                     <div class="complaint-form-header__main">
@@ -735,6 +735,10 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="col-12 d-none" id="viewClaimFocExtraWrap">
+                                <div class="text-muted" id="viewClaimFocExtraLoading">Loading service logs and additional details...</div>
+                                <div id="viewClaimFocExtraBody"></div>
                             </div>
                         </div>
                         <div class="row g-3 d-none" id="viewCartFields">
@@ -899,6 +903,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
             const ccsNoBtn = document.getElementById('modalCcsNoBtn');
             const focUnderBtn = document.getElementById('modalFocUnderBtn');
             const focNotUnderBtn = document.getElementById('modalFocNotUnderBtn');
+            let focExtraRequestId = 0;
 
             function hasDetailValue(value) {
                 const v = String(value || '').trim();
@@ -910,6 +915,68 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     return;
                 }
                 el.classList.toggle('d-none', hidden);
+            }
+
+            function resetFocExtra(showLoading) {
+                focExtraRequestId += 1;
+                const wrap = document.getElementById('viewClaimFocExtraWrap');
+                const loading = document.getElementById('viewClaimFocExtraLoading');
+                const body = document.getElementById('viewClaimFocExtraBody');
+                if (body) {
+                    body.innerHTML = '';
+                    body.classList.remove('text-danger');
+                }
+                if (loading) {
+                    loading.classList.toggle('d-none', !showLoading);
+                }
+                setHidden(wrap, !showLoading);
+                return focExtraRequestId;
+            }
+
+            function loadFocExtra(claimId) {
+                const requestId = resetFocExtra(true);
+                const loading = document.getElementById('viewClaimFocExtraLoading');
+                const body = document.getElementById('viewClaimFocExtraBody');
+
+                fetch('api/foc_approval_details.php?claim_id=' + encodeURIComponent(claimId), {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' }
+                }).then(function(res) {
+                    return res.json().then(function(data) {
+                        return { ok: res.ok, data: data };
+                    });
+                }).then(function(result) {
+                    if (requestId !== focExtraRequestId) {
+                        return;
+                    }
+                    if (loading) {
+                        loading.classList.add('d-none');
+                    }
+                    if (!body) {
+                        return;
+                    }
+                    if (result.ok && result.data && result.data.html) {
+                        body.classList.remove('text-danger');
+                        body.innerHTML = result.data.html;
+                        return;
+                    }
+                    body.classList.add('text-danger');
+                    body.textContent = (result.data && result.data.error)
+                        ? result.data.error
+                        : 'Unable to load additional details.';
+                }).catch(function() {
+                    if (requestId !== focExtraRequestId) {
+                        return;
+                    }
+                    if (loading) {
+                        loading.classList.add('d-none');
+                    }
+                    if (!body) {
+                        return;
+                    }
+                    body.classList.add('text-danger');
+                    body.textContent = 'Unable to load additional details.';
+                });
             }
 
             document.querySelectorAll('.btn-view-claim').forEach(function(btn) {
@@ -934,6 +1001,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     const cartFields = document.getElementById('viewCartFields');
                     setHidden(focFields, isCart);
                     setHidden(cartFields, !isCart);
+                    resetFocExtra(false);
 
                     if (isCart) {
                         document.getElementById('viewClaimTitle').textContent = 'Order Approval';
@@ -986,7 +1054,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     } else {
                         document.getElementById('viewClaimTitle').textContent = (isFoc ? 'FOC Parts Claim' : 'Service Claim') + ' #' + d.claimId;
                         document.getElementById('viewClaimSubtitle').textContent = isFoc ?
-                            'Review FOC part claim details and take action.' :
+                            'Review FOC part claim details, service logs, and take action.' :
                             'Review service claim details and take action.';
                         document.getElementById('viewClaimIcon').className = isFoc ? 'bi bi-shield-check' : 'bi bi-clipboard-check';
                         document.getElementById('viewDetailsSectionTitle').textContent = 'Claim Details';
@@ -1040,6 +1108,9 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                             document.getElementById('viewClaimL2Remarks').textContent = d.l2Remarks || '-';
                             document.getElementById('viewClaimL2By').textContent = d.l2By || '-';
                             document.getElementById('viewClaimL2At').textContent = d.l2At || '-';
+                        }
+                        if (isFoc) {
+                            loadFocExtra(d.claimId);
                         }
                     }
 

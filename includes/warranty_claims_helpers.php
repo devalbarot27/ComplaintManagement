@@ -849,6 +849,217 @@ function foc_claim_ao_number_for_refno(PDO $conn, string $refno): string
     }
 }
 
+function foc_approval_escape(string $value): string
+{
+    $value = trim($value);
+
+    return htmlspecialchars($value !== '' ? $value : '-', ENT_QUOTES, 'UTF-8');
+}
+
+function foc_approval_field_html(string $label, string $value, string $colClass = 'col-md-4', bool $multiline = false, bool $allowHtml = false): string
+{
+    $display = $allowHtml ? $value : foc_approval_escape($value);
+    $style = $multiline ? ' style="white-space: pre-wrap;"' : '';
+
+    return '<div class="' . htmlspecialchars($colClass, ENT_QUOTES, 'UTF-8') . ' form-group">'
+        . '<label class="form-label">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</label>'
+        . '<div class="approval-detail-value"' . $style . '>' . $display . '</div>'
+        . '</div>';
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function foc_claim_service_logs_for_complaint(PDO $conn, int $complaintId): array
+{
+    if ($complaintId <= 0) {
+        return [];
+    }
+
+    require_once __DIR__ . '/service_log_helpers.php';
+
+    try {
+        $stmt = $conn->prepare('
+            SELECT sl.*
+            FROM complaint_service_logs csl
+            INNER JOIN service_logs sl
+                ON sl.id = csl.service_log_id
+               AND sl.deleted_at IS NULL
+            WHERE csl.complaint_id = :complaint_id
+            ORDER BY sl.visit_date DESC NULLS LAST, sl.id DESC
+        ');
+        $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        return [];
+    }
+}
+
+function foc_approval_extra_html(PDO $conn, array $record): string
+{
+    require_once __DIR__ . '/service_log_helpers.php';
+    require_once __DIR__ . '/complaint_status.php';
+    require_once __DIR__ . '/amc_helpers.php';
+    require_once __DIR__ . '/complaint_category_helpers.php';
+
+    $claimId = (int) ($record['id'] ?? 0);
+    $complaintId = (int) ($record['complaint_id'] ?? 0);
+    $fabNumber = trim((string) ($record['fab_number'] ?? ''));
+    $installedBaseId = $fabNumber !== '' ? (int) (installed_base_find_id_by_fab($conn, $fabNumber) ?? 0) : 0;
+    $coverage = amc_coverage_for_machine($conn, $installedBaseId, $fabNumber);
+    $warranty = installed_base_warranty_status(null);
+    $machineModel = '';
+    $commissioned = '';
+    if ($installedBaseId > 0) {
+        try {
+            $ibStmt = $conn->prepare('
+                SELECT machine_model, machine_model_code, commissioning_date
+                FROM installed_base
+                WHERE id = :id
+                  AND deleted_at IS NULL
+                LIMIT 1
+            ');
+            $ibStmt->bindValue(':id', $installedBaseId, PDO::PARAM_INT);
+            $ibStmt->execute();
+            $ibRow = $ibStmt->fetch(PDO::FETCH_ASSOC);
+            if ($ibRow) {
+                $machineModel = installed_base_machine_model_label($ibRow);
+                $commissioned = installed_base_format_date($ibRow['commissioning_date'] ?? null);
+                $warranty = installed_base_warranty_status($ibRow['commissioning_date'] ?? null);
+            }
+        } catch (PDOException $e) {
+            // Installed base lookup is optional extra context.
+        }
+    }
+
+    $complaintDescription = '';
+    $complaintStatusLabel = '';
+    $complaintCategory = '';
+    if ($complaintId > 0) {
+        try {
+            $cStmt = $conn->prepare('
+                SELECT complaint_description, status, complaint_category_name
+                FROM complaints
+                WHERE id = :id
+                  AND deleted_at IS NULL
+                LIMIT 1
+            ');
+            $cStmt->bindValue(':id', $complaintId, PDO::PARAM_INT);
+            $cStmt->execute();
+            $complaint = $cStmt->fetch(PDO::FETCH_ASSOC);
+            if ($complaint) {
+                $complaintDescription = trim((string) ($complaint['complaint_description'] ?? ''));
+                $complaintStatusLabel = complaint_status_label((int) ($complaint['status'] ?? 0));
+                $complaintCategory = complaint_category_display_name($complaint);
+            }
+        } catch (PDOException $e) {
+            // Complaint extras are optional.
+        }
+    }
+
+    $encodedClaimId = rawurlencode(base64_encode((string) $claimId));
+    $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
+    $address = trim(implode(', ', array_filter([
+        trim((string) ($record['customer_street_1'] ?? '')),
+        trim((string) ($record['customer_street_2'] ?? '')),
+        trim((string) ($record['customer_city'] ?? '')),
+        trim((string) ($record['customer_district'] ?? '')),
+        trim((string) ($record['customer_state'] ?? '')),
+        trim((string) ($record['customer_pincode'] ?? '')),
+    ], static function ($part) {
+        return $part !== '';
+    })));
+
+    $html = '<div class="row g-3 pt-2 border-top">';
+    $html .= '<div class="col-12"><label class="form-label mb-0"><i class="bi bi-info-circle"></i> More Information</label></div>';
+    if ($installedBaseId > 0 && $machineModel !== '') {
+        $encodedIb = rawurlencode(base64_encode((string) $installedBaseId));
+        $machineModelHtml = '<a href="installed_base_details.php?id=' . htmlspecialchars($encodedIb, ENT_QUOTES, 'UTF-8')
+            . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">'
+            . htmlspecialchars($machineModel, ENT_QUOTES, 'UTF-8') . '</a>';
+        $html .= foc_approval_field_html('Machine Model', $machineModelHtml, 'col-md-4', false, true);
+    } else {
+        $html .= foc_approval_field_html('Machine Model', $machineModel);
+    }
+    $html .= foc_approval_field_html('Commissioned', $commissioned);
+    $html .= foc_approval_field_html('Machine Warranty', (string) ($warranty['status'] ?? $record['warranty_status'] ?? ''));
+    $html .= foc_approval_field_html('Under AMC', !empty($coverage['under_amc']) ? 'Yes' : 'No');
+    if (!empty($coverage['under_amc'])) {
+        $html .= foc_approval_field_html('AMC End Date', (string) $coverage['end_date_label']);
+    }
+    $html .= foc_approval_field_html('Call Ticket Status', $complaintStatusLabel);
+    $html .= foc_approval_field_html('Complaint Category', $complaintCategory);
+    $html .= foc_approval_field_html('Mobile', (string) ($record['customer_mobile'] ?? ''));
+    $html .= foc_approval_field_html('Email', (string) ($record['customer_email'] ?? ''));
+    $html .= foc_approval_field_html('Address', $address, 'col-12');
+    if ($complaintDescription !== '') {
+        $html .= foc_approval_field_html('Complaint Description', $complaintDescription, 'col-12', true);
+    }
+    $links = [];
+    if ($claimId > 0) {
+        $links[] = '<a href="foc_claim_details.php?id=' . htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8')
+            . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">Open FOC claim</a>';
+    }
+    if ($complaintId > 0) {
+        $links[] = '<a href="complaint_details.php?id=' . htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8')
+            . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">Open call ticket</a>';
+    }
+    if ($links !== []) {
+        $html .= '<div class="col-12 form-group"><div class="approval-detail-value">' . implode(' &nbsp;|&nbsp; ', $links) . '</div></div>';
+    }
+    $html .= '</div>';
+
+    $logs = foc_claim_service_logs_for_complaint($conn, $complaintId);
+    $html .= '<div class="mt-3"><label class="form-label mb-2"><i class="bi bi-clipboard-pulse"></i> Service Logs</label>';
+    if ($logs === []) {
+        $html .= '<div class="text-muted">No service log is linked to this call ticket.</div></div>';
+
+        return $html;
+    }
+
+    foreach ($logs as $log) {
+        $serviceLogId = (int) ($log['id'] ?? 0);
+        $parts = service_log_part_replacements_for_service_log($conn, $serviceLogId);
+        $partLines = [];
+        foreach ($parts as $part) {
+            $partLines[] = htmlspecialchars(service_log_part_model_label($part), ENT_QUOTES, 'UTF-8')
+                . ' x' . (int) ($part['quantity'] ?? 0);
+        }
+        $logLink = $serviceLogId > 0
+            ? '<a href="' . htmlspecialchars(foc_service_log_details_url($serviceLogId), ENT_QUOTES, 'UTF-8')
+                . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">#'
+                . $serviceLogId . '</a>'
+            : '-';
+
+        $html .= '<div class="border rounded p-3 mb-2 bg-white">';
+        $html .= '<div class="row g-3">';
+        $html .= foc_approval_field_html('Service Log', $logLink, 'col-md-4', false, true);
+        $html .= foc_approval_field_html('Visit Date', service_log_format_date($log['visit_date'] ?? null));
+        $html .= foc_approval_field_html('Engineer', service_log_display_value($log['engineer_name'] ?? null));
+        $html .= foc_approval_field_html('Service Type', service_log_display_value($log['warranty_chargeable'] ?? null));
+        $html .= foc_approval_field_html('Running Hours', service_log_display_value($log['running_hours'] ?? null));
+        $html .= foc_approval_field_html('Log Date', service_log_format_date($log['complaint_date'] ?? null));
+        $html .= foc_approval_field_html('Serial Number', service_log_format_serial_number_for_display($log['serial_number'] ?? null));
+        $html .= foc_approval_field_html('Issue / Service Description', service_log_display_value($log['issue_description'] ?? null), 'col-12', true);
+        $html .= foc_approval_field_html('Action Taken', service_log_display_value($log['action_taken'] ?? null), 'col-12', true);
+        $html .= foc_approval_field_html('Customer Feedback', service_log_display_value($log['customer_feedback'] ?? null));
+        $html .= foc_approval_field_html('Remarks', service_log_display_value($log['remarks'] ?? null), 'col-12', true);
+        $html .= foc_approval_field_html(
+            'Parts Replaced',
+            $partLines !== [] ? implode('<br>', $partLines) : service_log_display_value($log['part_replaced'] ?? null),
+            'col-12',
+            false,
+            $partLines !== []
+        );
+        $html .= '</div></div>';
+    }
+    $html .= '</div>';
+
+    return $html;
+}
+
 /**
  * Notify every user whose role currently holds the given module/permission.
  * Keeps the approval hierarchy configurable via the existing Assign Permissions UI.
