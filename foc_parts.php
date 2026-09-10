@@ -17,23 +17,55 @@ $field_errors    = [];
 $userName        = current_username();
 
 $canCreateFoc = rbac_user_can($obconn, 'foc-parts', 'create-foc');
+$canEditFoc = rbac_user_can($obconn, 'foc-parts', 'edit');
 $approvalFlags = user_current_approval_flags($obconn);
 $canApproveL1 = $approvalFlags['l1'];
 $canApproveL2 = $approvalFlags['l2'];
 $canSeeSubmittedBy = foc_parts_user_can_see_submitted_by($obconn);
 
-// --- Handle FOC Claim Submission (Process 1, steps 1-6) -------------------------
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) {
-    if (!$canCreateFoc) {
+$editingClaim = null;
+$editClaimId = 0;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $editClaimId = (int) ($_POST['resubmit_claim_id'] ?? 0);
+} else {
+    $editClaimId = (int) base64_decode((string) ($_GET['edit'] ?? ''), true);
+}
+if ($editClaimId > 0) {
+    $editingClaim = foc_claim_get_by_id($obconn, $editClaimId);
+    if ($editingClaim === null || !$canEditFoc || !foc_claim_user_can_resubmit($obconn, $editingClaim)) {
+        $editingClaim = null;
+        $editClaimId = 0;
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $_SESSION['error_message'] = 'This FOC claim cannot be edited or resubmitted.';
+            header('Location: foc_parts.php');
+            exit;
+        }
+    }
+}
+$isEditMode = $canEditFoc && $editingClaim !== null;
+
+// --- Handle FOC Claim Submission / Resubmit (Process 1, steps 1-6) --------------
+$isCreatePost = $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim']);
+$isResubmitPost = $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resubmit_foc_claim']);
+if ($isCreatePost || $isResubmitPost) {
+    if (($isCreatePost && !$canCreateFoc) || ($isResubmitPost && !$canEditFoc)) {
         header('Location: access_denied.php');
         exit;
     }
-    $complaintId    = (int) ($_POST['complaint_id'] ?? 0);
+    if ($isResubmitPost && !$isEditMode) {
+        $error_message = 'This FOC claim cannot be edited or resubmitted.';
+    }
+    $complaintId    = $isEditMode
+        ? (int) ($editingClaim['complaint_id'] ?? 0)
+        : (int) ($_POST['complaint_id'] ?? 0);
     $justification  = trim($_POST['justification'] ?? '');
     $cartItems      = json_decode($_POST['cart_items'] ?? '[]', true);
 
     $complaint = warranty_claims_find_complaint($obconn, $complaintId);
-    $resolvedWarranty = $complaint !== null
+    if ($complaint === null && $isEditMode && $complaintId > 0) {
+        $complaint = ['id' => $complaintId];
+    }
+    $resolvedWarranty = $complaintId > 0
         ? warranty_claims_resolve_status_for_complaint($obconn, $complaintId)
         : installed_base_warranty_status(null);
     $warrantyStatus = trim((string) ($resolvedWarranty['status'] ?? ''));
@@ -62,7 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
     }
 
     // Validation
-    if ($complaint === null) {
+    if ($isResubmitPost && !$isEditMode) {
+        // error_message already set
+    } elseif ($complaint === null) {
         $field_errors['complaint_id'] = 'Please select a valid Call Ticket Number.';
         $error_message = $field_errors['complaint_id'];
     } elseif ($items === []) {
@@ -78,65 +112,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_foc_claim'])) 
         try {
             $obconn->beginTransaction();
 
-            $stmt = $obconn->prepare("
-                INSERT INTO foc_claims
-                (
-                    complaint_id,
-                    justification,
-                    warranty_status,
-                    l1_status,
-                    l2_status,
-                    l1_approver_user_id,
-                    l2_approver_user_id,
-                    overall_status,
-                    created_by_username
-                )
-                VALUES
-                (
-                    :complaint_id,
-                    :justification,
-                    :warranty_status,
-                    :l1_status,
-                    :l2_status,
-                    :l1_approver_user_id,
-                    :l2_approver_user_id,
-                    :overall_status,
-                    :created_by_username
-                )
-                RETURNING id
-            ");
-            $stmt->bindValue(':complaint_id',        $complaintId, PDO::PARAM_INT);
-            $stmt->bindValue(':justification',        $justification !== '' ? $justification : null);
-            $stmt->bindValue(':warranty_status',      $warrantyStatus);
-            $stmt->bindValue(':l1_status',             FOC_STAGE_PENDING);
-            $stmt->bindValue(':l2_status',             FOC_STAGE_PENDING);
-            $stmt->bindValue(':l1_approver_user_id',  DEFAULT_APPROVER_USER_ID, PDO::PARAM_INT);
-            $stmt->bindValue(':l2_approver_user_id',  DEFAULT_APPROVER_USER_ID, PDO::PARAM_INT);
-            $stmt->bindValue(':overall_status',        'Pending L1 Approval');
-            $stmt->bindValue(':created_by_username',  $userName);
-            $stmt->execute();
+            if ($isResubmitPost && $isEditMode) {
+                $resubmitError = foc_claim_resubmit(
+                    $obconn,
+                    (int) $editingClaim['id'],
+                    $justification,
+                    $warrantyStatus,
+                    $items
+                );
+                if ($resubmitError !== null) {
+                    $obconn->rollBack();
+                    $error_message = $resubmitError;
+                } else {
+                    $obconn->commit();
+                    $_SESSION['success_message'] = 'FOC claim #' . (int) $editingClaim['id']
+                        . ' has been updated and resubmitted. Pending L1 (Lock-in Engineer) approval.';
+                    header('Location: foc_parts.php');
+                    exit;
+                }
+            } else {
+                $stmt = $obconn->prepare("
+                    INSERT INTO foc_claims
+                    (
+                        complaint_id,
+                        justification,
+                        warranty_status,
+                        l1_status,
+                        l2_status,
+                        l1_approver_user_id,
+                        l2_approver_user_id,
+                        overall_status,
+                        created_by_username
+                    )
+                    VALUES
+                    (
+                        :complaint_id,
+                        :justification,
+                        :warranty_status,
+                        :l1_status,
+                        :l2_status,
+                        :l1_approver_user_id,
+                        :l2_approver_user_id,
+                        :overall_status,
+                        :created_by_username
+                    )
+                    RETURNING id
+                ");
+                $stmt->bindValue(':complaint_id',        $complaintId, PDO::PARAM_INT);
+                $stmt->bindValue(':justification',        $justification !== '' ? $justification : null);
+                $stmt->bindValue(':warranty_status',      $warrantyStatus);
+                $stmt->bindValue(':l1_status',             FOC_STAGE_PENDING);
+                $stmt->bindValue(':l2_status',             FOC_STAGE_PENDING);
+                $stmt->bindValue(':l1_approver_user_id',  DEFAULT_APPROVER_USER_ID, PDO::PARAM_INT);
+                $stmt->bindValue(':l2_approver_user_id',  DEFAULT_APPROVER_USER_ID, PDO::PARAM_INT);
+                $stmt->bindValue(':overall_status',        'Pending L1 Approval');
+                $stmt->bindValue(':created_by_username',  $userName);
+                $stmt->execute();
 
-            $newClaimId = (int) $stmt->fetchColumn();
+                $newClaimId = (int) $stmt->fetchColumn();
 
-            foc_claim_insert_items($obconn, $newClaimId, $items);
+                foc_claim_insert_items($obconn, $newClaimId, $items);
 
-            $obconn->commit();
+                $obconn->commit();
 
-            warranty_claims_notify_role_holders(
-                $obconn,
-                'foc-parts',
-                'approve-l1-foc',
-                'New FOC Claim Pending L1 Approval',
-                'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs Lock-in Engineer approval.',
-                $newClaimId
-            );
+                warranty_claims_notify_role_holders(
+                    $obconn,
+                    'foc-parts',
+                    'approve-l1-foc',
+                    'New FOC Claim Pending L1 Approval',
+                    'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs Lock-in Engineer approval.',
+                    $newClaimId
+                );
 
-            $_SESSION['success_message'] = 'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending L1 (Lock-in Engineer) approval.';
-            header('Location: foc_parts.php');
-            exit;
+                $_SESSION['success_message'] = 'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending L1 (Lock-in Engineer) approval.';
+                header('Location: foc_parts.php');
+                exit;
+            }
         } catch (PDOException $e) {
-            $obconn->rollBack();
-            $error_message = 'Failed to submit FOC claim. Please try again.';
+            if ($obconn->inTransaction()) {
+                $obconn->rollBack();
+            }
+            $error_message = $isResubmitPost
+                ? 'Failed to resubmit FOC claim. Please try again.'
+                : 'Failed to submit FOC claim. Please try again.';
         }
     }
 }
@@ -226,6 +284,43 @@ $focItemsByClaim = foc_claim_items_for_claims($obconn, $focItemsByClaim);
 $recentComplaints = warranty_claims_recent_complaints($obconn);
 
 $selectedComplaintIdForForm = (int) ($_POST['complaint_id'] ?? 0);
+$formJustification = (string) ($_POST['justification'] ?? '');
+$rejectionRemarksHtml = '';
+if ($isEditMode) {
+    $selectedComplaintIdForForm = (int) ($editingClaim['complaint_id'] ?? 0);
+    if ($formJustification === '') {
+        $formJustification = (string) ($editingClaim['justification'] ?? '');
+    }
+    $ticketInList = false;
+    foreach ($recentComplaints as $recentComplaint) {
+        if ((int) ($recentComplaint['id'] ?? 0) === $selectedComplaintIdForForm) {
+            $ticketInList = true;
+            break;
+        }
+    }
+    if (!$ticketInList && $selectedComplaintIdForForm > 0) {
+        $editTicket = warranty_claims_find_complaint($obconn, $selectedComplaintIdForForm);
+        if ($editTicket === null) {
+            $editTicket = [
+                'id' => $selectedComplaintIdForForm,
+                'fab_number' => (string) ($editingClaim['fab_number'] ?? ''),
+                'customer_name' => (string) ($editingClaim['customer_name'] ?? ''),
+            ];
+        }
+        array_unshift($recentComplaints, $editTicket);
+    }
+    $l1Remarks = trim((string) ($editingClaim['l1_remarks'] ?? ''));
+    $l2Remarks = trim((string) ($editingClaim['l2_remarks'] ?? ''));
+    $remarkParts = [];
+    if ($l1Remarks !== '') {
+        $remarkParts[] = 'L1: ' . $l1Remarks;
+    }
+    if ($l2Remarks !== '') {
+        $remarkParts[] = 'L2: ' . $l2Remarks;
+    }
+    $rejectionRemarksHtml = implode("\n", $remarkParts);
+}
+
 $formWarrantyStatus = '';
 if ($selectedComplaintIdForForm > 0) {
     $formWarrantyStatus = (string) (warranty_claims_resolve_status_for_complaint($obconn, $selectedComplaintIdForForm)['status'] ?? '');
@@ -258,6 +353,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+if ($postedCartItems === [] && $isEditMode) {
+    $postedCartItems = foc_claim_items_as_cart(
+        foc_claim_items_for_claim(
+            $obconn,
+            (int) $editingClaim['id'],
+            (int) ($editingClaim['complaint_id'] ?? 0)
+        )
+    );
+}
+
+$showFocForm = $isEditMode || $error_message !== '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -317,33 +423,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="header-btn-group">
                  <?php if ($canCreateFoc): ?>
-                <button class="new-order-btn btn-complaint-primary" id="openFocForm" type="button">
+                <button class="new-order-btn btn-complaint-primary" id="openFocForm" type="button"<?= $showFocForm ? ' style="display:none;"' : '' ?>>
                     <i class="bi bi-plus-lg"></i> New FOC Claim
                 </button>
                 <?php endif; ?>
-                <button class="close-form-btn cancel-btn" id="closeFocForm" type="button" style="display:none;">
+                <button class="close-form-btn cancel-btn" id="closeFocForm" type="button"<?= $showFocForm ? '' : ' style="display:none;"' ?>>
                     <i class="bi bi-x-lg"></i> Cancel
                 </button>
             </div>
         </div>
 
         <!-- -- Claim Entry Form --------------------------------------------- -->
-        <div class="complaint-form-card" id="focFormCard" style="display:none;">
+        <div class="complaint-form-card" id="focFormCard" style="display:<?= $showFocForm ? 'block' : 'none' ?>;">
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
                     <div class="complaint-form-header__icon">
                         <i class="bi bi-wrench-adjustable"></i>
                     </div>
                     <div>
-                        <h2 class="complaint-form-header__title">New FOC Part Claim</h2>
+                        <h2 class="complaint-form-header__title"><?= $isEditMode ? 'Edit &amp; Resubmit FOC Part Claim' : 'New FOC Part Claim' ?></h2>
                         <p class="complaint-form-header__subtitle">
-                            Submit a warranty claim for a free-of-cost replacement part against a call ticket.
+                            <?= $isEditMode
+                                ? 'Update the rejected request and resubmit it for Lock-in Engineer approval.'
+                                : 'Submit a warranty claim for a free-of-cost replacement part against a call ticket.' ?>
                         </p>
                     </div>
                 </div>
             </div>
 
             <form method="POST" id="focClaimForm" novalidate>
+                <?php if ($isEditMode): ?>
+                <input type="hidden" name="resubmit_claim_id" value="<?= (int) $editingClaim['id'] ?>">
+                <input type="hidden" name="complaint_id" id="complaintIdHidden" value="<?= (int) ($editingClaim['complaint_id'] ?? 0) ?>">
+                <?php endif; ?>
                 <div class="complaint-form-body">
 
                     <!-- Section 1 ? Call Ticket -->
@@ -352,19 +464,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <span class="complaint-form-section__badge">1</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Call Ticket</h3>
-                                <p class="complaint-form-section__hint">Select the complaint (call ticket) this FOC request relates to.</p>
+                                <p class="complaint-form-section__hint"><?= $isEditMode
+                                    ? 'Call ticket is locked for a resubmitted request. You can update parts and justification.'
+                                    : 'Select the complaint (call ticket) this FOC request relates to.' ?></p>
                             </div>
                         </div>
+                        <?php if ($isEditMode && $rejectionRemarksHtml !== ''): ?>
+                        <div class="alert alert-warning">
+                            <strong>Rejection remarks</strong>
+                            <div style="white-space: pre-wrap;"><?= htmlspecialchars($rejectionRemarksHtml, ENT_QUOTES, 'UTF-8') ?></div>
+                        </div>
+                        <?php endif; ?>
                         <div class="row g-3">
                             <div class="col-md-8 form-group">
                                 <label class="form-label" for="complaintId">
                                     <i class="bi bi-upc-scan"></i> Call Ticket Number <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-control<?= isset($field_errors['complaint_id']) ? ' is-invalid' : '' ?>" id="complaintId" name="complaint_id">
+                                <select class="form-control<?= isset($field_errors['complaint_id']) ? ' is-invalid' : '' ?>" id="complaintId"<?= $isEditMode ? '' : ' name="complaint_id"' ?><?= $isEditMode ? ' disabled' : '' ?>>
                                     <option value="">-- Select Call Ticket --</option>
                                     <?php foreach ($recentComplaints as $c): ?>
                                     <option value="<?= (int) $c['id'] ?>"
-                                        <?= (((int) ($_POST['complaint_id'] ?? 0)) === (int) $c['id']) ? 'selected' : '' ?>>
+                                        <?= ($selectedComplaintIdForForm === (int) $c['id']) ? 'selected' : '' ?>>
                                         #<?= (int) $c['id'] ?> - <?= htmlspecialchars($c['fab_number']) ?> (<?= htmlspecialchars($c['customer_name']) ?>)
                                     </option>
                                     <?php endforeach; ?>
@@ -373,7 +493,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             <div class="col-md-2 form-group d-flex align-items-end mt-5">
                                 <?php
-                                    $selectedComplaintId = (int) ($_POST['complaint_id'] ?? 0);
+                                    $selectedComplaintId = $selectedComplaintIdForForm;
                                     $viewTicketHref = $selectedComplaintId > 0
                                         ? 'complaint_details.php?id=' . rawurlencode(base64_encode((string) $selectedComplaintId))
                                         : '#';
@@ -493,7 +613,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </label>
                                 <textarea class="form-control" id="justification" name="justification"
                                     rows="2" placeholder="Justification is required only when adding a part to the cart"
-                                    maxlength="500"><?= htmlspecialchars($_POST['justification'] ?? '') ?></textarea>
+                                    maxlength="500"><?= htmlspecialchars($formJustification) ?></textarea>
                                 <div class="text-danger validation-msg" data-field="justification"></div>
                             </div>
                         </div>
@@ -505,8 +625,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <button type="button" class="btn btn-outline-secondary" id="cancelFocForm">
                         <i class="bi bi-x-lg"></i> Cancel
                     </button>
-                    <button type="submit" name="submit_foc_claim" class="btn btn-complaint-primary">
-                        <i class="bi bi-send"></i> Submit Claim
+                    <button type="submit" name="<?= $isEditMode ? 'resubmit_foc_claim' : 'submit_foc_claim' ?>" class="btn btn-complaint-primary">
+                        <i class="bi bi-send"></i> <?= $isEditMode ? 'Resubmit Claim' : 'Submit Claim' ?>
                     </button>
                 </div>
             </form>
@@ -514,7 +634,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- -- End Form ----------------------------------------------------- -->
 
         <!-- -- Claims List -------------------------------------------------- -->
-        <div class="complaint-form-card show" id="focTableCard">
+        <div class="complaint-form-card show" id="focTableCard" style="display:<?= $showFocForm ? 'none' : 'block' ?>;">
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
                     <div class="complaint-form-header__icon">
@@ -606,6 +726,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             class="btn btn-sm btn-outline-dark" title="View">
                                             <i class="bi bi-eye"></i>
                                         </a>
+                                   
+                                        <?php if ($canEditFoc && foc_claim_user_can_resubmit($obconn, $row)): ?>
+                                        <a href="foc_parts.php?edit=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="btn btn-sm btn-outline-dark" title="Edit &amp; Resubmit">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
@@ -629,6 +756,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const tableCard = document.getElementById('focTableCard');
     const complaintSelect = document.getElementById('complaintId');
     const viewTicketLink  = document.getElementById('viewTicketLink');
+    const isEditMode = <?= $isEditMode ? 'true' : 'false' ?>;
 
     if (typeof $ !== 'undefined' && $.fn.select2) {
         $('#complaintId').select2({
@@ -648,6 +776,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     function hideForm() {
+        if (isEditMode) {
+            window.location.href = 'foc_parts.php';
+            return;
+        }
         if (!formCard) return;
         formCard.style.display = 'none';
         tableCard.style.display = 'block';

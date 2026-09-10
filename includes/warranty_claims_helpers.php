@@ -80,6 +80,141 @@ function foc_parts_user_can_access_claim(PDO $conn, ?array $record): bool
     return !empty($flags['l1']) || !empty($flags['l2']);
 }
 
+function foc_claim_is_rejected(?array $record): bool
+{
+    if ($record === null) {
+        return false;
+    }
+
+    $overall = trim((string) ($record['overall_status'] ?? ''));
+    if (strcasecmp($overall, 'Rejected') === 0) {
+        return true;
+    }
+
+    return ($record['l1_status'] ?? '') === FOC_STAGE_REJECTED
+        || ($record['l2_status'] ?? '') === FOC_STAGE_REJECTED;
+}
+
+/**
+ * Original submitter (or System Admin / CCS Admin / Management) may edit a
+ * rejected FOC claim and send it back through L1/L2.
+ */
+function foc_claim_user_can_resubmit(PDO $conn, ?array $record): bool
+{
+    if ($record === null || !foc_claim_is_rejected($record)) {
+        return false;
+    }
+
+    if (trim((string) ($record['ln_order_number'] ?? '')) !== '') {
+        return false;
+    }
+
+    if (foc_parts_user_can_see_submitted_by($conn)) {
+        return true;
+    }
+
+    $createdBy = trim((string) ($record['created_by_username'] ?? ''));
+
+    return $createdBy !== '' && strcasecmp($createdBy, current_username()) === 0;
+}
+
+/**
+ * @param array<int, array<string, mixed>> $items
+ * @return array<int, array<string, mixed>>
+ */
+function foc_claim_items_as_cart(array $items): array
+{
+    $cart = [];
+    foreach ($items as $item) {
+        $partNumber = trim((string) ($item['part_number'] ?? ''));
+        if ($partNumber === '') {
+            continue;
+        }
+        $sourceRefId = (int) ($item['source_reference_id'] ?? 0);
+        $cart[] = [
+            'part_number' => $partNumber,
+            'part_description' => trim((string) ($item['part_description'] ?? '')),
+            'qty' => max(1, (int) ($item['qty'] ?? 1)),
+            'source' => (($item['source'] ?? '') === 'existing') ? 'existing' : 'new',
+            'source_reference_id' => $sourceRefId > 0 ? $sourceRefId : null,
+        ];
+    }
+
+    return $cart;
+}
+
+function foc_claim_replace_items(PDO $conn, int $focClaimId, array $items): void
+{
+    if ($focClaimId <= 0) {
+        return;
+    }
+
+    $delete = $conn->prepare('DELETE FROM foc_claim_items WHERE foc_claim_id = :foc_claim_id');
+    $delete->bindValue(':foc_claim_id', $focClaimId, PDO::PARAM_INT);
+    $delete->execute();
+
+    foc_claim_insert_items($conn, $focClaimId, $items);
+}
+
+/**
+ * Reset a rejected FOC claim and send it back for L1 approval.
+ * Returns an error message, or null on success.
+ */
+function foc_claim_resubmit(
+    PDO $conn,
+    int $claimId,
+    string $justification,
+    string $warrantyStatus,
+    array $items
+): ?string {
+    $record = foc_claim_get_by_id($conn, $claimId);
+    if ($record === null) {
+        return 'FOC claim not found.';
+    }
+    if (!foc_claim_user_can_resubmit($conn, $record)) {
+        return 'This FOC claim cannot be resubmitted.';
+    }
+
+    $update = $conn->prepare("
+        UPDATE foc_claims
+        SET justification = :justification,
+            warranty_status = :warranty_status,
+            l1_status = :l1_status,
+            l2_status = :l2_status,
+            l1_by_username = NULL,
+            l1_at = NULL,
+            l1_remarks = NULL,
+            l2_by_username = NULL,
+            l2_at = NULL,
+            l2_remarks = NULL,
+            overall_status = :overall_status,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+          AND deleted_at IS NULL
+    ");
+    $update->bindValue(':justification', $justification !== '' ? $justification : null);
+    $update->bindValue(':warranty_status', $warrantyStatus);
+    $update->bindValue(':l1_status', FOC_STAGE_PENDING);
+    $update->bindValue(':l2_status', FOC_STAGE_PENDING);
+    $update->bindValue(':overall_status', 'Pending L1 Approval');
+    $update->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $update->execute();
+
+    foc_claim_replace_items($conn, $claimId, $items);
+
+    $complaintId = (int) ($record['complaint_id'] ?? 0);
+    warranty_claims_notify_role_holders(
+        $conn,
+        'foc-parts',
+        'approve-l1-foc',
+        'FOC Claim Resubmitted for L1 Approval',
+        'FOC claim #' . $claimId . ' for call ticket #' . $complaintId . ' was updated and resubmitted for Lock-in Engineer approval.',
+        $claimId
+    );
+
+    return null;
+}
+
 /**
  * System Admin / CCS Admin / Management see all service claims.
  * Other roles see only claims they submitted.
@@ -586,6 +721,7 @@ function foc_claim_items_for_claim(PDO $conn, int $focClaimId, int $complaintId 
                 fci.part_description,
                 fci.qty,
                 fci.source,
+                fci.source_reference_id,
                 COALESCE(
                     (
                         SELECT spr.service_log_id
@@ -617,7 +753,7 @@ function foc_claim_items_for_claim(PDO $conn, int $focClaimId, int $complaintId 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         $stmt = $conn->prepare("
-            SELECT part_number, part_description, qty, source
+            SELECT part_number, part_description, qty, source, source_reference_id
             FROM foc_claim_items
             WHERE foc_claim_id = :foc_claim_id
             ORDER BY id

@@ -27,6 +27,9 @@ if (!foc_parts_user_can_access_claim($obconn, $record)) {
 }
 
 $canSeeSubmittedBy = foc_parts_user_can_see_submitted_by($obconn);
+$canEditFoc = rbac_user_can($obconn, 'foc-parts', 'edit');
+$canResubmit = $canEditFoc && foc_claim_user_can_resubmit($obconn, $record);
+$encodedClaimId = rawurlencode(base64_encode((string) (int) $record['id']));
 $complaintId = (int) ($record['complaint_id'] ?? 0);
 $items = foc_claim_items_for_claim($obconn, $id, $complaintId);
 $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
@@ -108,6 +111,12 @@ $partsTable .= '</tbody></table></div>';
                 'bi-wrench-adjustable',
                 $headerMeta
             );
+            if ($canResubmit) {
+                echo '<div class="mb-3">'
+                    . '<a href="foc_parts.php?edit=' . htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') . '" class="btn btn-complaint-primary">'
+                    . '<i class="bi bi-pencil-square"></i> Edit &amp; Resubmit'
+                    . '</a></div>';
+            }
 
             record_details_card_start();
 
