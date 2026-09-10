@@ -220,19 +220,19 @@ $amcContracts = amc_list($obconn);
                                 </select>
                                 <div class="text-danger validation-msg" data-field="installed_base_id"></div>
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-6 form-group">
                                 <label class="form-label">FAB Number</label>
                                 <input type="text" class="form-control address-auto-field" id="amcFabNumber"
                                     placeholder="Auto-filled from Installed Base" readonly
                                     value="<?= htmlspecialchars($installedBaseSnapshot['fab_number'] ?? '') ?>">
                             </div>
-                            <div class="col-md-3 form-group">
+                            <div class="col-md-6 form-group">
                                 <label class="form-label">Equipment Model</label>
                                 <input type="text" class="form-control address-auto-field" id="amcEquipmentModel"
                                     placeholder="Auto-filled from Installed Base" readonly
                                     value="<?= htmlspecialchars($installedBaseSnapshot['product_model'] ?? '') ?>">
                             </div>
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-6 form-group">
                                 <label class="form-label">Warranty Status</label>
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <input type="text" class="form-control address-auto-field" id="amcWarrantyStatus"
@@ -244,13 +244,13 @@ $amcContracts = amc_list($obconn);
                                     </span>
                                 </div>
                             </div>
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-4 form-group d-none">
                                 <label class="form-label">Under AMC</label>
                                 <input type="text" class="form-control address-auto-field" id="amcUnderAmc"
                                     placeholder="Auto-filled from the selected machine" readonly
                                     value="<?= htmlspecialchars($installedBaseSnapshot['under_amc'] ?? '') ?>">
                             </div>
-                            <div class="col-md-4 form-group">
+                            <div class="col-md-4 form-group d-none">
                                 <label class="form-label">AMC End Date</label>
                                 <input type="text" class="form-control address-auto-field" id="amcExistingEndDate"
                                     placeholder="Shown when the machine is under AMC" readonly
