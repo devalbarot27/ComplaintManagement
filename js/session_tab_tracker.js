@@ -110,21 +110,10 @@
 
             cancelPendingLogout();
 
-            if (navigator.sendBeacon) {
-                navigator.sendBeacon('api/session_tab_logout.php');
-            } else {
-                fetch('api/session_tab_logout.php', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    keepalive: true,
-                });
-            }
-
-            try {
-                localStorage.removeItem(ACTIVE_TABS_KEY);
-            } catch (error) {
-                // Ignore storage errors.
-            }
+            // Do not destroy the PHP session when the last tab unloads.
+            // pagehide also fires on in-app navigation, which was logging
+            // people out while they were still using the portal.
+            // Idle timeout (session_idle_logout.js) handles inactivity.
         }, LOGOUT_DELAY_MS + 100);
     }
 

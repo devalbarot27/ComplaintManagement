@@ -523,6 +523,6 @@
       });
   </script>
   <?php if (!empty($_SESSION['usr_name'])): ?>
-      <script src="js/session_tab_tracker.js"></script>
-      <script src="js/session_idle_logout.js"></script>
+      <script src="js/session_tab_tracker.js?v=<?= (int) @filemtime(__DIR__ . '/js/session_tab_tracker.js') ?>"></script>
+      <script src="js/session_idle_logout.js?v=<?= (int) @filemtime(__DIR__ . '/js/session_idle_logout.js') ?>"></script>
   <?php endif; ?>

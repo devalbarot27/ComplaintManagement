@@ -11,6 +11,8 @@
         'touchstart',
         'click',
         'wheel',
+        'pointerdown',
+        'input',
     ];
 
     function redirectToLogout() {
@@ -24,15 +26,15 @@
         }
         lastTouchAt = now;
 
-        if (navigator.sendBeacon) {
-            navigator.sendBeacon('api/session_idle_touch.php');
-            return;
-        }
-
         fetch('api/session_idle_touch.php', {
             method: 'POST',
             credentials: 'same-origin',
             keepalive: true,
+            headers: { 'Accept': 'application/json' },
+        }).then(function (res) {
+            if (res.status === 401) {
+                redirectToLogout();
+            }
         }).catch(function () {
             // Ignore network errors; client idle timer still applies.
         });
@@ -51,6 +53,13 @@
             capture: true,
             passive: true,
         });
+    });
+
+    window.addEventListener('focus', resetIdleTimer);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) {
+            resetIdleTimer();
+        }
     });
 
     resetIdleTimer();
