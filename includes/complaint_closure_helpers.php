@@ -1,5 +1,100 @@
 <?php
 
+require_once __DIR__ . '/warranty_claims_helpers.php';
+require_once __DIR__ . '/distance_wise_price_helpers.php';
+
+function complaint_closure_table_has_column(PDO $conn, string $column): bool
+{
+    $stmt = $conn->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'complaint_closures'
+          AND column_name = :column_name
+        LIMIT 1
+    ");
+    $stmt->bindValue(':column_name', $column);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
+function complaint_closure_ensure_schema(PDO $conn): void
+{
+    static $ensured = false;
+    if ($ensured) {
+        return;
+    }
+
+    if (!complaint_closure_table_has_column($conn, 'km_travelled')) {
+        $conn->exec('ALTER TABLE complaint_closures ADD COLUMN km_travelled NUMERIC(8,2) NULL');
+    }
+    if (!complaint_closure_table_has_column($conn, 'visit_charge_price')) {
+        $conn->exec('ALTER TABLE complaint_closures ADD COLUMN visit_charge_price NUMERIC(12,2) NULL');
+    }
+    if (!complaint_closure_table_has_column($conn, 'service_date')) {
+        $conn->exec('ALTER TABLE complaint_closures ADD COLUMN service_date DATE NULL');
+    }
+    if (!complaint_closure_table_has_column($conn, 'service_claim_id')) {
+        $conn->exec('ALTER TABLE complaint_closures ADD COLUMN service_claim_id INTEGER NULL');
+    }
+
+    $ensured = true;
+}
+
+/**
+ * Latest Warranty Service Claim distance details for a call ticket.
+ *
+ * @return array{
+ *     found: bool,
+ *     service_claim_id: int,
+ *     km_travelled: string,
+ *     km_travelled_label: string,
+ *     visit_charge_price: string,
+ *     visit_charge_label: string,
+ *     service_date: string,
+ *     service_date_label: string
+ * }
+ */
+function complaint_closure_distance_from_service_claim(PDO $conn, int $complaintId): array
+{
+    $empty = [
+        'found' => false,
+        'service_claim_id' => 0,
+        'km_travelled' => '',
+        'km_travelled_label' => '',
+        'visit_charge_price' => '',
+        'visit_charge_label' => '',
+        'service_date' => '',
+        'service_date_label' => '',
+    ];
+
+    $claim = service_claim_latest_for_complaint($conn, $complaintId);
+    if (!$claim) {
+        return $empty;
+    }
+
+    $km = trim((string) ($claim['km_travelled'] ?? ''));
+    $price = trim((string) ($claim['visit_charge_price'] ?? ''));
+    $serviceDate = trim((string) ($claim['service_date'] ?? ''));
+    $serviceDateLabel = '';
+    if ($serviceDate !== '') {
+        $timestamp = strtotime($serviceDate);
+        $serviceDateLabel = $timestamp ? date('d M Y', $timestamp) : $serviceDate;
+    }
+
+    return [
+        'found' => true,
+        'service_claim_id' => (int) ($claim['id'] ?? 0),
+        'km_travelled' => $km,
+        'km_travelled_label' => $km !== '' ? distance_wise_price_format_number($km) : '',
+        'visit_charge_price' => $price,
+        'visit_charge_label' => $price !== '' ? distance_wise_price_format_rupees($price) : '',
+        'service_date' => $serviceDate,
+        'service_date_label' => $serviceDateLabel,
+    ];
+}
+
 function complaint_closure_is_valid_customer_feedback(string $value): bool
 {
     $value = trim($value);

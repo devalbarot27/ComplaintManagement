@@ -294,10 +294,10 @@ const DEFAULT_APPROVER_USER_ID = 102464;
 
 /**
  * Installed-base warranty lifecycle (Warranty Claims report), derived purely from
- * the machine's commissioning_date — not related to the FOC/Service claim flags above.
+ * the machine's commissioning_date ï¿½ not related to the FOC/Service claim flags above.
  *  - Standard Warranty: first 12 months from commissioning date.
  *  - Uptime Warranty: next 24 months after Standard Warranty ends (months 13-36).
- *  - Out of Warranty: after 36 months from commissioning date — the only status
+ *  - Out of Warranty: after 36 months from commissioning date ï¿½ the only status
  *    that allows a warranty claim request to proceed through approval.
  */
 const INSTALLED_BASE_WARRANTY_STANDARD_MONTHS = 12;
@@ -1713,6 +1713,38 @@ function service_claim_get_by_id(PDO $conn, int $id): ?array
     return $row ?: null;
 }
 
+function service_claim_latest_for_complaint(PDO $conn, int $complaintId): ?array
+{
+    if ($complaintId <= 0) {
+        return null;
+    }
+
+    try {
+        warranty_claims_ensure_schema($conn);
+        $stmt = $conn->prepare("
+            SELECT
+                id,
+                km_travelled,
+                visit_charge_price,
+                service_date,
+                resolution_notes,
+                overall_status
+            FROM service_claims
+            WHERE complaint_id = :complaint_id
+              AND deleted_at IS NULL
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+        ");
+        $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row ?: null;
+    } catch (PDOException $e) {
+        return null;
+    }
+}
+
 function service_claim_soft_delete(PDO $conn, int $id): void
 {
     $stmt = $conn->prepare("
@@ -1866,7 +1898,7 @@ function foc_claim_ln_reference_defaults(PDO $obconn, string $customerCode): ?ar
  * from the FOC claim instead of the paid-order cart (tbl_vayu_cartitems).
  *
  * Must be called by the caller's own transaction (foc_parts.php wraps the L2
- * status update + this call in one transaction) — throws Exception on any
+ * status update + this call in one transaction) ï¿½ throws Exception on any
  * failure so the caller can roll back the approval instead of leaving the
  * claim "Approved" with no corresponding LN order.
  *
@@ -1876,6 +1908,9 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
 {
     date_default_timezone_set('UTC');
     $datetime = date('Y-m-d\TH:i:s\Z');
+
+    require_once __DIR__ . '/order_cart_schema.php';
+    cart_ensure_schema($obconn);
 
     error_log("FOC claim #{$claimId}: LN submission started (customerCode='{$customerCode}', userId='{$userId}')");
 
@@ -2236,7 +2271,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
 
         $line += 10;
 
-        $insertStmt = $obconn->prepare("INSERT INTO plexecom_customer_units(usr_name,emp_code,cuno,cuname,areacode,pono,indent_category,indent_number,indent_date,order_time,transporter,delterms_code,delivery_date,invaddr,email, pincode,district,deladdr,dpst,tplcode,price,qty,salestax_code,sessionid,paycode,insby,edi_cuno,seqid,status,aoseries,otcode,warehouse,edi_delivery_date,edi_delivery_code,tpldesc,mc,vc,fc,cos,delivery_code,frtamount,company,adrcode,refno,hsn,state,country,edistatus,edi_date)VALUES(:uname,:emp_code,:cuno,:cname,:area,:pono,:indcat,:indno,current_date,CURRENT_TIME,:trans,:delterms,:deldate,:invaddr,:email,:pincode,:district,:deladdr,:dpst,:tplcode,:price,:qty,:taxcode,:sid,:paycode,:insby,:edi_cuno,:seqid,:status,:aoseries,:otcode,:warehouse,:edi_delivery_date,:edi_delivery_code,:tpldesc,:mcval,:vcval,:fcval,:cosval,:shipto,:frtamount,:cmp,:adrcode,:refno,:hsn,:state,:country,:edistatus,:edi_date)");
+        $insertStmt = $obconn->prepare("INSERT INTO plexecom_customer_units(usr_name,emp_code,cuno,cuname,areacode,pono,indent_category,indent_number,indent_date,order_time,transporter,delterms_code,delivery_date,invaddr,email, pincode,district,deladdr,dpst,tplcode,price,qty,salestax_code,sessionid,paycode,insby,edi_cuno,seqid,status,aoseries,otcode,warehouse,edi_delivery_date,edi_delivery_code,tpldesc,mc,vc,fc,cos,delivery_code,frtamount,company,adrcode,refno,hsn,state,country,edistatus,edi_date,order_source)VALUES(:uname,:emp_code,:cuno,:cname,:area,:pono,:indcat,:indno,current_date,CURRENT_TIME,:trans,:delterms,:deldate,:invaddr,:email,:pincode,:district,:deladdr,:dpst,:tplcode,:price,:qty,:taxcode,:sid,:paycode,:insby,:edi_cuno,:seqid,:status,:aoseries,:otcode,:warehouse,:edi_delivery_date,:edi_delivery_code,:tpldesc,:mcval,:vcval,:fcval,:cosval,:shipto,:frtamount,:cmp,:adrcode,:refno,:hsn,:state,:country,:edistatus,:edi_date,:order_source)");
 
         $success = $insertStmt->execute([
             ':uname'             => $userId,
@@ -2285,7 +2320,8 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
             ':state'             => (!empty(trim((string)$state))) ? trim($state) : 'TN',
             ':country'           => $country,
             ':edistatus'         => 'Y',
-            ':edi_date'          => date('d.m.Y')
+            ':edi_date'          => date('d.m.Y'),
+            ':order_source'      => 'foc',
         ]);
 
         if (!$success) {

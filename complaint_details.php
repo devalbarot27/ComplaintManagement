@@ -124,7 +124,8 @@ $serviceUpdates = complaint_service_log_attach_view_urls_to_service_updates(
     (int) $complaint['id'],
     $serviceStmt->fetchAll(PDO::FETCH_ASSOC)
 );
- 
+
+complaint_closure_ensure_schema($obconn);
 $closureStmt = $obconn->prepare("
     SELECT
         cc.call_closure,
@@ -134,6 +135,9 @@ $closureStmt = $obconn->prepare("
         cc.customer_feedback,
         cc.closed_by,
         cc.created_at,
+        cc.km_travelled,
+        cc.visit_charge_price,
+        cc.service_date,
         COALESCE(
             NULLIF(TRIM(um.name), ''),
             NULLIF(TRIM(um.username), ''),
@@ -437,6 +441,7 @@ $machineCommissioningDate = installed_base_commissioning_date_for_machine(
                                     <th>Call Closure</th>
                                     <th>Closure Remarks</th>
                                     <th>Customer Feedback</th>
+                                    <th>Distance Travelled</th>
                                     <th>Remarks</th>
                                     <th>Closed By</th>
                                     <th>Closure Date</th>
@@ -453,6 +458,27 @@ $machineCommissioningDate = installed_base_commissioning_date_for_machine(
                                     </td>
                                     <td data-label="Customer Feedback">
                                         <?php echo complaint_closure_display_customer_feedback($closure['customer_feedback'] ?? null); ?>
+                                    </td>
+                                    <td data-label="Distance Travelled">
+                                        <?php
+                                        $closureKm = trim((string) ($closure['km_travelled'] ?? ''));
+                                        $closureServiceDate = trim((string) ($closure['service_date'] ?? ''));
+                                        if ($closureKm === '') {
+                                            echo '-';
+                                        } else {
+                                            echo htmlspecialchars(distance_wise_price_format_number($closureKm), ENT_QUOTES, 'UTF-8') . ' KM';
+                                            if ($closureServiceDate !== '') {
+                                                $closureServiceTs = strtotime($closureServiceDate);
+                                                echo '<div class="text-muted small">'
+                                                    . htmlspecialchars(
+                                                        $closureServiceTs ? date('d M Y', $closureServiceTs) : $closureServiceDate,
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    )
+                                                    . '</div>';
+                                            }
+                                        }
+                                        ?>
                                     </td>
                                     <td data-label="Remarks">
                                         <?php echo nl2br(htmlspecialchars($closure['reassignment_details'] ?? '-')); ?>

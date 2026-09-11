@@ -558,7 +558,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                                             <th>Ref No</th>
                                             <th>AO Number</th>
                                             <th>Category</th>
-                                            <th>Delivery Term</th>
+                                            <th>Order Type</th>
                                             <th>PO Number</th>
                                             <th>Payment Term</th>
                                             <th>Transporter</th>
@@ -1036,7 +1036,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                 { data: 'ref_no' },
                 { data: 'order_no' },
                 { data: 'category' },
-                { data: 'delivery_term' },
+                { data: 'order_type' },
                 { data: 'po_number' },
                 { data: 'payment_term' },
                 { data: 'transporter' },

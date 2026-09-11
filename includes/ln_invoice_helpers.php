@@ -1,5 +1,10 @@
 <?php
 
+if (defined('LN_INVOICE_HELPERS_LOADED')) {
+    return;
+}
+define('LN_INVOICE_HELPERS_LOADED', true);
+
 function ln_invoice_format_date(?string $value): string
 {
     if ($value === null || trim($value) === '') {

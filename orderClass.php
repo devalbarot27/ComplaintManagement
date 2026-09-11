@@ -5166,6 +5166,8 @@ class orderClass
             $seeAll = is_system_admin() || is_management_user();
             $showAddedBy = is_system_admin() || is_management_user() || is_ccs_admin_user();
 
+            $orderTypeSql = plexecom_order_type_sql($this->obconn, 'a');
+
             if (!empty($search)) {
                 $where = "AND (
                     a.refno ILIKE :search
@@ -5173,6 +5175,7 @@ class orderClass
                     OR a.tplcode ILIKE :search
                     OR a.tpldesc ILIKE :search
                     OR COALESCE(d.order_category, '') ILIKE :search
+                    OR ({$orderTypeSql}) ILIKE :search
                 ";
                 if ($showAddedBy) {
                     $where .= "
@@ -5214,8 +5217,6 @@ class orderClass
 
             $joinSql = "
                 FROM plexecom_customer_units AS a
-                LEFT JOIN tbl_vayu_delivery_term AS c
-                    ON a.delterms_code = c.delivery_code::varchar
                 LEFT JOIN tbl_vayu_order_category AS d
                     ON a.indent_category::varchar = d.id::varchar
                 LEFT JOIN spp_payterm_master AS e
@@ -5261,7 +5262,8 @@ class orderClass
                 'ref_no' => 'recent_orders.refno',
                 'order_no' => 'recent_orders.order_number',
                 'category' => 'recent_orders.order_category',
-                'delivery_term' => 'recent_orders.delivery_term',
+                'order_type' => 'recent_orders.order_type',
+                'delivery_term' => 'recent_orders.order_type',
                 'po_number' => 'recent_orders.pono',
                 'payment_term' => "COALESCE(NULLIF(TRIM(recent_orders.pay_desc), ''), '100% Advance')",
                 'transporter' => 'recent_orders.transporter',
@@ -5291,7 +5293,7 @@ class orderClass
                         a.emp_code,
                         a.usr_name,
                         d.order_category,
-                        c.delivery_term,
+                        {$orderTypeSql} AS order_type,
                         e.pay_desc,
                         f.trans_name AS transporter
                         {$addedBySelect}
@@ -5347,7 +5349,13 @@ class orderClass
                     'order_no'         => htmlspecialchars($row['order_number'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'category'         => htmlspecialchars($row['order_category'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'order_category'   => htmlspecialchars($row['order_category'] ?? '-', ENT_QUOTES, 'UTF-8'),
-                    'delivery_term'    => htmlspecialchars($row['delivery_term'] ?? '-', ENT_QUOTES, 'UTF-8'),
+                    'order_type'       => htmlspecialchars(
+                        trim((string) ($row['order_type'] ?? '')) !== ''
+                            ? (string) $row['order_type']
+                            : 'Normal Order',
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ),
                     'po_number'        => htmlspecialchars($row['pono'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'payment_term'     => htmlspecialchars($row['pay_desc'] ?? '100% Advance', ENT_QUOTES, 'UTF-8'),
                     'transporter'      => htmlspecialchars($row['transporter'] ?? '-', ENT_QUOTES, 'UTF-8'),
@@ -6312,6 +6320,7 @@ class orderClass
             admin_refresh_session_role($this->obconn);
             $seeAll = is_system_admin() || is_management_user();
             $userWhere = $seeAll ? '1=1' : 'a.cuno = :cuno';
+            $orderTypeSql = plexecom_order_type_sql($this->obconn, 'a');
 
             $headerSql = "
                 SELECT
@@ -6344,6 +6353,7 @@ class orderClass
                     a.l2_approved_user_id,
                     a.l2_approved_at,
                     d.order_category,
+                    {$orderTypeSql} AS order_type,
                     COALESCE(NULLIF(TRIM(c.delivery_term), ''), NULLIF(TRIM(a.delterms_code), '')) AS delivery_term,
                     e.pay_desc,
                     f.trans_name AS transporter,
@@ -6501,6 +6511,9 @@ class orderClass
                 'category' => trim((string) ($headerRow['order_category'] ?? '')) !== ''
                     ? trim((string) $headerRow['order_category'])
                     : '-',
+                'order_type' => trim((string) ($headerRow['order_type'] ?? '')) !== ''
+                    ? trim((string) $headerRow['order_type'])
+                    : 'Normal Order',
                 'delivery_term' => trim((string) ($headerRow['delivery_term'] ?? '')) !== ''
                     ? trim((string) $headerRow['delivery_term'])
                     : '-',

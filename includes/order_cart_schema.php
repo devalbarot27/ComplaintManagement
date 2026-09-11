@@ -28,8 +28,111 @@ function cart_ensure_schema(PDO $conn): void
         ALTER TABLE plexecom_customer_units
         ADD COLUMN IF NOT EXISTS customer_id INTEGER NULL
     ");
+    $conn->exec("
+        ALTER TABLE plexecom_customer_units
+        ADD COLUMN IF NOT EXISTS order_source VARCHAR(30) NULL DEFAULT 'normal'
+    ");
 
     $ensured = true;
+}
+
+function plexecom_public_table_exists(PDO $conn, string $table): bool
+{
+    static $cache = [];
+    if (array_key_exists($table, $cache)) {
+        return $cache[$table];
+    }
+
+    $stmt = $conn->prepare('SELECT to_regclass(:name)');
+    $stmt->execute([':name' => 'public.' . $table]);
+    $cache[$table] = (bool) $stmt->fetchColumn();
+
+    return $cache[$table];
+}
+
+function plexecom_public_column_exists(PDO $conn, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $stmt = $conn->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = :table_name
+          AND column_name = :column_name
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':table_name' => $table,
+        ':column_name' => $column,
+    ]);
+    $cache[$key] = (bool) $stmt->fetchColumn();
+
+    return $cache[$key];
+}
+
+/**
+ * SQL expression for Recent Orders "Order Type":
+ * Create Order / Order Booking → Normal Order
+ * FOC → FOC
+ * Service Claim → Service Claim
+ */
+function plexecom_order_type_sql(PDO $conn, string $alias = 'a'): string
+{
+    $a = preg_replace('/[^a-zA-Z0-9_]/', '', $alias);
+    if ($a === '') {
+        $a = 'a';
+    }
+
+    $sql = "CASE
+            WHEN LOWER(TRIM(COALESCE({$a}.order_source, ''))) = 'foc' THEN 'FOC'
+            WHEN LOWER(TRIM(COALESCE({$a}.order_source, ''))) IN ('service_claim', 'service-claim', 'service') THEN 'Service Claim'
+            WHEN UPPER(TRIM(COALESCE({$a}.pono, ''))) LIKE 'FOC-%' THEN 'FOC'
+            WHEN UPPER(TRIM(COALESCE({$a}.pono, ''))) LIKE 'SC-%'
+              OR UPPER(TRIM(COALESCE({$a}.pono, ''))) LIKE 'SVC-%'
+              OR UPPER(TRIM(COALESCE({$a}.pono, ''))) LIKE 'SERVICE-%' THEN 'Service Claim'";
+
+    if (plexecom_public_table_exists($conn, 'foc_claims')
+        && plexecom_public_column_exists($conn, 'foc_claims', 'ln_order_number')
+    ) {
+        $focDeleted = plexecom_public_column_exists($conn, 'foc_claims', 'deleted_at')
+            ? 'AND fc.deleted_at IS NULL'
+            : '';
+        $sql .= "
+            WHEN EXISTS (
+                SELECT 1
+                FROM foc_claims fc
+                WHERE TRIM(COALESCE(fc.ln_order_number, '')) <> ''
+                  AND TRIM(fc.ln_order_number) = TRIM({$a}.refno)
+                  {$focDeleted}
+            ) THEN 'FOC'";
+    }
+
+    if (plexecom_public_table_exists($conn, 'service_claims')
+        && plexecom_public_column_exists($conn, 'service_claims', 'ln_order_number')
+    ) {
+        $scDeleted = plexecom_public_column_exists($conn, 'service_claims', 'deleted_at')
+            ? 'AND sc.deleted_at IS NULL'
+            : '';
+        $sql .= "
+            WHEN EXISTS (
+                SELECT 1
+                FROM service_claims sc
+                WHERE TRIM(COALESCE(sc.ln_order_number, '')) <> ''
+                  AND TRIM(sc.ln_order_number) = TRIM({$a}.refno)
+                  {$scDeleted}
+            ) THEN 'Service Claim'";
+    }
+
+    $sql .= "
+            ELSE 'Normal Order'
+        END";
+
+    return $sql;
 }
 
 /**

@@ -32,7 +32,7 @@ $recentOrderRefNoJson = json_encode(
 if (!is_string($recentOrderRefNoJson)) {
     $recentOrderRefNoJson = '""';
 }
-// Columns: Ref, AO, Category, Delivery, PO, Payment, Transporter, [Added By], Status, Approval Status, Order Date, Action
+// Columns: Ref, AO, Category, Order Type, PO, Payment, Transporter, [Added By], Status, Approval Status, Order Date, Action
 $orderDateColumnIndex = $showAddedByColumn ? 10 : 9;
 ?>
 <!DOCTYPE html>
@@ -90,7 +90,7 @@ button.btn.btn-repush:disabled,
                                             <th width="15%">Ref No</th>
                                             <th width="12%">AO Number</th>
                                             <th width="12%">Category</th>
-                                            <th>Delivery Term</th>
+                                            <th>Order Type</th>
                                             <th width="12%">PO Number</th>
                                             <th width="12%">Payment Term</th>
                                             <th width="15%">Transporter</th>
@@ -168,7 +168,7 @@ button.btn.btn-repush:disabled,
                     data: 'category'
                 },
                 {
-                    data: 'delivery_term'
+                    data: 'order_type'
                 },
                 {
                     data: 'po_number'

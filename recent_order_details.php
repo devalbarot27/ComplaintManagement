@@ -49,6 +49,7 @@ $safe = [
     'customer' => htmlspecialchars($customerLabel, ENT_QUOTES, 'UTF-8'),
     'po_number' => htmlspecialchars((string) ($header['po_number'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'category' => htmlspecialchars((string) ($header['category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+    'order_type' => htmlspecialchars((string) ($header['order_type'] ?? 'Normal Order'), ENT_QUOTES, 'UTF-8'),
     'area' => htmlspecialchars((string) ($header['area'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'delivery_date' => htmlspecialchars((string) ($header['delivery_date'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'payment_term' => htmlspecialchars((string) ($header['payment_term'] ?? '-'), ENT_QUOTES, 'UTF-8'),
@@ -233,6 +234,10 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
                                 <div class="oad-meta-card">
                                     <span class="oad-meta-label">Order Category</span>
                                     <div class="oad-meta-value"><?php echo $safe['category']; ?></div>
+                                </div>
+                                <div class="oad-meta-card">
+                                    <span class="oad-meta-label">Order Type</span>
+                                    <div class="oad-meta-value"><span class="oad-chip"><?php echo $safe['order_type']; ?></span></div>
                                 </div>
                                 <div class="oad-meta-card">
                                     <span class="oad-meta-label">Area</span>

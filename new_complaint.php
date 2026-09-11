@@ -9,7 +9,7 @@ include('includes/complaint_address_helpers.php');
 include('includes/complaint_category_helpers.php');
 require_once 'includes/complaint_datatable_helpers.php';
 require_once 'includes/complaint_closure_helpers.php';
-include('includes/ln_invoice_helpers.php');
+require_once 'includes/ln_invoice_helpers.php';
 require_once 'includes/customer_master_helpers.php';
 
 complaint_ensure_schema($obconn);
@@ -262,6 +262,7 @@ if(isset($_POST['submit_complaint']))
 <script src="js/assign_to_select2.js"></script>
 <script src="js/static_select2.js"></script>
 <script src="js/closure_customer_feedback_rating.js"></script>
+<script src="js/closure_distance.js"></script>
 
 </head>
  
@@ -648,6 +649,31 @@ if(isset($_POST['submit_complaint']))
                                     <p class="complaint-form-section__hint">Add remarks before resolving the complaint</p>
                                 </div>
                             </div>
+                            <div class="form-group mb-3">
+                                <label class="form-label">
+                                    <i class="bi bi-signpost-split"></i>
+                                    Distance Travelled
+                                </label>
+                                <p class="complaint-form-section__hint mb-2">Auto-filled from the latest Warranty Service Claim. Distance cannot be edited here.</p>
+                                <div id="closureDistanceEmpty" class="text-danger small d-none"></div>
+                                <div id="closureDistanceFields" class="row g-3 d-none">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="closureKmTravelled">Distance Travelled (KMs)</label>
+                                        <input type="text" class="form-control address-auto-field" id="closureKmTravelled" style="background-color: #f8f9fa;" readonly>
+                                        <input type="hidden" name="km_travelled" id="closureKmTravelledValue" value="">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="closureVisitCharge">Price</label>
+                                        <input type="text" class="form-control address-auto-field" id="closureVisitCharge" style="background-color: #f8f9fa;" readonly>
+                                        <input type="hidden" name="visit_charge_price" id="closureVisitChargeValue" value="">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="closureServiceDate">Service Date</label>
+                                        <input type="text" class="form-control address-auto-field" id="closureServiceDate" style="background-color: #f8f9fa;" readonly>
+                                        <input type="hidden" name="service_date" id="closureServiceDateValue" value="">
+                                    </div>
+                                </div>
+                            </div>
                             <div class="form-group">
                                 <label class="form-label">
                                     <i class="bi bi-card-text"></i>
@@ -656,6 +682,7 @@ if(isset($_POST['submit_complaint']))
                                 <textarea class="form-control" name="closure_remarks" rows="3" placeholder="Enter closure remarks"></textarea>
                                 <div class="text-danger validation-msg" data-field="closure_remarks"></div>
                             </div>
+                            
                             <div class="form-group">
                                 <label class="form-label" for="closureCustomerFeedbackRating">
                                     <i class="bi bi-star"></i>
@@ -678,6 +705,7 @@ if(isset($_POST['submit_complaint']))
                                 </div>
                                 <div class="text-danger validation-msg" data-field="customer_feedback"></div>
                             </div>
+                           
                         </section>
                         <?php if ($canReassignComplaint) { ?>
                         <section class="complaint-form-section d-none" id="reassignmentDetailsWrap">
@@ -1361,6 +1389,9 @@ function resetClosureForm(complaintId) {
     resetAssignToSelect2('closureReassignToSelect');
     if (typeof resetClosureCustomerFeedbackRating === 'function') {
         resetClosureCustomerFeedbackRating();
+    }
+    if (typeof loadClosureDistanceFromServiceClaim === 'function') {
+        loadClosureDistanceFromServiceClaim(complaintId);
     }
 
     form.querySelectorAll('.is-invalid').forEach(function (el) {

@@ -118,6 +118,20 @@ try {
     $userName = current_username();
     $closure_datetime = $call_closure === 'Yes' ? date('Y-m-d H:i:s') : null;
     $customer_feedback_value = $call_closure === 'Yes' ? $customer_feedback : null;
+    $distanceDetails = $call_closure === 'Yes'
+        ? complaint_closure_distance_from_service_claim($obconn, $complaint_id)
+        : [
+            'found' => false,
+            'service_claim_id' => 0,
+            'km_travelled' => '',
+            'km_travelled_label' => '',
+            'visit_charge_price' => '',
+            'visit_charge_label' => '',
+            'service_date' => '',
+            'service_date_label' => '',
+        ];
+
+    complaint_closure_ensure_schema($obconn);
 
     $obconn->beginTransaction();
 
@@ -131,7 +145,11 @@ try {
             closure_datetime,
             customer_feedback,
             closed_by,
-            username
+            username,
+            km_travelled,
+            visit_charge_price,
+            service_date,
+            service_claim_id
         )
         VALUES
         (
@@ -142,7 +160,11 @@ try {
             :closure_datetime,
             :customer_feedback,
             :closed_by,
-            :username
+            :username,
+            :km_travelled,
+            :visit_charge_price,
+            :service_date,
+            :service_claim_id
         )
     ");
 
@@ -162,6 +184,37 @@ try {
     }
     $insert->bindValue(':closed_by', $closed_by, PDO::PARAM_INT);
     $insert->bindValue(':username', $userName);
+    if ($call_closure === 'Yes' && !empty($distanceDetails['found'])) {
+        $km = trim((string) ($distanceDetails['km_travelled'] ?? ''));
+        $price = trim((string) ($distanceDetails['visit_charge_price'] ?? ''));
+        $serviceDate = trim((string) ($distanceDetails['service_date'] ?? ''));
+        $claimId = (int) ($distanceDetails['service_claim_id'] ?? 0);
+        if ($km !== '' && is_numeric($km)) {
+            $insert->bindValue(':km_travelled', $km);
+        } else {
+            $insert->bindValue(':km_travelled', null, PDO::PARAM_NULL);
+        }
+        if ($price !== '' && is_numeric($price)) {
+            $insert->bindValue(':visit_charge_price', $price);
+        } else {
+            $insert->bindValue(':visit_charge_price', null, PDO::PARAM_NULL);
+        }
+        if ($serviceDate !== '') {
+            $insert->bindValue(':service_date', $serviceDate);
+        } else {
+            $insert->bindValue(':service_date', null, PDO::PARAM_NULL);
+        }
+        if ($claimId > 0) {
+            $insert->bindValue(':service_claim_id', $claimId, PDO::PARAM_INT);
+        } else {
+            $insert->bindValue(':service_claim_id', null, PDO::PARAM_NULL);
+        }
+    } else {
+        $insert->bindValue(':km_travelled', null, PDO::PARAM_NULL);
+        $insert->bindValue(':visit_charge_price', null, PDO::PARAM_NULL);
+        $insert->bindValue(':service_date', null, PDO::PARAM_NULL);
+        $insert->bindValue(':service_claim_id', null, PDO::PARAM_NULL);
+    }
     $insert->execute();
 
     $newStatus = $call_closure === 'Yes' ? COMPLAINT_STATUS_RESOLVED : COMPLAINT_STATUS_REOPEN;
@@ -242,6 +295,13 @@ try {
         }
         if ($customer_feedback_value !== null) {
             $activityDescription .= ' Customer feedback: ' . complaint_closure_customer_feedback_activity_label($customer_feedback_value) . '.';
+        }
+        if (!empty($distanceDetails['found']) && $distanceDetails['km_travelled_label'] !== '') {
+            $activityDescription .= ' Distance travelled: ' . $distanceDetails['km_travelled_label'] . ' KM';
+            if ($distanceDetails['service_date_label'] !== '') {
+                $activityDescription .= ' on ' . $distanceDetails['service_date_label'];
+            }
+            $activityDescription .= '.';
         }
         $activityDescription .= ' Status changed to Resolved.';
     } else {
