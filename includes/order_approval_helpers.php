@@ -353,12 +353,14 @@ function order_approval_order_level_details(PDO $conn, array $headerRow, string 
 
     $l1 = [
         'l1_status' => $l1Status,
+        'l1_engineer_name' => '-',
         'l1_approved_by' => order_approval_level_actor_name($conn, $l1UserId, $l1History),
         'l1_approved_at' => order_approval_level_acted_at($headerRow['l1_approved_at'] ?? null, $l1History),
         'l1_remarks' => order_approval_level_remarks($l1History, $l1RemarksFallback),
     ];
     $l2 = [
         'l2_status' => $l2Status,
+        'l2_manager_name' => '-',
         'l2_approved_by' => order_approval_level_actor_name($conn, $l2UserId, $l2History),
         'l2_approved_at' => order_approval_level_acted_at($headerRow['l2_approved_at'] ?? null, $l2History),
         'l2_remarks' => order_approval_level_remarks($l2History, $l2RemarksFallback),
@@ -379,7 +381,80 @@ function order_approval_order_level_details(PDO $conn, array $headerRow, string 
         }
     }
 
+    $assignedNames = order_approval_assigned_level_names($conn, $headerRow, $refno);
+    $l1['l1_engineer_name'] = $assignedNames['l1_engineer_name'];
+    $l2['l2_manager_name'] = $assignedNames['l2_manager_name'];
+
     return array_merge($l1, $l2);
+}
+
+/**
+ * Latest order-level approval request for a Recent Order refno.
+ *
+ * @return array<string, mixed>|null
+ */
+function order_approval_request_for_refno(PDO $conn, string $refno): ?array
+{
+    $refno = trim($refno);
+    if ($refno === '') {
+        return null;
+    }
+
+    try {
+        $stmt = $conn->prepare("
+            SELECT requested_by, requested_by_user_id, assigned_to_user_id,
+                   current_level, approval_level, status
+            FROM order_approval_requests
+            WHERE order_refno = :refno
+              AND COALESCE(cart_item_id, 0) = 0
+            ORDER BY id DESC
+            LIMIT 1
+        ");
+        $stmt->bindValue(':refno', $refno);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $row !== false ? $row : null;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * Engineer (L1) and Manager (L2) assigned to approve this order.
+ *
+ * @param array<string, mixed> $headerRow
+ * @return array{l1_engineer_name: string, l2_manager_name: string}
+ */
+function order_approval_assigned_level_names(PDO $conn, array $headerRow, string $refno): array
+{
+    $request = order_approval_request_for_refno($conn, $refno) ?? [];
+    $requesterId = (int) ($request['requested_by_user_id'] ?? 0);
+    if ($requesterId <= 0) {
+        $username = trim((string) ($request['requested_by'] ?? ''));
+        if ($username === '') {
+            $username = trim((string) ($headerRow['usr_name'] ?? ''));
+        }
+        $requesterId = (int) (order_approval_user_id_by_username($conn, $username) ?? 0);
+    }
+
+    $l1Id = $requesterId > 0 ? user_assigned_approver_id($conn, $requesterId, 'level_1') : null;
+    $l2Id = $requesterId > 0 ? user_assigned_approver_id($conn, $requesterId, 'level_2') : null;
+
+    $currentLevel = strtolower(trim((string) ($request['current_level'] ?? $request['approval_level'] ?? '')));
+    $assignedTo = (int) ($request['assigned_to_user_id'] ?? 0);
+    if ($assignedTo > 0) {
+        if ($currentLevel === 'level_2') {
+            $l2Id = $assignedTo;
+        } else {
+            $l1Id = $assignedTo;
+        }
+    }
+
+    return [
+        'l1_engineer_name' => user_approver_display_name($conn, $l1Id),
+        'l2_manager_name' => user_approver_display_name($conn, $l2Id),
+    ];
 }
 
 /**
@@ -1342,14 +1417,7 @@ function order_approval_pending_items(PDO $conn, ?PDO $dpconn = null): array
         $indentDate = (string) ($header['indent_date'] ?? $row['created_at'] ?? '');
         $orderTime = trim((string) ($header['order_time'] ?? ''));
         $createdAt = trim($indentDate . ($orderTime !== '' ? ' ' . $orderTime : ''));
-        $l1Details = $level === 'level_2'
-            ? order_approval_order_level_details($conn, $header, $refno)
-            : [
-                'l1_status' => '',
-                'l1_approved_by' => '',
-                'l1_approved_at' => '',
-                'l1_remarks' => '',
-            ];
+        $levelDetails = order_approval_order_level_details($conn, $header, $refno);
 
         $items[] = [
             'claim_type' => 'cart',
@@ -1393,10 +1461,17 @@ function order_approval_pending_items(PDO $conn, ?PDO $dpconn = null): array
             'end_customer_city' => $endCustomer['city'],
             'end_customer_district' => $endCustomer['district'],
             'end_customer_state' => $endCustomer['state'],
-            'l1_status' => (string) ($l1Details['l1_status'] ?? ''),
-            'l1_approved_by' => (string) ($l1Details['l1_approved_by'] ?? ''),
-            'l1_approved_at' => (string) ($l1Details['l1_approved_at'] ?? ''),
-            'l1_remarks' => (string) ($l1Details['l1_remarks'] ?? ''),
+            'l1_status' => (string) ($levelDetails['l1_status'] ?? ''),
+            'l1_engineer_name' => (string) ($levelDetails['l1_engineer_name'] ?? '-'),
+            'l1_approved_by' => (string) ($levelDetails['l1_approved_by'] ?? ''),
+            'l1_approved_at' => (string) ($levelDetails['l1_approved_at'] ?? ''),
+            'l1_remarks' => (string) ($levelDetails['l1_remarks'] ?? ''),
+            'l2_required' => user_bool_from_value($row['l2_required'] ?? ($header['l2_required'] ?? false)) ? '1' : '0',
+            'l2_status' => (string) ($levelDetails['l2_status'] ?? ''),
+            'l2_manager_name' => (string) ($levelDetails['l2_manager_name'] ?? '-'),
+            'l2_approved_by' => (string) ($levelDetails['l2_approved_by'] ?? ''),
+            'l2_approved_at' => (string) ($levelDetails['l2_approved_at'] ?? ''),
+            'l2_remarks' => (string) ($levelDetails['l2_remarks'] ?? ''),
         ];
     }
 

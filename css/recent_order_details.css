@@ -318,6 +318,13 @@
     color: var(--oad-muted);
 }
 
+.oad-address-card__title--assignee {
+    text-transform: none;
+    letter-spacing: 0;
+    line-height: 1.35;
+    min-width: 0;
+}
+
 .oad-address-card__body {
     padding: 16px;
     font-size: 14px;

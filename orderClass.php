@@ -6345,6 +6345,7 @@ class orderClass
                     a.country,
                     a.frtamount,
                     a.remarks,
+                    a.usr_name,
                     a.approval_status,
                     a.l2_required,
                     a.approval_remarks,

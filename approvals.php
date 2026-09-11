@@ -608,9 +608,15 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                                 data-end-customer-district="<?= htmlspecialchars((string) ($row['end_customer_district'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-end-customer-state="<?= htmlspecialchars((string) ($row['end_customer_state'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l1-status="<?= htmlspecialchars((string) ($row['l1_status'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l1-engineer-name="<?= htmlspecialchars((string) ($row['l1_engineer_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l1-approved-by="<?= htmlspecialchars((string) ($row['l1_approved_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l1-approved-at="<?= htmlspecialchars((string) ($row['l1_approved_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l1-remarks="<?= htmlspecialchars((string) ($row['l1_remarks'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l2-required="<?= htmlspecialchars((string) ($row['l2_required'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l2-status="<?= htmlspecialchars((string) ($row['l2_status'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l2-manager-name="<?= htmlspecialchars((string) ($row['l2_manager_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l2-approved-by="<?= htmlspecialchars((string) ($row['l2_approved_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-l2-approved-at="<?= htmlspecialchars((string) ($row['l2_approved_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l1-by="<?= htmlspecialchars((string) ($row['l1_by'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l1-at="<?= htmlspecialchars((string) ($row['l1_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-l2-remarks="<?= htmlspecialchars((string) ($row['l2_remarks'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
@@ -835,7 +841,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                             <div class="col-12 d-none" id="viewCartL1ApprovalWrap">
                                 <div class="row g-3">
                                     <div class="col-12">
-                                        <label class="form-label mb-0"><i class="bi bi-shield-check"></i> Level 1 Approval</label>
+                                        <label class="form-label mb-0"><i class="bi bi-shield-check"></i> <span id="viewCartL1ApprovalTitle">Level 1 Approval</span></label>
                                     </div>
                                     <div class="col-md-4 form-group">
                                         <label class="form-label">L1 Approval Status</label>
@@ -854,6 +860,31 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                     <div class="col-12 form-group">
                                         <label class="form-label">Remark</label>
                                         <div class="approval-detail-value" id="viewCartL1Remarks" style="white-space: pre-wrap;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 d-none" id="viewCartL2ApprovalWrap">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        <label class="form-label mb-0"><i class="bi bi-shield-lock"></i> <span id="viewCartL2ApprovalTitle">Level 2 Approval</span></label>
+                                    </div>
+                                    <div class="col-md-4 form-group">
+                                        <label class="form-label">L2 Approval Status</label>
+                                        <div class="approval-detail-value">
+                                            <span class="status-badge border border-dark" id="viewCartL2Status"></span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 form-group">
+                                        <label class="form-label">Approved By</label>
+                                        <div class="approval-detail-value" id="viewCartL2ApprovedBy"></div>
+                                    </div>
+                                    <div class="col-md-4 form-group">
+                                        <label class="form-label">Approval At</label>
+                                        <div class="approval-detail-value" id="viewCartL2ApprovedAt"></div>
+                                    </div>
+                                    <div class="col-12 form-group">
+                                        <label class="form-label">Remark</label>
+                                        <div class="approval-detail-value" id="viewCartL2Remarks" style="white-space: pre-wrap;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -1052,13 +1083,36 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         document.getElementById('viewCartRequestedBy').textContent = d.submittedBy || '-';
                         document.getElementById('viewCartRequestedOn').textContent = submittedOnLabel;
                         const l1Wrap = document.getElementById('viewCartL1ApprovalWrap');
-                        const isL2Approval = d.level === 'level_2';
-                        setHidden(l1Wrap, !isL2Approval);
-                        if (isL2Approval) {
-                            document.getElementById('viewCartL1Status').textContent = d.l1Status || '-';
-                            document.getElementById('viewCartL1ApprovedBy').textContent = d.l1ApprovedBy || '-';
-                            document.getElementById('viewCartL1ApprovedAt').textContent = d.l1ApprovedAt || '-';
-                            document.getElementById('viewCartL1Remarks').textContent = d.l1Remarks || '-';
+                        const l1Title = document.getElementById('viewCartL1ApprovalTitle');
+                        const l1EngineerName = String(d.l1EngineerName || '').trim();
+                        if (l1Title) {
+                            l1Title.textContent = (l1EngineerName !== '' && l1EngineerName !== '-')
+                                ? ('Level 1 Approval - ' + l1EngineerName)
+                                : 'Level 1 Approval';
+                        }
+                        setHidden(l1Wrap, false);
+                        document.getElementById('viewCartL1Status').textContent = d.l1Status || '-';
+                        document.getElementById('viewCartL1ApprovedBy').textContent = d.l1ApprovedBy || '-';
+                        document.getElementById('viewCartL1ApprovedAt').textContent = d.l1ApprovedAt || '-';
+                        document.getElementById('viewCartL1Remarks').textContent = d.l1Remarks || '-';
+                        const l2Wrap = document.getElementById('viewCartL2ApprovalWrap');
+                        const l2Title = document.getElementById('viewCartL2ApprovalTitle');
+                        const l2ManagerName = String(d.l2ManagerName || '').trim();
+                        const l2Status = String(d.l2Status || '').trim();
+                        const showL2 = d.l2Required === '1'
+                            || d.level === 'level_2'
+                            || (l2Status !== '' && l2Status !== '-' && l2Status !== 'Not Required');
+                        if (l2Title) {
+                            l2Title.textContent = (l2ManagerName !== '' && l2ManagerName !== '-')
+                                ? ('Level 2 Approval - ' + l2ManagerName)
+                                : 'Level 2 Approval';
+                        }
+                        setHidden(l2Wrap, !showL2);
+                        if (showL2) {
+                            document.getElementById('viewCartL2Status').textContent = d.l2Status || '-';
+                            document.getElementById('viewCartL2ApprovedBy').textContent = d.l2ApprovedBy || '-';
+                            document.getElementById('viewCartL2ApprovedAt').textContent = d.l2ApprovedAt || '-';
+                            document.getElementById('viewCartL2Remarks').textContent = d.l2Remarks || '-';
                         }
                     } else {
                         document.getElementById('viewClaimTitle').textContent = (isFoc ? 'FOC Parts Claim' : 'Service Claim') + ' #' + d.claimId;

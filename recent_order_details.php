@@ -69,10 +69,12 @@ $safe = [
     'end_customer_district' => htmlspecialchars((string) ($header['end_customer_district'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'end_customer_state' => htmlspecialchars((string) ($header['end_customer_state'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'l1_status' => htmlspecialchars((string) ($header['l1_status'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+    'l1_engineer_name' => htmlspecialchars((string) ($header['l1_engineer_name'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'l1_approved_by' => htmlspecialchars((string) ($header['l1_approved_by'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'l1_approved_at' => htmlspecialchars((string) ($header['l1_approved_at'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'l1_remarks' => nl2br(htmlspecialchars((string) ($header['l1_remarks'] ?? '-'), ENT_QUOTES, 'UTF-8'), false),
     'l2_status' => htmlspecialchars((string) ($header['l2_status'] ?? '-'), ENT_QUOTES, 'UTF-8'),
+    'l2_manager_name' => htmlspecialchars((string) ($header['l2_manager_name'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'l2_approved_by' => htmlspecialchars((string) ($header['l2_approved_by'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'l2_approved_at' => htmlspecialchars((string) ($header['l2_approved_at'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'l2_remarks' => nl2br(htmlspecialchars((string) ($header['l2_remarks'] ?? '-'), ENT_QUOTES, 'UTF-8'), false),
@@ -282,7 +284,7 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
                                 <div class="oad-section__head-main">
                                     <h2>Approval</h2>
                                 </div>
-                                <span class="oad-section__hint">Level 1 <?php if($showL2Approval){ ?>&amp; Level 2<?php } ?></span>
+                                <span class="oad-section__hint">Who will approve this request</span>
                             </div>
 
                             <div class="oad-address-pair <?php if(!$showL2Approval){ ?> oad-address-pair--single<?php } ?>">
@@ -290,7 +292,7 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
                                 <div class="oad-address-card">
                                     <div class="oad-address-card__head">
                                         <div class="oad-address-card__icon" aria-hidden="true"><i class="bi bi-shield-check"></i></div>
-                                        <h3 class="oad-address-card__title">Level 1</h3>
+                                        <h3 class="oad-address-card__title oad-address-card__title--assignee">Level 1 - <?php echo $safe['l1_engineer_name']; ?></h3>
                                     </div>
                                     <div class="oad-address-card__body oad-address-card__body--meta">
                                         <div class="oad-approval-fields">
@@ -318,7 +320,7 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
                                 <div class="oad-address-card">
                                     <div class="oad-address-card__head">
                                         <div class="oad-address-card__icon" aria-hidden="true"><i class="bi bi-shield-lock"></i></div>
-                                        <h3 class="oad-address-card__title">Level 2</h3>
+                                        <h3 class="oad-address-card__title oad-address-card__title--assignee">Level 2 - <?php echo $safe['l2_manager_name']; ?></h3>
                                     </div>
                                     <div class="oad-address-card__body oad-address-card__body--meta">
                                         <div class="oad-approval-fields">
