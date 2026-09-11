@@ -4,6 +4,13 @@ require_once __DIR__ . '/admin_access_helpers.php';
 require_once __DIR__ . '/user_helpers.php';
 require_once __DIR__ . '/role_helpers.php';
 
+function rbac_system_admin_only_pages(): array
+{
+    return [
+        'flush_module_tables.php',
+    ];
+}
+
 function rbac_admin_pages(): array
 {
     return [
@@ -394,6 +401,13 @@ function rbac_access_denied_redirect(): void
 function rbac_require_page_access(PDO $conn): void
 {
     $page = basename($_SERVER['PHP_SELF']);
+
+    if (in_array($page, rbac_system_admin_only_pages(), true)) {
+        if (!is_system_admin()) {
+            rbac_access_denied_redirect();
+        }
+        return;
+    }
 
     if (in_array($page, rbac_admin_pages(), true)) {
         return;
