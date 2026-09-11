@@ -61,7 +61,7 @@ function user_yes_no(bool $value): string
 }
 
 /**
- * Roles that show the Approval dropdowns (Dealer User assigns L1 / L2 approvers).
+ * Roles that show the Approval fields (Dealer User: L1 + L2; ELGi Engineer: L2 only, L1 = self).
  *
  * @return array<int, int>
  */
@@ -69,12 +69,30 @@ function user_roles_with_approval_options(): array
 {
     return [
         DEALER_USER_ROLE,
+        ELGI_ENGINEER_USER_ROLE,
     ];
 }
 
 function user_role_has_approval_options(int $roleId): bool
 {
     return in_array($roleId, user_roles_with_approval_options(), true);
+}
+
+/**
+ * Roles whose Level 1 approver is always the same user (hidden in the form).
+ *
+ * @return array<int, int>
+ */
+function user_roles_auto_assign_level1_to_self(): array
+{
+    return [
+        ELGI_ENGINEER_USER_ROLE,
+    ];
+}
+
+function user_role_auto_assigns_level1_to_self(int $roleId): bool
+{
+    return in_array($roleId, user_roles_auto_assign_level1_to_self(), true);
 }
 
 /**
@@ -136,7 +154,7 @@ function user_current_approval_flags(PDO $conn): array
 /**
  * @return array{level_1_approver_id: int|null, level_2_approver_id: int|null}
  */
-function user_normalized_approver_ids(array $data): array
+function user_normalized_approver_ids(array $data, int $userId = 0): array
 {
     if (!user_role_has_approval_options((int) ($data['role'] ?? 0))) {
         return [
@@ -147,6 +165,9 @@ function user_normalized_approver_ids(array $data): array
 
     $level1 = (int) ($data['level_1_approver_id'] ?? 0);
     $level2 = (int) ($data['level_2_approver_id'] ?? 0);
+    if (user_role_auto_assigns_level1_to_self((int) ($data['role'] ?? 0))) {
+        $level1 = $userId > 0 ? $userId : 0;
+    }
 
     return [
         'level_1_approver_id' => $level1 > 0 ? $level1 : null,
@@ -815,19 +836,21 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
     }
 
     if (user_role_has_approval_options((int) $data['role'])) {
-        $level1ApproverId = (int) ($data['level_1_approver_id'] ?? 0);
         $level2ApproverId = (int) ($data['level_2_approver_id'] ?? 0);
-        if ($level1ApproverId <= 0) {
-            return 'Level 1 Approval is required.';
-        }
-        if (!user_is_valid_approver($conn, $level1ApproverId)) {
-            return 'Selected Level 1 Approval user is invalid.';
-        }
         if ($level2ApproverId <= 0) {
             return 'Level 2 Approval is required.';
         }
         if (!user_is_valid_approver($conn, $level2ApproverId)) {
             return 'Selected Level 2 Approval user is invalid.';
+        }
+        if (!user_role_auto_assigns_level1_to_self((int) $data['role'])) {
+            $level1ApproverId = (int) ($data['level_1_approver_id'] ?? 0);
+            if ($level1ApproverId <= 0) {
+                return 'Level 1 Approval is required.';
+            }
+            if (!user_is_valid_approver($conn, $level1ApproverId)) {
+                return 'Selected Level 1 Approval user is invalid.';
+            }
         }
     }
 
@@ -1016,9 +1039,9 @@ function user_bind_customer_code(PDOStatement $stmt, array $data): void
     }
 }
 
-function user_bind_approver_ids(PDOStatement $stmt, array $data): void
+function user_bind_approver_ids(PDOStatement $stmt, array $data, int $userId = 0): void
 {
-    $ids = user_normalized_approver_ids($data);
+    $ids = user_normalized_approver_ids($data, $userId);
     if ($ids['level_1_approver_id'] === null) {
         $stmt->bindValue(':level_1_approver_id', null, PDO::PARAM_NULL);
     } else {
@@ -1045,6 +1068,7 @@ function user_insert(PDO $conn, array $data, string $createdBy): void
             :role, :username, :name, :email, :password, :mobile_number, :sales_coordinator_id, :customer_code,
             :level_1_approval, :level_2_approval, :level_1_approver_id, :level_2_approver_id, :created_by, CURRENT_TIMESTAMP
         )
+        RETURNING id
     ');
     $stmt->bindValue(':role', (int) $data['role'], PDO::PARAM_INT);
     $stmt->bindValue(':username', $data['username']);
@@ -1057,6 +1081,18 @@ function user_insert(PDO $conn, array $data, string $createdBy): void
     user_bind_approver_ids($stmt, $data);
     $stmt->bindValue(':created_by', $createdBy);
     $stmt->execute();
+    $newId = (int) $stmt->fetchColumn();
+    if ($newId > 0 && user_role_auto_assigns_level1_to_self((int) ($data['role'] ?? 0))) {
+        $stamp = $conn->prepare('
+            UPDATE user_master
+            SET level_1_approver_id = :approver_id
+            WHERE id = :user_id
+              AND deleted_at IS NULL
+        ');
+        $stamp->bindValue(':approver_id', $newId, PDO::PARAM_INT);
+        $stamp->bindValue(':user_id', $newId, PDO::PARAM_INT);
+        $stamp->execute();
+    }
 }
 
 function user_update(PDO $conn, int $id, array $data): void
@@ -1120,7 +1156,7 @@ function user_update(PDO $conn, int $id, array $data): void
     $stmt->bindValue(':mobile_number', $data['mobile_number']);
     user_bind_sales_coordinator_id($stmt, $data);
     user_bind_customer_code($stmt, $data);
-    user_bind_approver_ids($stmt, $data);
+    user_bind_approver_ids($stmt, $data, $id);
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
 

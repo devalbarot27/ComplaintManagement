@@ -37,6 +37,7 @@ if ($selectedCustomerCode !== '' && isset($obconn) && $obconn instanceof PDO) {
 }
 $showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole);
 $showApprovalFields = user_role_has_approval_options($selectedRole);
+$hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
 ?>
 <div class="row g-3">
     <div class="col-md-6 form-group">
@@ -148,8 +149,7 @@ $showApprovalFields = user_role_has_approval_options($selectedRole);
     </div>
     <div class="col-12" id="userApprovalFieldsWrap"<?php echo $showApprovalFields ? '' : ' style="display: none;"'; ?>>
         <div class="row g-3">
-            
-            <div class="col-md-6 form-group">
+            <div class="col-md-6 form-group" id="userLevel1ApproverFieldWrap"<?php echo $hideLevel1ApproverField ? ' style="display: none;"' : ''; ?>>
                 <label class="form-label" for="userLevel1ApproverSelect">Level 1 Approval <span class="text-danger">*</span></label>
                 <select class="form-control" name="level_1_approver_id" id="userLevel1ApproverSelect" style="width:100%;">
                     <option value="">Select Level 1 Approval</option>

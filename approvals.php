@@ -33,10 +33,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
     $level    = trim((string) ($_POST['level'] ?? ''));
     $decision = trim((string) ($_POST['foc_decision'] ?? ''));
     $remarks  = trim((string) ($_POST['approval_remarks'] ?? ''));
-    $canActOnLevel = ($level === 'l1' && $canApproveL1Foc) || ($level === 'l2' && $canApproveL2Foc);
 
+    $claimStmt = $obconn->prepare('SELECT * FROM foc_claims WHERE id = :id AND deleted_at IS NULL');
+    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $claimStmt->execute();
+    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$canActOnLevel) {
+    if ($claim === false) {
+        $_SESSION['error_message'] = 'FOC claim not found.';
+        header('Location: approvals.php');
+        exit;
+    }
+
+    if (!foc_claim_is_assigned_to_current_user($obconn, $claim, $level)) {
         header('Location: access_denied.php');
         exit;
     }
@@ -52,33 +61,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
             exit;
         }
 
-        $claimStmt = $obconn->prepare('SELECT * FROM foc_claims WHERE id = :id AND deleted_at IS NULL');
-        $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
-        $claimStmt->execute();
-        $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
-
-
-
-        if ($claim === false) {
-            $_SESSION['error_message'] = 'FOC claim not found.';
-            header('Location: approvals.php');
-            exit;
-        }
-
         if ($claim['l1_status'] !== FOC_STAGE_APPROVED || $claim['l2_status'] !== FOC_STAGE_PENDING) {
             $_SESSION['error_message'] = 'This claim is not ready for L2 approval.';
             header('Location: approvals.php');
             exit;
         }
-   
-
-
-        if ($claim['l2_approver_user_id'] !== null && (int) $claim['l2_approver_user_id'] !== current_user_id($obconn)) {
-            error_log("approvals.php: access_denied - claim #{$claimId} is assigned to l2_approver_user_id={$claim['l2_approver_user_id']} but current user is " . $userName . '.');
-            header('Location: access_denied.php');
-        }
-
-  
 
         try {
             $obconn->beginTransaction();
@@ -214,9 +201,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['order_decision']) ||
 $approvalItems = [];
 
 try {
-    $stmt = $obconn->query("
+    $focSeeAll = foc_claim_see_all_approvals($obconn);
+    $currentUserId = current_user_id($obconn);
+    $focSql = "
         SELECT
             fc.id, fc.complaint_id, fc.warranty_status, fc.justification, fc.l1_status, fc.l2_status,
+            fc.l1_approver_user_id, fc.l2_approver_user_id,
             fc.l1_remarks, fc.l1_by_username, fc.l1_at,
             fc.l2_remarks, fc.l2_by_username, fc.l2_at,
             fc.overall_status, fc.created_by_username, fc.created_at,
@@ -251,12 +241,34 @@ try {
                     AND fc.l2_status = '" . FOC_STAGE_PENDING . "'
                 )
           )
-        ORDER BY fc.created_at DESC
-    ");
+    ";
+    if (!$focSeeAll) {
+        if ($currentUserId === null || $currentUserId <= 0) {
+            $focSql = '';
+        } else {
+            $focSql .= "
+          AND (
+                (fc.l1_status = '" . FOC_STAGE_PENDING . "' AND fc.l1_approver_user_id = :assigned_user_id)
+                OR (
+                    fc.l1_status = '" . FOC_STAGE_APPROVED . "'
+                    AND fc.l2_status = '" . FOC_STAGE_PENDING . "'
+                    AND fc.l2_approver_user_id = :assigned_user_id
+                )
+          )
+        ";
+        }
+    }
+    if ($focSql !== '') {
+    $focSql .= ' ORDER BY fc.created_at DESC';
+    $stmt = $obconn->prepare($focSql);
+    if (!$focSeeAll) {
+        $stmt->bindValue(':assigned_user_id', $currentUserId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $isL1Pending = $row['l1_status'] === FOC_STAGE_PENDING;
         $level = $isL1Pending ? 'l1' : 'l2';
-        $canDecide = $isL1Pending ? $canApproveL1Foc : $canApproveL2Foc;
+        $canDecide = foc_claim_is_assigned_to_current_user($obconn, $row, $level);
         $approvalItems[] = [
             'claim_type'     => 'foc',
             'id'             => (int) $row['id'],
@@ -286,6 +298,7 @@ try {
             'l2_by'          => (string) ($row['l2_by_name'] ?? $row['l2_by_username'] ?? ''),
             'l2_at'          => !empty($row['l2_at']) ? date('d M Y h:i A', strtotime((string) $row['l2_at'])) : '',
         ];
+    }
     }
 } catch (PDOException $e) {
     // Table may not exist yet; silently continue

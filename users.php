@@ -207,6 +207,7 @@ $approverOptions = user_approver_options_for_form(
     <script>
     window.USER_ROLES_REQUIRING_SALES_COORDINATOR = <?php echo json_encode(user_roles_requiring_sales_coordinator()); ?>;
     window.USER_ROLES_WITH_APPROVAL_OPTIONS = <?php echo json_encode(user_roles_with_approval_options()); ?>;
+    window.USER_ROLES_SELF_LEVEL1_APPROVAL = <?php echo json_encode(user_roles_auto_assign_level1_to_self()); ?>;
     window.BLOCKED_EMAIL_DOMAINS = <?php echo json_encode(disposable_email_blocked_domains(), JSON_UNESCAPED_SLASHES); ?>;
     </script>
     <script src="js/users.js"></script>

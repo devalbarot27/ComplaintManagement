@@ -73,11 +73,136 @@ function foc_parts_user_can_access_claim(PDO $conn, ?array $record): bool
         return true;
     }
 
-    // L1/L2 approvers may open claims from the Approvals inbox.
-    require_once __DIR__ . '/user_helpers.php';
-    $flags = user_current_approval_flags($conn);
+    return foc_claim_user_is_named_approver($conn, $record);
+}
 
-    return !empty($flags['l1']) || !empty($flags['l2']);
+function foc_claim_see_all_approvals(PDO $conn): bool
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    return is_system_admin();
+}
+
+/**
+ * @return array{l1: int|null, l2: int|null, error: string|null}
+ */
+function foc_claim_resolve_approver_ids(PDO $conn, ?int $requesterUserId): array
+{
+    require_once __DIR__ . '/user_helpers.php';
+
+    $l1 = ($requesterUserId !== null && $requesterUserId > 0)
+        ? user_assigned_approver_id($conn, $requesterUserId, 'level_1')
+        : null;
+    $l2 = ($requesterUserId !== null && $requesterUserId > 0)
+        ? user_assigned_approver_id($conn, $requesterUserId, 'level_2')
+        : null;
+
+    if ($l1 === null || $l1 <= 0) {
+        return [
+            'l1' => null,
+            'l2' => $l2,
+            'error' => 'Level 1 Approval user is not assigned for this dealer.',
+        ];
+    }
+    if ($l2 === null || $l2 <= 0) {
+        return [
+            'l1' => $l1,
+            'l2' => null,
+            'error' => 'Level 2 Approval user is not assigned for this dealer.',
+        ];
+    }
+
+    return [
+        'l1' => $l1,
+        'l2' => $l2,
+        'error' => null,
+    ];
+}
+
+function foc_claim_pending_level(?array $claim): ?string
+{
+    if ($claim === null) {
+        return null;
+    }
+
+    if (($claim['l1_status'] ?? '') === FOC_STAGE_PENDING) {
+        return 'l1';
+    }
+    if (($claim['l1_status'] ?? '') === FOC_STAGE_APPROVED
+        && ($claim['l2_status'] ?? '') === FOC_STAGE_PENDING
+    ) {
+        return 'l2';
+    }
+
+    return null;
+}
+
+function foc_claim_assigned_user_id_for_level(array $claim, string $level): ?int
+{
+    $column = $level === 'l2' ? 'l2_approver_user_id' : 'l1_approver_user_id';
+    $id = (int) ($claim[$column] ?? 0);
+
+    return $id > 0 ? $id : null;
+}
+
+function foc_claim_user_is_named_approver(PDO $conn, ?array $claim): bool
+{
+    if ($claim === null) {
+        return false;
+    }
+
+    $userId = current_user_id($conn);
+    if ($userId === null || $userId <= 0) {
+        return false;
+    }
+
+    $l1 = (int) ($claim['l1_approver_user_id'] ?? 0);
+    $l2 = (int) ($claim['l2_approver_user_id'] ?? 0);
+
+    return $l1 === $userId || $l2 === $userId;
+}
+
+function foc_claim_is_assigned_to_current_user(PDO $conn, ?array $claim, ?string $level = null): bool
+{
+    if ($claim === null) {
+        return false;
+    }
+    if (foc_claim_see_all_approvals($conn)) {
+        return true;
+    }
+
+    $userId = current_user_id($conn);
+    if ($userId === null || $userId <= 0) {
+        return false;
+    }
+
+    if ($level === null || $level === '') {
+        $level = foc_claim_pending_level($claim);
+    }
+    if ($level === null) {
+        return false;
+    }
+
+    $assigned = foc_claim_assigned_user_id_for_level($claim, $level);
+
+    return $assigned !== null && $assigned === $userId;
+}
+
+function warranty_claims_notify_user(
+    PDO $conn,
+    ?int $userId,
+    string $moduleSlug,
+    string $title,
+    string $message,
+    ?int $referenceId = null
+): void {
+    if ($userId === null || $userId <= 0) {
+        return;
+    }
+
+    notification_create($conn, $userId, $title, $message, $moduleSlug, $referenceId);
 }
 
 function foc_claim_is_rejected(?array $record): bool
@@ -175,12 +300,19 @@ function foc_claim_resubmit(
         return 'This FOC claim cannot be resubmitted.';
     }
 
+    $approvers = foc_claim_resolve_approver_ids($conn, current_user_id($conn));
+    if ($approvers['error'] !== null) {
+        return $approvers['error'];
+    }
+
     $update = $conn->prepare("
         UPDATE foc_claims
         SET justification = :justification,
             warranty_status = :warranty_status,
             l1_status = :l1_status,
             l2_status = :l2_status,
+            l1_approver_user_id = :l1_approver_user_id,
+            l2_approver_user_id = :l2_approver_user_id,
             l1_by_username = NULL,
             l1_at = NULL,
             l1_remarks = NULL,
@@ -196,6 +328,8 @@ function foc_claim_resubmit(
     $update->bindValue(':warranty_status', $warrantyStatus);
     $update->bindValue(':l1_status', FOC_STAGE_PENDING);
     $update->bindValue(':l2_status', FOC_STAGE_PENDING);
+    $update->bindValue(':l1_approver_user_id', $approvers['l1'], PDO::PARAM_INT);
+    $update->bindValue(':l2_approver_user_id', $approvers['l2'], PDO::PARAM_INT);
     $update->bindValue(':overall_status', 'Pending L1 Approval');
     $update->bindValue(':id', $claimId, PDO::PARAM_INT);
     $update->execute();
@@ -203,10 +337,10 @@ function foc_claim_resubmit(
     foc_claim_replace_items($conn, $claimId, $items);
 
     $complaintId = (int) ($record['complaint_id'] ?? 0);
-    warranty_claims_notify_role_holders(
+    warranty_claims_notify_user(
         $conn,
+        $approvers['l1'],
         'foc-parts',
-        'approve-l1-foc',
         'FOC Claim Resubmitted for L1 Approval',
         'FOC claim #' . $claimId . ' for call ticket #' . $complaintId . ' was updated and resubmitted for Lock-in Engineer approval.',
         $claimId
@@ -294,10 +428,10 @@ const DEFAULT_APPROVER_USER_ID = 102464;
 
 /**
  * Installed-base warranty lifecycle (Warranty Claims report), derived purely from
- * the machine's commissioning_date � not related to the FOC/Service claim flags above.
+ * the machine's commissioning_date ï¿½ not related to the FOC/Service claim flags above.
  *  - Standard Warranty: first 12 months from commissioning date.
  *  - Uptime Warranty: next 24 months after Standard Warranty ends (months 13-36).
- *  - Out of Warranty: after 36 months from commissioning date � the only status
+ *  - Out of Warranty: after 36 months from commissioning date ï¿½ the only status
  *    that allows a warranty claim request to proceed through approval.
  */
 const INSTALLED_BASE_WARRANTY_STANDARD_MONTHS = 12;
@@ -1284,6 +1418,10 @@ function foc_claim_apply_decision(
         return 'This claim is not ready for L2 approval.';
     }
 
+    if (!foc_claim_is_assigned_to_current_user($conn, $claim, $level)) {
+        return 'You are not assigned for this FOC approval request.';
+    }
+
     if ($level === 'l1') {
         $overallStatus = $decision === FOC_STAGE_APPROVED ? 'Pending L2 Approval' : 'Rejected';
         $update = $conn->prepare("
@@ -1300,10 +1438,10 @@ function foc_claim_apply_decision(
         $update->execute();
 
         if ($decision === FOC_STAGE_APPROVED) {
-            warranty_claims_notify_role_holders(
+            warranty_claims_notify_user(
                 $conn,
+                foc_claim_assigned_user_id_for_level($claim, 'l2'),
                 'foc-parts',
-                'approve-l2-foc',
                 'FOC Claim Pending L2 Approval',
                 'FOC claim #' . $claimId . ' has been approved at L1 and needs Business Head approval.',
                 $claimId
@@ -1898,7 +2036,7 @@ function foc_claim_ln_reference_defaults(PDO $obconn, string $customerCode): ?ar
  * from the FOC claim instead of the paid-order cart (tbl_vayu_cartitems).
  *
  * Must be called by the caller's own transaction (foc_parts.php wraps the L2
- * status update + this call in one transaction) � throws Exception on any
+ * status update + this call in one transaction) ï¿½ throws Exception on any
  * failure so the caller can roll back the approval instead of leaving the
  * claim "Approved" with no corresponding LN order.
  *

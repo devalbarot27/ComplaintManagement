@@ -101,7 +101,9 @@ $encodedId = base64_encode((string) $record['id']);
                 record_details_field('Sales Coordinator', $salesCoordinatorLabel);
             }
             if ($showApprovalOptions) {
-                record_details_field('Level 1 Approval', $level1ApproverLabel);
+                if (!user_role_auto_assigns_level1_to_self((int) ($record['role'] ?? 0))) {
+                    record_details_field('Level 1 Approval', $level1ApproverLabel);
+                }
                 record_details_field('Level 2 Approval', $level2ApproverLabel);
             }
             record_details_field('Created By', user_display_value($record['created_by']));

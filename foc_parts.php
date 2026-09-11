@@ -109,6 +109,10 @@ if ($isCreatePost || $isResubmitPost) {
     } elseif (strlen($justification) > 500) {
         $error_message = 'Justification cannot exceed 500 characters.';
     } else {
+        $approvers = foc_claim_resolve_approver_ids($obconn, current_user_id($obconn));
+        if ($approvers['error'] !== null) {
+            $error_message = $approvers['error'];
+        } else {
         try {
             $obconn->beginTransaction();
 
@@ -163,8 +167,8 @@ if ($isCreatePost || $isResubmitPost) {
                 $stmt->bindValue(':warranty_status',      $warrantyStatus);
                 $stmt->bindValue(':l1_status',             FOC_STAGE_PENDING);
                 $stmt->bindValue(':l2_status',             FOC_STAGE_PENDING);
-                $stmt->bindValue(':l1_approver_user_id',  DEFAULT_APPROVER_USER_ID, PDO::PARAM_INT);
-                $stmt->bindValue(':l2_approver_user_id',  DEFAULT_APPROVER_USER_ID, PDO::PARAM_INT);
+                $stmt->bindValue(':l1_approver_user_id',  $approvers['l1'], PDO::PARAM_INT);
+                $stmt->bindValue(':l2_approver_user_id',  $approvers['l2'], PDO::PARAM_INT);
                 $stmt->bindValue(':overall_status',        'Pending L1 Approval');
                 $stmt->bindValue(':created_by_username',  $userName);
                 $stmt->execute();
@@ -175,10 +179,10 @@ if ($isCreatePost || $isResubmitPost) {
 
                 $obconn->commit();
 
-                warranty_claims_notify_role_holders(
+                warranty_claims_notify_user(
                     $obconn,
+                    $approvers['l1'],
                     'foc-parts',
-                    'approve-l1-foc',
                     'New FOC Claim Pending L1 Approval',
                     'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs Lock-in Engineer approval.',
                     $newClaimId
@@ -196,6 +200,7 @@ if ($isCreatePost || $isResubmitPost) {
                 ? 'Failed to resubmit FOC claim. Please try again.'
                 : 'Failed to submit FOC claim. Please try again.';
         }
+        }
     }
 }
 
@@ -208,9 +213,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
     // Send the user back to the Approvals dashboard if that's where the decision was submitted from.
     $redirectTo = ($_POST['return_to'] ?? '') === 'approvals.php' ? 'approvals.php' : 'foc_parts.php';
 
-    $canActOnLevel = ($level === 'l1' && $canApproveL1) || ($level === 'l2' && $canApproveL2);
+    $claimStmt = $obconn->prepare('SELECT * FROM foc_claims WHERE id = :id AND deleted_at IS NULL');
+    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $claimStmt->execute();
+    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$canActOnLevel || !in_array($decision, [FOC_STAGE_APPROVED, FOC_STAGE_REJECTED], true) || $claimId <= 0) {
+    if ($claim === false
+        || !in_array($decision, [FOC_STAGE_APPROVED, FOC_STAGE_REJECTED], true)
+        || $claimId <= 0
+        || !foc_claim_is_assigned_to_current_user($obconn, $claim, $level)
+    ) {
         header('Location: access_denied.php');
         exit;
     }

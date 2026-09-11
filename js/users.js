@@ -24,6 +24,19 @@ function roleHasApprovalOptions(roleId) {
     return getRolesWithApprovalOptions().indexOf(role) !== -1;
 }
 
+function getRolesWithSelfLevel1Approval() {
+    return Array.isArray(window.USER_ROLES_SELF_LEVEL1_APPROVAL)
+        ? window.USER_ROLES_SELF_LEVEL1_APPROVAL.map(function (roleId) {
+            return parseInt(roleId, 10);
+        })
+        : [];
+}
+
+function roleAutoAssignsLevel1ToSelf(roleId) {
+    const role = parseInt(roleId, 10);
+    return getRolesWithSelfLevel1Approval().indexOf(role) !== -1;
+}
+
 function setUserSelectValue(select, value) {
     if (!select) {
         return;
@@ -40,6 +53,7 @@ function setUserSelectValue(select, value) {
 
 function toggleApprovalFields(roleId, selectedIds) {
     const wrap = document.getElementById('userApprovalFieldsWrap');
+    const level1Wrap = document.getElementById('userLevel1ApproverFieldWrap');
     const level1 = document.getElementById('userLevel1ApproverSelect');
     const level2 = document.getElementById('userLevel2ApproverSelect');
     if (!wrap || !level1 || !level2) {
@@ -47,7 +61,11 @@ function toggleApprovalFields(roleId, selectedIds) {
     }
 
     const isAllowed = roleHasApprovalOptions(roleId);
+    const hideLevel1 = roleAutoAssignsLevel1ToSelf(roleId);
     wrap.style.display = isAllowed ? '' : 'none';
+    if (level1Wrap) {
+        level1Wrap.style.display = isAllowed && !hideLevel1 ? '' : 'none';
+    }
 
     if (!isAllowed) {
         setUserSelectValue(level1, '');
@@ -65,8 +83,17 @@ function toggleApprovalFields(roleId, selectedIds) {
         return;
     }
 
+    if (hideLevel1) {
+        setUserSelectValue(level1, '');
+        level1.classList.remove('is-invalid');
+        const msg1 = document.querySelector('.validation-msg[data-field="level_1_approver_id"]');
+        if (msg1) {
+            msg1.textContent = '';
+        }
+    }
+
     if (selectedIds) {
-        if (selectedIds.level_1_approver_id !== undefined && selectedIds.level_1_approver_id !== null && String(selectedIds.level_1_approver_id) !== '') {
+        if (!hideLevel1 && selectedIds.level_1_approver_id !== undefined && selectedIds.level_1_approver_id !== null && String(selectedIds.level_1_approver_id) !== '') {
             setUserSelectValue(level1, selectedIds.level_1_approver_id);
         }
         if (selectedIds.level_2_approver_id !== undefined && selectedIds.level_2_approver_id !== null && String(selectedIds.level_2_approver_id) !== '') {
@@ -199,6 +226,9 @@ function initUsersFormValidation() {
 
     validate.validators.userApproverRequired = function (value, options, key, attributes) {
         if (!roleHasApprovalOptions(attributes.role)) {
+            return null;
+        }
+        if (key === 'level_1_approver_id' && roleAutoAssignsLevel1ToSelf(attributes.role)) {
             return null;
         }
         if (!value || String(value).trim() === '') {
