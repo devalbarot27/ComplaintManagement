@@ -316,10 +316,23 @@ function order_approval_order_level_details(PDO $conn, array $headerRow, string 
     $l1UserId = (int) ($headerRow['l1_approved_user_id'] ?? 0);
     $l2UserId = (int) ($headerRow['l2_approved_user_id'] ?? 0);
     $sharedRemarks = trim((string) ($headerRow['approval_remarks'] ?? ''));
+    $request = order_approval_request_for_refno($conn, $refno) ?? [];
+    $skipLevel1 = order_approval_requester_skips_level1(
+        $conn,
+        order_approval_order_requester_user_id($conn, $headerRow, $request)
+    );
 
     $l1Status = 'Not Required';
     $l2Status = 'Not Required';
-    if ($status === 'pending_l1') {
+    if ($skipLevel1) {
+        if ($status === 'pending_l2') {
+            $l2Status = 'Pending';
+        } elseif ($status === 'approved') {
+            $l2Status = $l2Required ? 'Approved' : 'Not Required';
+        } elseif ($status === 'rejected') {
+            $l2Status = $l2Required ? 'Rejected' : 'Not Required';
+        }
+    } elseif ($status === 'pending_l1') {
         $l1Status = 'Pending';
         $l2Status = $l2Required ? 'Pending' : 'Not Required';
     } elseif ($status === 'pending_l2') {
@@ -339,15 +352,17 @@ function order_approval_order_level_details(PDO $conn, array $headerRow, string 
     }
 
     $history = order_approval_history_levels_for_refno($conn, $refno);
-    $l1History = $history[0] ?? null;
-    $l2History = $history[1] ?? null;
+    $l1History = $skipLevel1 ? null : ($history[0] ?? null);
+    $l2History = $skipLevel1 ? ($history[0] ?? null) : ($history[1] ?? null);
 
     $l1RemarksFallback = '';
     $l2RemarksFallback = '';
-    if ($status === 'pending_l2' || ($status === 'approved' && !$l2Required) || ($status === 'rejected' && $l1UserId <= 0)) {
+    if (!$skipLevel1 && ($status === 'pending_l2' || ($status === 'approved' && !$l2Required) || ($status === 'rejected' && $l1UserId <= 0))) {
         $l1RemarksFallback = $sharedRemarks;
     }
-    if (($status === 'approved' && $l2Required) || ($status === 'rejected' && $l1UserId > 0)) {
+    if ($skipLevel1) {
+        $l2RemarksFallback = $sharedRemarks;
+    } elseif (($status === 'approved' && $l2Required) || ($status === 'rejected' && $l1UserId > 0)) {
         $l2RemarksFallback = $sharedRemarks;
     }
 
@@ -440,6 +455,9 @@ function order_approval_assigned_level_names(PDO $conn, array $headerRow, string
 
     $l1Id = $requesterId > 0 ? user_assigned_approver_id($conn, $requesterId, 'level_1') : null;
     $l2Id = $requesterId > 0 ? user_assigned_approver_id($conn, $requesterId, 'level_2') : null;
+    if ($requesterId > 0 && order_approval_requester_skips_level1($conn, $requesterId)) {
+        $l1Id = null;
+    }
 
     $currentLevel = strtolower(trim((string) ($request['current_level'] ?? $request['approval_level'] ?? '')));
     $assignedTo = (int) ($request['assigned_to_user_id'] ?? 0);
@@ -964,12 +982,48 @@ function order_approval_lines_require_l2(array $lines): bool
     return false;
 }
 
+/**
+ * ELGi Engineer orders skip Level 1. Dealer User flow is unchanged.
+ */
+function order_approval_requester_skips_level1(PDO $conn, int $requesterUserId): bool
+{
+    if ($requesterUserId <= 0) {
+        return false;
+    }
+
+    $row = user_get_by_id($conn, $requesterUserId);
+    if ($row === null) {
+        return false;
+    }
+
+    return (int) ($row['role'] ?? 0) === ELGI_ENGINEER_USER_ROLE;
+}
+
+/**
+ * @param array<string, mixed> $headerRow
+ * @param array<string, mixed> $request
+ */
+function order_approval_order_requester_user_id(PDO $conn, array $headerRow = [], array $request = []): int
+{
+    $requesterId = (int) ($request['requested_by_user_id'] ?? 0);
+    if ($requesterId > 0) {
+        return $requesterId;
+    }
+
+    $username = trim((string) ($request['requested_by'] ?? ''));
+    if ($username === '') {
+        $username = trim((string) ($headerRow['usr_name'] ?? ''));
+    }
+
+    return (int) (order_approval_user_id_by_username($conn, $username) ?? 0);
+}
+
 function order_approval_bind_bool(PDOStatement $stmt, string $param, bool $value): void
 {
     $stmt->bindValue($param, $value, PDO::PARAM_BOOL);
 }
 
-function order_approval_start(PDO $conn, string $refno, string $requestedBy, bool $l2Required): void
+function order_approval_start(PDO $conn, string $refno, string $requestedBy, bool $l2Required, string $startLevel = 'level_1'): void
 {
     order_approval_ensure_schema($conn);
     $refno = trim($refno);
@@ -977,9 +1031,16 @@ function order_approval_start(PDO $conn, string $refno, string $requestedBy, boo
         return;
     }
 
+    if ($startLevel !== 'level_2') {
+        $startLevel = 'level_1';
+    }
+    if ($startLevel === 'level_2' && !$l2Required) {
+        $startLevel = 'level_1';
+    }
+
     $requestedByUserId = order_approval_user_id_by_username($conn, $requestedBy);
     $assignedToUserId = ($requestedByUserId !== null)
-        ? user_assigned_approver_id($conn, $requestedByUserId, 'level_1')
+        ? user_assigned_approver_id($conn, $requestedByUserId, $startLevel)
         : null;
     $priceType = $l2Required ? 'level_2' : 'level_1';
 
@@ -1011,8 +1072,8 @@ function order_approval_start(PDO $conn, string $refno, string $requestedBy, boo
             WHERE id = :id
         ');
         $update->bindValue(':order_refno', $refno);
-        $update->bindValue(':approval_level', 'level_1');
-        $update->bindValue(':current_level', 'level_1');
+        $update->bindValue(':approval_level', $startLevel);
+        $update->bindValue(':current_level', $startLevel);
         order_approval_bind_bool($update, ':l2_required', $l2Required);
         $update->bindValue(':price_type', $priceType);
         $update->bindValue(':item_code', $refno);
@@ -1040,8 +1101,8 @@ function order_approval_start(PDO $conn, string $refno, string $requestedBy, boo
             RETURNING id
         ');
         $stmt->bindValue(':order_refno', $refno);
-        $stmt->bindValue(':approval_level', 'level_1');
-        $stmt->bindValue(':current_level', 'level_1');
+        $stmt->bindValue(':approval_level', $startLevel);
+        $stmt->bindValue(':current_level', $startLevel);
         order_approval_bind_bool($stmt, ':l2_required', $l2Required);
         order_approval_bind_assigned_to($stmt, $assignedToUserId);
         $stmt->bindValue(':requested_by', $requestedBy);
@@ -1061,7 +1122,7 @@ function order_approval_start(PDO $conn, string $refno, string $requestedBy, boo
     order_approval_notify_assigned_approver(
         $conn,
         $requestId,
-        'level_1',
+        $startLevel,
         $refno,
         $assignedToUserId,
         $requestedByUserId,
@@ -1399,7 +1460,10 @@ function order_approval_pending_items(PDO $conn, ?PDO $dpconn = null): array
 
         $level = (string) ($row['current_level'] ?? 'level_1');
         if ($level === 'level_2' && empty($header['l1_approved_user_id'])) {
-            continue;
+            $requesterId = order_approval_order_requester_user_id($conn, $header, $row);
+            if (!order_approval_requester_skips_level1($conn, $requesterId)) {
+                continue;
+            }
         }
 
         $summary = order_approval_products_summary($lines);
@@ -1533,7 +1597,10 @@ function order_approval_decide(
             return array_merge($empty, ['error' => 'This order does not require Level 2 approval.']);
         }
         if (empty($header['l1_approved_user_id'])) {
-            return array_merge($empty, ['error' => 'Level 2 approval is not allowed before Level 1 approval is completed.']);
+            $requesterUserId = order_approval_order_requester_user_id($conn, $header, $request);
+            if (!order_approval_requester_skips_level1($conn, $requesterUserId)) {
+                return array_merge($empty, ['error' => 'Level 2 approval is not allowed before Level 1 approval is completed.']);
+            }
         }
     }
 
@@ -1728,10 +1795,13 @@ function order_approval_ao_block_reason(array $header): ?string
         return null;
     }
     if ($approvalStatus === 'approved') {
-        if (empty($header['l1_approved_user_id'])) {
-            return 'Level 1 approval is required before AO Number generation.';
-        }
-        if ($l2Required && empty($header['l2_approved_user_id'])) {
+        $l1Done = !empty($header['l1_approved_user_id']);
+        $l2Done = !empty($header['l2_approved_user_id']);
+        if (!$l1Done) {
+            if (!($l2Required && $l2Done)) {
+                return 'Level 1 approval is required before AO Number generation.';
+            }
+        } elseif ($l2Required && !$l2Done) {
             return 'Level 2 approval is required before AO Number generation.';
         }
 

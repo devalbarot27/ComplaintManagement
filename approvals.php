@@ -1103,7 +1103,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                 ? ('Level 1 Approval - ' + l1EngineerName)
                                 : 'Level 1 Approval';
                         }
-                        setHidden(l1Wrap, false);
+                        setHidden(l1Wrap, String(d.l1Status || '').trim() === 'Not Required');
                         document.getElementById('viewCartL1Status').textContent = d.l1Status || '-';
                         document.getElementById('viewCartL1ApprovedBy').textContent = d.l1ApprovedBy || '-';
                         document.getElementById('viewCartL1ApprovedAt').textContent = d.l1ApprovedAt || '-';

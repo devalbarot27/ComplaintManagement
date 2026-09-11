@@ -2770,19 +2770,34 @@ class orderClass
 
             $needsApproval = ((int) $cartOrderType !== 2);
             $l2Required = order_approval_lines_require_l2($cartItems);
+            $skipLevel1 = false;
             if ($needsApproval) {
                 $requesterUserId = order_approval_user_id_by_username($this->obconn, $this->userId);
                 if ($requesterUserId === null || $requesterUserId <= 0) {
                     throw new Exception('Unable to identify the requesting user for approval.');
                 }
-                if (user_assigned_approver_id($this->obconn, $requesterUserId, 'level_1') === null) {
-                    throw new Exception('Level 1 Approval user is not assigned for this dealer.');
+                $skipLevel1 = order_approval_requester_skips_level1($this->obconn, $requesterUserId);
+                if ($skipLevel1 && !$l2Required) {
+                    $needsApproval = false;
                 }
-                if ($l2Required && user_assigned_approver_id($this->obconn, $requesterUserId, 'level_2') === null) {
-                    throw new Exception('Level 2 Approval user is not assigned for this dealer.');
+            }
+            if ($needsApproval) {
+                if ($skipLevel1) {
+                    if (user_assigned_approver_id($this->obconn, $requesterUserId, 'level_2') === null) {
+                        throw new Exception('Level 2 Approval user is not assigned for this user.');
+                    }
+                    order_approval_stamp_order_lines($this->obconn, $refno, 'pending_l2', true);
+                    order_approval_start($this->obconn, $refno, $this->userId, true, 'level_2');
+                } else {
+                    if (user_assigned_approver_id($this->obconn, $requesterUserId, 'level_1') === null) {
+                        throw new Exception('Level 1 Approval user is not assigned for this dealer.');
+                    }
+                    if ($l2Required && user_assigned_approver_id($this->obconn, $requesterUserId, 'level_2') === null) {
+                        throw new Exception('Level 2 Approval user is not assigned for this dealer.');
+                    }
+                    order_approval_stamp_order_lines($this->obconn, $refno, 'pending_l1', $l2Required);
+                    order_approval_start($this->obconn, $refno, $this->userId, $l2Required);
                 }
-                order_approval_stamp_order_lines($this->obconn, $refno, 'pending_l1', $l2Required);
-                order_approval_start($this->obconn, $refno, $this->userId, $l2Required);
             } else {
                 order_approval_stamp_order_lines($this->obconn, $refno, 'not_required', false);
             }
@@ -2822,9 +2837,11 @@ class orderClass
                 'order_no' => $refno,
                 'needs_approval' => true,
                 'ln_requested' => false,
-                'message' => $l2Required
-                    ? 'Your order has been saved without an AO Number and sent for Level 1 then Level 2 approval.'
-                    : 'Your order has been saved without an AO Number and sent for Level 1 approval.',
+                'message' => $skipLevel1
+                    ? 'Your order has been saved without an AO Number and sent for Level 2 approval.'
+                    : ($l2Required
+                        ? 'Your order has been saved without an AO Number and sent for Level 1 then Level 2 approval.'
+                        : 'Your order has been saved without an AO Number and sent for Level 1 approval.'),
             ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         } catch (Exception $e) {
             if ($this->obconn->inTransaction()) {
@@ -6554,8 +6571,16 @@ class orderClass
             $l2RequiredFlag = user_bool_from_value($headerRow['l2_required'] ?? false);
             $showL1Approval = $hasLevel1Price || $hasLevel2Price
                 || ($approvalStatus !== '' && $approvalStatus !== 'not_required');
+            $skipLevel1 = order_approval_requester_skips_level1(
+                $this->obconn,
+                order_approval_order_requester_user_id(
+                    $this->obconn,
+                    $headerRow,
+                    order_approval_request_for_refno($this->obconn, $refno) ?? []
+                )
+            );
             $header['show_approval'] = $showL1Approval;
-            $header['show_l1_approval'] = $showL1Approval;
+            $header['show_l1_approval'] = $showL1Approval && !$skipLevel1;
             $header['show_l2_approval'] = $hasLevel2Price || $l2RequiredFlag;
 
             // Parse end customer street/city/state from deladdr (preferred) or invaddr (legacy submitCart).

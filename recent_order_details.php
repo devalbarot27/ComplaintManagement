@@ -287,7 +287,7 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
                                 <span class="oad-section__hint">Who will approve this request</span>
                             </div>
 
-                            <div class="oad-address-pair <?php if(!$showL2Approval){ ?> oad-address-pair--single<?php } ?>">
+                            <div class="oad-address-pair<?php if (!$showL1Approval || !$showL2Approval) { ?> oad-address-pair--single<?php } ?>">
                                 <?php if ($showL1Approval) { ?>
                                 <div class="oad-address-card">
                                     <div class="oad-address-card__head">
