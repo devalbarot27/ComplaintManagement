@@ -193,7 +193,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                                     <input type="date" class="form-control" name="customer_visit_date" id="customer_visit_date" value="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d'); ?>">
                                     <div class="text-danger validation-msg" data-field="customer_visit_date"></div>
                                 </div>
-                                <div class="col-md-8 form-group">
+                                <div class="col-md-4 form-group">
                                     <label class="form-label">
                                         <i class="bi bi-gear"></i>
                                         Part Replaced
@@ -288,6 +288,14 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                                     </small>
                                     <input type="file" class="form-control" name="service_report[]" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
                                     <div class="text-danger validation-msg" data-field="service_report"></div>
+                                </div>
+                                <div class="col-12 form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-signpost-2"></i>
+                                        Distance Travelled (km)
+                                    </label>
+                                    <input type="number" class="form-control" name="distance_travelled" min="0" step="0.01" placeholder="Enter distance travelled">
+                                    <div class="text-danger validation-msg" data-field="distance_travelled"></div>
                                 </div>
                             </div>
                         </section>

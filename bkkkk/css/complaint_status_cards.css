@@ -1,0 +1,173 @@
+.complaint-status-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 16px;
+
+    margin-bottom: 20px;
+
+}
+
+ 
+
+.complaint-status-card {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    background: #fff;
+
+    border: 1px solid #e2e8f0;
+
+    border-radius: 14px;
+
+    padding: 20px 22px;
+
+    min-height: 110px;
+
+}
+
+ 
+
+.complaint-status-body {
+
+    flex: 1;
+
+    min-width: 0;
+
+}
+
+ 
+
+.complaint-status-label {
+
+    font-size: 14px;
+
+    font-weight: 500;
+
+    color: #64748b;
+
+    margin-bottom: 8px;
+
+}
+
+ 
+
+.complaint-status-value {
+
+    font-size: 32px;
+
+    font-weight: 700;
+
+    color: #0f172a;
+
+    line-height: 1.1;
+
+    letter-spacing: -0.5px;
+
+}
+
+ 
+
+.complaint-status-hint {
+
+    margin-top: 6px;
+
+    font-size: 13px;
+
+    font-weight: 500;
+
+    color: #ef4444;
+
+}
+
+ 
+
+.complaint-status-icon {
+
+    flex-shrink: 0;
+
+    width: 48px;
+
+    height: 48px;
+
+    border-radius: 50%;
+
+    background: #eff6ff;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    margin-left: 16px;
+
+}
+
+ 
+
+.complaint-status-icon i {
+
+    font-size: 22px;
+
+    color: #2563eb;
+
+    font-weight: 700;
+
+}
+
+ 
+
+@media (max-width: 992px) {
+
+    .complaint-status-grid {
+
+        grid-template-columns: 1fr;
+
+    }
+
+}
+
+ 
+
+@media (max-width: 576px) {
+
+    .complaint-status-card {
+
+        padding: 16px 18px;
+
+    }
+
+ 
+
+    .complaint-status-value {
+
+        font-size: 28px;
+
+    }
+
+ 
+
+    .complaint-status-icon {
+
+        width: 42px;
+
+        height: 42px;
+
+    }
+
+ 
+
+    .complaint-status-icon i {
+
+        font-size: 18px;
+
+    }
+
+}

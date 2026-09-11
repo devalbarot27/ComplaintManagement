@@ -1,0 +1,83 @@
+  /* CHARTS */
+
+        .chart-wrapper {
+            height: 255px;
+            position: relative;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1.6fr 1fr;
+            gap: 16px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .chart-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px 22px 16px;
+        }
+
+        .chart-title {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+
+            font-size: 14px;
+            font-weight: 600;
+
+            color: #0f172a;
+
+            margin-bottom: 14px;
+
+            letter-spacing: -0.2px;
+
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+
+        .chart-title i {
+            color: #2563eb;
+            font-size: 13px;
+        }
+
+
+        /* BAR CHART */
+
+        #monthlyChart {
+            width: 100% !important;
+            height: 255px !important;
+        }
+
+        /* DONUT */
+
+        #statusChart {
+            width: 180px !important;
+            height: 180px !important;
+        }
+
+        /* LEGEND */
+
+        .status-legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px 12px;
+            margin-top: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 12px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }

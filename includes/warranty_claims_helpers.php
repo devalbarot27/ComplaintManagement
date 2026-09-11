@@ -294,10 +294,10 @@ const DEFAULT_APPROVER_USER_ID = 102464;
 
 /**
  * Installed-base warranty lifecycle (Warranty Claims report), derived purely from
- * the machine's commissioning_date â€” not related to the FOC/Service claim flags above.
+ * the machine's commissioning_date — not related to the FOC/Service claim flags above.
  *  - Standard Warranty: first 12 months from commissioning date.
  *  - Uptime Warranty: next 24 months after Standard Warranty ends (months 13-36).
- *  - Out of Warranty: after 36 months from commissioning date â€” the only status
+ *  - Out of Warranty: after 36 months from commissioning date — the only status
  *    that allows a warranty claim request to proceed through approval.
  */
 const INSTALLED_BASE_WARRANTY_STANDARD_MONTHS = 12;
@@ -1866,7 +1866,7 @@ function foc_claim_ln_reference_defaults(PDO $obconn, string $customerCode): ?ar
  * from the FOC claim instead of the paid-order cart (tbl_vayu_cartitems).
  *
  * Must be called by the caller's own transaction (foc_parts.php wraps the L2
- * status update + this call in one transaction) â€” throws Exception on any
+ * status update + this call in one transaction) — throws Exception on any
  * failure so the caller can roll back the approval instead of leaving the
  * claim "Approved" with no corresponding LN order.
  *

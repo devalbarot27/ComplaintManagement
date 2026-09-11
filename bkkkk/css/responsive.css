@@ -1,0 +1,534 @@
+ 
+        /* MOBILE */
+
+        @media(max-width:992px) {
+
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            #monthlyChart {
+                height: 220px !important;
+            }
+
+        }
+
+        @media(max-width:576px) {
+
+            .chart-card {
+                padding: 14px;
+            }
+
+            #monthlyChart {
+                height: 190px !important;
+            }
+
+            #statusChart {
+                width: 150px !important;
+                height: 150px !important;
+            }
+
+            .status-legend {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+        /* =========================
+   MOBILE RESPONSIVE
+========================= */
+
+        @media(max-width:1200px) {
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+
+        /* TABLET */
+
+        @media(max-width:992px) {
+
+            .sidebar {
+                left: -248px;
+            }
+
+            .sidebar.mobile-show {
+                left: 0;
+            }
+
+            .main-wrapper {
+                margin-left: 0;
+            }
+
+            .topbar {
+                padding: 0 14px;
+            }
+
+            .content {
+                padding: 14px;
+            }
+
+            .alert-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pipeline-wrapper {
+                gap: 8px;
+                overflow-x: auto;
+                padding-bottom: 10px;
+            }
+
+            .pipeline-wrapper::-webkit-scrollbar {
+                height: 4px;
+            }
+
+            .pipeline-wrapper::-webkit-scrollbar-thumb {
+                background: #cbd5e1;
+                border-radius: 10px;
+            }
+
+        }
+
+
+        /* MOBILE */
+
+        @media(max-width:768px) {
+
+            .content {
+                padding: 12px;
+            }
+
+            .topbar {
+                height: 52px;
+                padding: 0 12px;
+            }
+
+            .topbar-left {
+                font-size: 13px;
+                gap: 10px;
+            }
+
+            .toggle-btn {
+                font-size: 20px;
+            }
+
+            .topbar-right {
+                gap: 14px;
+            }
+
+            .profile-btn {
+                width: 30px;
+                height: 30px;
+                font-size: 12px;
+            }
+
+            /* FILTER */
+
+            .filter-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .month-btn {
+                width: 100%;
+            }
+
+            .action-group {
+                width: 100%;
+            }
+
+            .action-btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            /* ALERT */
+
+            .custom-alert {
+                min-height: 46px;
+                height: auto;
+                padding: 12px 14px;
+                font-size: 12px;
+                line-height: 1.4;
+            }
+
+            /* STATS */
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .stat-card {
+                padding: 16px;
+            }
+
+            .card-title {
+                font-size: 12px;
+            }
+
+            .card-value {
+                font-size: 16px;
+            }
+
+            .card-sub {
+                font-size: 11px;
+            }
+
+            .icon-box {
+                width: 36px;
+                height: 36px;
+                font-size: 15px;
+            }
+
+            /* PIPELINE */
+
+            .pipeline-card {
+                padding: 16px;
+            }
+
+            .pipeline-header {
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .pipeline-title {
+                font-size: 14px;
+            }
+
+            .pipeline-total {
+                font-size: 12px;
+            }
+
+            .pipeline-wrapper {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                padding-bottom: 8px;
+            }
+
+            .pipeline-step {
+                min-width: 70px;
+            }
+
+            .pipeline-count {
+                width: 42px;
+                height: 30px;
+                font-size: 13px;
+            }
+
+            .pipeline-label {
+                font-size: 11px;
+                text-align: center;
+            }
+
+            .arrow {
+                font-size: 15px;
+            }
+
+            /* CHART */
+
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-card {
+                padding: 14px;
+            }
+
+            .chart-title {
+                font-size: 13px;
+                margin-bottom: 14px;
+            }
+
+            #monthlyChart {
+                height: 190px !important;
+            }
+
+            #statusChart {
+                width: 150px !important;
+                height: 150px !important;
+            }
+
+            .status-legend {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .legend-item {
+                font-size: 11px;
+            }
+
+        }
+
+
+        /* SMALL MOBILE */
+
+        @media(max-width:480px) {
+
+            .content {
+                padding: 10px;
+            }
+
+            .month-btn,
+            .action-btn {
+                height: 36px;
+                font-size: 12px;
+            }
+
+            .topbar {
+                padding: 0 10px;
+            }
+
+            .topbar-left {
+                font-size: 12px;
+            }
+
+            .toggle-btn {
+                font-size: 18px;
+            }
+
+            .chart-card,
+            .pipeline-card,
+            .stat-card {
+                border-radius: 10px;
+            }
+
+            #monthlyChart {
+                height: 170px !important;
+            }
+
+            #statusChart {
+                width: 130px !important;
+                height: 130px !important;
+            }
+
+        }
+
+        .mobile-close {
+            display: none;
+        }
+
+        @media(max-width:768px) {
+
+            .mobile-close {
+                width: 34px;
+                height: 34px;
+                border-radius: 10px;
+                background: #1e293b;
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: absolute;
+                top: 14px;
+                right: 14px;
+                cursor: pointer;
+                font-size: 14px;
+                 z-index: 9999;
+            }
+
+        }
+
+        /* RECENT */
+
+        .recent-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-top: 18px;
+            overflow: hidden;
+        }
+
+        .recent-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 18px 14px;
+        }
+
+        .recent-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .view-all {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .recent-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .recent-table thead th {
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 500;
+            text-align: left;
+            padding: 14px 18px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .recent-table tbody td {
+            padding: 15px 18px;
+            font-size: 13px;
+            color: #0f172a;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .recent-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .order-link {
+            color: #0f62fe;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .created {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .approved {
+            background: #e0f2fe;
+            color: #0284c7;
+        }
+
+        .dispatched {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .pending {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .acknowledge {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+
+        /* QUICK */
+
+        .quick-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-top: 18px;
+            padding: 18px;
+        }
+
+        .quick-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 16px;
+        }
+
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .quick-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: .2s;
+            cursor: pointer;
+        }
+
+        .quick-item:hover {
+            background: #f8fafc;
+        }
+
+        .quick-icon {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .quick-text {
+            font-size: 13px;
+            font-weight: 500;
+            color: #0f172a;
+        }
+
+        .blue-icon {
+            color: #2563eb;
+        }
+
+        .orange-icon {
+            color: #f59e0b;
+        }
+
+        .red-icon {
+            color: #ef4444;
+        }
+
+        .green-icon {
+            color: #16a34a;
+        }
+
+        /* MOBILE */
+
+        @media(max-width:768px) {
+
+            .recent-header {
+                padding: 16px;
+            }
+
+            .recent-table {
+                min-width: 700px;
+            }
+
+            .quick-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+        }
+
+        @media(max-width:480px) {
+
+            .quick-grid {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
+/* Status labels: keep on one line on narrow screens */
+.status-badge,
+.complaint-status-label {
+    white-space: nowrap;
+}

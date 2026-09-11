@@ -21,6 +21,7 @@ $complaint_id = (int) ($_POST['complaint_id'] ?? 0);
 $customer_visit_date = trim($_POST['customer_visit_date'] ?? '');
 $complaint_action_taken = trim($_POST['complaint_action_taken'] ?? '');
 $part_replaced = trim($_POST['part_replaced'] ?? '');
+$distance_travelled = trim($_POST['distance_travelled'] ?? '');
  
 if ($complaint_id <= 0 || $customer_visit_date === '' || $complaint_action_taken === '') {
     $_SESSION['error_message'] = 'Customer visit date and complaint action taken are required.';
@@ -186,7 +187,8 @@ try {
             part_replaced,
             service_report,
             created_by,
-            username
+            username,
+            distance_travelled
         )
         VALUES
         (
@@ -197,7 +199,9 @@ try {
             :part_replaced,
             :service_report,
             :created_by,
-            :username
+            :username,
+            :distance_travelled
+
         )
     ");
  
@@ -209,6 +213,7 @@ try {
     $insert->bindValue(':service_report', $storedFileNames);
     $insert->bindValue(':created_by', $created_by, PDO::PARAM_INT);
     $insert->bindValue(':username', current_username());
+    $insert->bindValue(':distance_travelled', $distance_travelled, PDO::PARAM_INT);
     $insert->execute();
 
     $assignmentUpdate = $obconn->prepare('

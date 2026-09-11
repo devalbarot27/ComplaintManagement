@@ -1,0 +1,120 @@
+.order-data-page .details-header {
+    margin-bottom: 24px;
+}
+
+.order-data-page .order-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.order-data-page .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid #dbe2ea;
+    border-radius: 999px;
+    background: #f8fafc;
+    font-size: 12px;
+    color: #475569;
+}
+
+.order-data-page .meta-chip strong {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.order-data-page .meta-chip i {
+    color: #2563eb;
+    font-size: 13px;
+}
+
+.order-data-page .info-grid--two {
+    grid-template-columns: 1fr 1fr;
+}
+
+.order-data-page .line-items-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.order-data-page .line-items-card .section-title {
+    padding: 22px 24px 0;
+    margin-bottom: 18px;
+}
+
+.order-data-page .line-items-card .table-responsive {
+    padding: 0 0 4px;
+}
+
+.order-data-page .line-items-table {
+    min-width: 1200px;
+}
+
+.order-data-page .line-items-table thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 14px;
+    white-space: nowrap;
+}
+
+.order-data-page .line-items-table thead tr:first-child th {
+    border-bottom: none;
+}
+
+.order-data-page .line-items-table tbody td {
+    font-size: 13px;
+    padding: 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.order-data-page .line-items-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.order-data-page .line-items-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.order-data-page .item-desc {
+    min-width: 220px;
+    max-width: 320px;
+    line-height: 1.5;
+}
+
+.order-data-page .empty-state-card {
+    text-align: center;
+    padding: 48px 24px;
+}
+
+.order-data-page .empty-state-card i {
+    font-size: 42px;
+    color: #94a3b8;
+    margin-bottom: 14px;
+}
+
+.order-data-page .empty-state-card h5 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 8px;
+}
+
+.order-data-page .empty-state-card p {
+    color: #64748b;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 992px) {
+    .order-data-page .info-grid--two {
+        grid-template-columns: 1fr;
+    }
+}

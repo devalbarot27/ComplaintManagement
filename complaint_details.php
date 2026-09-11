@@ -485,5 +485,3 @@ $machineCommissioningDate = installed_base_commissioning_date_for_machine(
 </body>
 
 </html>
- 
- 

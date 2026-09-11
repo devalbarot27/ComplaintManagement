@@ -1,0 +1,36 @@
+ .brand-section {
+            padding: 18px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .brand-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-logo {
+            width: 30px;
+            height: 30px;
+            border-radius: 9px;
+            background: #F44611;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .brand-title {
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .brand-subtitle {
+            color: #64748b;
+            font-size: 11px;
+            margin-top: 4px;
+        }

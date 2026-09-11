@@ -1,0 +1,301 @@
+function initInstalledBaseDatatable() {
+    const $table = $('#installedBaseTable');
+    if (!$table.length) {
+        return null;
+    }
+
+    return $table.DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: {
+            url: 'api/installed_base_datatable.php',
+            type: 'POST'
+        },
+        order: [[0, 'desc']],
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+        columns: [
+            { data: 'id' },
+            { data: 'fab_number' },
+            { data: 'customer_name' },
+            { data: 'dealer_name' },
+            { data: 'machine_model' },
+            { data: 'commissioning_date' },
+            { data: 'created_at' },
+            { data: 'actions', orderable: false, searchable: false }
+        ],
+        language: {
+            emptyTable: 'No installed base records found.',
+            zeroRecords: 'No matching records found.'
+        }
+    });
+}
+
+function getInstalledBaseDefaultDealerName() {
+    const form = document.getElementById('installedBaseForm');
+
+    return form ? (form.getAttribute('data-default-dealer-name') || '') : '';
+}
+
+function setInstalledBaseDealerName(value) {
+    const form = document.getElementById('installedBaseForm');
+    if (!form) {
+        return;
+    }
+
+    const input = form.querySelector('[name="dealer_name"]');
+    if (input) {
+        input.value = value || '';
+    }
+}
+
+function fillInstalledBaseForm(record) {
+    const form = document.getElementById('installedBaseForm');
+    if (!form || !record) {
+        return;
+    }
+
+    document.getElementById('installedBaseId').value = record.id || '';
+    document.getElementById('formModeLabel').textContent = record.id ? 'Edit Installed Base' : 'New Installed Base';
+    document.getElementById('submitInstalledBaseBtn').innerHTML = record.id
+        ? '<i class="bi bi-check-lg"></i> Update Record'
+        : '<i class="bi bi-check-lg"></i> Save Record';
+
+    const $order = $('#orderIdSelect');
+    if ($order.length && (record.order_id || record.order_ref_id)) {
+        const label = record.order_id || String(record.order_ref_id);
+        const value = record.order_id || String(record.order_ref_id);
+        const option = new Option(label, value, true, true);
+        $order.append(option).trigger('change');
+    }
+
+    const orderIdDisplay = form.querySelector('#orderIdDisplay');
+    if (orderIdDisplay) {
+        orderIdDisplay.value = record.order_id || '';
+    }
+
+    const fields = [
+        'invoice_date', 'commissioning_date',
+        'running_hours', 'industry_segment', 'remarks'
+    ];
+
+    fields.forEach(function (field) {
+        const input = form.querySelector('[name="' + field + '"]');
+        if (input) {
+            input.value = record[field] ?? '';
+        }
+    });
+
+    setInstalledBaseDealerName(record.dealer_name || getInstalledBaseDefaultDealerName());
+
+    if (typeof setInstalledBaseCustomerSelect2 === 'function') {
+        setInstalledBaseCustomerSelect2(record.customer_id || '', record.customer_label || record.customer_name || '');
+    }
+
+    setStaticSelect2Value('downstreamSelect', record.downstream || '');
+    setStaticSelect2Value('industrySegmentSelect', record.industry_segment || '');
+    // Edit loads an existing Installed Base FAB ? Machine Model is read-only.
+    setMachineModelSelect2(record.machine_model_code || '', record.machine_model || '', {
+        locked: true
+    });
+
+    setInstalledBaseFabSelect2(record.fab_number || '');
+    setInstalledBaseInvoiceDate(form, record.invoice_date || '');
+}
+
+function resetInstalledBaseForm() {
+    const form = document.getElementById('installedBaseForm');
+    if (!form) {
+        return;
+    }
+
+    form.reset();
+    document.getElementById('installedBaseId').value = '';
+    const returnComplaintIdField = document.getElementById('returnComplaintId');
+    if (returnComplaintIdField) {
+        returnComplaintIdField.value = '';
+    }
+    document.getElementById('formModeLabel').textContent = 'New Installed Base';
+    document.getElementById('submitInstalledBaseBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save Record';
+
+    resetOrderSelect2(form);
+    resetFabNumberSelect2();
+    if (typeof resetInstalledBaseCustomerSelect2 === 'function') {
+        resetInstalledBaseCustomerSelect2();
+    }
+    resetStaticSelect2('downstreamSelect');
+    resetStaticSelect2('industrySegmentSelect');
+    resetMachineModelSelect2();
+
+    form.querySelectorAll('.is-invalid').forEach(function (el) {
+        el.classList.remove('is-invalid');
+    });
+    form.querySelectorAll('.validation-msg').forEach(function (el) {
+        el.textContent = '';
+    });
+
+    setInstalledBaseDealerName(getInstalledBaseDefaultDealerName());
+}
+
+function clearInstalledBaseUpdatedQueryParam() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('ib_updated')) {
+        return;
+    }
+
+    url.searchParams.delete('ib_updated');
+    const nextUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+    window.history.replaceState({}, document.title, nextUrl);
+}
+
+function openInstalledBaseForm() {
+    const card = document.getElementById('installedBaseFormCard');
+    const openBtn = document.getElementById('openInstalledBaseForm');
+    const closeBtn = document.getElementById('closeInstalledBaseForm');
+
+    if (card) {
+        card.classList.add('show');
+    }
+    if (openBtn) {
+        openBtn.style.display = 'none';
+    }
+    if (closeBtn) {
+        closeBtn.classList.add('show');
+    }
+}
+
+function closeInstalledBaseFormPanel() {
+    const card = document.getElementById('installedBaseFormCard');
+    const openBtn = document.getElementById('openInstalledBaseForm');
+    const closeBtn = document.getElementById('closeInstalledBaseForm');
+
+    if (card) {
+        card.classList.remove('show');
+    }
+    if (openBtn) {
+        openBtn.style.display = 'flex';
+    }
+    if (closeBtn) {
+        closeBtn.classList.remove('show');
+    }
+
+    resetInstalledBaseForm();
+}
+
+function initInstalledBaseStaticSelect2() {
+    initStaticSelect2('installedBaseForm', 'industrySegmentSelect', {
+        validationField: 'industry_segment',
+        allowClear: false,
+        noResultsText: 'No industry segment found'
+    });
+    initStaticSelect2('installedBaseForm', 'downstreamSelect', {
+        validationField: 'downstream',
+        allowClear: false,
+        noResultsText: 'No option found'
+    });
+}
+
+function initInstalledBasePage() {
+    const table = initInstalledBaseDatatable();
+    initInstalledBaseFabnoSelect2();
+    initInstalledBaseOrderSelect2();
+    initInstalledBaseMachineModelSelect2();
+    initInstalledBaseCustomerSelect2();
+    initInstalledBaseStaticSelect2();
+    initInstalledBaseFormValidation();
+    initInstalledBaseAddNewCustomerButton();
+    if (typeof initInstalledBaseAddCustomerModal === 'function') {
+        initInstalledBaseAddCustomerModal();
+    }
+    const openBtn = document.getElementById('openInstalledBaseForm');
+    const closeBtn = document.getElementById('closeInstalledBaseForm');
+
+    if (openBtn) {
+        openBtn.addEventListener('click', function () {
+            clearInstalledBaseUpdatedQueryParam();
+            resetInstalledBaseForm();
+            openInstalledBaseForm();
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeInstalledBaseFormPanel);
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('open_form') === '1' && openBtn) {
+        resetInstalledBaseForm();
+
+        const draft = typeof restoreInstalledBaseFormDraft === 'function'
+            ? restoreInstalledBaseFormDraft()
+            : null;
+        if (draft) {
+            applyInstalledBaseFormDraft(draft);
+        }
+
+        const fabNumber = (params.get('fab_number') || '').trim();
+        const complaintId = (params.get('complaint_id') || '').trim();
+        const customerId = (params.get('customer_id') || '').trim();
+
+        if (fabNumber && !draft) {
+            setInstalledBaseFabSelect2(fabNumber);
+        }
+
+        const form = document.getElementById('installedBaseForm');
+        const returnComplaintIdField = document.getElementById('returnComplaintId');
+        if (returnComplaintIdField && complaintId) {
+            returnComplaintIdField.value = complaintId;
+        }
+
+        if (form && (fabNumber || complaintId) && !draft) {
+            prefillInstalledBaseFromFab(form, fabNumber, complaintId);
+        }
+
+        if (customerId) {
+            $.getJSON('api/customer_masters_search.php', { id: customerId })
+                .done(function (response) {
+                    const row = response && response.results && response.results[0] ? response.results[0] : null;
+                    if (row && typeof setInstalledBaseCustomerSelect2 === 'function') {
+                        setInstalledBaseCustomerSelect2(row.id, row.text || '');
+                    }
+                });
+        }
+
+        openInstalledBaseForm();
+
+        const card = document.getElementById('installedBaseFormCard');
+        if (card && typeof card.scrollIntoView === 'function') {
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Clean customer_id from URL after apply.
+        if (params.has('customer_id') || params.has('open_form')) {
+            const url = new URL(window.location.href);
+            // Keep open_form only briefly; remove return params for cleaner refresh.
+            url.searchParams.delete('customer_id');
+            const nextUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+            window.history.replaceState({}, document.title, nextUrl);
+        }
+    }
+
+    $(document).on('click', '.edit-installed-base-btn', function () {
+        const id = $(this).data('id');
+
+        $.getJSON('api/installed_base_get.php', { id: id })
+            .done(function (record) {
+                resetInstalledBaseForm();
+                fillInstalledBaseForm(record);
+                openInstalledBaseForm();
+            })
+            .fail(function (xhr) {
+                const message = xhr.responseJSON && xhr.responseJSON.error
+                    ? xhr.responseJSON.error
+                    : 'Unable to load record.';
+                alert(message);
+            });
+    });
+
+    if (table) {
+        window.installedBaseTable = table;
+    }
+}

@@ -25,6 +25,7 @@ class orderClass
         //$this->customer_code = $_SESSION['customer_number_vayu'];
         $this->customer_code = @$_SESSION['customer_number_vayu']??'100005';
 
+
         // PRICE TYPE: Added for CLP / Level 1 / Level 2 Approval Price
         cart_ensure_schema($this->obconn);
         // APPROVAL MODULE: Added Level 1 and Level 2 cart approval logic
