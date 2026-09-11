@@ -397,6 +397,31 @@ function user_is_valid_approver(PDO $conn, int $approverId): bool
     return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
+function user_created_by_display_name(PDO $conn, $createdBy): string
+{
+    $value = trim((string) $createdBy);
+    if ($value === '') {
+        return '-';
+    }
+
+    $stmt = $conn->prepare('
+        SELECT username, name
+        FROM user_master
+        WHERE LOWER(TRIM(username)) = LOWER(TRIM(:username))
+        LIMIT 1
+    ');
+    $stmt->bindValue(':username', $value);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return $value;
+    }
+
+    $label = user_sales_coordinator_option_label($row);
+
+    return $label !== '' ? $label : $value;
+}
+
 function user_approver_display_name(PDO $conn, ?int $approverId): string
 {
     if ($approverId === null || $approverId <= 0) {

@@ -106,7 +106,10 @@ $encodedId = base64_encode((string) $record['id']);
                 }
                 record_details_field('Level 2 Approval', $level2ApproverLabel);
             }
-            record_details_field('Created By', user_display_value($record['created_by']));
+            record_details_field(
+                'Created By',
+                user_created_by_display_name($obconn, $record['created_by'] ?? '')
+            );
             record_details_section_end();
 
             record_details_section_start(2, 'Activity', 'Account lifecycle and login history', true);
