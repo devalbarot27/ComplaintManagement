@@ -185,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['order_decision']) ||
                     'title' => 'Order Approved Successfully',
                     'message' => $aoMessage,
                     'status' => (string) $result['refno'],
-                    'redirect' => 'recent_orders.php?order_no=' . rawurlencode((string) $result['refno']),
+                    'redirect' => 'approvals.php',
                 ];
             } else {
                 $_SESSION['success_message'] = $successMessage;
@@ -1292,7 +1292,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     message: approvalSuccessModal.message || 'The order has been approved.',
                     status: approvalSuccessModal.status || '',
                     onClose: function() {
-                        window.location.href = approvalSuccessModal.redirect || 'recent_orders.php';
+                        window.location.href = approvalSuccessModal.redirect || 'approvals.php';
                     }
                 });
             }
