@@ -181,12 +181,16 @@ $partsTable .= '</tbody></table></div>';
                 record_details_field('Ref No', $refNoLink, 'col-md-4', false, true);
                 record_details_field('AO Number', $lnAoNumber !== '' ? $lnAoNumber : '-', 'col-md-8');
             }
-            record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
-            record_details_field('L1 By', (string) ($record['l1_by_name'] ?? $record['l1_by_username'] ?? ''), 'col-md-4');
-            record_details_field('L1 At', rbac_format_datetime($record['l1_at'] ?? null), 'col-md-4');
-            record_details_field('L2 Remarks', (string) ($record['l2_remarks'] ?? ''), 'col-md-4');
-            record_details_field('L2 By', (string) ($record['l2_by_name'] ?? $record['l2_by_username'] ?? ''), 'col-md-4');
-            record_details_field('L2 At', rbac_format_datetime($record['l2_at'] ?? null), 'col-md-4');
+            if (($record['l1_status'] ?? '') !== FOC_STAGE_NOT_REQUIRED) {
+                record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
+                record_details_field('L1 By', (string) ($record['l1_by_name'] ?? $record['l1_by_username'] ?? ''), 'col-md-4');
+                record_details_field('L1 At', rbac_format_datetime($record['l1_at'] ?? null), 'col-md-4');
+            }
+            if (($record['l2_status'] ?? '') !== FOC_STAGE_NOT_REQUIRED) {
+                record_details_field('L2 Remarks', (string) ($record['l2_remarks'] ?? ''), 'col-md-4');
+                record_details_field('L2 By', (string) ($record['l2_by_name'] ?? $record['l2_by_username'] ?? ''), 'col-md-4');
+                record_details_field('L2 At', rbac_format_datetime($record['l2_at'] ?? null), 'col-md-4');
+            }
             record_details_section_end();
 
             record_details_section_start(5, 'Audit Trail', 'Creation and update history', true);

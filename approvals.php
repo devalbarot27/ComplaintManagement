@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
             exit;
         }
 
-        if ($claim['l1_status'] !== FOC_STAGE_APPROVED || $claim['l2_status'] !== FOC_STAGE_PENDING) {
+        if ($claim['l2_status'] !== FOC_STAGE_PENDING || !foc_claim_l1_allows_level2($claim)) {
             $_SESSION['error_message'] = 'This claim is not ready for L2 approval.';
             header('Location: approvals.php');
             exit;
@@ -236,7 +236,7 @@ try {
           AND (
                 fc.l1_status = '" . FOC_STAGE_PENDING . "'
                 OR (
-                    fc.l1_status = '" . FOC_STAGE_APPROVED . "'
+                    (fc.l1_status = '" . FOC_STAGE_APPROVED . "' OR fc.l1_status = '" . FOC_STAGE_NOT_REQUIRED . "')
                     AND fc.l2_status = '" . FOC_STAGE_PENDING . "'
                 )
           )
@@ -249,7 +249,7 @@ try {
           AND (
                 (fc.l1_status = '" . FOC_STAGE_PENDING . "' AND fc.l1_approver_user_id = :assigned_user_id)
                 OR (
-                    fc.l1_status = '" . FOC_STAGE_APPROVED . "'
+                    (fc.l1_status = '" . FOC_STAGE_APPROVED . "' OR fc.l1_status = '" . FOC_STAGE_NOT_REQUIRED . "')
                     AND fc.l2_status = '" . FOC_STAGE_PENDING . "'
                     AND fc.l2_approver_user_id = :assigned_user_id
                 )

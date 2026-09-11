@@ -113,6 +113,7 @@ if ($isCreatePost || $isResubmitPost) {
         if ($approvers['error'] !== null) {
             $error_message = $approvers['error'];
         } else {
+        $stage = foc_claim_initial_stage($approvers);
         try {
             $obconn->beginTransaction();
 
@@ -122,15 +123,24 @@ if ($isCreatePost || $isResubmitPost) {
                     (int) $editingClaim['id'],
                     $justification,
                     $warrantyStatus,
-                    $items
+                    $items,
+                    $dpconn
                 );
                 if ($resubmitError !== null) {
                     $obconn->rollBack();
                     $error_message = $resubmitError;
                 } else {
                     $obconn->commit();
-                    $_SESSION['success_message'] = 'FOC claim #' . (int) $editingClaim['id']
-                        . ' has been updated and resubmitted. Pending L1 (Lock-in Engineer) approval.';
+                    if (!empty($stage['send_ln'])) {
+                        $_SESSION['success_message'] = 'FOC claim #' . (int) $editingClaim['id']
+                            . ' has been updated and sent to LN to generate the AO Number.';
+                    } elseif (($stage['notify_level'] ?? '') === 'l2') {
+                        $_SESSION['success_message'] = 'FOC claim #' . (int) $editingClaim['id']
+                            . ' has been updated and resubmitted. Pending L2 (Business Head) approval.';
+                    } else {
+                        $_SESSION['success_message'] = 'FOC claim #' . (int) $editingClaim['id']
+                            . ' has been updated and resubmitted. Pending L1 (Lock-in Engineer) approval.';
+                    }
                     header('Location: foc_parts.php');
                     exit;
                 }
@@ -165,11 +175,11 @@ if ($isCreatePost || $isResubmitPost) {
                 $stmt->bindValue(':complaint_id',        $complaintId, PDO::PARAM_INT);
                 $stmt->bindValue(':justification',        $justification !== '' ? $justification : null);
                 $stmt->bindValue(':warranty_status',      $warrantyStatus);
-                $stmt->bindValue(':l1_status',             FOC_STAGE_PENDING);
-                $stmt->bindValue(':l2_status',             FOC_STAGE_PENDING);
-                $stmt->bindValue(':l1_approver_user_id',  $approvers['l1'], PDO::PARAM_INT);
-                $stmt->bindValue(':l2_approver_user_id',  $approvers['l2'], PDO::PARAM_INT);
-                $stmt->bindValue(':overall_status',        'Pending L1 Approval');
+                $stmt->bindValue(':l1_status',             $stage['l1_status']);
+                $stmt->bindValue(':l2_status',             $stage['l2_status']);
+                foc_claim_bind_nullable_user_id($stmt, ':l1_approver_user_id', $approvers['l1'] ?? null);
+                foc_claim_bind_nullable_user_id($stmt, ':l2_approver_user_id', $approvers['l2'] ?? null);
+                $stmt->bindValue(':overall_status',        $stage['overall_status']);
                 $stmt->bindValue(':created_by_username',  $userName);
                 $stmt->execute();
 
@@ -177,28 +187,59 @@ if ($isCreatePost || $isResubmitPost) {
 
                 foc_claim_insert_items($obconn, $newClaimId, $items);
 
+                if (!empty($stage['send_ln'])) {
+                    if (!($dpconn instanceof PDO)) {
+                        throw new Exception('Database connection is not available, so the FOC claim was not sent to LN.');
+                    }
+                    $lnRefNo = foc_claim_submit_ln_order(
+                        $obconn,
+                        $dpconn,
+                        $newClaimId,
+                        (string) ($_SESSION['customer_number_vayu'] ?? ''),
+                        (string) ($_SESSION['usr_name'] ?? $userName)
+                    );
+                    foc_claim_store_ln_order_number($obconn, $newClaimId, $lnRefNo);
+                }
+
                 $obconn->commit();
 
-                warranty_claims_notify_user(
-                    $obconn,
-                    $approvers['l1'],
-                    'foc-parts',
-                    'New FOC Claim Pending L1 Approval',
-                    'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs Lock-in Engineer approval.',
-                    $newClaimId
-                );
-
-                $_SESSION['success_message'] = 'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending L1 (Lock-in Engineer) approval.';
+                if (($stage['notify_level'] ?? '') === 'l2') {
+                    warranty_claims_notify_user(
+                        $obconn,
+                        $approvers['l2'],
+                        'foc-parts',
+                        'New FOC Claim Pending L2 Approval',
+                        'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs Business Head approval.',
+                        $newClaimId
+                    );
+                    $_SESSION['success_message'] = 'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending L2 (Business Head) approval.';
+                } elseif (($stage['notify_level'] ?? '') === 'l1') {
+                    warranty_claims_notify_user(
+                        $obconn,
+                        $approvers['l1'],
+                        'foc-parts',
+                        'New FOC Claim Pending L1 Approval',
+                        'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs Lock-in Engineer approval.',
+                        $newClaimId
+                    );
+                    $_SESSION['success_message'] = 'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending L1 (Lock-in Engineer) approval.';
+                } else {
+                    $_SESSION['success_message'] = 'FOC claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. AO Number generation has been requested from LN.';
+                }
                 header('Location: foc_parts.php');
                 exit;
             }
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {
             if ($obconn->inTransaction()) {
                 $obconn->rollBack();
             }
+            error_log('foc_parts.php submit: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
             $error_message = $isResubmitPost
                 ? 'Failed to resubmit FOC claim. Please try again.'
                 : 'Failed to submit FOC claim. Please try again.';
+            if (!empty($stage['send_ln'])) {
+                $error_message = 'The ERP LN order could not be created, so the FOC claim was not saved. Please try again.';
+            }
         }
         }
     }
