@@ -115,8 +115,6 @@
         $pageName = "AMC";
     } else if ($currentPage == 'amc_details.php') {
         $pageName = "AMC Contract Details";
-    } else if ($currentPage == 'flush_module_tables.php') {
-        $pageName = "Flush Module Records";
     }
 
 
@@ -413,12 +411,6 @@
                       class="menu-item <?= ($currentPage == 'assign_permissions.php') ? 'active' : '' ?>">
                       <i class="bi bi-check2-square"></i>
                       Assign Permissions
-                  </a>
-
-                  <a href="flush_module_tables.php"
-                      class="menu-item <?= ($currentPage == 'flush_module_tables.php') ? 'active' : '' ?>">
-                      <i class="bi bi-trash3"></i>
-                      Flush Module Records
                   </a>
               </div>
           <?php } ?>

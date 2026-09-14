@@ -77,9 +77,9 @@ function plexecom_public_column_exists(PDO $conn, string $table, string $column)
 
 /**
  * SQL expression for Recent Orders "Order Type":
- * Create Order / Order Booking → Normal Order
- * FOC → FOC
- * Service Claim → Service Claim
+ * Create Order / Order Booking ? Normal Order
+ * FOC ? FOC
+ * Service Claim ? Service Claim
  */
 function plexecom_order_type_sql(PDO $conn, string $alias = 'a'): string
 {
