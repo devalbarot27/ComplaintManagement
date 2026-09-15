@@ -11,6 +11,7 @@ require_once 'includes/complaint_service_log_helpers.php';
 require_once 'includes/complaint_category_helpers.php';
 require_once 'includes/complaint_address_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
+require_once 'includes/amc_helpers.php';
 
 $active_menu = 'service_log';
 
@@ -118,6 +119,11 @@ $serviceLogEmbeddedInInstalledBase = false;
 
             
             <?php include __DIR__ . '/includes/service_log_record_details_section.php'; ?>
+
+            <?php
+            $serviceLogAmcContext = amc_context_for_service_log($obconn, $record, $installedBaseRecord);
+            include __DIR__ . '/includes/service_log_linked_amc_details_section.php';
+            ?>
           
         </div>
     </div>

@@ -311,6 +311,7 @@ function flush_spare_parts_module(PDO $conn): array
 function flush_service_log_module(PDO $conn): array
 {
     flush_null_column($conn, 'spare_parts_consumption', 'service_log_id');
+    flush_null_column($conn, 'amc_visits', 'service_log_id');
 
     return [
         'complaint_service_logs' => flush_delete_table($conn, 'complaint_service_logs'),

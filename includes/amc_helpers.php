@@ -125,9 +125,32 @@ function amc_ensure_schema(PDO $conn): void
                 visit_status VARCHAR(20) NOT NULL DEFAULT 'Pending',
                 completed_date DATE NULL,
                 remarks VARCHAR(500) NULL,
+                service_log_id INTEGER NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         ");
+    }
+
+    $conn->exec("
+        ALTER TABLE amc_visits
+        ADD COLUMN IF NOT EXISTS service_log_id INTEGER NULL
+    ");
+
+    $conn->exec("
+        ALTER TABLE service_logs
+        ADD COLUMN IF NOT EXISTS covered_under_amc_visit VARCHAR(10) NULL,
+        ADD COLUMN IF NOT EXISTS amc_contract_id INTEGER NULL,
+        ADD COLUMN IF NOT EXISTS amc_visit_id INTEGER NULL
+    ");
+
+    try {
+        $conn->exec("
+            CREATE UNIQUE INDEX IF NOT EXISTS amc_visits_service_log_id_uidx
+            ON amc_visits (service_log_id)
+            WHERE service_log_id IS NOT NULL
+        ");
+    } catch (PDOException $e) {
+        // Duplicate links may already exist; uniqueness is still enforced in PHP.
     }
 
     $ensured = true;
@@ -646,7 +669,7 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
     $stmt->bindValue(':username', $username);
 
     // contract_number is generated from a MAX() lookup, which is not safe against
-    // concurrent inserts — retry a few times with a fresh number on a unique-violation.
+    // concurrent inserts ï¿½ retry a few times with a fresh number on a unique-violation.
     $maxAttempts = 5;
     for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
         $stmt->bindValue(':contract_number', amc_next_contract_number($conn));
@@ -724,10 +747,16 @@ function amc_find_by_id(PDO $conn, int $id): ?array
 function amc_visits_for_contract(PDO $conn, int $contractId): array
 {
     $stmt = $conn->prepare('
-        SELECT *
-        FROM amc_visits
-        WHERE amc_contract_id = :id
-        ORDER BY visit_number ASC
+        SELECT
+            av.*,
+            sl.serial_number AS service_log_serial_number,
+            sl.visit_date AS service_log_visit_date,
+            sl.engineer_name AS service_log_engineer_name,
+            sl.deleted_at AS service_log_deleted_at
+        FROM amc_visits av
+        LEFT JOIN service_logs sl ON sl.id = av.service_log_id
+        WHERE av.amc_contract_id = :id
+        ORDER BY av.visit_number ASC
     ');
     $stmt->bindValue(':id', $contractId, PDO::PARAM_INT);
     $stmt->execute();
@@ -735,8 +764,325 @@ function amc_visits_for_contract(PDO $conn, int $contractId): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function amc_find_visit(PDO $conn, int $visitId, int $contractId): ?array
+{
+    $stmt = $conn->prepare('
+        SELECT *
+        FROM amc_visits
+        WHERE id = :visit_id
+          AND amc_contract_id = :contract_id
+        LIMIT 1
+    ');
+    $stmt->bindValue(':visit_id', $visitId, PDO::PARAM_INT);
+    $stmt->bindValue(':contract_id', $contractId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row !== false ? $row : null;
+}
+
+function amc_service_log_option_label(array $row): string
+{
+    $parts = ['#' . (int) ($row['id'] ?? 0)];
+    $serial = trim((string) ($row['serial_number'] ?? ''));
+    if ($serial !== '') {
+        $parts[] = $serial;
+    }
+    $visitDate = amc_normalize_date($row['visit_date'] ?? '');
+    if ($visitDate !== '') {
+        $parts[] = 'Visit ' . $visitDate;
+    }
+    $engineer = trim((string) ($row['engineer_name'] ?? ''));
+    if ($engineer !== '') {
+        $parts[] = $engineer;
+    }
+
+    return implode(' Â· ', $parts);
+}
+
+/**
+ * Submitted (non-draft) service logs for this AMC machine that are not already
+ * linked to another visit.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function amc_service_logs_available_for_visit(PDO $conn, array $contract, int $excludeVisitId = 0): array
+{
+    $installedBaseId = (int) ($contract['installed_base_id'] ?? 0);
+    $fabNumber = trim((string) ($contract['fab_number'] ?? ''));
+    if ($installedBaseId <= 0 && $fabNumber === '') {
+        return [];
+    }
+
+    $sql = '
+        SELECT sl.id, sl.serial_number, sl.visit_date, sl.engineer_name, sl.fab_number
+        FROM service_logs sl
+        WHERE sl.deleted_at IS NULL
+          AND COALESCE(sl.is_draft, 0) = 0
+    ';
+    $params = [];
+
+    if ($installedBaseId > 0 && $fabNumber !== '') {
+        $sql .= ' AND (sl.installed_base_id = :installed_base_id OR LOWER(TRIM(COALESCE(sl.fab_number, \'\'))) = LOWER(TRIM(:fab_number)))';
+        $params[':installed_base_id'] = $installedBaseId;
+        $params[':fab_number'] = $fabNumber;
+    } elseif ($installedBaseId > 0) {
+        $sql .= ' AND sl.installed_base_id = :installed_base_id';
+        $params[':installed_base_id'] = $installedBaseId;
+    } else {
+        $sql .= ' AND LOWER(TRIM(COALESCE(sl.fab_number, \'\'))) = LOWER(TRIM(:fab_number))';
+        $params[':fab_number'] = $fabNumber;
+    }
+
+    $sql .= '
+          AND NOT EXISTS (
+              SELECT 1
+              FROM amc_visits av
+              WHERE av.service_log_id = sl.id
+                AND av.id <> :exclude_visit_id
+          )
+    ';
+    $params[':exclude_visit_id'] = $excludeVisitId;
+
+    if (amc_service_logs_has_column($conn, 'amc_visit_id')) {
+        $sql .= ' AND (sl.amc_visit_id IS NULL OR sl.amc_visit_id = :exclude_visit_id_amc)';
+        $params[':exclude_visit_id_amc'] = $excludeVisitId;
+    }
+
+    $sql .= ' ORDER BY sl.id DESC';
+
+    $stmt = $conn->prepare($sql);
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function amc_service_logs_has_column(PDO $conn, string $column): bool
+{
+    static $cache = [];
+    if (array_key_exists($column, $cache)) {
+        return $cache[$column];
+    }
+
+    $stmt = $conn->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'service_logs'
+          AND column_name = :column_name
+        LIMIT 1
+    ");
+    $stmt->bindValue(':column_name', $column);
+    $stmt->execute();
+    $cache[$column] = (bool) $stmt->fetchColumn();
+
+    return $cache[$column];
+}
+
+function amc_sync_service_log_visit_link(PDO $conn, int $serviceLogId, int $visitId, int $contractId): void
+{
+    if ($serviceLogId <= 0) {
+        return;
+    }
+
+    $sets = [];
+    $params = [
+        ':id' => $serviceLogId,
+    ];
+
+    if (amc_service_logs_has_column($conn, 'amc_visit_id')) {
+        $sets[] = 'amc_visit_id = :amc_visit_id';
+        $params[':amc_visit_id'] = $visitId;
+    }
+    if (amc_service_logs_has_column($conn, 'amc_contract_id')) {
+        $sets[] = 'amc_contract_id = :amc_contract_id';
+        $params[':amc_contract_id'] = $contractId;
+    }
+    if (amc_service_logs_has_column($conn, 'covered_under_amc_visit')) {
+        $sets[] = 'covered_under_amc_visit = :covered_under_amc_visit';
+        $params[':covered_under_amc_visit'] = 'Yes';
+    }
+
+    if ($sets === []) {
+        return;
+    }
+
+    $stmt = $conn->prepare('
+        UPDATE service_logs
+        SET ' . implode(', ', $sets) . '
+        WHERE id = :id
+          AND deleted_at IS NULL
+    ');
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $stmt->execute();
+}
+
+function amc_clear_service_log_visit_link(PDO $conn, int $serviceLogId, int $visitId): void
+{
+    if ($serviceLogId <= 0) {
+        return;
+    }
+
+    $sets = [];
+    $params = [
+        ':id' => $serviceLogId,
+    ];
+    $where = 'id = :id AND deleted_at IS NULL';
+
+    if (amc_service_logs_has_column($conn, 'amc_visit_id')) {
+        $sets[] = 'amc_visit_id = NULL';
+        $where .= ' AND (amc_visit_id IS NULL OR amc_visit_id = :visit_id)';
+        $params[':visit_id'] = $visitId;
+    }
+    if (amc_service_logs_has_column($conn, 'amc_contract_id')) {
+        $sets[] = 'amc_contract_id = NULL';
+    }
+    if (amc_service_logs_has_column($conn, 'covered_under_amc_visit')) {
+        $sets[] = 'covered_under_amc_visit = NULL';
+    }
+
+    if ($sets === []) {
+        return;
+    }
+
+    $stmt = $conn->prepare('
+        UPDATE service_logs
+        SET ' . implode(', ', $sets) . '
+        WHERE ' . $where . '
+    ');
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+}
+
+/**
+ * @return true|string True on success, or an error message.
+ */
+function amc_complete_visit_with_service_log(PDO $conn, int $visitId, int $contractId, int $serviceLogId, array $contract): string|bool
+{
+    if ($visitId <= 0) {
+        return 'Invalid visit.';
+    }
+    if ($serviceLogId <= 0) {
+        return 'Please select a Service Log to mark this visit as completed.';
+    }
+
+    $visit = amc_find_visit($conn, $visitId, $contractId);
+    if (!$visit) {
+        return 'Visit not found.';
+    }
+    if (($visit['visit_status'] ?? '') === AMC_VISIT_COMPLETED) {
+        return 'This visit is already completed.';
+    }
+
+    $available = amc_service_logs_available_for_visit($conn, $contract, $visitId);
+    $allowedIds = array_map(static fn (array $row): int => (int) $row['id'], $available);
+    if (!in_array($serviceLogId, $allowedIds, true)) {
+        return 'Selected Service Log is not available for this visit.';
+    }
+
+    $startedTransaction = false;
+    if (!$conn->inTransaction()) {
+        $conn->beginTransaction();
+        $startedTransaction = true;
+    }
+
+    try {
+        $stmt = $conn->prepare('
+            UPDATE amc_visits
+            SET visit_status = :status,
+                completed_date = CURRENT_DATE,
+                service_log_id = :service_log_id
+            WHERE id = :visit_id
+              AND amc_contract_id = :contract_id
+              AND visit_status <> :completed_status
+        ');
+        $stmt->bindValue(':status', AMC_VISIT_COMPLETED);
+        $stmt->bindValue(':completed_status', AMC_VISIT_COMPLETED);
+        $stmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+        $stmt->bindValue(':visit_id', $visitId, PDO::PARAM_INT);
+        $stmt->bindValue(':contract_id', $contractId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        if ($stmt->rowCount() === 0) {
+            throw new RuntimeException('Failed to update visit status.');
+        }
+
+        amc_sync_service_log_visit_link($conn, $serviceLogId, $visitId, $contractId);
+
+        if ($startedTransaction) {
+            $conn->commit();
+        }
+
+        return true;
+    } catch (Throwable $e) {
+        if ($startedTransaction && $conn->inTransaction()) {
+            $conn->rollBack();
+        }
+
+        return 'Failed to update visit status.';
+    }
+}
+
+function amc_reopen_visit(PDO $conn, int $visitId, int $contractId): bool
+{
+    $visit = amc_find_visit($conn, $visitId, $contractId);
+    if (!$visit) {
+        return false;
+    }
+
+    $linkedServiceLogId = (int) ($visit['service_log_id'] ?? 0);
+
+    $startedTransaction = false;
+    if (!$conn->inTransaction()) {
+        $conn->beginTransaction();
+        $startedTransaction = true;
+    }
+
+    try {
+        $stmt = $conn->prepare('
+            UPDATE amc_visits
+            SET visit_status = :status,
+                completed_date = NULL,
+                service_log_id = NULL
+            WHERE id = :visit_id
+              AND amc_contract_id = :contract_id
+        ');
+        $stmt->bindValue(':status', AMC_VISIT_PENDING);
+        $stmt->bindValue(':visit_id', $visitId, PDO::PARAM_INT);
+        $stmt->bindValue(':contract_id', $contractId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        if ($linkedServiceLogId > 0) {
+            amc_clear_service_log_visit_link($conn, $linkedServiceLogId, $visitId);
+        }
+
+        if ($startedTransaction) {
+            $conn->commit();
+        }
+
+        return true;
+    } catch (Throwable $e) {
+        if ($startedTransaction && $conn->inTransaction()) {
+            $conn->rollBack();
+        }
+
+        return false;
+    }
+}
+
 function amc_mark_visit_status(PDO $conn, int $visitId, int $contractId, string $status): bool
 {
+    if ($status === AMC_VISIT_PENDING) {
+        return amc_reopen_visit($conn, $visitId, $contractId);
+    }
+
     $stmt = $conn->prepare('
         UPDATE amc_visits
         SET visit_status = :status,
@@ -1070,4 +1416,87 @@ function amc_list_for_installed_base(PDO $conn, int $installedBaseId, string $fa
     $stmt->execute();
 
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function amc_find_visit_by_id(PDO $conn, int $visitId): ?array
+{
+    if ($visitId <= 0) {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT *
+        FROM amc_visits
+        WHERE id = :id
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $visitId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row !== false ? $row : null;
+}
+
+function amc_find_visit_linked_to_service_log(PDO $conn, int $serviceLogId): ?array
+{
+    if ($serviceLogId <= 0) {
+        return null;
+    }
+
+    amc_ensure_schema($conn);
+
+    $stmt = $conn->prepare('
+        SELECT *
+        FROM amc_visits
+        WHERE service_log_id = :service_log_id
+        ORDER BY id DESC
+        LIMIT 1
+    ');
+    $stmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row !== false ? $row : null;
+}
+
+/**
+ * AMC contract/visit to display on Service Log details.
+ *
+ * @return array{contract: ?array, visit: ?array}
+ */
+function amc_context_for_service_log(PDO $conn, array $serviceLog, ?array $installedBaseRecord = null): array
+{
+    amc_ensure_schema($conn);
+
+    $serviceLogId = (int) ($serviceLog['id'] ?? 0);
+    $visit = amc_find_visit_linked_to_service_log($conn, $serviceLogId);
+
+    if (!$visit && amc_service_logs_has_column($conn, 'amc_visit_id')) {
+        $visit = amc_find_visit_by_id($conn, (int) ($serviceLog['amc_visit_id'] ?? 0));
+    }
+
+    $contractId = (int) ($visit['amc_contract_id'] ?? 0);
+    if ($contractId <= 0 && amc_service_logs_has_column($conn, 'amc_contract_id')) {
+        $contractId = (int) ($serviceLog['amc_contract_id'] ?? 0);
+    }
+
+    $installedBaseId = (int) ($installedBaseRecord['id'] ?? ($serviceLog['installed_base_id'] ?? 0));
+    $fabNumber = trim((string) ($installedBaseRecord['fab_number'] ?? ($serviceLog['fab_number'] ?? '')));
+
+    if ($contractId <= 0) {
+        $coverage = amc_coverage_for_machine($conn, $installedBaseId, $fabNumber);
+        $contractId = (int) ($coverage['contract_id'] ?? 0);
+    }
+
+    if ($contractId <= 0) {
+        $contracts = amc_list_for_installed_base($conn, $installedBaseId, $fabNumber);
+        $contractId = (int) ($contracts[0]['id'] ?? 0);
+    }
+
+    $contract = $contractId > 0 ? amc_find_by_id($conn, $contractId) : null;
+
+    return [
+        'contract' => $contract,
+        'visit' => $visit,
+    ];
 }

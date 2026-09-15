@@ -373,20 +373,43 @@
 
           <?php
             $canCustomerMaster = rbac_can_access_menu($obconn, 'customer_master.php');
+            $canCustomerSync = rbac_can_access_menu($obconn, 'customers.php');
             $canContact = rbac_can_access_menu($obconn, 'contact.php');
-            $canSystemConfigAdmin = is_system_admin();
-            $showSystemConfiguration = $canSystemConfigAdmin || $canCustomerMaster || $canContact;
-          ?>
-          <?php if ($canSystemConfigAdmin) { ?>
+            $showCustomerMaster = $canCustomerMaster || $canCustomerSync || $canContact;
+            if ($showCustomerMaster) { ?>
+              <div class="menu-section">
+                  <div class="menu-heading">
+                      Customer Master
+                  </div>
+                        
+                  <?php if ($canCustomerMaster) { ?>
+                  <a href="customer_master.php"
+                      class="menu-item <?= in_array($currentPage, ['customer_master.php', 'customer_master_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-person-vcard"></i>
+                      Customer Master
+                  </a>
+                  <?php } ?>
+                  <?php if ($canContact) { ?>
+                  <a href="contact.php"
+                      class="menu-item <?= in_array($currentPage, ['contact.php', 'contact_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-person-lines-fill"></i>
+                      Contact
+                  </a>
+                  <?php } ?>
+              </div>
+          <?php } 
+          $canSystemConfigAdmin = is_system_admin();
+          $showSystemConfiguration = $canSystemConfigAdmin;
+          if ($showSystemConfiguration) { ?>
               <div class="menu-section">
                   <div class="menu-heading">ADMINISTRATION</div>
-
+                  <?php if ($canSystemConfigAdmin) { ?>
                   <a href="users.php"
                       class="menu-item <?= ($currentPage == 'users.php' || $currentPage == 'user_details.php' || $currentPage == 'user_edit.php') ? 'active' : '' ?>">
                       <i class="bi bi-people"></i>
                       Users
-                  </a>
-
+                  </a> 
+                  <?php } ?>
                   <a href="roles.php"
                       class="menu-item <?= ($currentPage == 'roles.php' || $currentPage == 'role_details.php') ? 'active' : '' ?>">
                       <i class="bi bi-shield-lock"></i>
@@ -436,21 +459,7 @@
                   </a>
                   <?php } ?>
 
-                  <?php if ($canCustomerMaster) { ?>
-                  <a href="customer_master.php"
-                      class="menu-item <?= in_array($currentPage, ['customer_master.php', 'customer_master_details.php'], true) ? 'active' : '' ?>">
-                      <i class="bi bi-person-vcard"></i>
-                      Customer Master
-                  </a>
-                  <?php } ?>
-
-                  <?php if ($canContact) { ?>
-                  <a href="contact.php"
-                      class="menu-item <?= in_array($currentPage, ['contact.php', 'contact_details.php'], true) ? 'active' : '' ?>">
-                      <i class="bi bi-person-lines-fill"></i>
-                      Contact
-                  </a>
-                  <?php } ?>
+      
 
                   <?php if ($canSystemConfigAdmin) { ?>
                   <a href="complaint_categories.php"
