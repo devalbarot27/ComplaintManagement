@@ -108,8 +108,13 @@
     } else if ($currentPage == 'service_claims.php') {
         $pageName = "Warranty Service Claims";
     } else if ($currentPage == 'warranty_claims.php') {
-        $pageName = "Installed Base Warranty Claims";
-    } else if ($currentPage == 'ar_statement.php') {
+        $pageName = "Installed Base Warranty";
+    } else if ($currentPage == 'approvals.php') {
+        $pageName = "Approvals";
+    }else if ($currentPage == 'warranty_claim_details.php') {
+        $pageName = "Warranty Claim Details";
+    }
+    else if ($currentPage == 'ar_statement.php') {
         $pageName = "AR Statement";
     } else if ($currentPage == 'amc.php') {
         $pageName = "AMC";
@@ -336,7 +341,7 @@
                       <a href="warranty_claims.php"
                           class="menu-item <?= ($currentPage == 'warranty_claims.php') ? 'active' : '' ?>">
                           <i class="bi bi-shield-check"></i>
-                          Warranty Claims
+                          Warranty
                       </a>
                   <?php } ?>
                    <?php if ($canshowApprovals) { ?>
@@ -379,7 +384,7 @@
             if ($showCustomerMaster) { ?>
               <div class="menu-section">
                   <div class="menu-heading">
-                      Customer Master
+                      Customers
                   </div>
                         
                   <?php if ($canCustomerMaster) { ?>

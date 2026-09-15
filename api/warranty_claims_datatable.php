@@ -154,6 +154,6 @@ try {
         'recordsTotal' => 0,
         'recordsFiltered' => 0,
         'data' => [],
-        'error' => 'Failed to load warranty claims.',
+        'error' => 'Failed to load warranty.',
     ]);
 }

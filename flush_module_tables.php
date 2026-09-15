@@ -30,6 +30,15 @@ function flush_module_definitions(): array
                 ['key' => 'installed_base', 'label' => 'Installed Base'],
             ],
         ],
+        'customer_master' => [
+            'label' => 'Customer Master',
+            'icon' => 'bi-person-vcard',
+            'note' => 'Also deletes contacts and clears Customer Master links on installed base, complaints, and AMC.',
+            'count_fields' => [
+                ['key' => 'customer_masters', 'label' => 'Customers'],
+                ['key' => 'contacts', 'label' => 'Contacts'],
+            ],
+        ],
         'service_log' => [
             'label' => 'Service Log Capture',
             'icon' => 'bi-journal-text',
@@ -348,6 +357,24 @@ function flush_installed_base_module(PDO $conn): array
 /**
  * @return array<string, int>
  */
+function flush_customer_master_module(PDO $conn): array
+{
+    flush_null_column($conn, 'installed_base', 'customer_id');
+    flush_null_column($conn, 'complaints', 'customer_id');
+    flush_null_column($conn, 'amc_contracts', 'customer_id');
+
+    $referencing = flush_delete_referencing_tables($conn, 'customer_masters');
+
+    return array_merge($referencing, [
+        'contacts' => flush_delete_table($conn, 'contacts'),
+        'customer_masters' => flush_delete_table($conn, 'customer_masters'),
+        'customer_contact_masters' => flush_delete_table($conn, 'customer_contact_masters'),
+    ]);
+}
+
+/**
+ * @return array<string, int>
+ */
 function flush_foc_module(PDO $conn): array
 {
     return [
@@ -468,7 +495,8 @@ function flush_all_modules(PDO $conn): array
             'complaints' => flush_delete_table($conn, 'complaints'),
         ],
         flush_amc_module($conn),
-        flush_installed_base_records($conn)
+        flush_installed_base_records($conn),
+        flush_customer_master_module($conn)
     );
 }
 
@@ -508,6 +536,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['flush_module'])) {
             } elseif ($target === 'installed_base') {
                 $deleted = flush_installed_base_module($obconn);
                 $label = $modules['installed_base']['label'];
+            } elseif ($target === 'customer_master') {
+                $deleted = flush_customer_master_module($obconn);
+                $label = $modules['customer_master']['label'];
             } elseif ($target === 'complaint') {
                 $deleted = flush_complaint_entry_module($obconn);
                 $label = $modules['complaint']['label'];
@@ -549,6 +580,8 @@ $counts = [
     'complaint_service_logs' => flush_table_count($obconn, 'complaint_service_logs'),
     'spare_parts_consumption' => flush_table_count($obconn, 'spare_parts_consumption'),
     'spare_parts_consumption_items' => flush_table_count($obconn, 'spare_parts_consumption_items'),
+    'customer_masters' => flush_table_count($obconn, 'customer_masters'),
+    'contacts' => flush_table_count($obconn, 'contacts'),
     'complaints' => flush_table_count($obconn, 'complaints'),
     'complaint_assignments' => flush_table_count($obconn, 'complaint_assignments'),
     'complaint_activity_logs' => flush_table_count($obconn, 'complaint_activity_logs'),
@@ -880,7 +913,7 @@ if (!in_array($selectedTarget, $allowedTargets, true)) {
                 <i class="bi bi-exclamation-triangle-fill"></i>
                 <div>
                     This permanently deletes transactional data from the complaint management database.
-                    Master data such as users, products, and customers is not deleted. This cannot be undone.
+                    Master data such as users and products is not deleted. Customer Master is deleted only if you select that card or All listed modules. This cannot be undone.
                 </div>
             </div>
 
