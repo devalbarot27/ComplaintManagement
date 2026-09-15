@@ -744,6 +744,34 @@ function customer_master_get_by_id(PDO $conn, int $id): ?array
     return $row ?: null;
 }
 
+function customer_master_details_url(int $customerId): string
+{
+    if ($customerId <= 0) {
+        return '';
+    }
+
+    return 'customer_master_details.php?id=' . rawurlencode(base64_encode((string) $customerId));
+}
+
+function customer_master_name_link_html(?string $name, int $customerId, bool $canView = true): string
+{
+    $name = trim((string) $name);
+    if ($name === '') {
+        return '-';
+    }
+
+    $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+    $url = $canView ? customer_master_details_url($customerId) : '';
+    if ($url === '') {
+        return $safeName;
+    }
+
+    return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8')
+        . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">'
+        . $safeName
+        . '</a>';
+}
+
 function customer_master_created_by_label(array $record): string
 {
     $name = trim((string) ($record['created_by_name'] ?? ''));

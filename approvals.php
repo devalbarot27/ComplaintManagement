@@ -9,6 +9,7 @@ require_once 'includes/installed_base_helpers.php';
 require_once 'includes/user_helpers.php';
 require_once 'includes/order_approval_helpers.php';
 require_once 'includes/amc_helpers.php';
+require_once 'includes/customer_master_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
 order_approval_ensure_schema($obconn);
@@ -20,6 +21,7 @@ $canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
 $canApproveL1Service = true;
 $canApproval          = rbac_user_can($obconn, 'approvals', 'view');
 $canOrderApproval     = order_approval_can_access($obconn);
+$canViewCustomerMaster = rbac_user_can($obconn, 'customer-master', 'view');
 
 if (!$canApproval && !$canOrderApproval) {
     header('Location: access_denied.php');
@@ -209,7 +211,7 @@ try {
             fc.l1_remarks, fc.l1_by_username, fc.l1_at,
             fc.l2_remarks, fc.l2_by_username, fc.l2_at,
             fc.overall_status, fc.created_by_username, fc.created_at,
-            c.fab_number, cm.customer_name,
+            c.fab_number, c.customer_id, cm.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(fc.created_by_username), ''), '-') AS created_by_name,
             COALESCE(NULLIF(TRIM(um_l1.name), ''), NULLIF(TRIM(fc.l1_by_username), ''), '-') AS l1_by_name,
             COALESCE(NULLIF(TRIM(um_l2.name), ''), NULLIF(TRIM(fc.l2_by_username), ''), '-') AS l2_by_name,
@@ -274,6 +276,7 @@ try {
             'complaint_id'   => (int) $row['complaint_id'],
             'fab_number'     => $row['fab_number'],
             'customer_name'  => $row['customer_name'],
+            'customer_id'    => (int) ($row['customer_id'] ?? 0),
             'details'        => $row['items_summary'] ?? '',
             'warranty_label' => $row['warranty_status'],
             'warranty_class' => warranty_status_badge_class($row['warranty_status']),
@@ -306,7 +309,7 @@ try {
 try {
     $stmt = $obconn->query("
         SELECT
-            sc.*, c.fab_number, cm.customer_name,
+            sc.*, c.fab_number, c.customer_id, cm.customer_name,
             COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
@@ -328,6 +331,7 @@ try {
             'complaint_id'   => (int) $row['complaint_id'],
             'fab_number'     => $row['fab_number'],
             'customer_name'  => $row['customer_name'],
+            'customer_id'    => (int) ($row['customer_id'] ?? 0),
             'details'        => 'KM: ' . $row['km_travelled'] . ' | Service Date: ' . $row['service_date'],
             'warranty_label' => $row['ccs_warranty_claim'] !== null && $row['ccs_warranty_claim'] !== '' ? $row['ccs_warranty_claim'] : 'Pending',
             'warranty_class' => !empty($row['ccs_warranty_claim']) ? ($row['ccs_warranty_claim'] === 'Yes' ? 'bg-success' : 'bg-secondary') : 'bg-warning text-dark',
@@ -526,11 +530,17 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                     $submittedOn = trim((string) ($row['created_at'] ?? ''));
                                     $submittedOnTs = $submittedOn !== '' ? strtotime($submittedOn) : 0;
                                     $submittedOnLabel = $submittedOnTs ? date('d M Y H:i', $submittedOnTs) : '-';
+                                    $requestedOnLabel = $submittedOnTs ? date('d M Y h:i A', $submittedOnTs) : '-';
                                     $submittedOnSort = $submittedOnTs ? date('Y-m-d H:i:s', $submittedOnTs) : '';
                                     $isCart = ($row['claim_type'] ?? '') === 'cart';
                                     $typeLabel = $row['claim_type'] === 'foc'
                                         ? 'FOC Parts'
                                         : ($isCart ? 'Order Approval' : 'Service Claim');
+                                    $customerHtml = customer_master_name_link_html(
+                                        (string) ($row['customer_name'] ?? ''),
+                                        (int) ($row['customer_id'] ?? 0),
+                                        $canViewCustomerMaster
+                                    );
                                     ?>
                                     <tr>
                                         <td></td>
@@ -548,14 +558,17 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                         </td>
                                         <td>
                                             <?php if ($isCart): ?>
-                                            <a href="recent_order_details.php?refno=<?= htmlspecialchars((string) ($row['ref_no'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
-                                                <?= htmlspecialchars((string) ($row['item_code'] ?? $row['fab_number'] ?? '-')) ?>
+                                            <?php
+                                            $orderRef = trim((string) ($row['item_code'] ?? $row['fab_number'] ?? $row['ref_no'] ?? ''));
+                                            ?>
+                                            <a href="recent_order_details.php?refno=<?= htmlspecialchars(rawurlencode($orderRef), ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
+                                                <?= htmlspecialchars($orderRef !== '' ? $orderRef : '-') ?>
                                             </a>
                                             <?php else: ?>
                                                 <?= $row['fab_html'] ?? installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?>
                                             <?php endif; ?>
                                         </td>
-                                        <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
+                                        <td><?= $customerHtml ?></td>
                                         <td>
                                             <?php if (($row['claim_type'] ?? '') === 'foc' || $isCart): ?>
                                                 <?= !empty($row['details_html']) ? $row['details_html'] : htmlspecialchars((string) ($row['details'] ?? '-')) ?>
@@ -587,8 +600,11 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                                 data-fab-number="<?= htmlspecialchars((string) ($row['fab_number'] ?? '')) ?>"
                                                 data-fab-html="<?= htmlspecialchars((string) ($row['fab_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-customer-name="<?= htmlspecialchars((string) ($row['customer_name'] ?? '')) ?>"
+                                                data-customer-html="<?= htmlspecialchars($customerHtml, ENT_QUOTES, 'UTF-8') ?>"
+                                                data-requested-on-label="<?= htmlspecialchars($requestedOnLabel, ENT_QUOTES, 'UTF-8') ?>"
                                                 data-details="<?= htmlspecialchars((string) ($row['details'] ?? '')) ?>"
                                                 data-details-html="<?= htmlspecialchars((string) ($row['details_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-products-detail-html="<?= htmlspecialchars((string) ($row['products_detail_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-parts-html="<?= htmlspecialchars((string) ($row['parts_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-warranty="<?= htmlspecialchars((string) ($row['warranty_label'] ?? '')) ?>"
                                                 data-justification="<?= htmlspecialchars((string) ($row['justification'] ?? '')) ?>"
@@ -771,7 +787,9 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         <div class="row g-3 d-none" id="viewCartFields">
                             <div class="col-md-6 form-group">
                                 <label class="form-label"><i class="bi bi-hash"></i> Order Ref</label>
-                                <div class="approval-detail-value" id="viewCartItemCode"></div>
+                                <div class="approval-detail-value">
+                                    <a id="viewCartItemCodeLink" href="#" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none"><span id="viewCartItemCode"></span></a>
+                                </div>
                             </div>
                             <div class="col-md-6 form-group">
                                 <label class="form-label"><i class="bi bi-person"></i> Customer</label>
@@ -1039,15 +1057,16 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     const isFoc = d.type === 'foc';
                     const isCart = d.type === 'cart';
                     const submittedOn = d.submittedOn ? new Date(d.submittedOn.replace(' ', 'T')) : null;
-                    const submittedOnLabel = submittedOn && !isNaN(submittedOn.getTime()) ?
+                    const submittedOnLabel = d.requestedOnLabel || (submittedOn && !isNaN(submittedOn.getTime()) ?
                         submittedOn.toLocaleString('en-GB', {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
+                            hour12: true
                         }) :
-                        (d.submittedOn || '-');
+                        (d.submittedOn || '-'));
 
                     const focFields = document.getElementById('viewClaimFocFields');
                     const cartFields = document.getElementById('viewCartFields');
@@ -1061,8 +1080,12 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         document.getElementById('viewClaimIcon').className = 'bi bi-clipboard-check';
                         document.getElementById('viewDetailsSectionTitle').textContent = 'Order Details';
                         document.getElementById('viewDetailsSectionHint').textContent = 'Entire order is approved at each level. AO Number is generated after required approvals.';
-                        document.getElementById('viewCartItemCode').textContent = d.itemCode || d.fabNumber || '-';
-                        document.getElementById('viewCartCustomer').textContent = d.customerName || '-';
+                        const orderRef = String(d.itemCode || d.fabNumber || '').trim();
+                        document.getElementById('viewCartItemCode').textContent = orderRef || '-';
+                        document.getElementById('viewCartItemCodeLink').href = orderRef
+                            ? 'recent_order_details.php?refno=' + encodeURIComponent(orderRef)
+                            : '#';
+                        document.getElementById('viewCartCustomer').innerHTML = d.customerHtml || d.customerName || '-';
                         const endCustomerWrap = document.getElementById('viewCartEndCustomerWrap');
                         const dealerAddressWrap = document.getElementById('viewCartDealerAddressWrap');
                         const isEndCustomer = d.deliveryAddressType === 'end_customer';
@@ -1083,7 +1106,9 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                             document.getElementById('viewCartEndCustomerState').textContent = d.endCustomerState || '-';
                         }
                         const productsEl = document.getElementById('viewCartItemName');
-                        if (d.detailsHtml) {
+                        if (d.productsDetailHtml) {
+                            productsEl.innerHTML = d.productsDetailHtml;
+                        } else if (d.detailsHtml) {
                             productsEl.innerHTML = d.detailsHtml;
                         } else {
                             productsEl.textContent = d.itemName || d.details || '-';
@@ -1093,7 +1118,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         document.getElementById('viewCartApprovalLevel').textContent = d.approvalLevel || '-';
                         document.getElementById('viewCartStatus').textContent = d.overallStatus || 'Pending';
                         document.getElementById('viewCartRequestedBy').textContent = d.submittedBy || '-';
-                        document.getElementById('viewCartRequestedOn').textContent = submittedOnLabel;
+                        document.getElementById('viewCartRequestedOn').textContent = d.requestedOnLabel || submittedOnLabel;
                         const l1Wrap = document.getElementById('viewCartL1ApprovalWrap');
                         const l1Title = document.getElementById('viewCartL1ApprovalTitle');
                         const l1EngineerName = String(d.l1EngineerName || '').trim();
@@ -1142,7 +1167,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         } else {
                             fabEl.textContent = d.fabNumber || '-';
                         }
-                        document.getElementById('viewClaimCustomer').textContent = d.customerName || '-';
+                        document.getElementById('viewClaimCustomer').innerHTML = d.customerHtml || d.customerName || '-';
                         const detailsEl = document.getElementById('viewClaimDetails');
                         if (isFoc && d.detailsHtml) {
                             detailsEl.innerHTML = d.detailsHtml;

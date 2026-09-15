@@ -1167,10 +1167,79 @@ function order_approval_order_lines(PDO $conn, string $refno): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
+function order_approval_resolve_customer_master_id(PDO $conn, array $header): int
+{
+    $directId = (int) ($header['customer_id'] ?? 0);
+    if ($directId > 0) {
+        return $directId;
+    }
+
+    $email = trim((string) ($header['email'] ?? ''));
+    $name = trim((string) ($header['cuname'] ?? ''));
+    $cuno = trim((string) ($header['cuno'] ?? ''));
+
+    try {
+        if ($email !== '') {
+            $stmt = $conn->prepare('
+                SELECT id
+                FROM customer_masters
+                WHERE deleted_at IS NULL
+                  AND LOWER(TRIM(email)) = LOWER(TRIM(:email))
+                LIMIT 1
+            ');
+            $stmt->bindValue(':email', $email);
+            $stmt->execute();
+            $id = (int) $stmt->fetchColumn();
+            if ($id > 0) {
+                return $id;
+            }
+        }
+
+        if ($name !== '') {
+            if ($cuno !== '') {
+                $stmt = $conn->prepare('
+                    SELECT id
+                    FROM customer_masters
+                    WHERE deleted_at IS NULL
+                      AND LOWER(TRIM(customer_name)) = LOWER(TRIM(:customer_name))
+                      AND LOWER(TRIM(COALESCE(dealer_code, \'\'))) = LOWER(TRIM(:cuno))
+                    LIMIT 1
+                ');
+                $stmt->bindValue(':customer_name', $name);
+                $stmt->bindValue(':cuno', $cuno);
+                $stmt->execute();
+                $id = (int) $stmt->fetchColumn();
+                if ($id > 0) {
+                    return $id;
+                }
+            }
+
+            $stmt = $conn->prepare('
+                SELECT id
+                FROM customer_masters
+                WHERE deleted_at IS NULL
+                  AND LOWER(TRIM(customer_name)) = LOWER(TRIM(:customer_name))
+                LIMIT 1
+            ');
+            $stmt->bindValue(':customer_name', $name);
+            $stmt->execute();
+            $id = (int) $stmt->fetchColumn();
+            if ($id > 0) {
+                return $id;
+            }
+        }
+    } catch (PDOException $e) {
+        return 0;
+    }
+
+    return 0;
+}
+
 function order_approval_products_summary(array $lines): array
 {
     $parts = [];
     $htmlParts = [];
+    $detailHtmlParts = [];
     $hasL2 = false;
     foreach ($lines as $line) {
         $code = trim((string) ($line['tplcode'] ?? ''));
@@ -1190,12 +1259,17 @@ function order_approval_products_summary(array $lines): array
         if ($price !== '-') {
             $label .= ' @ ' . $price;
         }
-        $label .= ' - ';
-        if ($clp !== '-') {
-            $label .= ' ' . $clp;
-        }
         $parts[] = $label;
         $htmlParts[] = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+
+        $detailHtml = '<div class="mb-2">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+        if ($clp !== '-') {
+            $detailHtml .= '<div class="mt-1"><strong>CLP - Customer List Price:</strong> '
+                . htmlspecialchars($clp, ENT_QUOTES, 'UTF-8')
+                . '</div>';
+        }
+        $detailHtml .= '</div>';
+        $detailHtmlParts[] = $detailHtml;
     }
 
     $warranty = '';
@@ -1206,6 +1280,7 @@ function order_approval_products_summary(array $lines): array
     return [
         'text' => implode('; ', $parts),
         'html' => implode('<br>', $htmlParts),
+        'details_html' => implode('', $detailHtmlParts),
         'warranty' => $warranty,
     ];
 }
@@ -1482,6 +1557,7 @@ function order_approval_pending_items(PDO $conn, ?PDO $dpconn = null): array
         $orderTime = trim((string) ($header['order_time'] ?? ''));
         $createdAt = trim($indentDate . ($orderTime !== '' ? ' ' . $orderTime : ''));
         $levelDetails = order_approval_order_level_details($conn, $header, $refno);
+        $customerId = order_approval_resolve_customer_master_id($conn, $header);
 
         $items[] = [
             'claim_type' => 'cart',
@@ -1489,9 +1565,11 @@ function order_approval_pending_items(PDO $conn, ?PDO $dpconn = null): array
             'complaint_id' => 0,
             'fab_number' => $refno,
             'customer_name' => $customer,
+            'customer_id' => $customerId,
             'details' => $summary['text'],
             'details_html' => $summary['html'],
             'parts_html' => $summary['html'],
+            'products_detail_html' => $summary['details_html'],
             'fab_html' => htmlspecialchars($refno, ENT_QUOTES, 'UTF-8'),
             'warranty_label' => $summary['warranty'],
             'warranty_class' => '',
