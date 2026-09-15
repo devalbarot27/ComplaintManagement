@@ -64,13 +64,14 @@ function flush_module_definitions(): array
         'complaint' => [
             'label' => 'Complaint Entry',
             'icon' => 'bi-exclamation-octagon',
-            'note' => 'Also deletes FOC parts, warranty service claims, and assignments linked to complaints.',
+            'note' => 'Also deletes FOC parts, warranty service claims, CQ referrals, and assignments linked to complaints.',
             'count_fields' => [
                 ['key' => 'complaints', 'label' => 'Complaints'],
                 ['key' => 'complaint_activity_logs', 'label' => 'Activity logs'],
                 ['key' => 'complaint_service_updates', 'label' => 'Service updates'],
                 ['key' => 'complaint_closures', 'label' => 'Closures'],
                 ['key' => 'complaint_nudge_logs', 'label' => 'Nudge logs'],
+                ['key' => 'cq_referrals', 'label' => 'CQ referrals'],
             ],
         ],
         'assign_complaint' => [
@@ -239,6 +240,61 @@ function flush_null_column(PDO $conn, string $table, string $column): void
 }
 
 /**
+ * Direct child tables that still have a foreign key to $parentTable.
+ *
+ * @return array<int, string>
+ */
+function flush_tables_referencing(PDO $conn, string $parentTable): array
+{
+    $stmt = $conn->prepare("
+        SELECT DISTINCT src.relname AS child_table
+        FROM pg_constraint con
+        JOIN pg_class src ON src.oid = con.conrelid
+        JOIN pg_class dst ON dst.oid = con.confrelid
+        JOIN pg_namespace nsp ON nsp.oid = src.relnamespace
+        WHERE con.contype = 'f'
+          AND nsp.nspname = 'public'
+          AND dst.relname = :parent
+          AND src.relname <> :parent
+        ORDER BY src.relname
+    ");
+    $stmt->bindValue(':parent', $parentTable);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+/**
+ * Delete remaining tables that reference $parentTable, grandchildren first.
+ *
+ * @return array<string, int>
+ */
+function flush_delete_referencing_tables(PDO $conn, string $parentTable): array
+{
+    $ordered = [];
+    $seen = [];
+
+    $walk = static function (string $table) use ($conn, &$walk, &$ordered, &$seen): void {
+        foreach (flush_tables_referencing($conn, $table) as $child) {
+            if (isset($seen[$child])) {
+                continue;
+            }
+            $seen[$child] = true;
+            $walk($child);
+            $ordered[] = $child;
+        }
+    };
+    $walk($parentTable);
+
+    $deleted = [];
+    foreach ($ordered as $table) {
+        $deleted[$table] = flush_delete_table($conn, $table);
+    }
+
+    return $deleted;
+}
+
+/**
  * @return array<string, int>
  */
 function flush_spare_parts_module(PDO $conn): array
@@ -361,12 +417,15 @@ function flush_order_creation_module(PDO $conn): array
  */
 function flush_complaint_child_tables(PDO $conn): array
 {
-    return [
+    $cqReferralDependents = flush_delete_referencing_tables($conn, 'cq_referrals');
+
+    return array_merge($cqReferralDependents, [
         'complaint_nudge_logs' => flush_delete_table($conn, 'complaint_nudge_logs'),
         'complaint_activity_logs' => flush_delete_table($conn, 'complaint_activity_logs'),
         'complaint_service_updates' => flush_delete_table($conn, 'complaint_service_updates'),
         'complaint_closures' => flush_delete_table($conn, 'complaint_closures'),
-    ];
+        'cq_referrals' => flush_delete_table($conn, 'cq_referrals'),
+    ]);
 }
 
 /**
@@ -381,7 +440,8 @@ function flush_complaint_entry_module(PDO $conn): array
             'complaint_service_logs' => flush_delete_table($conn, 'complaint_service_logs'),
         ],
         flush_complaint_child_tables($conn),
-        flush_assign_complaint_module($conn)
+        flush_assign_complaint_module($conn),
+        flush_delete_referencing_tables($conn, 'complaints')
     );
 
     return array_merge($childCounts, [
@@ -402,6 +462,7 @@ function flush_all_modules(PDO $conn): array
         flush_service_claims_module($conn),
         flush_assign_complaint_module($conn),
         flush_complaint_child_tables($conn),
+        flush_delete_referencing_tables($conn, 'complaints'),
         [
             'complaints' => flush_delete_table($conn, 'complaints'),
         ],
@@ -493,6 +554,7 @@ $counts = [
     'complaint_service_updates' => flush_table_count($obconn, 'complaint_service_updates'),
     'complaint_closures' => flush_table_count($obconn, 'complaint_closures'),
     'complaint_nudge_logs' => flush_table_count($obconn, 'complaint_nudge_logs'),
+    'cq_referrals' => flush_table_count($obconn, 'cq_referrals'),
     'amc_contracts' => flush_table_count($obconn, 'amc_contracts'),
     'amc_visits' => flush_table_count($obconn, 'amc_visits'),
     'foc_claims' => flush_table_count($obconn, 'foc_claims'),

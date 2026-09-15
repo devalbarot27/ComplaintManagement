@@ -9,7 +9,6 @@ require_once __DIR__ . '/includes/admin_access_helpers.php';
 admin_refresh_session_role($obconn);
 require_once __DIR__ . '/includes/rbac_access_helpers.php';
 rbac_require_page_access($obconn);
-/*
 $username = $_SESSION['usr_name'];
 
 $getCustomerName = $obconn->prepare("SELECT customer_number FROM user_master WHERE username=:username limit 1");
@@ -24,7 +23,6 @@ if ($fetchCustomer && !empty(trim($fetchCustomer['customer_number']))) {
     header("Location: /vayupower/login.php");
     exit;
 }
-*/
 
 if (empty($_SESSION['usr_name'])) {
     header('Location: login.php');
