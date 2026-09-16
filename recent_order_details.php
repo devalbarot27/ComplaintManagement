@@ -5,6 +5,7 @@ session_start();
 include __DIR__ . '/pdo_obconn.php';
 require_once __DIR__ . '/includes/admin_access_helpers.php';
 require_once __DIR__ . '/includes/rbac_page_guard.php';
+require_once __DIR__ . '/includes/customer_master_helpers.php';
 require_once __DIR__ . '/orderClass.php';
 
 if (empty($_SESSION['usr_name'])) {
@@ -34,6 +35,14 @@ if ($customerLabel !== '' && $cuno !== '') {
     $customerLabel = '-';
 }
 
+$canViewCustomerMaster = rbac_user_can($obconn, 'customer-master', 'view');
+$customerMasterId = order_approval_resolve_customer_master_id($obconn, $header);
+$customerHtml = customer_master_name_link_html(
+    $customerLabel,
+    $customerMasterId,
+    $canViewCustomerMaster
+);
+
 $deliveryIsDealer = (($header['delivery_address_type'] ?? '') === 'dealer');
 $deliveryAddressLabel = $deliveryIsDealer ? 'Dealer' : 'End Customer';
 $dealerDeliveryAddress = (string) ($header['dealer_delivery_address'] ?? $header['delivery_address'] ?? '-');
@@ -46,7 +55,7 @@ $safe = [
     'order_time' => htmlspecialchars((string) ($header['order_time'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'order_status' => htmlspecialchars((string) ($header['order_status'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'order_number' => htmlspecialchars((string) ($header['order_number'] ?? '-'), ENT_QUOTES, 'UTF-8'),
-    'customer' => htmlspecialchars($customerLabel, ENT_QUOTES, 'UTF-8'),
+    'customer' => $customerHtml,
     'po_number' => htmlspecialchars((string) ($header['po_number'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'category' => htmlspecialchars((string) ($header['category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'order_type' => htmlspecialchars((string) ($header['order_type'] ?? 'Normal Order'), ENT_QUOTES, 'UTF-8'),

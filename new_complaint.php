@@ -262,7 +262,6 @@ if(isset($_POST['submit_complaint']))
 <script src="js/assign_to_select2.js"></script>
 <script src="js/static_select2.js"></script>
 <script src="js/closure_customer_feedback_rating.js"></script>
-<script src="js/closure_distance.js"></script>
 
 </head>
  
@@ -647,31 +646,6 @@ if(isset($_POST['submit_complaint']))
                                 <div>
                                     <h3 class="complaint-form-section__title">Closure Remarks</h3>
                                     <p class="complaint-form-section__hint">Add remarks before resolving the complaint</p>
-                                </div>
-                            </div>
-                            <div class="form-group mb-3">
-                                <label class="form-label">
-                                    <i class="bi bi-signpost-split"></i>
-                                    Distance Travelled
-                                </label>
-                                <p class="complaint-form-section__hint mb-2">Auto-filled from the latest Warranty Service Claim. Distance cannot be edited here.</p>
-                                <div id="closureDistanceEmpty" class="text-danger small d-none"></div>
-                                <div id="closureDistanceFields" class="row g-3 d-none">
-                                    <div class="col-md-4">
-                                        <label class="form-label" for="closureKmTravelled">Distance Travelled (KMs)</label>
-                                        <input type="text" class="form-control address-auto-field" id="closureKmTravelled" style="background-color: #f8f9fa;" readonly>
-                                        <input type="hidden" name="km_travelled" id="closureKmTravelledValue" value="">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label" for="closureVisitCharge">Price</label>
-                                        <input type="text" class="form-control address-auto-field" id="closureVisitCharge" style="background-color: #f8f9fa;" readonly>
-                                        <input type="hidden" name="visit_charge_price" id="closureVisitChargeValue" value="">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label" for="closureServiceDate">Service Date</label>
-                                        <input type="text" class="form-control address-auto-field" id="closureServiceDate" style="background-color: #f8f9fa;" readonly>
-                                        <input type="hidden" name="service_date" id="closureServiceDateValue" value="">
-                                    </div>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -1389,9 +1363,6 @@ function resetClosureForm(complaintId) {
     resetAssignToSelect2('closureReassignToSelect');
     if (typeof resetClosureCustomerFeedbackRating === 'function') {
         resetClosureCustomerFeedbackRating();
-    }
-    if (typeof loadClosureDistanceFromServiceClaim === 'function') {
-        loadClosureDistanceFromServiceClaim(complaintId);
     }
 
     form.querySelectorAll('.is-invalid').forEach(function (el) {

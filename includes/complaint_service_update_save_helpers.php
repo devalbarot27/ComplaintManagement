@@ -12,9 +12,33 @@ function complaint_service_update_draft_blocked_message(): string
     return 'Service Log is in Draft. It will not be sent for HO Approval. Please submit the Service Log before updating the complaint.';
 }
 
+function complaint_service_update_ensure_schema(PDO $conn): void
+{
+    $conn->exec('
+        ALTER TABLE complaint_service_updates
+        ADD COLUMN IF NOT EXISTS distance_travelled NUMERIC(10, 2) NULL
+    ');
+}
+
+function complaint_service_update_normalize_distance(?string $distance): ?string
+{
+    $distance = trim((string) $distance);
+    if ($distance === '' || !is_numeric($distance)) {
+        return null;
+    }
+
+    $value = round((float) $distance, 2);
+    if ($value < 0) {
+        return null;
+    }
+
+    return number_format($value, 2, '.', '');
+}
+
 function complaint_service_update_validate_service_log(PDO $conn, int $complaintId): ?string
 {
     complaint_service_log_ensure_schema($conn);
+    complaint_service_update_ensure_schema($conn);
 
     $context = complaint_service_log_resolve_cycle_context($conn, $complaintId);
     if (!$context) {

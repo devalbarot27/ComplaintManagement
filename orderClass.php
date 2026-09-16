@@ -5212,22 +5212,24 @@ class orderClass
             $addedByJoin = '';
             $addedBySelect = '';
             if ($showAddedBy) {
-                // Map emp_code ? user_master.username for dealer name; fallback to usr_name.
+                // usr_name is the logged-in user who placed the order.
+                // emp_code is a shared LN code (102464) and must not override Added By.
                 $addedByJoin = "
-                LEFT JOIN user_master AS um_by_emp
-                    ON um_by_emp.deleted_at IS NULL
-                   AND TRIM(COALESCE(a.emp_code::text, '')) <> ''
-                   AND TRIM(um_by_emp.username) = TRIM(a.emp_code::text)
                 LEFT JOIN user_master AS um_by_usr
                     ON um_by_usr.deleted_at IS NULL
                    AND TRIM(COALESCE(a.usr_name, '')) <> ''
-                   AND TRIM(um_by_usr.username) = TRIM(a.usr_name)
+                   AND LOWER(TRIM(um_by_usr.username)) = LOWER(TRIM(a.usr_name))
+                LEFT JOIN user_master AS um_by_emp
+                    ON um_by_emp.deleted_at IS NULL
+                   AND TRIM(COALESCE(a.emp_code::text, '')) <> ''
+                   AND LOWER(TRIM(um_by_emp.username)) = LOWER(TRIM(a.emp_code::text))
                ";
                 $addedBySelect = ",
                     COALESCE(
-                        NULLIF(TRIM(um_by_emp.name), ''),
                         NULLIF(TRIM(um_by_usr.name), ''),
+                        NULLIF(TRIM(um_by_usr.username), ''),
                         NULLIF(TRIM(a.usr_name), ''),
+                        NULLIF(TRIM(um_by_emp.name), ''),
                         '-'
                     ) AS added_by_name";
             }
@@ -6356,6 +6358,7 @@ class orderClass
                     a.delivery_code,
                     a.areacode,
                     a.email,
+                    a.customer_id,
                     a.pincode,
                     a.district,
                     a.state,
@@ -6518,6 +6521,7 @@ class orderClass
                 'order_number' => $orderNumber !== '' ? $orderNumber : '-',
                 'cuno' => $cuno,
                 'cuname' => trim((string) ($headerRow['cuname'] ?? '')),
+                'customer_id' => (int) ($headerRow['customer_id'] ?? 0),
                 'po_number' => trim((string) ($headerRow['pono'] ?? '')) !== ''
                     ? trim((string) $headerRow['pono'])
                     : '-',

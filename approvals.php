@@ -786,7 +786,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         </div>
                         <div class="row g-3 d-none" id="viewCartFields">
                             <div class="col-md-6 form-group">
-                                <label class="form-label"><i class="bi bi-hash"></i> Order Ref</label>
+                                <label class="form-label"><i class="bi bi-hash"></i> Fab / Order Ref</label>
                                 <div class="approval-detail-value">
                                     <a id="viewCartItemCodeLink" href="#" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none"><span id="viewCartItemCode"></span></a>
                                 </div>

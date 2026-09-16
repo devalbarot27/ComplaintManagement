@@ -185,7 +185,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                                 </div>
                             </div>
                             <div class="row g-3">
-                                <div class="col-md-4 form-group">
+                                <div class="col-md-6 form-group">
                                     <label class="form-label">
                                         <i class="bi bi-calendar-event"></i>
                                         Customer Visit Date <span class="text-danger">*</span>
@@ -193,7 +193,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                                     <input type="date" class="form-control" name="customer_visit_date" id="customer_visit_date" value="<?php echo date('Y-m-d'); ?>" max="<?php echo date('Y-m-d'); ?>">
                                     <div class="text-danger validation-msg" data-field="customer_visit_date"></div>
                                 </div>
-                                <div class="col-md-4 form-group">
+                                <div class="col-md-4 form-group d-none">
                                     <label class="form-label">
                                         <i class="bi bi-gear"></i>
                                         Part Replaced

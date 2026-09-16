@@ -10,6 +10,7 @@ require_once 'includes/complaint_datatable_helpers.php';
 include 'includes/service_report_helpers.php';
 require_once 'includes/complaint_service_log_helpers.php'; // 10-07-26
 require_once 'includes/cq_helpers.php';
+require_once 'includes/complaint_service_update_save_helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     rbac_access_denied_redirect();
@@ -21,7 +22,7 @@ $complaint_id = (int) ($_POST['complaint_id'] ?? 0);
 $customer_visit_date = trim($_POST['customer_visit_date'] ?? '');
 $complaint_action_taken = trim($_POST['complaint_action_taken'] ?? '');
 $part_replaced = trim($_POST['part_replaced'] ?? '');
-$distance_travelled = trim($_POST['distance_travelled'] ?? '');
+$distance_travelled = complaint_service_update_normalize_distance($_POST['distance_travelled'] ?? '');
  
 if ($complaint_id <= 0 || $customer_visit_date === '' || $complaint_action_taken === '') {
     $_SESSION['error_message'] = 'Customer visit date and complaint action taken are required.';
@@ -42,7 +43,6 @@ if (!$visitDate || $visitDate->format('Y-m-d') !== $customer_visit_date) {
 /*
 $serviceLogError = complaint_service_log_validate_for_service_update($obconn, $complaint_id);
 */
-require_once 'includes/complaint_service_update_save_helpers.php';
 $serviceLogError = complaint_service_update_validate_service_log($obconn, $complaint_id);
 if ($serviceLogError !== null) {
     $_SESSION['error_message'] = $serviceLogError;
@@ -213,7 +213,11 @@ try {
     $insert->bindValue(':service_report', $storedFileNames);
     $insert->bindValue(':created_by', $created_by, PDO::PARAM_INT);
     $insert->bindValue(':username', current_username());
-    $insert->bindValue(':distance_travelled', $distance_travelled, PDO::PARAM_INT);
+    if ($distance_travelled === null) {
+        $insert->bindValue(':distance_travelled', null, PDO::PARAM_NULL);
+    } else {
+        $insert->bindValue(':distance_travelled', $distance_travelled);
+    }
     $insert->execute();
 
     $assignmentUpdate = $obconn->prepare('
@@ -258,7 +262,7 @@ try {
         $created_by
     );
 
-    if ($cqQualifies) {
+    if ($cqQualifies && isset($ccsconn) && $ccsconn instanceof PDO) {
         $cqTrackNumbers = cq_create_referral(
             $ccsconn,
             $complaint_id,
@@ -280,6 +284,8 @@ try {
                 . '; Service Type: ' . $cqServiceType . ', Warranty Status: ' . $cqWarrantyStatus . ').',
             $created_by
         );
+    } elseif ($cqQualifies) {
+        error_log('CQ referral skipped for complaint #' . $complaint_id . ': CCS connection is not configured.');
     }
  
     $obconn->commit();
@@ -294,6 +300,7 @@ try {
 
     service_report_delete_files($storedPaths);
 
+    error_log('Failed to save service update: ' . $e->getMessage());
     $_SESSION['error_message'] = 'Failed to save service update.';
 }
 

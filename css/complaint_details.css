@@ -68,7 +68,7 @@
 }
 
 .complaint-detail-field__value--multiline {
-    white-space: pre-wrap;
+    /* white-space: pre-wrap; */
 }
 
 .complaint-details-meta-badge {
