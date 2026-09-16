@@ -153,6 +153,8 @@ function amc_ensure_schema(PDO $conn): void
         // Duplicate links may already exist; uniqueness is still enforced in PHP.
     }
 
+    amc_sync_contract_statuses($conn);
+
     $ensured = true;
 }
 
@@ -1203,14 +1205,50 @@ function amc_normalize_date(?string $value): string
     return substr($value, 0, 10);
 }
 
-function amc_status_from_dates(string $startDate, string $endDate): string
+function amc_business_today(): string
 {
-    $today = date('Y-m-d');
-    if (amc_normalize_date($endDate) < $today) {
+    return (new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d');
+}
+
+function amc_status_from_dates(string $startDate, string $endDate, ?string $today = null): string
+{
+    $today = $today ?? amc_business_today();
+    $end = amc_normalize_date($endDate);
+    if ($end === '' || $end < $today) {
         return AMC_STATUS_EXPIRED;
     }
 
     return AMC_STATUS_ACTIVE;
+}
+
+function amc_sync_contract_statuses(PDO $conn): void
+{
+    $today = amc_business_today();
+    $stmt = $conn->prepare("
+        UPDATE amc_contracts
+        SET
+            status = CASE
+                WHEN amc_end_date < CAST(:today_expired AS date) THEN :expired
+                ELSE :active
+            END,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE deleted_at IS NULL
+          AND COALESCE(status, '') <> :cancelled
+          AND status IS DISTINCT FROM (
+                CASE
+                    WHEN amc_end_date < CAST(:today_compare AS date) THEN :expired_compare
+                    ELSE :active_compare
+                END
+          )
+    ");
+    $stmt->bindValue(':today_expired', $today);
+    $stmt->bindValue(':today_compare', $today);
+    $stmt->bindValue(':expired', AMC_STATUS_EXPIRED);
+    $stmt->bindValue(':active', AMC_STATUS_ACTIVE);
+    $stmt->bindValue(':cancelled', AMC_STATUS_CANCELLED);
+    $stmt->bindValue(':expired_compare', AMC_STATUS_EXPIRED);
+    $stmt->bindValue(':active_compare', AMC_STATUS_ACTIVE);
+    $stmt->execute();
 }
 
 function amc_contract_is_cancelled(array $row): bool
@@ -1224,7 +1262,7 @@ function amc_contract_is_active(array $row, ?string $today = null): bool
         return false;
     }
 
-    $today = $today ?? date('Y-m-d');
+    $today = $today ?? amc_business_today();
     $start = amc_normalize_date($row['amc_start_date'] ?? '');
     $end = amc_normalize_date($row['amc_end_date'] ?? '');
 
@@ -1237,7 +1275,10 @@ function amc_display_status(array $row): string
         return AMC_STATUS_CANCELLED;
     }
 
-    return amc_contract_is_active($row) ? AMC_STATUS_ACTIVE : AMC_STATUS_EXPIRED;
+    return amc_status_from_dates(
+        (string) ($row['amc_start_date'] ?? ''),
+        (string) ($row['amc_end_date'] ?? '')
+    );
 }
 
 function amc_coverage_none(): array
