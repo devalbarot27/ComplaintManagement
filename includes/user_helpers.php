@@ -850,16 +850,6 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
         }
     }
 
-    if (user_role_requires_sales_coordinator((int) $data['role'])) {
-        $salesCoordinatorId = (int) ($data['sales_coordinator_id'] ?? 0);
-        if ($salesCoordinatorId <= 0) {
-            return 'Sales Coordinator is required.';
-        }
-        if (!user_is_valid_sales_coordinator($conn, $salesCoordinatorId)) {
-            return 'Selected Sales Coordinator is invalid.';
-        }
-    }
-
     if (user_role_has_approval_options((int) $data['role'])) {
         $level2ApproverId = (int) ($data['level_2_approver_id'] ?? 0);
         if ($level2ApproverId <= 0) {
@@ -1101,7 +1091,7 @@ function user_insert(PDO $conn, array $data, string $createdBy): void
     $stmt->bindValue(':email', $data['email']);
     $stmt->bindValue(':password', user_password_hash($data['password']));
     $stmt->bindValue(':mobile_number', $data['mobile_number']);
-    user_bind_sales_coordinator_id($stmt, $data);
+    $stmt->bindValue(':sales_coordinator_id', null, PDO::PARAM_NULL);
     user_bind_customer_code($stmt, $data);
     user_bind_approver_ids($stmt, $data);
     $stmt->bindValue(':created_by', $createdBy);
@@ -1143,7 +1133,6 @@ function user_update(PDO $conn, int $id, array $data): void
                 email = :email,
                 password = :password,
                 mobile_number = :mobile_number,
-                sales_coordinator_id = :sales_coordinator_id,
                 customer_code = :customer_code,
                 level_1_approval = :level_1_approval,
                 level_2_approval = :level_2_approval,
@@ -1162,7 +1151,6 @@ function user_update(PDO $conn, int $id, array $data): void
                 name = :name,
                 email = :email,
                 mobile_number = :mobile_number,
-                sales_coordinator_id = :sales_coordinator_id,
                 customer_code = :customer_code,
                 level_1_approval = :level_1_approval,
                 level_2_approval = :level_2_approval,
@@ -1179,7 +1167,6 @@ function user_update(PDO $conn, int $id, array $data): void
     $stmt->bindValue(':name', $data['name']);
     $stmt->bindValue(':email', $data['email']);
     $stmt->bindValue(':mobile_number', $data['mobile_number']);
-    user_bind_sales_coordinator_id($stmt, $data);
     user_bind_customer_code($stmt, $data);
     user_bind_approver_ids($stmt, $data, $id);
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);

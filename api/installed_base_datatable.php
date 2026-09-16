@@ -114,8 +114,14 @@ if (!isset($_SESSION['role'])) {
 
 $data = [];
 $installedBasePermissions = installed_base_action_permissions($obconn);
+$installedBasePermissions['amc_add'] = amc_action_permissions($obconn)['add'];
 $rows = $dataStmt->fetchAll(PDO::FETCH_ASSOC);
 $amcLookup = amc_coverage_lookup(
+    $obconn,
+    array_map(static fn ($row) => (int) ($row['id'] ?? 0), $rows),
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
+$amcExistsLookup = amc_existing_contract_lookup(
     $obconn,
     array_map(static fn ($row) => (int) ($row['id'] ?? 0), $rows),
     array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
@@ -123,9 +129,12 @@ $amcLookup = amc_coverage_lookup(
 
 foreach ($rows as $row) {
     $hasServiceLog = (int) ($row['service_log_count'] ?? 0) > 0;
-    $coverage = amc_coverage_resolve($amcLookup, (int) $row['id'], (string) ($row['fab_number'] ?? ''));
+    $installedBaseId = (int) $row['id'];
+    $fabNumber = (string) ($row['fab_number'] ?? '');
+    $coverage = amc_coverage_resolve($amcLookup, $installedBaseId, $fabNumber);
+    $hasAmc = amc_has_existing_contract($amcExistsLookup, $installedBaseId, $fabNumber);
     $data[] = [
-        'id' => '#' . (int) $row['id'],
+        'id' => '#' . $installedBaseId,
         'order_id' => htmlspecialchars((string) $row['order_id'], ENT_QUOTES, 'UTF-8'),
         'fab_number' => amc_with_coverage_html(
             htmlspecialchars((string) ($row['fab_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
@@ -137,7 +146,7 @@ foreach ($rows as $row) {
         'machine_model' => htmlspecialchars(installed_base_machine_model_label($row), ENT_QUOTES, 'UTF-8'),
         'commissioning_date' => installed_base_format_date($row['commissioning_date']),
         'created_at' => date('d M Y H:i', strtotime((string) $row['created_at'])),
-        'actions' => installed_base_entry_actions((int) $row['id'], $installedBasePermissions, $hasServiceLog),
+        'actions' => installed_base_entry_actions($installedBaseId, $installedBasePermissions, $hasServiceLog, $hasAmc),
     ];
 }
 

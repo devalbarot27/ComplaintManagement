@@ -54,10 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     }
 }
 
-$salesCoordinatorOptions = user_sales_coordinator_options_for_form(
-    $obconn,
-    (int) ($formRecord['sales_coordinator_id'] ?? 0)
-);
 $approverOptions = user_approver_options_for_form(
     $obconn,
     (int) ($formRecord['level_1_approver_id'] ?? 0),
@@ -102,7 +98,7 @@ $pageTitle = $displayName !== '-' ? $displayName : user_display_value($formRecor
 
             <div class="page-header">
                 <div>
-                    <div class="page-subtitle">Update user account details and Sales Coordinator assignment.</div>
+                    <div class="page-subtitle">Update user account details.</div>
                 </div>
                 <div class="header-btn-group">
                     <a href="user_details.php?id=<?php echo htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8'); ?>"
@@ -132,7 +128,7 @@ $pageTitle = $displayName !== '-' ? $displayName : user_display_value($formRecor
                                 <span class="complaint-form-section__badge">1</span>
                                 <div>
                                     <h3 class="complaint-form-section__title">User Details</h3>
-                                    <p class="complaint-form-section__hint">Role, identity, contact, and Sales Coordinator</p>
+                                    <p class="complaint-form-section__hint">Role, identity, and contact information</p>
                                 </div>
                             </div>
                             <?php include 'includes/user_form_fields.php'; ?>
@@ -151,7 +147,6 @@ $pageTitle = $displayName !== '-' ? $displayName : user_display_value($formRecor
 
     <script>
     window.USER_FORM_PAGE = 'edit';
-    window.USER_ROLES_REQUIRING_SALES_COORDINATOR = <?php echo json_encode(user_roles_requiring_sales_coordinator()); ?>;
     window.USER_ROLES_WITH_APPROVAL_OPTIONS = <?php echo json_encode(user_roles_with_approval_options()); ?>;
     window.USER_ROLES_SELF_LEVEL1_APPROVAL = <?php echo json_encode(user_roles_auto_assign_level1_to_self()); ?>;
     window.BLOCKED_EMAIL_DOMAINS = <?php echo json_encode(disposable_email_blocked_domains(), JSON_UNESCAPED_SLASHES); ?>;

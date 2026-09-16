@@ -9,6 +9,7 @@ require_once 'includes/service_log_helpers.php';
 require_once 'includes/spare_parts_helpers.php';
 require_once 'includes/after_market_access_helpers.php';
 require_once 'includes/customer_master_helpers.php';
+require_once 'includes/amc_helpers.php';
 
 $active_menu = 'installed_base';
 $success_message = '';
@@ -43,6 +44,7 @@ $canEditInstalledBase = $installedBasePermissions['edit'];
 $canAddServiceLog = $installedBasePermissions['service_log_add'];
 $canAddSpareParts = $installedBasePermissions['spare_parts_add'];
 $canAddCustomerMaster = customer_master_action_permissions($obconn)['add'];
+$canAddAmc = amc_action_permissions($obconn)['add'];
 $industrySegments = installed_base_industry_segments($obconn);
 $serviceLogWarrantyTypes = service_log_warranty_types($obconn);
 $sparePartsWarrantyTypes = spare_parts_warranty_types($obconn);
@@ -554,6 +556,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <?php include 'includes/service_log_spare_parts_modal.php'; ?>
     <?php } ?>
 
+    <?php if ($canAddAmc) { ?>
+    <?php include 'includes/installed_base_amc_modal.php'; ?>
+    <?php } ?>
+
     <script src="js/static_select2.js"></script>
     <script src="js/pincode_select2.js"></script>
     <script src="js/customer_master_dealer_select2.js"></script>
@@ -575,6 +581,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <?php if ($canAddSpareParts) { ?>
     <script src="js/spare_parts_items.js"></script>
     <script src="js/service_log_spare_parts_modal.js"></script>
+    <?php } ?>
+    <?php if ($canAddAmc) { ?>
+    <script src="js/installed_base_amc_modal.js"></script>
     <?php } ?>
     <script>
     $(document).ready(function () {

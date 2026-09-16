@@ -38,44 +38,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_amc'])) {
     if (!$canAddAmc) {
         $error_message = 'Access denied. You do not have permission to add AMC contracts.';
     } else {
-        $data = amc_from_post($_POST);
-        $validationError = amc_validate($data);
+        $result = amc_create_from_post(
+            $obconn,
+            $_POST,
+            (int) ($createdBy ?? 0),
+            $userName,
+            $dealerName
+        );
+        $formData = $result['data'] ?? [];
+        $installedBaseSnapshot = $result['snapshot'] ?? null;
 
-        if ((int) ($data['installed_base_id'] ?? 0) > 0) {
-            $installedBaseSnapshot = amc_installed_base_snapshot($obconn, (int) $data['installed_base_id']);
-        }
-
-        if ($validationError === null) {
-            if ($installedBaseSnapshot === null) {
-                $validationError = 'Please search for and select a valid Installed Base machine.';
-            } elseif (trim((string) ($installedBaseSnapshot['fab_number'] ?? '')) === '') {
-                $validationError = 'The selected Installed Base record does not have a FAB number.';
-            } elseif (trim((string) ($installedBaseSnapshot['customer_name'] ?? '')) === '') {
-                $validationError = 'Customer details are not available for the selected Installed Base record.';
-            } else {
-                $data = amc_merge_installed_base_snapshot($data, $installedBaseSnapshot);
-            }
-        }
-
-        if ($validationError !== null) {
-            $error_message = $validationError;
-            $formData = $data;
-            $reopenAmcForm = true;
-        } elseif ($createdBy === null || $createdBy <= 0) {
-            $error_message = 'Unable to resolve logged-in user.';
-            $formData = $data;
+        if (!$result['success']) {
+            $error_message = $result['message'];
             $reopenAmcForm = true;
         } else {
-            try {
-                $newId = amc_insert_record($obconn, $data, (int) $createdBy, $userName, $dealerName);
-                $_SESSION['success_message'] = 'AMC contract registered successfully.';
-                header('Location: amc.php');
-                exit;
-            } catch (PDOException $e) {
-                $error_message = 'Failed to save AMC contract. Please try again.';
-                $formData = $data;
-                $reopenAmcForm = true;
-            }
+            $_SESSION['success_message'] = $result['message'];
+            header('Location: amc.php');
+            exit;
         }
     }
 }

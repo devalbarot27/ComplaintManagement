@@ -560,6 +560,69 @@ function amc_validate(array $data): ?string
 }
 
 /**
+ * @return array{success: bool, message: string, id?: int, data: array, snapshot: ?array}
+ */
+function amc_create_from_post(PDO $conn, array $post, int $createdBy, string $username, string $dealerName): array
+{
+    $data = amc_from_post($post);
+    $snapshot = null;
+    $installedBaseId = (int) ($data['installed_base_id'] ?? 0);
+    if ($installedBaseId > 0) {
+        $snapshot = amc_installed_base_snapshot($conn, $installedBaseId);
+    }
+
+    $validationError = amc_validate($data);
+    if ($validationError === null) {
+        if ($snapshot === null) {
+            $validationError = 'Please search for and select a valid Installed Base machine.';
+        } elseif (trim((string) ($snapshot['fab_number'] ?? '')) === '') {
+            $validationError = 'The selected Installed Base record does not have a FAB number.';
+        } elseif (trim((string) ($snapshot['customer_name'] ?? '')) === '') {
+            $validationError = 'Customer details are not available for the selected Installed Base record.';
+        } else {
+            $data = amc_merge_installed_base_snapshot($data, $snapshot);
+        }
+    }
+
+    if ($validationError !== null) {
+        return [
+            'success' => false,
+            'message' => $validationError,
+            'data' => $data,
+            'snapshot' => $snapshot,
+        ];
+    }
+
+    if ($createdBy <= 0) {
+        return [
+            'success' => false,
+            'message' => 'Unable to resolve logged-in user.',
+            'data' => $data,
+            'snapshot' => $snapshot,
+        ];
+    }
+
+    try {
+        $id = amc_insert_record($conn, $data, $createdBy, $username, $dealerName);
+
+        return [
+            'success' => true,
+            'message' => 'AMC contract registered successfully.',
+            'id' => $id,
+            'data' => $data,
+            'snapshot' => $snapshot,
+        ];
+    } catch (PDOException $e) {
+        return [
+            'success' => false,
+            'message' => 'Failed to save AMC contract. Please try again.',
+            'data' => $data,
+            'snapshot' => $snapshot,
+        ];
+    }
+}
+
+/**
  * Spread visit dates evenly between visit_start_date and amc_end_date,
  * pushing any date that lands on a Sunday to the next day (clamped to end date).
  * Simplified port of the legacy getdata.php next-visit-date logic.
@@ -1328,6 +1391,94 @@ function amc_coverage_resolve(array $lookup, int $installedBaseId = 0, string $f
     }
 
     return amc_coverage_none();
+}
+
+/**
+ * @return array{by_id: array<int, true>, by_fab: array<string, true>}
+ */
+function amc_existing_contract_lookup(PDO $conn, array $installedBaseIds = [], array $fabNumbers = []): array
+{
+    amc_ensure_schema($conn);
+
+    $ids = [];
+    foreach ($installedBaseIds as $id) {
+        $id = (int) $id;
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
+    }
+
+    $fabs = [];
+    foreach ($fabNumbers as $fab) {
+        $fab = strtolower(trim((string) $fab));
+        if ($fab !== '') {
+            $fabs[$fab] = $fab;
+        }
+    }
+
+    if ($ids === [] && $fabs === []) {
+        return ['by_id' => [], 'by_fab' => []];
+    }
+
+    $clauses = [];
+    $params = [];
+    if ($ids !== []) {
+        $placeholders = [];
+        $index = 0;
+        foreach ($ids as $id) {
+            $key = ':ib' . $index++;
+            $placeholders[] = $key;
+            $params[$key] = $id;
+        }
+        $clauses[] = 'installed_base_id IN (' . implode(', ', $placeholders) . ')';
+    }
+    if ($fabs !== []) {
+        $placeholders = [];
+        $index = 0;
+        foreach ($fabs as $fab) {
+            $key = ':fab' . $index++;
+            $placeholders[] = $key;
+            $params[$key] = $fab;
+        }
+        $clauses[] = 'LOWER(TRIM(fab_number)) IN (' . implode(', ', $placeholders) . ')';
+    }
+
+    $stmt = $conn->prepare('
+        SELECT installed_base_id, fab_number
+        FROM amc_contracts
+        WHERE deleted_at IS NULL
+          AND (' . implode(' OR ', $clauses) . ')
+    ');
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $stmt->execute();
+
+    $byId = [];
+    $byFab = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $ibId = (int) ($row['installed_base_id'] ?? 0);
+        $fabKey = strtolower(trim((string) ($row['fab_number'] ?? '')));
+        if ($ibId > 0) {
+            $byId[$ibId] = true;
+        }
+        if ($fabKey !== '') {
+            $byFab[$fabKey] = true;
+        }
+    }
+
+    return ['by_id' => $byId, 'by_fab' => $byFab];
+}
+
+function amc_has_existing_contract(array $lookup, int $installedBaseId = 0, string $fabNumber = ''): bool
+{
+    if ($installedBaseId > 0 && !empty($lookup['by_id'][$installedBaseId])) {
+        return true;
+    }
+
+    $fabKey = strtolower(trim($fabNumber));
+
+    return $fabKey !== '' && !empty($lookup['by_fab'][$fabKey]);
 }
 
 /**

@@ -24,8 +24,6 @@ if (!$record) {
 $roleLabel = user_role_label($obconn, $record['role']);
 $displayName = user_display_value($record['name']);
 $pageTitle = $displayName !== '-' ? $displayName : user_display_value($record['username']);
-$showSalesCoordinator = user_role_requires_sales_coordinator((int) $record['role'])
-    || !empty($record['sales_coordinator_id']);
 $showApprovalOptions = user_role_has_approval_options((int) $record['role'])
     || !empty($record['level_1_approver_id'])
     || !empty($record['level_2_approver_id']);
@@ -36,10 +34,6 @@ $level1ApproverLabel = user_approver_display_name(
 $level2ApproverLabel = user_approver_display_name(
     $obconn,
     isset($record['level_2_approver_id']) ? (int) $record['level_2_approver_id'] : null
-);
-$salesCoordinatorLabel = user_sales_coordinator_display_name(
-    $obconn,
-    isset($record['sales_coordinator_id']) ? (int) $record['sales_coordinator_id'] : null
 );
 $encodedId = base64_encode((string) $record['id']);
 ?>
@@ -97,9 +91,6 @@ $encodedId = base64_encode((string) $record['id']);
                 'Customer Code',
                 user_customer_code_label($obconn, trim((string) ($record['customer_code'] ?? '')))
             );
-            if ($showSalesCoordinator) {
-                record_details_field('Sales Coordinator', $salesCoordinatorLabel);
-            }
             if ($showApprovalOptions) {
                 if (!user_role_auto_assigns_level1_to_self((int) ($record['role'] ?? 0))) {
                     record_details_field('Level 1 Approval', $level1ApproverLabel);

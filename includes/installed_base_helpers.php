@@ -1126,7 +1126,7 @@ function installed_base_machine_model_label(array $row): string
 }
 
 /**
- * @return array{view: bool, add: bool, edit: bool, delete: bool, service_log_add: bool, spare_parts_add: bool}
+ * @return array{view: bool, add: bool, edit: bool, delete: bool, service_log_add: bool, spare_parts_add: bool, amc_add: bool}
  */
 function installed_base_normalize_action_permissions(array $permissions): array
 {
@@ -1137,13 +1137,15 @@ function installed_base_normalize_action_permissions(array $permissions): array
         'delete' => !empty($permissions['delete']),
         'service_log_add' => !empty($permissions['service_log_add']),
         'spare_parts_add' => !empty($permissions['spare_parts_add']),
+        'amc_add' => !empty($permissions['amc_add']),
     ];
 }
 
 function installed_base_entry_actions(
     int $id,
     array $permissions = [],
-    bool $hasServiceLog = false
+    bool $hasServiceLog = false,
+    bool $hasAmc = false
 ): string {
     $permissions = installed_base_normalize_action_permissions($permissions);
     $encodedId = base64_encode((string) $id);
@@ -1179,6 +1181,14 @@ function installed_base_entry_actions(
             <button type="button" class="btn btn-sm btn-outline-dark add-spare-parts-btn"
                 data-id="' . $id . '" data-prefill="installed_base" title="Add Spare Parts Consumption">
                 <i class="bi bi-gear"></i>
+            </button>';
+    }
+
+    if ($permissions['amc_add'] && !$hasAmc) {
+        $html .= '
+            <button type="button" class="btn btn-sm btn-outline-dark add-amc-contract-btn"
+                data-id="' . $id . '" title="New AMC Contract">
+                <i class="bi bi-file-earmark-plus"></i>
             </button>';
     }
 

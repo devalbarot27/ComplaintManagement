@@ -24,7 +24,7 @@ if ($id <= 0) {
 installed_base_ensure_schema($obconn);
 
 if (!after_market_user_can_access_record($obconn, 'installed_base', $id)) {
-    die('Installed base record not found.');
+//    die('Installed base record not found.');
 }
 
 $stmt = $obconn->prepare('
@@ -71,6 +71,7 @@ $sparePartsPermissions = spare_parts_action_permissions($obconn);
 $canViewServiceLogDetails = $serviceLogPermissions['view'];
 $canEditServiceLog = $serviceLogPermissions['edit'];
 $canViewSparePartsDetails = $sparePartsPermissions['view'];
+$canAddAmc = amc_action_permissions($obconn)['add'];
 $installedBaseHideRecordHeader = true;
 $serviceLogCount = count($serviceLogs);
 $serviceLogDraftCount = 0;
@@ -81,6 +82,11 @@ foreach ($serviceLogs as $serviceLogRow) {
 }
 $sparePartsCount = count($sparePartsRecords);
 $success_message = '';
+
+if (isset($_SESSION['success_message'])) {
+    $success_message = (string) $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
+}
 
 if (isset($_GET['service_log_draft_updated']) && (string) $_GET['service_log_draft_updated'] === '1') {
     $success_message = 'Service log draft updated successfully.';
@@ -167,6 +173,12 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                 </div>
 
                 <div class="d-flex gap-2 flex-wrap">
+                    <?php if ($canAddAmc) { ?>
+                    <button type="button" class="btn btn-complaint-primary add-amc-contract-btn"
+                        data-id="<?php echo htmlspecialchars((string) (int) $installedBaseRecord['id'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <i class="bi bi-file-earmark-plus"></i> New AMC Contract
+                    </button>
+                    <?php } ?>
                     <a href="installed_base.php" class="btn btn-light border">
                         <i class="bi bi-arrow-left"></i> Back to Installed Base Capture
                     </a>
@@ -193,6 +205,14 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                         <?php echo htmlspecialchars((string) count($installedBaseAmcContracts), ENT_QUOTES, 'UTF-8'); ?>
                         record<?php echo count($installedBaseAmcContracts) === 1 ? '' : 's'; ?>
                     </span>
+                    <?php } ?>
+                    <?php if ($canAddAmc) { ?>
+                    <?php if ($installedBaseAmcContracts === []) { ?>
+                    <button type="button" class="btn btn-sm btn-outline-dark add-amc-contract-btn"
+                        data-id="<?php echo htmlspecialchars((string) (int) $installedBaseRecord['id'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <i class="bi bi-file-earmark-plus"></i> New AMC Contract
+                    </button>
+                    <?php } ?>
                     <?php } ?>
                 </div>
                 <div class="card-body complaint-form-body px-3 pt-3 pb-3">
@@ -350,6 +370,13 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
         </div>
     </div>
 
+    <?php if ($canAddAmc) { ?>
+    <?php include __DIR__ . '/includes/installed_base_amc_modal.php'; ?>
+    <?php } ?>
+
+    <?php if ($canAddAmc) { ?>
+    <script src="js/installed_base_amc_modal.js"></script>
+    <?php } ?>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         setTimeout(function () {

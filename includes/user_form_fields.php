@@ -4,10 +4,6 @@ if (!isset($roleOptions) || !is_array($roleOptions)) {
     $roleOptions = [];
 }
 
-if (!isset($salesCoordinatorOptions) || !is_array($salesCoordinatorOptions)) {
-    $salesCoordinatorOptions = [];
-}
-
 if (!isset($approverOptions) || !is_array($approverOptions)) {
     $approverOptions = [];
 }
@@ -19,7 +15,6 @@ $formRecord = $formRecord ?? [
     'name' => '',
     'email' => '',
     'mobile_number' => '',
-    'sales_coordinator_id' => 0,
     'customer_code' => '',
     'level_1_approver_id' => 0,
     'level_2_approver_id' => 0,
@@ -27,7 +22,6 @@ $formRecord = $formRecord ?? [
 
 $isEditForm = !empty($formRecord['id']);
 $selectedRole = (int) ($formRecord['role'] ?? 0);
-$selectedSalesCoordinatorId = (int) ($formRecord['sales_coordinator_id'] ?? 0);
 $selectedCustomerCode = trim((string) ($formRecord['customer_code'] ?? ''));
 $selectedLevel1ApproverId = (int) ($formRecord['level_1_approver_id'] ?? 0);
 $selectedLevel2ApproverId = (int) ($formRecord['level_2_approver_id'] ?? 0);
@@ -35,7 +29,6 @@ $selectedCustomerLabel = '';
 if ($selectedCustomerCode !== '' && isset($obconn) && $obconn instanceof PDO) {
     $selectedCustomerLabel = user_customer_code_label($obconn, $selectedCustomerCode);
 }
-$showSalesCoordinatorField = user_role_requires_sales_coordinator($selectedRole);
 $showApprovalFields = user_role_has_approval_options($selectedRole);
 $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
 ?>
@@ -53,21 +46,6 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
             <?php } ?>
         </select>
         <div class="text-danger validation-msg" data-field="role"></div>
-    </div>
-    <div class="col-md-6 form-group" id="salesCoordinatorFieldWrap"<?php echo $showSalesCoordinatorField ? '' : ' style="display: none;"'; ?>>
-        <label class="form-label" for="salesCoordinatorSelect">
-            <i class="bi bi-person-check"></i> Sales Coordinator <span class="text-danger">*</span>
-        </label>
-        <select class="form-control" name="sales_coordinator_id" id="salesCoordinatorSelect" style="width:100%;">
-            <option value="">Select Sales Coordinator</option>
-            <?php foreach ($salesCoordinatorOptions as $salesCoordinator) { ?>
-            <?php $optionId = (int) ($salesCoordinator['id'] ?? 0); ?>
-            <option value="<?php echo $optionId; ?>"<?php echo $selectedSalesCoordinatorId === $optionId ? ' selected' : ''; ?>>
-                <?php echo htmlspecialchars(user_sales_coordinator_option_label($salesCoordinator)); ?>
-            </option>
-            <?php } ?>
-        </select>
-        <div class="text-danger validation-msg" data-field="sales_coordinator_id"></div>
     </div>
     <div class="col-md-6 form-group">
         <label class="form-label" for="userCustomerCodeSelect">

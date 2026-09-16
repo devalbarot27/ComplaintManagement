@@ -120,6 +120,10 @@
         $pageName = "AMC";
     } else if ($currentPage == 'amc_details.php') {
         $pageName = "AMC Contract Details";
+    } else if ($currentPage == 'distance_wise_prices.php') {
+        $pageName = "Distance & Price Config";
+    } else if ($currentPage == 'distance_wise_price_details.php') {
+        $pageName = "Distance Wise Price Details";
     }
 
 
@@ -501,6 +505,12 @@
                       class="menu-item <?= in_array($currentPage, ['reasons.php', 'reason_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-list-check"></i>
                       Reason
+                  </a>
+
+                  <a href="distance_wise_prices.php"
+                      class="menu-item <?= in_array($currentPage, ['distance_wise_prices.php', 'distance_wise_price_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-signpost-split"></i>
+                      Distance &amp; Price Config
                   </a>
                   <?php } ?>
 
