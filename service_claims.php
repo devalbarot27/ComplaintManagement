@@ -40,6 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
     $kmTravelled     = trim($_POST['km_travelled'] ?? '');
     $serviceDate     = trim($_POST['service_date'] ?? '');
     $resolutionNotes = trim($_POST['resolution_notes'] ?? '');
+    $poNumber        = trim($_POST['po_number'] ?? '');
+    $poUpload        = service_claim_po_validate_upload($_FILES['po_attachment'] ?? null);
 
     $complaint = warranty_claims_find_complaint($obconn, $complaintId);
 
@@ -60,21 +62,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
         } elseif ($serviceDate === '') {
             $field_errors['service_date'] = 'Service Date is required.';
             $error_message = $field_errors['service_date'];
+        } elseif ($poNumber === '') {
+            $field_errors['po_number'] = 'PO Number is required.';
+            $error_message = $field_errors['po_number'];
+        } elseif (strlen($poNumber) > 100) {
+            $field_errors['po_number'] = 'PO Number cannot exceed 100 characters.';
+            $error_message = $field_errors['po_number'];
+        } elseif ($poUpload['error'] !== null) {
+            $field_errors['po_attachment'] = $poUpload['error'];
+            $error_message = $field_errors['po_attachment'];
         } elseif (strlen($resolutionNotes) > 1000) {
             $error_message = 'Resolution notes cannot exceed 1000 characters.';
         } else {
+            $storedPo = null;
             try {
+                if (empty($poUpload['file'])) {
+                    throw new RuntimeException('PO attachment is required.');
+                }
+                $storedPo = service_claim_po_store_upload($poUpload['file']);
                 $visitCharge = distance_wise_price_find_for_km($obconn, (float) $kmTravelled);
 
                 $stmt = $obconn->prepare("
                     INSERT INTO service_claims
                     (
                         complaint_id, km_travelled, service_date, resolution_notes,
+                        po_number, po_attachment, po_attachment_original,
                         visit_charge_price, overall_status, created_by_username
                     )
                     VALUES
                     (
                         :complaint_id, :km_travelled, :service_date, :resolution_notes,
+                        :po_number, :po_attachment, :po_attachment_original,
                         :visit_charge_price, :overall_status, :created_by_username
                     )
                     RETURNING id
@@ -83,6 +101,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
                 $stmt->bindValue(':km_travelled', (float) $kmTravelled);
                 $stmt->bindValue(':service_date', $serviceDate);
                 $stmt->bindValue(':resolution_notes', $resolutionNotes !== '' ? $resolutionNotes : null);
+                $stmt->bindValue(':po_number', $poNumber);
+                $stmt->bindValue(':po_attachment', $storedPo['stored']);
+                $stmt->bindValue(':po_attachment_original', $storedPo['original']);
                 if ($visitCharge === null) {
                     $stmt->bindValue(':visit_charge_price', null, PDO::PARAM_NULL);
                 } else {
@@ -107,7 +128,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
                 header('Location: service_claims.php');
                 exit;
             } catch (PDOException $e) {
+                if ($storedPo !== null) {
+                    service_claim_po_delete_file($storedPo['stored'] ?? '');
+                }
                 $error_message = 'Failed to submit call closure. Please try again.';
+            } catch (RuntimeException $e) {
+                if ($storedPo !== null) {
+                    service_claim_po_delete_file($storedPo['stored'] ?? '');
+                }
+                $field_errors['po_attachment'] = $e->getMessage();
+                $error_message = $field_errors['po_attachment'];
             }
         }
     }
@@ -452,7 +482,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 </div>
             </div>
 
-            <form method="POST" id="serviceClaimForm" novalidate>
+            <form method="POST" id="serviceClaimForm" enctype="multipart/form-data" novalidate>
                 <div class="complaint-form-body">
 
                     <!-- Section 1   Call Ticket -->
@@ -501,7 +531,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             <span class="complaint-form-section__badge">2</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Call Closure Details</h3>
-                                <p class="complaint-form-section__hint">Distance travelled is mandatory to close the call.</p>
+                                <p class="complaint-form-section__hint">Distance travelled and PO Number with attachment are mandatory to close the call.</p>
                             </div>
                         </div>
                         <div class="row g-3">
@@ -532,6 +562,24 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                     value="<?= htmlspecialchars($_POST['service_date'] ?? '') ?>"
                                     max="<?= date('Y-m-d') ?>">
                                 <div class="text-danger validation-msg" data-field="service_date"><?= htmlspecialchars($field_errors['service_date'] ?? '') ?></div>
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label" for="poNumber">
+                                    <i class="bi bi-receipt"></i> PO Number <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control<?= isset($field_errors['po_number']) ? ' is-invalid' : '' ?>" id="poNumber" name="po_number"
+                                    maxlength="100" placeholder="Enter PO Number"
+                                    value="<?= htmlspecialchars($_POST['po_number'] ?? '') ?>">
+                                <div class="text-danger validation-msg" data-field="po_number"><?= htmlspecialchars($field_errors['po_number'] ?? '') ?></div>
+                            </div>
+                            <div class="col-md-8 form-group">
+                                <label class="form-label" for="poAttachment">
+                                    <i class="bi bi-paperclip"></i> PO Attachment <span class="text-danger">*</span>
+                                </label>
+                                <input type="file" class="form-control<?= isset($field_errors['po_attachment']) ? ' is-invalid' : '' ?>" id="poAttachment" name="po_attachment"
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                                <div class="form-text">PDF, JPG, PNG, DOC, DOCX. Maximum 2 MB.</div>
+                                <div class="text-danger validation-msg" data-field="po_attachment"><?= htmlspecialchars($field_errors['po_attachment'] ?? '') ?></div>
                             </div>
                             <div class="col-md-12 form-group">
                                 <label class="form-label" for="resolutionNotes">
@@ -584,6 +632,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             <th width="14%">Customer</th>
                             <th width="12%">KM</th>
                             <th width="12%">Service Date</th>
+                            <th width="12%">PO Number</th>
                             <th width="10%">Warranty (CCS)</th>
                             <th width="10%">L1 (Lock-in Engineer)</th>
                             <th width="10%">Invoice</th>
@@ -615,6 +664,11 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
                             $serviceDate = trim((string) ($row['service_date'] ?? ''));
                             $serviceDateLabel = $serviceDate !== '' ? date('d M Y', strtotime($serviceDate)) : '-';
+                            $poNumberLabel = trim((string) ($row['po_number'] ?? ''));
+                            $poAttachmentHtml = service_claim_po_attachment_html(
+                                (string) ($row['po_attachment'] ?? ''),
+                                (string) ($row['po_attachment_original'] ?? '')
+                            );
                             $kmLabel = distance_wise_price_format_number($row['km_travelled'] ?? '');
                             $priceValue = $row['visit_charge_price'] ?? '';
                             $priceLabel = ($priceValue === null || $priceValue === '')
@@ -645,6 +699,16 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                 <?php endif; */ ?>
                             </td>
                             <td><?= htmlspecialchars($serviceDateLabel) ?></td>
+                            <td>
+                                <?php if ($poNumberLabel !== ''): ?>
+                                    <div class="fw-semibold"><?= htmlspecialchars($poNumberLabel) ?></div>
+                                    <?php if ($poAttachmentHtml !== ''): ?>
+                                    <div class="small"><?= $poAttachmentHtml ?></div>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    -
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if ($ccsClaim !== ''): ?>
                                     <span class="status-badge border border-dark"><?= htmlspecialchars($ccsClaim) ?></span>
@@ -793,6 +857,10 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
     const claimForm = document.getElementById('serviceClaimForm');
     const kmInput = document.getElementById('kmTravelled');
     const serviceDateInput = document.getElementById('serviceDate');
+    const poNumberInput = document.getElementById('poNumber');
+    const poAttachmentInput = document.getElementById('poAttachment');
+    const poAllowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
+    const poMaxFileSize = 2 * 1024 * 1024;
 
     function setFieldError(field, message) {
         const msg = document.querySelector('.validation-msg[data-field="' + field + '"]');
@@ -834,6 +902,16 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
             clearFieldError('service_date', serviceDateInput);
         });
     }
+    if (poNumberInput) {
+        poNumberInput.addEventListener('input', function () {
+            clearFieldError('po_number', poNumberInput);
+        });
+    }
+    if (poAttachmentInput) {
+        poAttachmentInput.addEventListener('change', function () {
+            clearFieldError('po_attachment', poAttachmentInput);
+        });
+    }
 
     if (claimForm) {
         claimForm.addEventListener('submit', function (e) {
@@ -866,6 +944,46 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 setFieldError('service_date', 'Service Date is required.');
                 serviceDateInput.classList.add('is-invalid');
                 firstInvalid = firstInvalid || serviceDateInput;
+            }
+
+            const poValue = poNumberInput ? String(poNumberInput.value || '').trim() : '';
+            if (poValue === '') {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('po_number', 'PO Number is required.');
+                if (poNumberInput) {
+                    poNumberInput.classList.add('is-invalid');
+                    firstInvalid = firstInvalid || poNumberInput;
+                }
+            }
+
+            const poFile = poAttachmentInput && poAttachmentInput.files && poAttachmentInput.files[0]
+                ? poAttachmentInput.files[0]
+                : null;
+            if (!poFile) {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('po_attachment', 'PO attachment is required.');
+                if (poAttachmentInput) {
+                    poAttachmentInput.classList.add('is-invalid');
+                    firstInvalid = firstInvalid || poAttachmentInput;
+                }
+            } else {
+                const poName = String(poFile.name || '');
+                const poExt = poName.includes('.') ? poName.split('.').pop().toLowerCase() : '';
+                if (poAllowedExtensions.indexOf(poExt) === -1) {
+                    e.preventDefault();
+                    blocked = true;
+                    setFieldError('po_attachment', 'Invalid PO attachment type. Allowed: PDF, JPG, PNG, DOC, DOCX.');
+                    poAttachmentInput.classList.add('is-invalid');
+                    firstInvalid = firstInvalid || poAttachmentInput;
+                } else if (poFile.size > poMaxFileSize) {
+                    e.preventDefault();
+                    blocked = true;
+                    setFieldError('po_attachment', 'PO attachment must be 2 MB or smaller.');
+                    poAttachmentInput.classList.add('is-invalid');
+                    firstInvalid = firstInvalid || poAttachmentInput;
+                }
             }
 
             if (blocked && firstInvalid && typeof firstInvalid.focus === 'function') {

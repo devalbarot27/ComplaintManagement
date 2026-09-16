@@ -685,6 +685,9 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 l1_at TIMESTAMP NULL,
                 l1_remarks VARCHAR(500) NULL,
                 l1_approver_user_id INTEGER NULL,
+                po_number VARCHAR(100) NULL,
+                po_attachment VARCHAR(255) NULL,
+                po_attachment_original VARCHAR(255) NULL,
                 invoice_number VARCHAR(100) NULL,
                 invoice_amount NUMERIC(12,2) NULL,
                 invoice_raised_by_username VARCHAR(150) NULL,
@@ -709,8 +712,124 @@ function warranty_claims_ensure_schema(PDO $conn): void
     if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'visit_charge_price')) {
         $conn->exec("ALTER TABLE service_claims ADD COLUMN visit_charge_price NUMERIC(12,2) NULL");
     }
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'po_number')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN po_number VARCHAR(100) NULL");
+    }
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'po_attachment')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN po_attachment VARCHAR(255) NULL");
+    }
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'po_attachment_original')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN po_attachment_original VARCHAR(255) NULL");
+    }
 
     $ensured = true;
+}
+
+function service_claim_po_allowed_extensions(): array
+{
+    return ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
+}
+
+function service_claim_po_max_file_size(): int
+{
+    return 2 * 1024 * 1024;
+}
+
+function service_claim_po_upload_dir(): string
+{
+    return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'service_claim_po';
+}
+
+function service_claim_po_public_url(string $storedName): string
+{
+    return 'uploads/service_claim_po/' . rawurlencode(basename($storedName));
+}
+
+function service_claim_po_attachment_html(?string $storedName, ?string $originalName = null): string
+{
+    $stored = basename(trim((string) $storedName));
+    if ($stored === '' || $stored === '.' || $stored === '..') {
+        return '';
+    }
+
+    $label = trim((string) $originalName);
+    if ($label === '') {
+        $label = $stored;
+    }
+
+    return '<a href="' . htmlspecialchars(service_claim_po_public_url($stored), ENT_QUOTES, 'UTF-8')
+        . '" target="_blank" rel="noopener" class="text-primary text-decoration-none">'
+        . '<i class="bi bi-paperclip"></i> ' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</a>';
+}
+
+/**
+ * @return array{error: ?string, file: ?array}
+ */
+function service_claim_po_validate_upload(?array $fileField): array
+{
+    if ($fileField === null || !isset($fileField['error']) || (int) $fileField['error'] === UPLOAD_ERR_NO_FILE) {
+        return ['error' => 'PO attachment is required.', 'file' => null];
+    }
+
+    if ((int) $fileField['error'] !== UPLOAD_ERR_OK) {
+        return ['error' => 'Unable to upload the PO attachment. Please try again.', 'file' => null];
+    }
+
+    $name = (string) ($fileField['name'] ?? '');
+    $extension = strtolower((string) pathinfo($name, PATHINFO_EXTENSION));
+    if (!in_array($extension, service_claim_po_allowed_extensions(), true)) {
+        return ['error' => 'Invalid PO attachment type. Allowed: PDF, JPG, PNG, DOC, DOCX.', 'file' => null];
+    }
+
+    if ((int) ($fileField['size'] ?? 0) > service_claim_po_max_file_size()) {
+        return ['error' => 'PO attachment must be 2 MB or smaller.', 'file' => null];
+    }
+
+    return [
+        'error' => null,
+        'file' => [
+            'name' => $name,
+            'tmp_name' => (string) $fileField['tmp_name'],
+            'size' => (int) $fileField['size'],
+            'extension' => $extension,
+        ],
+    ];
+}
+
+/**
+ * @param array{name: string, tmp_name: string, extension: string} $file
+ * @return array{stored: string, original: string}
+ */
+function service_claim_po_store_upload(array $file): array
+{
+    $dir = service_claim_po_upload_dir();
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        throw new RuntimeException('Unable to create PO upload directory.');
+    }
+
+    $stored = uniqid('service_claim_po_', true) . '.' . $file['extension'];
+    $target = $dir . DIRECTORY_SEPARATOR . $stored;
+    if (!move_uploaded_file($file['tmp_name'], $target)) {
+        throw new RuntimeException('Unable to save PO attachment.');
+    }
+
+    return [
+        'stored' => $stored,
+        'original' => basename($file['name']),
+    ];
+}
+
+function service_claim_po_delete_file(?string $storedName): void
+{
+    $stored = basename(trim((string) $storedName));
+    if ($stored === '' || $stored === '.' || $stored === '..') {
+        return;
+    }
+
+    $path = service_claim_po_upload_dir() . DIRECTORY_SEPARATOR . $stored;
+    if (is_file($path)) {
+        unlink($path);
+    }
 }
 
 /**

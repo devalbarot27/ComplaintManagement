@@ -325,6 +325,20 @@ try {
         ORDER BY sc.created_at DESC
     "); //    AND sc.overall_status = 'Pending L1 Approval'
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $poNumber = trim((string) ($row['po_number'] ?? ''));
+        $serviceDetails = 'KM: ' . $row['km_travelled'] . ' | Service Date: ' . $row['service_date'];
+        if ($poNumber !== '') {
+            $serviceDetails .= ' | PO: ' . $poNumber;
+        }
+        $poAttachmentHtml = service_claim_po_attachment_html(
+            (string) ($row['po_attachment'] ?? ''),
+            (string) ($row['po_attachment_original'] ?? '')
+        );
+        $serviceDetailsHtml = htmlspecialchars($serviceDetails, ENT_QUOTES, 'UTF-8');
+        if ($poAttachmentHtml !== '') {
+            $serviceDetailsHtml .= '<div class="mt-1">' . $poAttachmentHtml . '</div>';
+        }
+
         $approvalItems[] = [
             'claim_type'     => 'service',
             'id'             => (int) $row['id'],
@@ -332,7 +346,8 @@ try {
             'fab_number'     => $row['fab_number'],
             'customer_name'  => $row['customer_name'],
             'customer_id'    => (int) ($row['customer_id'] ?? 0),
-            'details'        => 'KM: ' . $row['km_travelled'] . ' | Service Date: ' . $row['service_date'],
+            'details'        => $serviceDetails,
+            'details_html'   => $serviceDetailsHtml,
             'warranty_label' => $row['ccs_warranty_claim'] !== null && $row['ccs_warranty_claim'] !== '' ? $row['ccs_warranty_claim'] : 'Pending',
             'warranty_class' => !empty($row['ccs_warranty_claim']) ? ($row['ccs_warranty_claim'] === 'Yes' ? 'bg-success' : 'bg-secondary') : 'bg-warning text-dark',
             'justification'  => '',
@@ -570,10 +585,10 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                         </td>
                                         <td><?= $customerHtml ?></td>
                                         <td>
-                                            <?php if (($row['claim_type'] ?? '') === 'foc' || $isCart): ?>
-                                                <?= !empty($row['details_html']) ? $row['details_html'] : htmlspecialchars((string) ($row['details'] ?? '-')) ?>
+                                            <?php if (!empty($row['details_html'])): ?>
+                                                <?= $row['details_html'] ?>
                                             <?php else: ?>
-                                                <?= htmlspecialchars((string) ($row['details'] ?? '')) ?>
+                                                <?= htmlspecialchars((string) ($row['details'] ?? '-')) ?>
                                             <?php endif; ?>
                                         </td>
                                         <td>
@@ -1169,7 +1184,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         }
                         document.getElementById('viewClaimCustomer').innerHTML = d.customerHtml || d.customerName || '-';
                         const detailsEl = document.getElementById('viewClaimDetails');
-                        if (isFoc && d.detailsHtml) {
+                        if (d.detailsHtml) {
                             detailsEl.innerHTML = d.detailsHtml;
                         } else {
                             detailsEl.textContent = d.details || '-';

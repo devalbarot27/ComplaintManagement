@@ -123,7 +123,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_field('State', (string) ($record['customer_state'] ?? ''), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(3, 'Call Closure Details', 'Distance, visit charge and resolution');
+            record_details_section_start(3, 'Call Closure Details', 'Distance, visit charge, PO and resolution');
             record_details_field('Distance Travelled (KMs)', (string) ($record['km_travelled'] ?? ''), 'col-md-4');
             record_details_field(
                 'Price',
@@ -133,6 +133,16 @@ $visitPrice = $record['visit_charge_price'] ?? '';
                 'col-md-4'
             );
             record_details_field('Service Date', $serviceDateLabel, 'col-md-4');
+            record_details_field('PO Number', (string) ($record['po_number'] ?? ''), 'col-md-4');
+            $poAttachmentHtml = service_claim_po_attachment_html(
+                (string) ($record['po_attachment'] ?? ''),
+                (string) ($record['po_attachment_original'] ?? '')
+            );
+            if ($poAttachmentHtml !== '') {
+                record_details_field('PO Attachment', $poAttachmentHtml, 'col-md-8', false, true);
+            } else {
+                record_details_field('PO Attachment', '-', 'col-md-8');
+            }
             record_details_field('Resolution Notes', (string) ($record['resolution_notes'] ?? ''), 'col-md-12', true);
             record_details_section_end();
 
