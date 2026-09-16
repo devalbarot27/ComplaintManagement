@@ -1,69 +1,48 @@
 function resetComplaintFabAutoFields(form) {
-    if (!form) {
-        return;
+    if (typeof setComplaintCustomerSelect2Locked === 'function') {
+        setComplaintCustomerSelect2Locked(false);
     }
 
-    ['customer_name', 'street_1', 'street_2'].forEach(function (field) {
-        const input = form.querySelector('[name="' + field + '"]');
-        if (input) {
-            input.value = '';
-            input.classList.remove('is-invalid');
-        }
-
-        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
-        if (msg) {
-            msg.textContent = '';
-        }
-    });
-
-    resetPincodeSelect2(form, 'pincodeSelect');
-}
-
-function setComplaintCustomerFields(form, data) {
-    if (!form || !data) {
-        return;
+    if (typeof resetComplaintCustomerSelect2 === 'function') {
+        resetComplaintCustomerSelect2();
     }
-
-    ['customer_name', 'street_1', 'street_2'].forEach(function (field) {
-        const input = form.querySelector('[name="' + field + '"]');
-        if (!input) {
-            return;
-        }
-
-        input.value = data[field] != null ? String(data[field]) : '';
-        input.classList.remove('is-invalid');
-
-        const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
-        if (msg) {
-            msg.textContent = '';
-        }
-    });
 }
 
 function prefillComplaintFromFab(form, fabNumber) {
     if (!form) {
-        return;
+        return $.Deferred().resolve(null).promise();
     }
 
     fabNumber = String(fabNumber || '').trim();
     resetComplaintFabAutoFields(form);
 
     if (!fabNumber) {
-        return;
+        return $.Deferred().resolve(null).promise();
     }
 
-    $.ajax({
+    return $.ajax({
         url: 'api/complaint_fab_prefill.php',
         data: { fab_number: fabNumber },
         dataType: 'json'
-    }).done(function (response) {
-        if (!response || !response.found) {
-            return;
+    }).then(function (response) {
+        if (!response || !response.found || !response.customer_id) {
+            return response || null;
         }
 
-        setComplaintCustomerFields(form, response);
-        setPincodeSelect2(form, 'pincodeSelect', response);
-    }).fail(function () {
+        if (typeof setComplaintCustomerSelect2 === 'function') {
+            setComplaintCustomerSelect2(
+                response.customer_id,
+                response.customer_label || response.customer_name || ''
+            );
+        }
+
+        if (response.lock_customer && typeof setComplaintCustomerSelect2Locked === 'function') {
+            setComplaintCustomerSelect2Locked(true);
+        }
+
+        return response;
+    }, function () {
         resetComplaintFabAutoFields(form);
+        return null;
     });
 }

@@ -1,3 +1,59 @@
+function ensureComplaintCustomerIdHidden(id) {
+    let hidden = document.getElementById('complaintCustomerIdLocked');
+    const select = document.getElementById('complaintCustomerSelect');
+
+    if (!hidden && select && select.parentNode) {
+        hidden = document.createElement('input');
+        hidden.type = 'hidden';
+        hidden.name = 'customer_id';
+        hidden.id = 'complaintCustomerIdLocked';
+        select.parentNode.insertBefore(hidden, select.nextSibling);
+    }
+
+    if (hidden) {
+        hidden.value = id || '';
+    }
+}
+
+function removeComplaintCustomerIdHidden() {
+    const hidden = document.getElementById('complaintCustomerIdLocked');
+    if (hidden) {
+        hidden.remove();
+    }
+}
+
+function setComplaintAddNewCustomerButtonDisabled(disabled) {
+    const btn = document.getElementById('addNewCustomerFromComplaintBtn');
+    if (!btn) {
+        return;
+    }
+
+    btn.disabled = !!disabled;
+    btn.classList.toggle('disabled', !!disabled);
+    btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+}
+
+function setComplaintCustomerSelect2Locked(locked) {
+    const $customer = $('#complaintCustomerSelect');
+    if (!$customer.length) {
+        return;
+    }
+
+    const id = String($customer.val() || '').trim();
+
+    if (locked && id !== '') {
+        ensureComplaintCustomerIdHidden(id);
+        $customer.prop('disabled', true);
+        $customer.data('locked', true);
+        setComplaintAddNewCustomerButtonDisabled(true);
+    } else {
+        removeComplaintCustomerIdHidden();
+        $customer.prop('disabled', false);
+        $customer.data('locked', false);
+        setComplaintAddNewCustomerButtonDisabled(false);
+    }
+}
+
 function setComplaintCustomerSelect2(id, text) {
     const $customer = $('#complaintCustomerSelect');
     if (!$customer.length) {
@@ -17,6 +73,7 @@ function setComplaintCustomerSelect2(id, text) {
 }
 
 function resetComplaintCustomerSelect2() {
+    setComplaintCustomerSelect2Locked(false);
     setComplaintCustomerSelect2('', '');
 }
 
@@ -152,6 +209,10 @@ function initComplaintAddNewCustomerButton() {
     }
 
     btn.addEventListener('click', function () {
+        if (btn.disabled || $('#complaintCustomerSelect').data('locked')) {
+            return;
+        }
+
         if (typeof openInstalledBaseAddCustomerModal === 'function') {
             openInstalledBaseAddCustomerModal();
             return;

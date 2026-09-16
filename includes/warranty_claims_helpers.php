@@ -1983,6 +1983,147 @@ function service_claim_get_by_id(PDO $conn, int $id): ?array
     return $row ?: null;
 }
 
+function service_claim_format_km_value($km): string
+{
+    if ($km === null || $km === '') {
+        return '';
+    }
+
+    if (!is_numeric($km) || (float) $km <= 0) {
+        return '';
+    }
+
+    $formatted = number_format((float) $km, 2, '.', '');
+    $formatted = rtrim(rtrim($formatted, '0'), '.');
+
+    return $formatted !== '' ? $formatted : '';
+}
+
+function service_claim_latest_distance_for_complaint(PDO $conn, int $complaintId): string
+{
+    if ($complaintId <= 0) {
+        return '';
+    }
+
+    require_once __DIR__ . '/complaint_service_update_save_helpers.php';
+    complaint_service_update_ensure_schema($conn);
+
+    try {
+        $stmt = $conn->prepare('
+            SELECT distance_travelled
+            FROM complaint_service_updates
+            WHERE complaint_id = :complaint_id
+              AND distance_travelled IS NOT NULL
+              AND distance_travelled > 0
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+        ');
+        $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+        $stmt->execute();
+        $km = $stmt->fetchColumn();
+
+        return service_claim_format_km_value($km !== false ? $km : '');
+    } catch (PDOException $e) {
+        return '';
+    }
+}
+
+function service_claim_latest_service_log_for_fab(PDO $conn, string $fabNumber): ?array
+{
+    require_once __DIR__ . '/complaint_service_log_helpers.php';
+    complaint_service_log_ensure_schema($conn);
+
+    $fabNumber = trim($fabNumber);
+    if ($fabNumber === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT sl.*
+        FROM service_logs sl
+        WHERE sl.deleted_at IS NULL
+          AND LOWER(TRIM(sl.fab_number)) = LOWER(TRIM(:fab_number))
+        ORDER BY COALESCE(sl.closure_date, sl.visit_date, sl.created_at::date) DESC NULLS LAST, sl.id DESC
+        LIMIT 20
+    ');
+    $stmt->bindValue(':fab_number', $fabNumber);
+    $stmt->execute();
+
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (!service_log_is_draft_value($row['is_draft'] ?? 0)) {
+            return $row;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @return array{found: bool, km_travelled: string, fab_number: string, service_log_id: int}
+ */
+function service_claim_distance_from_service_log(PDO $conn, int $complaintId): array
+{
+    $empty = [
+        'found' => false,
+        'km_travelled' => '',
+        'fab_number' => '',
+        'service_log_id' => 0,
+    ];
+
+    if ($complaintId <= 0) {
+        return $empty;
+    }
+
+    require_once __DIR__ . '/complaint_service_log_helpers.php';
+    complaint_service_log_ensure_schema($conn);
+
+    $complaint = warranty_claims_find_complaint($conn, $complaintId);
+    $fabNumber = trim((string) ($complaint['fab_number'] ?? ''));
+
+    $serviceLog = complaint_service_log_find_current_cycle($conn, $complaintId);
+    if ($serviceLog && service_log_is_draft_value($serviceLog['is_draft'] ?? 0)) {
+        $serviceLog = null;
+    }
+    if (!$serviceLog && $fabNumber !== '') {
+        $serviceLog = service_claim_latest_service_log_for_fab($conn, $fabNumber);
+    }
+
+    if (!$serviceLog) {
+        return $empty;
+    }
+
+    if ($fabNumber === '') {
+        $fabNumber = trim((string) ($serviceLog['fab_number'] ?? ''));
+    }
+
+    $mappedComplaintId = $complaintId;
+    $mapping = complaint_service_log_find_mapping_by_service_log($conn, (int) ($serviceLog['id'] ?? 0));
+    if ($mapping && (int) ($mapping['complaint_id'] ?? 0) > 0) {
+        $mappedComplaintId = (int) $mapping['complaint_id'];
+    }
+
+    $km = service_claim_latest_distance_for_complaint($conn, $mappedComplaintId);
+    if ($km === '') {
+        $km = service_claim_latest_distance_for_complaint($conn, $complaintId);
+    }
+
+    if ($km === '') {
+        return [
+            'found' => false,
+            'km_travelled' => '',
+            'fab_number' => $fabNumber,
+            'service_log_id' => (int) ($serviceLog['id'] ?? 0),
+        ];
+    }
+
+    return [
+        'found' => true,
+        'km_travelled' => $km,
+        'fab_number' => $fabNumber,
+        'service_log_id' => (int) ($serviceLog['id'] ?? 0),
+    ];
+}
+
 function service_claim_latest_for_complaint(PDO $conn, int $complaintId): ?array
 {
     if ($complaintId <= 0) {

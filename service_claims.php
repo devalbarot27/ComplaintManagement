@@ -46,60 +46,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
     if ($complaint === null) {
         $field_errors['complaint_id'] = 'Please select a valid Call Ticket Number.';
         $error_message = $field_errors['complaint_id'];
-    } elseif (!is_numeric($kmTravelled) || (float) $kmTravelled <= 0) {
-        $field_errors['km_travelled'] = 'Distance Travelled (KMs) is required and must be greater than zero.';
-        $error_message = $field_errors['km_travelled'];
-    } elseif ($serviceDate === '') {
-        $field_errors['service_date'] = 'Service Date is required.';
-        $error_message = $field_errors['service_date'];
-    } elseif (strlen($resolutionNotes) > 1000) {
-        $error_message = 'Resolution notes cannot exceed 1000 characters.';
     } else {
-        try {
-            $visitCharge = distance_wise_price_find_for_km($obconn, (float) $kmTravelled);
-
-            $stmt = $obconn->prepare("
-                INSERT INTO service_claims
-                (
-                    complaint_id, km_travelled, service_date, resolution_notes,
-                    visit_charge_price, overall_status, created_by_username
-                )
-                VALUES
-                (
-                    :complaint_id, :km_travelled, :service_date, :resolution_notes,
-                    :visit_charge_price, :overall_status, :created_by_username
-                )
-                RETURNING id
-            ");
-            $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
-            $stmt->bindValue(':km_travelled', (float) $kmTravelled);
-            $stmt->bindValue(':service_date', $serviceDate);
-            $stmt->bindValue(':resolution_notes', $resolutionNotes !== '' ? $resolutionNotes : null);
-            if ($visitCharge === null) {
-                $stmt->bindValue(':visit_charge_price', null, PDO::PARAM_NULL);
-            } else {
-                $stmt->bindValue(':visit_charge_price', number_format((float) $visitCharge['price'], 2, '.', ''));
+        if ($kmTravelled === '' || !is_numeric($kmTravelled) || (float) $kmTravelled <= 0) {
+            $prefillKm = service_claim_distance_from_service_log($obconn, $complaintId);
+            if (!empty($prefillKm['found'])) {
+                $kmTravelled = (string) $prefillKm['km_travelled'];
             }
-            $stmt->bindValue(':overall_status', 'Pending CCS Review');
-            $stmt->bindValue(':created_by_username', $userName);
-            $stmt->execute();
+        }
 
-            $newClaimId = (int) $stmt->fetchColumn();
+        if (!is_numeric($kmTravelled) || (float) $kmTravelled <= 0) {
+            $field_errors['km_travelled'] = 'Distance Travelled (KMs) is required and must be greater than zero.';
+            $error_message = $field_errors['km_travelled'];
+        } elseif ($serviceDate === '') {
+            $field_errors['service_date'] = 'Service Date is required.';
+            $error_message = $field_errors['service_date'];
+        } elseif (strlen($resolutionNotes) > 1000) {
+            $error_message = 'Resolution notes cannot exceed 1000 characters.';
+        } else {
+            try {
+                $visitCharge = distance_wise_price_find_for_km($obconn, (float) $kmTravelled);
 
-            warranty_claims_notify_role_holders(
-                $obconn,
-                'service-claims',
-                'mark-warranty',
-                'New Service Claim Pending CCS Review',
-                'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs a warranty eligibility decision.',
-                $newClaimId
-            );
+                $stmt = $obconn->prepare("
+                    INSERT INTO service_claims
+                    (
+                        complaint_id, km_travelled, service_date, resolution_notes,
+                        visit_charge_price, overall_status, created_by_username
+                    )
+                    VALUES
+                    (
+                        :complaint_id, :km_travelled, :service_date, :resolution_notes,
+                        :visit_charge_price, :overall_status, :created_by_username
+                    )
+                    RETURNING id
+                ");
+                $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+                $stmt->bindValue(':km_travelled', (float) $kmTravelled);
+                $stmt->bindValue(':service_date', $serviceDate);
+                $stmt->bindValue(':resolution_notes', $resolutionNotes !== '' ? $resolutionNotes : null);
+                if ($visitCharge === null) {
+                    $stmt->bindValue(':visit_charge_price', null, PDO::PARAM_NULL);
+                } else {
+                    $stmt->bindValue(':visit_charge_price', number_format((float) $visitCharge['price'], 2, '.', ''));
+                }
+                $stmt->bindValue(':overall_status', 'Pending CCS Review');
+                $stmt->bindValue(':created_by_username', $userName);
+                $stmt->execute();
 
-            $_SESSION['success_message'] = 'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending CCS warranty review.';
-            header('Location: service_claims.php');
-            exit;
-        } catch (PDOException $e) {
-            $error_message = 'Failed to submit call closure. Please try again.';
+                $newClaimId = (int) $stmt->fetchColumn();
+
+                warranty_claims_notify_role_holders(
+                    $obconn,
+                    'service-claims',
+                    'mark-warranty',
+                    'New Service Claim Pending CCS Review',
+                    'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs a warranty eligibility decision.',
+                    $newClaimId
+                );
+
+                $_SESSION['success_message'] = 'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending CCS warranty review.';
+                header('Location: service_claims.php');
+                exit;
+            } catch (PDOException $e) {
+                $error_message = 'Failed to submit call closure. Please try again.';
+            }
         }
     }
 }
@@ -501,8 +510,9 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                     <i class="bi bi-signpost-split"></i> Distance Travelled (KMs) <span class="text-danger">*</span>
                                 </label>
                                 <input type="number" step="0.1" min="0.1" class="form-control<?= isset($field_errors['km_travelled']) ? ' is-invalid' : '' ?>" id="kmTravelled" name="km_travelled"
-                                    placeholder="e.g. 42.5"
+                                    placeholder="Auto from Service Log"
                                     value="<?= htmlspecialchars($_POST['km_travelled'] ?? '') ?>">
+                                <div class="form-text" id="kmTravelledHint">Auto-filled from the Service Log for this Fab Number.</div>
                                 <div class="text-danger validation-msg" data-field="km_travelled"><?= htmlspecialchars($field_errors['km_travelled'] ?? '') ?></div>
                             </div>
                             <div class="col-md-4 form-group">
@@ -923,6 +933,86 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
         kmInput.addEventListener('input', updateVisitChargePrice);
         kmInput.addEventListener('change', updateVisitChargePrice);
         updateVisitChargePrice();
+    }
+
+    const kmHint = document.getElementById('kmTravelledHint');
+    const hasPostedKm = !!(kmInput && String(kmInput.value || '').trim() !== '');
+
+    function setKmTravelledLocked(locked) {
+        if (!kmInput) {
+            return;
+        }
+        kmInput.readOnly = !!locked;
+        kmInput.style.backgroundColor = locked ? '#f8f9fa' : '';
+        if (kmHint) {
+            kmHint.textContent = locked
+                ? 'Auto-filled from the Service Log for this Fab Number.'
+                : 'Select a call ticket to auto-fill from the Service Log, or enter KM manually.';
+        }
+    }
+
+    function applyServiceClaimDistance(data) {
+        if (!kmInput) {
+            return;
+        }
+        const km = data && data.found ? String(data.km_travelled || '').trim() : '';
+        if (km !== '' && !isNaN(parseFloat(km)) && parseFloat(km) > 0) {
+            kmInput.value = km;
+            setKmTravelledLocked(true);
+            clearFieldError('km_travelled', kmInput);
+            updateVisitChargePrice();
+            return;
+        }
+        kmInput.value = '';
+        setKmTravelledLocked(false);
+        updateVisitChargePrice();
+    }
+
+    function loadServiceClaimDistanceFromServiceLog(complaintId, overwrite) {
+        const id = String(complaintId || '').trim();
+        if (!overwrite && kmInput && String(kmInput.value || '').trim() !== '') {
+            setKmTravelledLocked(true);
+            updateVisitChargePrice();
+            return;
+        }
+        if (id === '' || !/^\d+$/.test(id)) {
+            applyServiceClaimDistance(null);
+            return;
+        }
+        fetch('api/service_claim_distance_prefill.php?complaint_id=' + encodeURIComponent(id), {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        })
+            .then(function (response) {
+                return response.json().then(function (payload) {
+                    return { ok: response.ok, payload: payload };
+                });
+            })
+            .then(function (result) {
+                if (!result.ok || !result.payload || result.payload.success === false) {
+                    applyServiceClaimDistance(null);
+                    return;
+                }
+                applyServiceClaimDistance(result.payload);
+            })
+            .catch(function () {
+                applyServiceClaimDistance(null);
+            });
+    }
+
+    if (complaintSelect) {
+        const onComplaintChange = function () {
+            loadServiceClaimDistanceFromServiceLog(complaintSelect.value, true);
+        };
+        complaintSelect.addEventListener('change', onComplaintChange);
+        if (typeof $ !== 'undefined') {
+            $(complaintSelect).on('change select2:select select2:clear', onComplaintChange);
+        }
+        if (String(complaintSelect.value || '').trim() !== '') {
+            loadServiceClaimDistanceFromServiceLog(complaintSelect.value, !hasPostedKm);
+        } else {
+            setKmTravelledLocked(false);
+        }
     }
 })();
 </script>

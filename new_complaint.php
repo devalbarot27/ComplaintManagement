@@ -44,6 +44,9 @@ if(isset($_POST['submit_complaint']))
     } else {
     $fab_number = trim($_POST['fab_number']);
     $customer_id = (int) ($_POST['customer_id'] ?? 0);
+    if ($customer_id <= 0) {
+        $customer_id = (int) ($_POST['customer_id_locked'] ?? 0);
+    }
     $complaint_description = trim($_POST['complaint_description']);
     $complaint_category_id = (int) ($_POST['complaint_category_id'] ?? 0);
     $remarks = trim($_POST['remarks'] ?? '');
@@ -1424,7 +1427,11 @@ $(document).ready(function() {
         }
 
         const customerId = (params.get('customer_id') || '').trim();
-        if (customerId) {
+        const fabNumber = ($('#complaintFabNumberSelect').val() || '').trim();
+        const applyReturnedCustomer = function () {
+            if (!customerId || $('#complaintCustomerSelect').data('locked')) {
+                return;
+            }
             $.getJSON('api/customer_masters_search.php', { id: customerId })
                 .done(function (response) {
                     const row = response && response.results && response.results[0] ? response.results[0] : null;
@@ -1432,6 +1439,15 @@ $(document).ready(function() {
                         setComplaintCustomerSelect2(row.id, row.text || '');
                     }
                 });
+        };
+
+        if (fabNumber && typeof prefillComplaintFromFab === 'function') {
+            prefillComplaintFromFab(document.getElementById('complaintForm'), fabNumber)
+                .done(function () {
+                    applyReturnedCustomer();
+                });
+        } else {
+            applyReturnedCustomer();
         }
 
         const url = new URL(window.location.href);
