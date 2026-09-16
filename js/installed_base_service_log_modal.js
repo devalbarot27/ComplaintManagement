@@ -459,6 +459,9 @@ function resetInstalledBaseServiceLogForm() {
         'ibServiceLogWarrantySelect',
         'ibServiceLogPartReplacedSelect'
     ]);
+    if (typeof clearServiceLogWarrantyAmcFields === 'function') {
+        clearServiceLogWarrantyAmcFields(form);
+    }
 
     if (window.ibServiceLogFeedbackRating) {
         window.ibServiceLogFeedbackRating.reset();
@@ -500,6 +503,9 @@ function fillInstalledBaseServiceLogForm(data) {
             input.value = data[field] ?? '';
         }
     });
+    if (typeof applyServiceLogWarrantyAmcFields === 'function') {
+        applyServiceLogWarrantyAmcFields(form, data);
+    }
 }
 
 function initInstalledBaseServiceLogSelect2() {

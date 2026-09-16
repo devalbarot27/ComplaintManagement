@@ -55,6 +55,7 @@
                                 <label class="form-label"><i class="bi bi-upc"></i> Serial Number <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="serial_number" id="ibServiceLogSerialNumber" readonly>
                             </div>
+                            <?php include __DIR__ . '/service_log_warranty_amc_fields.php'; ?>
                             <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-shield-check"></i> Service Type <span class="text-danger">*</span></label>
                                 <select class="form-control" name="warranty_chargeable" id="ibServiceLogWarrantySelect" data-placeholder="Search service type">

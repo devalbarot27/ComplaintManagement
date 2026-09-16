@@ -324,7 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                         placeholder="Auto-generated" readonly>
                                     <div class="text-danger validation-msg" data-field="serial_number"></div>
                                 </div>
-                              
+                                <?php include __DIR__ . '/includes/service_log_warranty_amc_fields.php'; ?>
                                 <div class="col-md-4 form-group">
                                     <label class="form-label"><i class="bi bi-shield-check"></i> Service Type <span class="text-danger">*</span></label>
                                     <select class="form-control" name="warranty_chargeable" id="serviceLogWarrantySelect"
@@ -519,6 +519,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
 
     <script src="js/static_select2.js"></script>
     <script src="js/customer_feedback_rating.js"></script>
+    <script src="js/service_log_warranty_amc.js"></script>
     <script src="js/service_log_part_replacement.js"></script>
     <script src="js/service_log_installed_base_select2.js"></script>
     <script src="js/service_log_validation.js"></script>

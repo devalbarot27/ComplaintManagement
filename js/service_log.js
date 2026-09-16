@@ -169,6 +169,10 @@ function fillServiceLogForm(record, options) {
         remarksInput.value = record.remarks ?? '';
     }
 
+    if (typeof applyServiceLogWarrantyAmcFields === 'function') {
+        applyServiceLogWarrantyAmcFields(form, record);
+    }
+
     const returnInstalledBaseInput = document.getElementById('serviceLogReturnInstalledBaseId');
     if (returnInstalledBaseInput) {
         returnInstalledBaseInput.value = options.returnInstalledBaseId
@@ -194,6 +198,9 @@ function resetServiceLogForm() {
     updateServiceLogDraftButtonState(null);
 
     resetInstalledBaseLinkSelect2(form);
+    if (typeof clearServiceLogWarrantyAmcFields === 'function') {
+        clearServiceLogWarrantyAmcFields(form);
+    }
     resetStaticSelect2Fields([
         'serviceLogWarrantySelect',
         'serviceLogPartReplacedSelect'

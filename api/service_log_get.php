@@ -7,6 +7,7 @@ require_once dirname(__DIR__) . '/includes/service_log_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_service_log_helpers.php';
+require_once dirname(__DIR__) . '/includes/amc_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -84,5 +85,12 @@ foreach (service_log_remaining_consumable_column_names() as $field) {
 }
 
 $response['part_replacement_entries'] = service_log_part_replacements_for_service_log($obconn, (int) $row['id']);
+
+$warrantyAmc = installed_base_warranty_amc_form_payload(
+    $obconn,
+    (int) ($row['installed_base_id'] ?? 0),
+    (string) ($row['fab_number'] ?? '')
+);
+$response = array_merge($response, $warrantyAmc);
 
 echo json_encode($response);

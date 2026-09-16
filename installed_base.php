@@ -568,6 +568,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <script src="js/installed_base.js"></script>
     <?php if ($canAddServiceLog) { ?>
     <script src="js/customer_feedback_rating.js"></script>
+    <script src="js/service_log_warranty_amc.js"></script>
     <script src="js/installed_base_service_log_modal.js"></script>
     <script src="js/installed_base_service_log_draft.js"></script>
     <?php } ?>

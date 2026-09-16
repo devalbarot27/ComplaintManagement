@@ -47,6 +47,9 @@ function resetInstalledBaseLinkSelect2(form) {
 
     $select.val(null).trigger('change');
     clearServiceLogInstalledBaseFields(form);
+    if (typeof clearServiceLogWarrantyAmcFields === 'function') {
+        clearServiceLogWarrantyAmcFields(form);
+    }
 }
 
 function initServiceLogInstalledBaseSelect2() {
@@ -86,6 +89,9 @@ function initServiceLogInstalledBaseSelect2() {
 
     $select.on('select2:select', function (e) {
         setServiceLogInstalledBaseFields(form, e.params.data);
+        if (typeof applyServiceLogWarrantyAmcFields === 'function') {
+            applyServiceLogWarrantyAmcFields(form, e.params.data);
+        }
 
         $select.removeClass('is-invalid');
 
@@ -97,5 +103,8 @@ function initServiceLogInstalledBaseSelect2() {
 
     $select.on('select2:clear', function () {
         clearServiceLogInstalledBaseFields(form);
+        if (typeof clearServiceLogWarrantyAmcFields === 'function') {
+            clearServiceLogWarrantyAmcFields(form);
+        }
     });
 }

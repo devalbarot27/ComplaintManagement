@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/service_log_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/amc_helpers.php';
 require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 after_market_require_service_log_add_api_access($obconn);
@@ -35,11 +36,18 @@ $machineModelCode = (string) ($row['machine_model_code'] ?? '');
 $machineModelDesc = trim((string) ($row['machine_model'] ?? ''));
 $runningHours = (string) ($row['running_hours'] ?? '');
 $serialNumber = service_log_peek_next_serial_number_safe($obconn);
+$commissioningDate = (string) ($row['commissioning_date'] ?? '');
 unset($row);
 
 $label = '#' . $installedBaseId . ' - ' . $fabNumber . ' - ' . $customerName;
+$warrantyAmc = installed_base_warranty_amc_form_payload(
+    $obconn,
+    $installedBaseId,
+    $fabNumber,
+    $commissioningDate
+);
 
-api_json_echo([
+api_json_echo(array_merge([
     'installed_base_id' => $installedBaseId,
     'installed_base_label' => $label,
     'order_id' => '',
@@ -49,4 +57,4 @@ api_json_echo([
     'machine_model_desc' => $machineModelDesc,
     'running_hours' => $runningHours,
     'serial_number' => $serialNumber,
-]);
+], $warrantyAmc));

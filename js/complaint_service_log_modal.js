@@ -235,6 +235,9 @@ function resetInstalledBaseServiceLogForm() {
     document.getElementById('ibServiceLogInstalledBaseId').value = '';
     document.getElementById('ibServiceLogInstalledBaseLabel').value = '';
     resetStaticSelect2Fields(['ibServiceLogWarrantySelect', 'ibServiceLogPartReplacedSelect']);
+    if (typeof clearServiceLogWarrantyAmcFields === 'function') {
+        clearServiceLogWarrantyAmcFields(form);
+    }
     ibServiceLogSetModalMode('add');
     ibServiceLogClearPartReplacementEntries();
     document.getElementById('ibServiceLogPartReplacementWrapper').classList.add('d-none');
@@ -260,6 +263,9 @@ function fillInstalledBaseServiceLogForm(data) {
             input.value = data[field] || '';
         }
     });
+    if (typeof applyServiceLogWarrantyAmcFields === 'function') {
+        applyServiceLogWarrantyAmcFields(form, data);
+    }
 }
 
 function fillInstalledBaseServiceLogFormForEdit(record) {

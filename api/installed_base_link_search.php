@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/installed_base_helpers.php';
 require_once dirname(__DIR__) . '/includes/after_market_access_helpers.php';
+require_once dirname(__DIR__) . '/includes/amc_helpers.php';
 rbac_require_api_access($obconn);
 
 installed_base_ensure_schema($obconn);
@@ -25,6 +26,7 @@ $sql = "
         cm.customer_name,
         ib.machine_model,
         ib.machine_model_code,
+        ib.commissioning_date,
         ib.running_hours
     FROM installed_base ib
     " . installed_base_customer_join_sql('ib', 'cm') . "
@@ -58,13 +60,28 @@ if ($term !== '') {
 $stmt->execute();
 
 $results = [];
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$amcLookup = amc_coverage_lookup(
+    $obconn,
+    array_map(static fn ($row) => (int) ($row['id'] ?? 0), $rows),
+    array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
+);
 
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+foreach ($rows as $row) {
     $customerName = trim((string) ($row['customer_name'] ?? ''));
     $label = '#' . (int) $row['id'] . ' - ' . $row['fab_number'] . ' - ' . ($customerName !== '' ? $customerName : '-');
     $machineModelLabel = installed_base_machine_model_label($row);
+    $coverage = amc_coverage_resolve(
+        $amcLookup,
+        (int) $row['id'],
+        (string) ($row['fab_number'] ?? '')
+    );
+    $warrantyAmc = installed_base_warranty_amc_form_payload_from_values(
+        (string) ($row['commissioning_date'] ?? ''),
+        $coverage
+    );
 
-    $results[] = [
+    $results[] = array_merge([
         'id' => (int) $row['id'],
         'text' => $label,
         'installed_base_id' => (int) $row['id'],
@@ -75,7 +92,7 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'machine_model_code' => $row['machine_model_code'],
         'machine_model_desc' => trim((string) ($row['machine_model'] ?? '')),
         'running_hours' => $row['running_hours'],
-    ];
+    ], $warrantyAmc);
 }
 
 echo json_encode(['results' => $results]);

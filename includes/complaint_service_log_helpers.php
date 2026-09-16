@@ -164,6 +164,7 @@ function complaint_service_log_get_installed_base_row(PDO $conn, int $installedB
             cm.customer_name,
             ib.machine_model,
             ib.machine_model_code,
+            ib.commissioning_date,
             ib.running_hours
         FROM installed_base ib
         ' . installed_base_customer_join_sql('ib', 'cm') . '
@@ -300,6 +301,7 @@ function complaint_service_log_resolve_installed_base(PDO $conn, int $complaintI
             cm.customer_name,
             ib.machine_model,
             ib.machine_model_code,
+            ib.commissioning_date,
             ib.running_hours
         FROM installed_base ib
         ' . installed_base_customer_join_sql('ib', 'cm') . '
@@ -806,7 +808,15 @@ function complaint_service_log_prefill_payload(PDO $conn, int $complaintId, stri
         . ' - ' . ($installedBase['fab_number'] ?? '')
         . ' - ' . ($installedBase['customer_name'] ?? '');
 
-    return [
+    require_once __DIR__ . '/amc_helpers.php';
+    $warrantyAmc = installed_base_warranty_amc_form_payload(
+        $conn,
+        $installedBaseId,
+        (string) ($installedBase['fab_number'] ?? ''),
+        (string) ($installedBase['commissioning_date'] ?? '')
+    );
+
+    return array_merge([
         'success' => true,
         'complaint_id' => $complaintId,
         'complaint_status' => (int) $context['complaint_status'],
@@ -819,7 +829,7 @@ function complaint_service_log_prefill_payload(PDO $conn, int $complaintId, stri
         'machine_model' => service_log_machine_model_from_installed_base($installedBase),
         'serial_number' => service_log_peek_next_serial_number_safe($conn),
         'complaint_description' => trim((string) (complaint_service_log_get_complaint($conn, $complaintId)['complaint_description'] ?? '')),
-    ];
+    ], $warrantyAmc);
 }
 
 function complaint_service_log_validate_for_service_update(PDO $conn, int $complaintId): ?string

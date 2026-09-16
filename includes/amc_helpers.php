@@ -1330,6 +1330,54 @@ function amc_coverage_resolve(array $lookup, int $installedBaseId = 0, string $f
     return amc_coverage_none();
 }
 
+/**
+ * @return array{
+ *     warranty_status: string,
+ *     warranty_end_date_heading: string,
+ *     warranty_end_date_label: string,
+ *     under_amc: string,
+ *     amc_end_date_label: string
+ * }
+ */
+function installed_base_warranty_amc_form_payload_from_values(?string $commissioningDate, array $coverage): array
+{
+    $details = installed_base_warranty_details($commissioningDate);
+    $endLabel = trim((string) ($details['end_date_label'] ?? ''));
+    if ($endLabel === '-') {
+        $endLabel = '';
+    }
+
+    $underAmc = !empty($coverage['under_amc']);
+    $amcEndLabel = trim((string) ($coverage['end_date_label'] ?? ''));
+    if ($amcEndLabel === '-') {
+        $amcEndLabel = '';
+    }
+
+    return [
+        'warranty_status' => (string) ($details['status'] ?? 'Unknown'),
+        'warranty_end_date_heading' => (string) ($details['end_date_heading'] ?? 'Warranty Ended On'),
+        'warranty_end_date_label' => $endLabel,
+        'under_amc' => $underAmc ? 'Yes' : 'No',
+        'amc_end_date_label' => $underAmc ? $amcEndLabel : '',
+    ];
+}
+
+function installed_base_warranty_amc_form_payload(
+    PDO $conn,
+    int $installedBaseId = 0,
+    string $fabNumber = '',
+    ?string $commissioningDate = null
+): array {
+    if ($commissioningDate === null || trim($commissioningDate) === '') {
+        $commissioningDate = installed_base_commissioning_date_for_machine($conn, $installedBaseId, $fabNumber);
+    }
+
+    return installed_base_warranty_amc_form_payload_from_values(
+        $commissioningDate,
+        amc_coverage_for_machine($conn, $installedBaseId, $fabNumber)
+    );
+}
+
 function amc_coverage_for_machine(PDO $conn, int $installedBaseId = 0, string $fabNumber = ''): array
 {
     return amc_coverage_resolve(

@@ -475,6 +475,7 @@ function service_log_get_installed_base(PDO $conn, int $installedBaseId, string 
             cm.customer_name,
             ib.machine_model,
             ib.machine_model_code,
+            ib.commissioning_date,
             ib.running_hours
         FROM installed_base ib
         ' . installed_base_customer_join_sql('ib', 'cm') . '

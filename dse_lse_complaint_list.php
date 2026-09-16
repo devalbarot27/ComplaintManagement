@@ -318,6 +318,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="js/static_select2.js"></script>
 <script src="js/customer_feedback_rating.js"></script>
+<script src="js/service_log_warranty_amc.js"></script>
 <script src="js/complaint_service_log_modal.js"></script>
 <script src="js/complaint_service_log_draft.js"></script>
 <?php } ?>
