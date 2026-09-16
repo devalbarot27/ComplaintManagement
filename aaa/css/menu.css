@@ -1,0 +1,46 @@
+.menu-section {
+  padding: 18px 14px 4px;
+}
+
+.menu-heading {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+
+.menu-item {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: #9da7b2;
+  text-decoration: none;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: 0.2s;
+}
+
+.menu-item i {
+  font-size: 15px;
+}
+
+.menu-item:hover {
+  background: #1d2d44;
+  color: white;
+}
+
+.menu-item.active {
+  background: #fff;
+  color: #000;
+}
+
+.menu-item.active:hover {
+  background: #1d2d44;
+  color: white;
+  font-weight: 500;
+}

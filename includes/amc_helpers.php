@@ -734,7 +734,7 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
     $stmt->bindValue(':username', $username);
 
     // contract_number is generated from a MAX() lookup, which is not safe against
-    // concurrent inserts ï¿½ retry a few times with a fresh number on a unique-violation.
+    // concurrent inserts   retry a few times with a fresh number on a unique-violation.
     $maxAttempts = 5;
     for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
         $stmt->bindValue(':contract_number', amc_next_contract_number($conn));
@@ -862,7 +862,7 @@ function amc_service_log_option_label(array $row): string
         $parts[] = $engineer;
     }
 
-    return implode(' Â· ', $parts);
+    return implode(' · ', $parts);
 }
 
 /**

@@ -253,8 +253,8 @@ if (isset($_GET['service_log_added']) && (string) $_GET['service_log_added'] ===
                                         <?php endif; ?>
                                     </td>
                                     <td><?= htmlspecialchars(AMC_TYPE_OPTIONS[$amcRow['amc_type']] ?? ($amcRow['amc_type'] ?: '-')) ?></td>
-                                    <td><?= htmlspecialchars(amc_format_date($amcRow['amc_start_date'] ?? null)) ?></td>
-                                    <td><?= htmlspecialchars(amc_format_date($amcRow['amc_end_date'] ?? null)) ?></td>
+                                    <td><?= htmlspecialchars(installed_base_format_date($amcRow['amc_start_date'] ?? null)) ?></td>
+                                    <td><?= htmlspecialchars(installed_base_format_date($amcRow['amc_end_date'] ?? null)) ?></td>
                                     <td><?= (int) ($amcRow['no_of_visits'] ?? 0) ?></td>
                                     <td>
                                         <span class="status-badge border border-dark">

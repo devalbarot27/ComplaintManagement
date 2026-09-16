@@ -22,7 +22,7 @@ if ($id <= 0) {
 }
 
 if (!after_market_user_can_access_record($obconn, 'service_logs', $id)) {
-  //  die('Service log record not found.');
+    //die('Service log record not found.');
 }
 
 $stmt = $obconn->prepare('

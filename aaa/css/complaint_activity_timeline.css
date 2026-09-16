@@ -1,0 +1,123 @@
+.complaint-timeline {
+    position: relative;
+    padding-left: 4px;
+}
+
+.complaint-timeline-item {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    padding: 0 0 22px 0;
+}
+
+.complaint-timeline-item:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    left: 17px;
+    top: 36px;
+    bottom: 0;
+    width: 2px;
+    background: #e2e8f0;
+}
+
+.complaint-timeline-marker {
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    border: 2px solid #cbd5e1;
+    color: #334155;
+    font-size: 15px;
+}
+
+.complaint-timeline-content {
+    flex: 1;
+    min-width: 0;
+    padding-top: 2px;
+}
+
+.complaint-timeline-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.complaint-timeline-type {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 14px;
+}
+
+.complaint-timeline-time {
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.complaint-timeline-desc {
+    font-size: 14px;
+    color: #334155;
+    line-height: 1.5;
+}
+
+.complaint-timeline-item--created .complaint-timeline-marker {
+    background: #ecfdf5;
+    border-color: #10b981;
+    color: #059669;
+}
+
+.complaint-timeline-item--assign .complaint-timeline-marker {
+    background: #fff7ed;
+    border-color: #f59e0b;
+    color: #d97706;
+}
+
+.complaint-timeline-item--reassign .complaint-timeline-marker {
+    background: #fff7ed;
+    border-color: #f59e0b;
+    color: #d97706;
+}
+
+.complaint-timeline-item--service .complaint-timeline-marker {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #2563eb;
+}
+
+.complaint-timeline-item--closure .complaint-timeline-marker {
+    background: #f5f3ff;
+    border-color: #8b5cf6;
+    color: #7c3aed;
+}
+
+.complaint-timeline-item--status .complaint-timeline-marker {
+    background: #ecfeff;
+    border-color: #06b6d4;
+    color: #0891b2;
+}
+
+.complaint-timeline-item--deleted .complaint-timeline-marker {
+    background: #fef2f2;
+    border-color: #ef4444;
+    color: #dc2626;
+}
+
+.complaint-timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+@media (max-width: 576px) {
+    .complaint-timeline-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

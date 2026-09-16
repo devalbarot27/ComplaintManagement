@@ -14,7 +14,7 @@ if ($id <= 0) {
 }
 
 if (!after_market_user_can_access_record($obconn, 'spare_parts_consumption', $id)) {
-   // die('Spare parts record not found.');
+    die('Spare parts record not found.');
 }
 
 $stmt = $obconn->prepare('
@@ -35,7 +35,7 @@ $stmt->execute();
 $sparePartsRecord = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$sparePartsRecord) {
-    die('Spare parts record not found.');
+    //die('Spare parts record not found.');
 }
 
 $sparePartsItems = spare_parts_items_for_consumption($obconn, $id);

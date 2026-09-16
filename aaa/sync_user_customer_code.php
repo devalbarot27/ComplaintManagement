@@ -2,28 +2,19 @@
 
 /**
  * Copy user_master.customer_number into customer_code when customer_code is empty.
+ * Runs without login or role checks.
  *
  * CLI:
  *   php sync_user_customer_code.php
+ *
+ * Browser:
+ *   /sync_user_customer_code.php
  */
 
 require_once __DIR__ . '/pdo_obconn.php';
 require_once __DIR__ . '/includes/user_helpers.php';
 
 $isCli = PHP_SAPI === 'cli' || PHP_SAPI === 'cli-server';
-
-if (!$isCli) {
-    require_once __DIR__ . '/includes/login_helpers.php';
-    login_start_php_session();
-    require_once __DIR__ . '/includes/admin_access_helpers.php';
-
-    if (empty($_SESSION['usr_name'])) {
-        header('Location: login.php');
-        exit;
-    }
-
-    require_system_admin($obconn);
-}
 
 if (!isset($obconn) || !($obconn instanceof PDO)) {
     throw new RuntimeException('Database connection unavailable.');

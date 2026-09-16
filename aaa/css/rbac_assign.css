@@ -1,0 +1,75 @@
+.rbac-select-all-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #f9fafb;
+}
+
+.rbac-select-all-label {
+    margin: 0;
+}
+
+.rbac-module-check-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 600;
+    font-size: 1rem;
+    color: #111827;
+}
+
+.rbac-module-check-all input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.rbac-module-block {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: #fff;
+}
+
+.rbac-module-title {
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 12px;
+    color: #111827;
+}
+
+.rbac-module-title i {
+    margin-right: 8px;
+    color: #374151;
+}
+
+.rbac-permission-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    padding-left: 8px;
+}
+
+.rbac-permission-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.rbac-permission-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}

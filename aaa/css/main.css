@@ -1,0 +1,113 @@
+ * {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        body {
+            margin: 0;
+            background: #f8fafc;
+            overflow-x: hidden;
+        }
+
+
+        .main-wrapper {
+            margin-left: 248px;
+            transition: all .3s ease;
+        }
+
+        .main-wrapper.full {
+            margin-left: 0;
+        }
+
+
+        /* CONTENT */
+
+        .content {
+            padding: 18px;
+        }
+
+        /* FILTER */
+
+        .filter-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .month-btn {
+            height: 38px;
+            min-width: 170px;
+            border: 1px solid #d8dee8;
+            background: #fff;
+            border-radius: 8px;
+            padding: 0 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #334155;
+            font-weight: 500;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+        }
+
+        .action-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            height: 38px;
+            background: white;
+            border: 1px solid #d8dee8;
+            border-radius: 8px;
+            padding: 0 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #0f172a;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+        }
+
+        /* ALERTS */
+
+        .alert-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .custom-alert {
+            height: 46px;
+            border-radius: 10px;
+            padding: 0 14px;
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .alert-orange {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #ea580c;
+        }
+
+        .alert-blue {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #0f62fe;
+        }
+
+        .alert-green {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #16a34a;
+        }
+
+    

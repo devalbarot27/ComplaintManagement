@@ -9,15 +9,15 @@ require_once __DIR__ . '/includes/admin_access_helpers.php';
 admin_refresh_session_role($obconn);
 require_once __DIR__ . '/includes/rbac_access_helpers.php';
 rbac_require_page_access($obconn);
-
 $username = $_SESSION['usr_name'];
 
-$getCustomerName = $obconn->prepare("SELECT customer_number FROM user_master WHERE username=:username limit 1");
+$getCustomerName = $obconn->prepare("SELECT customer_code FROM user_master WHERE username=:username limit 1");
 $getCustomerName->execute([':username' => $username]);
 $fetchCustomer = $getCustomerName->fetch(PDO::FETCH_ASSOC);
 
-if ($fetchCustomer && !empty(trim($fetchCustomer['customer_number']))) {
-    $_SESSION['customer_number_vayu'] = $fetchCustomer['customer_number'];
+
+if ($fetchCustomer && !empty(trim($fetchCustomer['customer_code']))) {
+    $_SESSION['customer_number_vayu'] = $fetchCustomer['customer_code'];
 } else {
     session_unset();
     $_SESSION['error'] = "Customer code is not mapped";

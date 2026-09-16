@@ -1,0 +1,171 @@
+/* Sidebar brand block */
+
+.sidebar-brand {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex-shrink: 0;
+    padding: 5px 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: #000;
+    background-image:
+        radial-gradient(circle at top left, rgba(244, 70, 17, 0.12) 0%, rgba(244, 70, 17, 0) 55%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.sidebar-brand__link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    border-radius: 10px;
+    padding: 6px;
+    transition: background-color 0.2s ease;
+}
+
+.sidebar-brand__link:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-brand__link:active {
+    transform: scale(0.995);
+}
+
+.sidebar-brand__logo-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    padding: 5px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
+}
+
+.sidebar-brand__logo-box {
+    display: block;
+    width: 100%;
+    background: transparent;
+}
+
+.sidebar-brand__logo {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 42px;
+    margin: 0 auto;
+    object-fit: contain;
+}
+
+.sidebar-brand__copy {
+    min-width: 0;
+    text-align: left;
+}
+
+.sidebar-brand__title {
+    display: block;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+}
+
+.sidebar-brand__subtitle {
+    display: block;
+    margin-top: 2px;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
+.sidebar-brand__link:hover .sidebar-brand__title {
+    color: #fff;
+}
+
+.sidebar-brand__link:hover .sidebar-brand__subtitle {
+    color: #cbd5e1;
+}
+
+/* Legacy brand classes (auth pages and older markup) */
+
+.brand-section {
+    padding: 20px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.brand-link {
+    display: block;
+    text-decoration: none;
+    text-align: center;
+}
+
+.brand-link:hover .brand-title {
+    color: #fff;
+}
+
+.brand-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.brand-section .brand-logo {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    display: block;
+}
+
+.brand-section .brand-logo__image {
+    display: block;
+    width: 100%;
+    max-width: 160px;
+    height: auto;
+    margin: 0 auto;
+    object-fit: contain;
+}
+
+.brand-title {
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.brand-subtitle {
+    color: #64748b;
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+    .sidebar-brand {
+        padding: 10px 12px;
+        padding-right: 48px;
+    }
+
+    .sidebar-brand__logo-panel {
+        width: 52px;
+        height: 52px;
+        padding: 6px;
+    }
+
+    .sidebar-brand__logo {
+        max-height: 38px;
+    }
+}

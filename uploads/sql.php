@@ -13,7 +13,7 @@ try {
             is_nullable,
             column_default
         FROM information_schema.columns
-        WHERE table_name = 'plexecom_customer_units'
+        WHERE table_name = 'user_master'
         ORDER BY ordinal_position
     ");
     
@@ -23,8 +23,9 @@ try {
     // 2. Get sample data
     $stmt = $obconn->prepare("
         SELECT *
-        FROM plexecom_customer_units
-        LIMIT 10
+        FROM user_master
+where customer_code is null
+        LIMIT 1000
     ");
 
     $stmt->execute();
@@ -33,7 +34,7 @@ try {
     // 3. Merge output
     echo "<pre>";
     print_r([
-        "structure" => $structure,
+      //  "structure" => $structure,
         "data" => $data
     ]);
 
@@ -258,7 +259,7 @@ try {
             is_nullable,
             column_default
         FROM information_schema.columns
-        WHERE table_name = 'pendingordersnew'
+        WHERE table_name = 'user_master'
         ORDER BY ordinal_position
     ");
     
@@ -268,7 +269,7 @@ try {
     // 2. Get sample data
     $stmt = $dpconn->prepare("
         SELECT *
-        FROM pendingordersnew
+        FROM user_master
         LIMIT 10
     ");
 
@@ -278,7 +279,7 @@ try {
     // 3. Merge output
     echo "<pre>";
     print_r([
-        "structure" => $structure,
+       // "structure" => $structure,
         "data" => $data
     ]);
 
