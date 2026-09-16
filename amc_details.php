@@ -157,9 +157,9 @@ $availableServiceLogs = $canEditAmc ? amc_service_logs_available_for_visit($obco
                 <div class="row g-3">
                     <div class="col-md-3"><strong>AMC Type:</strong><br><?= htmlspecialchars(AMC_TYPE_OPTIONS[$amcContract['amc_type']] ?? $amcContract['amc_type'] ?? '-') ?></div>
                     <div class="col-md-3"><strong>AMC Value:</strong><br><?= htmlspecialchars(number_format((float) $amcContract['amc_value'], 2)) ?></div>
-                    <div class="col-md-3"><strong>AMC Start Date:</strong><br><?= htmlspecialchars($amcContract['amc_start_date']) ?></div>
-                    <div class="col-md-3"><strong>AMC End Date:</strong><br><?= htmlspecialchars($amcContract['amc_end_date']) ?></div>
-                    <div class="col-md-3"><strong>Visit Start Date:</strong><br><?= htmlspecialchars($amcContract['visit_start_date']) ?></div>
+                    <div class="col-md-3"><strong>AMC Start Date:</strong><br><?= htmlspecialchars(amc_format_date($amcContract['amc_start_date'] ?? null)) ?></div>
+                    <div class="col-md-3"><strong>AMC End Date:</strong><br><?= htmlspecialchars(amc_format_date($amcContract['amc_end_date'] ?? null)) ?></div>
+                    <div class="col-md-3"><strong>Visit Start Date:</strong><br><?= htmlspecialchars(amc_format_date($amcContract['visit_start_date'] ?? null)) ?></div>
                     <div class="col-md-3"><strong>Number of Visits:</strong><br><?= (int) $amcContract['no_of_visits'] ?></div>
                     <?php if ($canSeeAddedBy): ?>
                     <div class="col-md-3"><strong>Added By:</strong><br><?= htmlspecialchars(amc_added_by_label($amcContract)) ?></div>
@@ -203,9 +203,9 @@ $availableServiceLogs = $canEditAmc ? amc_service_logs_available_for_visit($obco
                             <?php foreach ($amcVisits as $visit): ?>
                             <tr>
                                 <td><?= (int) $visit['visit_number'] ?></td>
-                                <td><?= htmlspecialchars($visit['visit_date']) ?></td>
+                                <td><?= htmlspecialchars(amc_format_date($visit['visit_date'] ?? null)) ?></td>
                                 <td><span class="status-badge border border-dark"><?= htmlspecialchars($visit['visit_status']) ?></span></td>
-                                <td><?= htmlspecialchars($visit['completed_date'] ?? '-') ?></td>
+                                <td><?= htmlspecialchars(amc_format_date($visit['completed_date'] ?? null)) ?></td>
                                 <td><?php
                                     $linkedServiceLogId = (int) ($visit['service_log_id'] ?? 0);
                                     if ($linkedServiceLogId <= 0) {

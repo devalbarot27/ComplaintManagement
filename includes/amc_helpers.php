@@ -853,8 +853,8 @@ function amc_service_log_option_label(array $row): string
     if ($serial !== '') {
         $parts[] = $serial;
     }
-    $visitDate = amc_normalize_date($row['visit_date'] ?? '');
-    if ($visitDate !== '') {
+    $visitDate = amc_format_date($row['visit_date'] ?? '');
+    if ($visitDate !== '-') {
         $parts[] = 'Visit ' . $visitDate;
     }
     $engineer = trim((string) ($row['engineer_name'] ?? ''));
@@ -1203,6 +1203,26 @@ function amc_normalize_date(?string $value): string
     }
 
     return substr($value, 0, 10);
+}
+
+function amc_format_date(?string $value): string
+{
+    $normalized = installed_base_format_date_for_input($value);
+    if ($normalized === '') {
+        return '-';
+    }
+
+    $date = DateTime::createFromFormat('Y-m-d', $normalized);
+    if ($date instanceof DateTime) {
+        return $date->format('d.m.Y');
+    }
+
+    $timestamp = strtotime($normalized);
+    if ($timestamp === false) {
+        return '-';
+    }
+
+    return date('d.m.Y', $timestamp);
 }
 
 function amc_business_today(): string

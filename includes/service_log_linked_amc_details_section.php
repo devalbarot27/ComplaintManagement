@@ -83,15 +83,15 @@ if ($amcContract && isset($obconn) && $obconn instanceof PDO) {
             );
             $renderAmcDetailField(
                 'AMC Start Date',
-                installed_base_format_date($amcContract['amc_start_date'] ?? null)
+                amc_format_date($amcContract['amc_start_date'] ?? null)
             );
             $renderAmcDetailField(
                 'AMC End Date',
-                installed_base_format_date($amcContract['amc_end_date'] ?? null)
+                amc_format_date($amcContract['amc_end_date'] ?? null)
             );
             $renderAmcDetailField(
                 'Visit Start Date',
-                installed_base_format_date($amcContract['visit_start_date'] ?? null)
+                amc_format_date($amcContract['visit_start_date'] ?? null)
             );
             $renderAmcDetailField(
                 'Number of Visits',
@@ -107,12 +107,12 @@ if ($amcContract && isset($obconn) && $obconn instanceof PDO) {
                 );
                 $renderAmcDetailField(
                     'Visit Date',
-                    installed_base_format_date($amcVisit['visit_date'] ?? null)
+                    amc_format_date($amcVisit['visit_date'] ?? null)
                 );
                 $renderAmcDetailField('Visit Status', $visitStatusHtml, 'col-md-3', true);
                 $renderAmcDetailField(
                     'Completed Date',
-                    installed_base_format_date($amcVisit['completed_date'] ?? null)
+                    amc_format_date($amcVisit['completed_date'] ?? null)
                 );
             }
             ?>

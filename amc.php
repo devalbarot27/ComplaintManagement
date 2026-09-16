@@ -462,8 +462,8 @@ $amcContracts = amc_list($obconn);
                                         <?= htmlspecialchars(AMC_TYPE_OPTIONS[$row['amc_type']] ?? ($row['amc_type'] ?: '-')) ?>
                                     </span>
                                 </td>
-                                <td><?= htmlspecialchars((string) ($row['amc_start_date'] ?? '-')) ?></td>
-                                <td><?= htmlspecialchars((string) ($row['amc_end_date'] ?? '-')) ?></td>
+                                <td><?= htmlspecialchars(amc_format_date($row['amc_start_date'] ?? null)) ?></td>
+                                <td><?= htmlspecialchars(amc_format_date($row['amc_end_date'] ?? null)) ?></td>
                                 <td><?= (int) $row['no_of_visits'] ?></td>
                                 <td><?= htmlspecialchars(number_format((float) $row['amc_value'], 2)) ?></td>
                                 <td>
