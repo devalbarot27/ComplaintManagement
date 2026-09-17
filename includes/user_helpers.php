@@ -151,6 +151,147 @@ function user_current_approval_flags(PDO $conn): array
     ];
 }
 
+function user_is_l1_l2_approval_role(): bool
+{
+    return is_elgi_engineer_user() || is_management_user();
+}
+
+/**
+ * ELGi Engineer or Management assigned as Level 1 / Level 2 for one or more dealers.
+ */
+function user_is_associated_dealer_approver(PDO $conn): bool
+{
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (!user_is_l1_l2_approval_role()) {
+        return false;
+    }
+
+    user_ensure_schema($conn);
+    $flags = user_current_approval_flags($conn);
+
+    return !empty($flags['l1']) || !empty($flags['l2']);
+}
+
+/**
+ * @return array<string, int>
+ */
+function user_associated_dealer_scope_params(PDO $conn, string $prefix = 'assoc'): array
+{
+    $userId = (int) (current_user_id($conn) ?? 0);
+
+    return [
+        ':' . $prefix . '_approver_id' => $userId,
+        ':' . $prefix . '_approver_id_l2' => $userId,
+    ];
+}
+
+/**
+ * True when the username belongs to a dealer (or same-code dealer engineer)
+ * who assigned the current user as L1 or L2.
+ */
+function user_associated_dealer_submitter_exists_sql(string $usernameExpr, string $prefix = 'assoc'): string
+{
+    $p1 = ':' . $prefix . '_approver_id';
+    $p2 = ':' . $prefix . '_approver_id_l2';
+
+    return "
+        EXISTS (
+            SELECT 1
+            FROM user_master um_assoc
+            WHERE um_assoc.deleted_at IS NULL
+              AND (
+                    um_assoc.level_1_approver_id = {$p1}
+                    OR um_assoc.level_2_approver_id = {$p2}
+              )
+              AND (
+                    LOWER(TRIM(um_assoc.username)) = LOWER(TRIM(COALESCE({$usernameExpr}, '')))
+                    OR (
+                        TRIM(COALESCE(um_assoc.customer_code, '')) <> ''
+                        AND EXISTS (
+                            SELECT 1
+                            FROM user_master um_peer
+                            WHERE um_peer.deleted_at IS NULL
+                              AND TRIM(COALESCE(um_peer.customer_code, '')) <> ''
+                              AND TRIM(um_peer.customer_code) = TRIM(um_assoc.customer_code)
+                              AND LOWER(TRIM(um_peer.username)) = LOWER(TRIM(COALESCE({$usernameExpr}, '')))
+                        )
+                    )
+              )
+        )
+    ";
+}
+
+/**
+ * Recent orders: match associated dealer username (usr_name) or dealer code (cuno).
+ */
+function user_associated_dealer_order_exists_sql(
+    string $usernameExpr,
+    string $cunoExpr,
+    string $prefix = 'assoc'
+): string {
+    $p1 = ':' . $prefix . '_approver_id';
+    $p2 = ':' . $prefix . '_approver_id_l2';
+
+    return "
+        EXISTS (
+            SELECT 1
+            FROM user_master um_assoc
+            WHERE um_assoc.deleted_at IS NULL
+              AND (
+                    um_assoc.level_1_approver_id = {$p1}
+                    OR um_assoc.level_2_approver_id = {$p2}
+              )
+              AND (
+                    LOWER(TRIM(um_assoc.username)) = LOWER(TRIM(COALESCE({$usernameExpr}, '')))
+                    OR (
+                        TRIM(COALESCE(um_assoc.customer_code, '')) <> ''
+                        AND TRIM(um_assoc.customer_code) = TRIM(COALESCE({$cunoExpr}, ''))
+                    )
+                    OR (
+                        TRIM(COALESCE(um_assoc.customer_code, '')) <> ''
+                        AND EXISTS (
+                            SELECT 1
+                            FROM user_master um_peer
+                            WHERE um_peer.deleted_at IS NULL
+                              AND TRIM(COALESCE(um_peer.customer_code, '')) <> ''
+                              AND TRIM(um_peer.customer_code) = TRIM(um_assoc.customer_code)
+                              AND LOWER(TRIM(um_peer.username)) = LOWER(TRIM(COALESCE({$usernameExpr}, '')))
+                        )
+                    )
+              )
+        )
+    ";
+}
+
+function user_submitter_is_associated_dealer(PDO $conn, string $username, string $cuno = ''): bool
+{
+    if (!user_is_associated_dealer_approver($conn)) {
+        return false;
+    }
+
+    $username = trim($username);
+    $cuno = trim($cuno);
+    if ($username === '' && $cuno === '') {
+        return false;
+    }
+
+    $params = user_associated_dealer_scope_params($conn, 'chk');
+    $stmt = $conn->prepare(
+        'SELECT 1 WHERE ' . user_associated_dealer_order_exists_sql(':chk_username', ':chk_cuno', 'chk')
+    );
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value, PDO::PARAM_INT);
+    }
+    $stmt->bindValue(':chk_username', $username);
+    $stmt->bindValue(':chk_cuno', $cuno);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
 /**
  * @return array{level_1_approver_id: int|null, level_2_approver_id: int|null}
  */

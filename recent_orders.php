@@ -17,7 +17,8 @@ $roModule = 'recent-orders';
 $canListRecentOrders = rbac_user_can($obconn, $roModule, 'list');
 $canExportRecentOrders = rbac_user_can($obconn, $roModule, 'export-excel');
 $canViewRecentOrders = rbac_user_can($obconn, $roModule, 'view');
-$showAddedByColumn = is_system_admin() || is_management_user() || is_ccs_admin_user();
+$showAddedByColumn = is_system_admin() || is_management_user() || is_ccs_admin_user()
+    || user_is_associated_dealer_approver($obconn);
 
 if (!$canListRecentOrders) {
     header('Location: access_denied.php');

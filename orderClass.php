@@ -5180,7 +5180,16 @@ class orderClass
             // Refresh role from DB so AJAX requests are not stuck with a missing/stale session role.
             admin_refresh_session_role($this->obconn);
             $seeAll = is_system_admin() || is_management_user();
-            $showAddedBy = is_system_admin() || is_management_user() || is_ccs_admin_user();
+            $showAddedBy = is_system_admin() || is_management_user() || is_ccs_admin_user()
+                || user_is_associated_dealer_approver($this->obconn);
+            $assocListSql = '';
+            $assocTotalSql = '';
+            $assocParams = [];
+            if (!$seeAll && user_is_associated_dealer_approver($this->obconn)) {
+                $assocListSql = ' OR ' . user_associated_dealer_order_exists_sql('a.usr_name', 'a.cuno', 'ro');
+                $assocTotalSql = ' OR ' . user_associated_dealer_order_exists_sql('usr_name', 'cuno', 'ro');
+                $assocParams = user_associated_dealer_scope_params($this->obconn, 'ro');
+            }
 
             $orderTypeSql = plexecom_order_type_sql($this->obconn, 'a');
 
@@ -5205,8 +5214,8 @@ class orderClass
                 $params[':search'] = "%{$search}%";
             }
 
-            $userWhere = $seeAll ? '1=1' : 'a.cuno = :createdBy';
-            $totalUserWhere = $seeAll ? '1=1' : 'cuno = :createdBy';
+            $userWhere = $seeAll ? '1=1' : '(a.cuno = :createdBy' . $assocListSql . ')';
+            $totalUserWhere = $seeAll ? '1=1' : '(cuno = :createdBy' . $assocTotalSql . ')';
 
             $addedByJoin = '';
             $addedBySelect = '';
@@ -5253,12 +5262,18 @@ class orderClass
             if (!$seeAll) {
                 $totalQry->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
             }
+            foreach ($assocParams as $key => $value) {
+                $totalQry->bindValue($key, $value, PDO::PARAM_INT);
+            }
             $totalQry->execute();
             $totalRecords = (int) $totalQry->fetchColumn();
             $countSql = "SELECT COUNT(*) FROM (SELECT DISTINCT a.refno {$joinSql}) recent_orders";
             $countStmt = $this->obconn->prepare($countSql);
             if (!$seeAll) {
                 $countStmt->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
+            }
+            foreach ($assocParams as $key => $value) {
+                $countStmt->bindValue($key, $value, PDO::PARAM_INT);
             }
             foreach ($params as $key => $value) {
                 $countStmt->bindValue($key, $value);
@@ -5324,6 +5339,9 @@ class orderClass
             $stmt = $this->obconn->prepare($sql);
             if (!$seeAll) {
                 $stmt->bindParam(':createdBy', $this->customer_code, PDO::PARAM_STR);
+            }
+            foreach ($assocParams as $key => $value) {
+                $stmt->bindValue($key, $value, PDO::PARAM_INT);
             }
             foreach ($params as $key => $value) {
                 $stmt->bindValue($key, $value);
@@ -7187,7 +7205,13 @@ class orderClass
             $header = $rows[0];
             $orderCuno = trim((string) ($header['cuno'] ?? ''));
 
-            if (!$seeAll && $orderCuno !== '' && $orderCuno !== (string) $this->customer_code) {
+            if (!$seeAll && $orderCuno !== '' && $orderCuno !== (string) $this->customer_code
+                && !user_submitter_is_associated_dealer(
+                    $this->obconn,
+                    (string) ($header['usr_name'] ?? ''),
+                    $orderCuno
+                )
+            ) {
                 return json_encode([
                     'status' => 'error',
                     'message' => 'You do not have access to re-push this order.',

@@ -6,6 +6,7 @@ login_start_php_session();
 include('pdo_obconn.php');
 require_once __DIR__ . '/includes/admin_access_helpers.php';
 require_once __DIR__ . '/includes/rbac_access_helpers.php';
+require_once __DIR__ . '/includes/user_helpers.php';
 require_once __DIR__ . '/includes/dashboard_helpers.php';
 $dashboardModule = 'dashboard';
 $canViewDashboard = rbac_user_can($obconn, $dashboardModule, 'view');
@@ -51,7 +52,8 @@ $canViewCreatedOrders = $orderModulePermissions['created'];
 $canViewRecentOrders = $orderModulePermissions['recent'];
 $canViewAcknowledgedOrders = $orderModulePermissions['acknowledged'];
 $canViewPendingOrders = $orderModulePermissions['pending'];
-$showAddedByColumn = is_system_admin() || is_management_user() || is_ccs_admin_user();
+$showAddedByColumn = is_system_admin() || is_management_user() || is_ccs_admin_user()
+    || user_is_associated_dealer_approver($obconn);
 $canViewDispatchedOrders = $orderModulePermissions['dispatched'];
 $canViewComplaintView = $orderModulePermissions['complaint-view'];
 $canViewAnyOrderCards = $canViewCreatedOrders

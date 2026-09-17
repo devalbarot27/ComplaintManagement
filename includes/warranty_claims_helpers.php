@@ -15,9 +15,12 @@ require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/notification_helpers.php';
 require_once __DIR__ . '/installed_base_helpers.php';
 require_once __DIR__ . '/admin_access_helpers.php';
+require_once __DIR__ . '/user_helpers.php';
 
 /**
  * System Admin / CCS Admin / Management see all FOC claims.
+ * L1/L2 Approval users (ELGi Engineer or Management assigned to dealers) also
+ * see claims submitted by their associated dealers.
  * Other roles see only claims they submitted.
  *
  * @return array{where: string, params: array<string, mixed>, see_all: bool}
@@ -36,12 +39,24 @@ function foc_parts_list_scope(PDO $conn): array
         ];
     }
 
+    $where = 'fc.deleted_at IS NULL
+            AND LOWER(TRIM(COALESCE(fc.created_by_username, \'\'))) = LOWER(TRIM(:foc_scope_username))';
+    $params = [
+        ':foc_scope_username' => current_username(),
+    ];
+
+    if (user_is_associated_dealer_approver($conn)) {
+        $where = 'fc.deleted_at IS NULL
+            AND (
+                LOWER(TRIM(COALESCE(fc.created_by_username, \'\'))) = LOWER(TRIM(:foc_scope_username))
+                OR ' . user_associated_dealer_submitter_exists_sql('fc.created_by_username', 'foc') . '
+            )';
+        $params = array_merge($params, user_associated_dealer_scope_params($conn, 'foc'));
+    }
+
     return [
-        'where' => 'fc.deleted_at IS NULL
-            AND LOWER(TRIM(COALESCE(fc.created_by_username, \'\'))) = LOWER(TRIM(:foc_scope_username))',
-        'params' => [
-            ':foc_scope_username' => current_username(),
-        ],
+        'where' => $where,
+        'params' => $params,
         'see_all' => false,
     ];
 }
@@ -52,7 +67,8 @@ function foc_parts_user_can_see_submitted_by(PDO $conn): bool
         admin_refresh_session_role($conn);
     }
 
-    return is_system_admin() || is_ccs_admin_user() || is_management_user();
+    return is_system_admin() || is_ccs_admin_user() || is_management_user()
+        || user_is_associated_dealer_approver($conn);
 }
 
 /**
@@ -64,7 +80,7 @@ function foc_parts_user_can_access_claim(PDO $conn, ?array $record): bool
         return false;
     }
 
-    if (foc_parts_user_can_see_submitted_by($conn)) {
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
         return true;
     }
 
@@ -73,7 +89,11 @@ function foc_parts_user_can_access_claim(PDO $conn, ?array $record): bool
         return true;
     }
 
-    return foc_claim_user_is_named_approver($conn, $record);
+    if (foc_claim_user_is_named_approver($conn, $record)) {
+        return true;
+    }
+
+    return user_submitter_is_associated_dealer($conn, $createdBy);
 }
 
 function foc_claim_see_all_approvals(PDO $conn): bool
@@ -387,7 +407,7 @@ function foc_claim_user_can_resubmit(PDO $conn, ?array $record): bool
         return false;
     }
 
-    if (foc_parts_user_can_see_submitted_by($conn)) {
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
         return true;
     }
 
@@ -554,12 +574,24 @@ function service_claims_list_scope(PDO $conn): array
         ];
     }
 
+    $where = 'sc.deleted_at IS NULL
+            AND LOWER(TRIM(COALESCE(sc.created_by_username, \'\'))) = LOWER(TRIM(:sc_scope_username))';
+    $params = [
+        ':sc_scope_username' => current_username(),
+    ];
+
+    if (user_is_associated_dealer_approver($conn)) {
+        $where = 'sc.deleted_at IS NULL
+            AND (
+                LOWER(TRIM(COALESCE(sc.created_by_username, \'\'))) = LOWER(TRIM(:sc_scope_username))
+                OR ' . user_associated_dealer_submitter_exists_sql('sc.created_by_username', 'sc') . '
+            )';
+        $params = array_merge($params, user_associated_dealer_scope_params($conn, 'sc'));
+    }
+
     return [
-        'where' => 'sc.deleted_at IS NULL
-            AND LOWER(TRIM(COALESCE(sc.created_by_username, \'\'))) = LOWER(TRIM(:sc_scope_username))',
-        'params' => [
-            ':sc_scope_username' => current_username(),
-        ],
+        'where' => $where,
+        'params' => $params,
         'see_all' => false,
     ];
 }
@@ -578,7 +610,7 @@ function service_claims_user_can_access_claim(PDO $conn, ?array $record): bool
         return false;
     }
 
-    if (service_claims_user_can_see_submitted_by($conn)) {
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
         return true;
     }
 
@@ -591,8 +623,11 @@ function service_claims_user_can_access_claim(PDO $conn, ?array $record): bool
         return true;
     }
 
+    if (user_submitter_is_associated_dealer($conn, $createdBy)) {
+        return true;
+    }
+
     // Approvers / settlement actors may open claims from Approvals.
-    require_once __DIR__ . '/user_helpers.php';
     $flags = user_current_approval_flags($conn);
 
     return !empty($flags['l1']) || !empty($flags['l2']);

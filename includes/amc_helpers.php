@@ -208,7 +208,9 @@ function amc_current_user_is_l2_approver(PDO $conn): bool
 
 function amc_current_user_is_associated_dealer_approver(PDO $conn): bool
 {
-    return amc_current_user_is_l1_approver($conn) || amc_current_user_is_l2_approver($conn);
+    require_once __DIR__ . '/user_helpers.php';
+
+    return user_is_associated_dealer_approver($conn);
 }
 
 function amc_current_user_is_named_approver_for_level(PDO $conn, string $level): bool
