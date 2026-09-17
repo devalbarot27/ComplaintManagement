@@ -2644,6 +2644,32 @@ function foc_claim_ln_reference_defaults(PDO $obconn, string $customerCode): ?ar
 }
 
 /**
+ * ERP dealer code for an FOC LN order comes from the claim submitter, not the
+ * L2 approver session (approvers often have no customer_code).
+ */
+function foc_claim_erp_customer_code(PDO $conn, int $claimId, string $fallback = ''): string
+{
+    $stmt = $conn->prepare("
+        SELECT TRIM(COALESCE(NULLIF(TRIM(um.customer_code), ''), '')) AS cuno
+        FROM foc_claims fc
+        LEFT JOIN user_master um
+            ON LOWER(TRIM(um.username)) = LOWER(TRIM(fc.created_by_username))
+           AND um.deleted_at IS NULL
+        WHERE fc.id = :id
+          AND fc.deleted_at IS NULL
+        LIMIT 1
+    ");
+    $stmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $stmt->execute();
+    $cuno = trim((string) $stmt->fetchColumn());
+    if ($cuno !== '') {
+        return $cuno;
+    }
+
+    return trim($fallback);
+}
+
+/**
  * Push an APPROVED FOC claim's line items (foc_claim_items) to ERP LN as a
  * zero-value Sales Order, mirroring orderClass::submitCartApi() but sourced
  * from the FOC claim instead of the paid-order cart (tbl_vayu_cartitems).
@@ -2663,12 +2689,12 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     require_once __DIR__ . '/order_cart_schema.php';
     cart_ensure_schema($obconn);
 
-    error_log("FOC claim #{$claimId}: LN submission started (customerCode='{$customerCode}', userId='{$userId}')");
+    $cuno = foc_claim_erp_customer_code($obconn, $claimId, $customerCode);
+    error_log("FOC claim #{$claimId}: LN submission started (customerCode='{$cuno}', sessionCode='{$customerCode}', userId='{$userId}')");
 
-    $cuno = trim($customerCode);
     if ($cuno === '') {
-        error_log("FOC claim #{$claimId}: aborting - no ERP customer code in session.");
-        throw new Exception('No ERP customer code found for the current session.');
+        error_log("FOC claim #{$claimId}: aborting - no ERP customer code on the FOC submitter or session.");
+        throw new Exception('No ERP customer code found for the FOC claim submitter.');
     }
 
     $itemsStmt = $obconn->prepare("
@@ -2733,10 +2759,9 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $getAddr = $dpconn->prepare("SELECT * FROM customer_address WHERE adr_code=:addrCode limit 1");
     $getAddr->bindParam(":addrCode", $deladdr);
     $getAddr->execute();
+    $fetAddr = $getAddr->fetch(PDO::FETCH_ASSOC);
 
-    if ($getAddr->rowCount() > 0) {
-        $fetAddr = $getAddr->fetch(PDO::FETCH_ASSOC);
-
+    if ($fetAddr) {
         $cuname = $fetAddr['cuname'];
         $street1 = $fetAddr['st1'];
         $street2 = $fetAddr['st2'];
@@ -2802,11 +2827,11 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
         ':cuno' => $cuno
     ]);
 
-    $customer = $customerStmt->fetch(PDO::FETCH_ASSOC);
+    $customer = $customerStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
     $adrcode = $customer['adr_code'] ?? null;
-    $country = trim($customer['country'] ?? '');
-    $invaddr = pg_escape_string($customer['custaddr'] ?? '');
+    $country = trim((string) ($customer['country'] ?? ''));
+    $invaddr = (string) ($customer['custaddr'] ?? '');
 
     $dpstStmt = $obconn->prepare("SELECT product_group FROM dpst_master WHERE dpst_code = :dpst");
     $dpstStmt->execute([':dpst' => $dpst]);
