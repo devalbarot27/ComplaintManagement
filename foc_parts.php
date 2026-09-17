@@ -247,7 +247,9 @@ if ($isCreatePost || $isResubmitPost) {
                 ? 'Failed to resubmit FOC claim. Please try again.'
                 : 'Failed to submit FOC claim. Please try again.';
             if (!empty($stage['send_ln'])) {
-                $error_message = 'The ERP LN order could not be created, so the FOC claim was not saved. Please try again.';
+                $reason = foc_claim_public_error_message($e);
+                $error_message = 'The ERP LN order could not be created, so the FOC claim was not saved.'
+                    . ($reason !== '' ? ' ' . $reason : ' Please try again.');
             }
         }
         }

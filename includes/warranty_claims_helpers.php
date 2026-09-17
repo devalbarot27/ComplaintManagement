@@ -2727,6 +2727,27 @@ function warranty_claims_get_ln_bearer_token(): string
 }
 
 /**
+ * User-facing LN/L2 error text. PostgreSQL 25P02 is a follow-on after an earlier
+ * statement failed inside the open transaction; skip it so the real cause is shown.
+ */
+function foc_claim_public_error_message(Throwable $e): string
+{
+    $current = $e;
+    while ($current instanceof Throwable) {
+        $message = trim($current->getMessage());
+        $sqlState = $current instanceof PDOException ? (string) $current->getCode() : '';
+        $isAbortedTxn = $sqlState === '25P02'
+            || stripos($message, 'current transaction is aborted') !== false;
+        if ($message !== '' && !$isAbortedTxn) {
+            return $message;
+        }
+        $current = $current->getPrevious();
+    }
+
+    return 'A database error occurred while creating the ERP LN order. Please try again.';
+}
+
+/**
  * FOC claims don't capture delivery address/transporter/payment-term/order-type
  * themselves, so the dealer's most recent regular order (plexecom_customer_units)
  * is used to source those defaults for the zero-value LN sales order.
@@ -2739,27 +2760,19 @@ function foc_claim_ln_reference_defaults(PDO $obconn, string $customerCode): ?ar
         return null;
     }
 
-    $orderSql = "
+    $stmt = $obconn->prepare("
         SELECT areacode, deladdr, transporter, paycode, otcode,
                dpst, warehouse, aoseries, company
-        FROM %s
+        FROM plexecom_customer_units
         WHERE TRIM(cuno) = TRIM(:cuno)
         ORDER BY indent_date DESC, oid DESC
         LIMIT 1
-    ";
-
-    foreach (['plexecom_customer_units', 'plexecom_customer_units15062026'] as $table) {
-        try {
-            $stmt = $obconn->prepare(sprintf($orderSql, $table));
-            $stmt->bindValue(':cuno', $customerCode, PDO::PARAM_STR);
-            $stmt->execute();
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row !== false) {
-                return $row;
-            }
-        } catch (PDOException $e) {
-            // Archive table may not exist in every environment.
-        }
+    ");
+    $stmt->bindValue(':cuno', $customerCode, PDO::PARAM_STR);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row !== false) {
+        return $row;
     }
 
     return foc_claim_ln_customer_master_defaults($obconn, $customerCode);
@@ -2797,7 +2810,8 @@ function foc_claim_ln_customer_master_defaults(PDO $obconn, string $customerCode
     }
 
     $transporter = 'T01';
-    try {
+    require_once __DIR__ . '/order_cart_schema.php';
+    if (plexecom_public_table_exists($obconn, 'dealercode_and_transportercode')) {
         $transStmt = $obconn->prepare("
             SELECT trans_code
             FROM dealercode_and_transportercode
@@ -2812,8 +2826,6 @@ function foc_claim_ln_customer_master_defaults(PDO $obconn, string $customerCode
         if ($trans !== '') {
             $transporter = $trans;
         }
-    } catch (PDOException $e) {
-        // Keep T01 when the mapping table is empty or missing.
     }
 
     $paycode = trim((string) ($row['paycode'] ?? ''));
@@ -3000,15 +3012,21 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
 
     $refno = "E/UNITS/" . $ymd . $slno;
 
-    $stmt = $obconn->prepare("SELECT max(substr(indent_number,7,9)) AS maxindno FROM 
-                plexecom_customer_units15062026 WHERE areacode = :area AND indent_date >= '01.04.2022'");
+    $maxIndno = false;
+    if (plexecom_public_table_exists($obconn, 'plexecom_customer_units15062026')) {
+        $stmt = $obconn->prepare("
+            SELECT max(substr(indent_number::text, 7, 9)) AS maxindno
+            FROM plexecom_customer_units15062026
+            WHERE areacode = :area
+              AND indent_date >= DATE '2022-04-01'
+        ");
+        $stmt->execute([
+            ':area' => $area
+        ]);
+        $maxIndno = $stmt->fetchColumn();
+    }
 
-    $stmt->execute([
-        ':area' => $area
-    ]);
-
-    $maxIndno = $stmt->fetchColumn();
-
+    $maxIndno = is_string($maxIndno) ? $maxIndno : '';
     $letter = substr($maxIndno, 0, 1);
     $number = substr($maxIndno, 1, 2);
 

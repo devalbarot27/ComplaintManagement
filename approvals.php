@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
                 $obconn->rollBack();
             }
             error_log('approvals.php: FOC claim #' . $claimId . ' LN submission failed (' . get_class($e) . '): ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-            $reason = trim($e->getMessage());
+            $reason = foc_claim_public_error_message($e);
             $_SESSION['error_message'] = 'The ERP LN order could not be created, so the L2 approval was not saved.'
                 . ($reason !== '' ? ' ' . $reason : ' Please try again.');
         }
