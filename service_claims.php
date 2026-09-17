@@ -41,6 +41,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
     $serviceDate     = trim($_POST['service_date'] ?? '');
     $resolutionNotes = trim($_POST['resolution_notes'] ?? '');
     $poNumber        = trim($_POST['po_number'] ?? '');
+    $batchCode       = trim($_POST['batch_code'] ?? '');
+    $claimAmount     = trim($_POST['claim_amount'] ?? '');
+    $dispute         = trim($_POST['dispute'] ?? '');
+    $disputeRemarks  = trim($_POST['dispute_remarks'] ?? '');
+    $claimInvoiceNo  = trim($_POST['claim_invoice_number'] ?? '');
+    $claimInvoiceDate = trim($_POST['claim_invoice_date'] ?? '');
+    $customerNumber   = trim((string) ($_SESSION['cuno'] ?? $_SESSION['customer_number_vayu'] ?? ''));
+    $customerArea     = trim((string) ($_SESSION['area'] ?? $_SESSION['areacode'] ?? ''));
+    $disputeFlag      = $dispute === 'Yes' ? 'Y' : ($dispute === 'No' ? 'N' : '');
     $poUpload        = service_claim_po_validate_upload($_FILES['po_attachment'] ?? null);
 
     $complaint = warranty_claims_find_complaint($obconn, $complaintId);
@@ -70,6 +79,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
             $error_message = $field_errors['po_attachment'];
         } elseif (strlen($resolutionNotes) > 1000) {
             $error_message = 'Resolution notes cannot exceed 1000 characters.';
+        } elseif ($batchCode === '') {
+            $error_message = 'Batch Code is required.';
+        } elseif (strlen($batchCode) > 8) {
+            $error_message = 'Batch Code cannot exceed 8 characters.';
+        } elseif ($customerNumber !== '' && strlen($customerNumber) > 9) {
+            $error_message = 'Customer number cannot exceed 9 characters.';
+        } elseif ($customerArea !== '' && strlen($customerArea) > 3) {
+            $error_message = 'Customer area cannot exceed 3 characters.';
+        } elseif (!is_numeric($claimAmount) || (float) $claimAmount < 0) {
+            $error_message = 'Claim amount must be a valid non-negative amount.';
+        } elseif ($dispute !== '' && !in_array($dispute, ['Yes', 'No'], true)) {
+            $error_message = 'Dispute must be Yes or No.';
+        } elseif (strlen($disputeRemarks) > 500) {
+            $error_message = 'Dispute remarks cannot exceed 500 characters.';
+        } elseif (strlen($claimInvoiceNo) > 30) {
+            $error_message = 'Invoice number cannot exceed 30 characters.';
         } else {
             $approvers = foc_claim_resolve_approver_ids($obconn, current_user_id($obconn));
             if ($approvers['error'] !== null) {
@@ -138,6 +163,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
                 $stmt->execute();
 
                 $newClaimId = (int) $stmt->fetchColumn();
+
+                $pendingReimbursement = $obconn->prepare("\n                    INSERT INTO service_claim_reimbursement_pending\n                    (service_claim_id, batch_code, cuno, area, claim_amount, dispute, dispute_remarks, invno, invdt)\n                    VALUES (:service_claim_id, :batch_code, :cuno, :area, :claim_amount, :dispute, :dispute_remarks, :invno, :invdt)\n                ");
+                $pendingReimbursement->bindValue(':service_claim_id', $newClaimId, PDO::PARAM_INT);
+                $pendingReimbursement->bindValue(':batch_code', $batchCode);
+                $pendingReimbursement->bindValue(':cuno', $customerNumber !== '' ? $customerNumber : null);
+                $pendingReimbursement->bindValue(':area', $customerArea !== '' ? $customerArea : null);
+                $pendingReimbursement->bindValue(':claim_amount', (float) $claimAmount);
+                $pendingReimbursement->bindValue(':dispute', $disputeFlag !== '' ? $disputeFlag : null);
+                $pendingReimbursement->bindValue(':dispute_remarks', $disputeRemarks !== '' ? $disputeRemarks : null);
+                $pendingReimbursement->bindValue(':invno', $claimInvoiceNo !== '' ? $claimInvoiceNo : null);
+                $pendingReimbursement->bindValue(':invdt', $claimInvoiceDate !== '' ? $claimInvoiceDate : null);
+                $pendingReimbursement->execute();
+
+                if (($stage['overall_status'] ?? '') === 'Approved') {
+                    $reimbursementError = service_claim_create_reimbursement_after_approval($obconn, $newClaimId);
+                    if ($reimbursementError !== null) {
+                        throw new PDOException($reimbursementError);
+                    }
+                }
 
                 if (($stage['notify_level'] ?? '') === 'l2') {
                     warranty_claims_notify_user(
@@ -582,10 +626,55 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                         </div>
                     </section>
 
-                    <!-- Section 2   Call Closure Details -->
+                    <!-- Section 2   Reimbursement Claim Details -->
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">2</span>
+                            <div>
+                                <h3 class="complaint-form-section__title">Reimbursement Claim Details</h3>
+                                <p class="complaint-form-section__hint">These details are sent to CCS only after the claim is approved.</p>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-4 form-group">
+                                <label class="form-label" for="batchCode">Batch Code <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="batchCode" name="batch_code" maxlength="8"
+                                    value="<?= htmlspecialchars($_POST['batch_code'] ?? '') ?>" required>
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label" for="claimAmount">Claim Amount <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0" class="form-control" id="claimAmount" name="claim_amount"
+                                    value="<?= htmlspecialchars($_POST['claim_amount'] ?? '') ?>" required>
+                            </div>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label" for="dispute">Dispute</label>
+                                <select class="form-control" id="dispute" name="dispute">
+                                    <option value="">Select</option>
+                                    <option value="Yes" <?= (($_POST['dispute'] ?? '') === 'Yes') ? 'selected' : '' ?>>Yes</option>
+                                    <option value="No" <?= (($_POST['dispute'] ?? '') === 'No') ? 'selected' : '' ?>>No</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label" for="claimInvoiceNumber">Invoice Number</label>
+                                <input type="text" class="form-control" id="claimInvoiceNumber" name="claim_invoice_number"
+                                    value="<?= htmlspecialchars($_POST['claim_invoice_number'] ?? '') ?>">
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label" for="claimInvoiceDate">Invoice Date</label>
+                                <input type="date" class="form-control" id="claimInvoiceDate" name="claim_invoice_date"
+                                    value="<?= htmlspecialchars($_POST['claim_invoice_date'] ?? '') ?>">
+                            </div>
+                            <div class="col-md-12 form-group">
+                                <label class="form-label" for="disputeRemarks">Dispute Remarks</label>
+                                <textarea class="form-control" id="disputeRemarks" name="dispute_remarks" rows="2" maxlength="1000"><?= htmlspecialchars($_POST['dispute_remarks'] ?? '') ?></textarea>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Section 3   Call Closure Details -->
+                    <section class="complaint-form-section">
+                        <div class="complaint-form-section__head">
+                            <span class="complaint-form-section__badge">3</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Call Closure Details</h3>
                                 <p class="complaint-form-section__hint">Distance travelled is mandatory to close the call. Invoice and attachment are optional.</p>

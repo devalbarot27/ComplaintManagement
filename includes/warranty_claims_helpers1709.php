@@ -819,16 +819,6 @@ function warranty_claims_ensure_schema(PDO $conn): void
         $conn->exec("ALTER TABLE service_claims ADD COLUMN po_attachment_original VARCHAR(255) NULL");
     }
 
-    if (!$tableExists($conn, 'service_claim_reimbursement_pending')) {
-        $conn->exec("\n            CREATE TABLE service_claim_reimbursement_pending (\n                service_claim_id INTEGER PRIMARY KEY REFERENCES service_claims(id),\n                batch_code VARCHAR(100) NOT NULL,\n                cuno VARCHAR(100) NULL,\n                area VARCHAR(100) NULL,\n                claim_amount NUMERIC(12,2) NOT NULL,\n                dispute VARCHAR(20) NULL,\n                dispute_remarks VARCHAR(1000) NULL,\n                invno VARCHAR(100) NULL,\n                invdt DATE NULL,\n                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP\n            )\n        ");
-    } else {
-        foreach (['cuno' => 'VARCHAR(100) NULL', 'area' => 'VARCHAR(100) NULL'] as $column => $definition) {
-            if (!$columnExists($conn, 'service_claim_reimbursement_pending', $column)) {
-                $conn->exec("ALTER TABLE service_claim_reimbursement_pending ADD COLUMN {$column} {$definition}");
-            }
-        }
-    }
-
     $ensured = true;
 }
 
@@ -1832,92 +1822,6 @@ function foc_claim_apply_decision(
     return null;
 }
 
-function service_claim_create_reimbursement_after_approval(PDO $conn, int $claimId): ?string
-{
-    $pendingStmt = $conn->prepare('SELECT * FROM service_claim_reimbursement_pending WHERE service_claim_id = :id');
-    $pendingStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
-    $pendingStmt->execute();
-    $pending = $pendingStmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($pending === false) {
-        return 'Pending reimbursement details were not found for this service claim.';
-    }
-
-    try {
-        $batchCode = trim((string) ($pending['batch_code'] ?? ''));
-        $dispute = strtoupper(trim((string) ($pending['dispute'] ?? '')));
-       
-        if (strlen($batchCode) > 8) {
-            error_log('Reimbursement claim #' . $claimId . ' has an invalid batch code longer than 8 characters.');
-            return 'Batch Code cannot exceed 8 characters.';
-        }
-        if ($dispute === 'YES') {
-            $dispute = 'Y';
-        } elseif ($dispute === 'NO') {
-            $dispute = 'N';
-        } elseif ($dispute !== '' && strlen($dispute) > 1) {
-            error_log('Reimbursement claim #' . $claimId . ' has an invalid dispute value.');
-            return 'Dispute must be Yes or No.';
-        }
-
-        $customerNumber = trim((string) ($pending['cuno'] ?? ''));
-        $areaStmt = $conn->prepare('SELECT areacode FROM customer_master WHERE cuno = :cuno LIMIT 1');
-        $areaStmt->bindValue(':cuno', $customerNumber);
-        $areaStmt->execute();
-        $area = $pending['area'] !== null && $pending['area'] !== ''
-            ? $pending['area']
-            : $areaStmt->fetchColumn();
-
-        $ccsClaim = $conn->prepare(
-            'INSERT INTO ccs_reimbursement_claim
-             (batch_code, cuno, area, claim_amount, claim_date, dispute,
-              dispute_amt, dispute_remarks, invno, invdt)
-             VALUES
-             (:batch_code, :cuno, :area, :claim_amount, CURRENT_DATE, :dispute,
-              0, :dispute_remarks, :invno, :invdt)'
-        );
-        $ccsClaim->bindValue(':batch_code', $batchCode);
-        $ccsClaim->bindValue(':cuno', $customerNumber);
-        $ccsClaim->bindValue(':area', $area !== false ? $area : null);
-        $ccsClaim->bindValue(':claim_amount', $pending['claim_amount']);
-        $ccsClaim->bindValue(':dispute', $dispute !== '' ? $dispute : null);
-        $ccsClaim->bindValue(':dispute_remarks', $pending['dispute_remarks']);
-        $ccsClaim->bindValue(':invno', $pending['invno']);
-        $ccsClaim->bindValue(':invdt', $pending['invdt']);
-        $ccsClaim->execute();
-
-        $deletePending = $conn->prepare('DELETE FROM service_claim_reimbursement_pending WHERE service_claim_id = :id');
-        $deletePending->bindValue(':id', $claimId, PDO::PARAM_INT);
-        $deletePending->execute();
-    } catch (PDOException $e) {
-          $failedQuery = sprintf(
-        "INSERT INTO ccs_reimbursement_claim
-        (batch_code, cuno, area, claim_amount, claim_date, dispute,
-         dispute_amt, dispute_remarks, invno, invdt)
-        VALUES
-        (%s, %s, %s, %s, CURRENT_DATE, %s, 0, %s, %s, %s)",
-        $conn->quote($pending['batch_code']),
-        $conn->quote($customerNumber),
-        $area !== false && $area !== null
-            ? $conn->quote($area)
-            : 'NULL',
-        $conn->quote($pending['claim_amount']),
-        $conn->quote($pending['dispute']),
-        $conn->quote($pending['dispute_remarks']),
-        $conn->quote($pending['invno']),
-        $conn->quote($pending['invdt'])
-    );
-
-        error_log(
-            'service_claim_create_reimbursement_after_approval failed for claim #'
-            . $claimId . ': ' . $e->getMessage()
-        );
-        return 'Failed to create the reimbursement claim.'. ' | Query: ' . $failedQuery;;
-    }
-
-    return null;
-}
-
 /**
  * Apply an L1 or L2 decision to a service claim (same rules as FOC Parts).
  * Returns an error message, or null on success.
@@ -1989,11 +1893,6 @@ function service_claim_apply_decision(
         }
     } else {
         $overallStatus = $decision === FOC_STAGE_APPROVED ? 'Approved' : 'Rejected';
-        $startedTransaction = false;
-        if ($decision === FOC_STAGE_APPROVED && !$conn->inTransaction()) {
-            $conn->beginTransaction();
-            $startedTransaction = true;
-        }
         $update = $conn->prepare("
             UPDATE service_claims
             SET l2_status = :status, l2_by_username = :by, l2_at = CURRENT_TIMESTAMP,
@@ -2008,16 +1907,6 @@ function service_claim_apply_decision(
         $update->execute();
 
         if ($decision === FOC_STAGE_APPROVED) {
-            $reimbursementError = service_claim_create_reimbursement_after_approval($conn, $claimId);
-            if ($reimbursementError !== null) {
-                if ($startedTransaction && $conn->inTransaction()) {
-                    $conn->rollBack();
-                }
-                return $reimbursementError;
-            }
-            if ($startedTransaction && $conn->inTransaction()) {
-                $conn->commit();
-            }
             service_claim_notify_invoice_pending($conn, $claimId);
         }
     }
@@ -2844,7 +2733,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $indcat1   = (string) $defaults['otcode'];
     $indcat    = "Normal Order";
     $otcode    = (string) $defaults['otcode'];
-    $aoseries  = "YUF";
+    $aoseries  = (string) $defaults['aoseries'];
     $cmp       = (string) $defaults['company'];
     $dpst      = (string) $defaults['dpst'];
     $warehouse = (string) $defaults['warehouse'];

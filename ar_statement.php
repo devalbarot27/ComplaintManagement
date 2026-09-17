@@ -118,7 +118,7 @@ foreach ($ledgerRows as $row) {
                             </div>
 
                             <div class="card-value">
-                                ₹<?= number_format(round($outstandingTotal)) ?>
+                                &#8377;<?= number_format(round($outstandingTotal)) ?>
                             </div>
 
                         </div>
@@ -146,7 +146,7 @@ foreach ($ledgerRows as $row) {
                             </div>
 
                             <div class="card-value">
-                                ₹<?= number_format(round($invoicedTotal)) ?>
+                                &#8377;<?= number_format(round($invoicedTotal)) ?>
                             </div>
 
                         </div>
@@ -174,7 +174,7 @@ foreach ($ledgerRows as $row) {
                             </div>
 
                             <div class="card-value">
-                                ₹<?= number_format(round($receivedTotal)) ?>
+                                &#8377;<?= number_format(round($receivedTotal)) ?>
                             </div>
 
                         </div>
@@ -202,7 +202,7 @@ foreach ($ledgerRows as $row) {
                             </div>
 
                             <div class="card-value">
-                                ₹<?= number_format(round($above90Total)) ?>
+                                &#8377;<?= number_format(round($above90Total)) ?>
                             </div>
 
                             <div class="card-sub red-text" style="color:#dc2626;">
@@ -294,13 +294,13 @@ foreach ($ledgerRows as $row) {
                                 <td><?= htmlspecialchars(trim((string) $row['invpre']) . '-' . trim((string) $row['invno'])) ?></td>
                                 <td><?= htmlspecialchars(trim((string) $row['currency']) !== '' ? $row['currency'] : 'INR') ?></td>
                                 <td class="debit-text text-end" data-order="<?= (int) round((float) $row['invamt']) ?>">
-                                    ₹<?= number_format(round((float) $row['invamt'])) ?>
+                                    &#8377;<?= number_format(round((float) $row['invamt'])) ?>
                                 </td>
                                 <td class="credit-text text-end" data-order="<?= (int) round((float) $row['recvamt']) ?>">
-                                    ₹<?= number_format(round((float) $row['recvamt'])) ?>
+                                    &#8377;<?= number_format(round((float) $row['recvamt'])) ?>
                                 </td>
                                 <td class="fw-semibold text-end" data-order="<?= (int) round($rowOutstanding) ?>">
-                                    ₹<?= number_format(round($rowOutstanding)) ?>
+                                    &#8377;<?= number_format(round($rowOutstanding)) ?>
                                 </td>
                                 <td class="text-end" data-order="<?= (int) round((float) $row['less30']) ?>"><?= number_format(round((float) $row['less30'])) ?></td>
                                 <td class="text-end" data-order="<?= (int) round((float) $row['less40']) ?>"><?= number_format(round((float) $row['less40'])) ?></td>
@@ -308,9 +308,9 @@ foreach ($ledgerRows as $row) {
                                 <td class="text-end" data-order="<?= (int) round((float) $row['less50']) ?>"><?= number_format(round((float) $row['less50'])) ?></td>
                                 <td class="text-end" data-order="<?= (int) round((float) $row['less60']) ?>"><?= number_format(round((float) $row['less60'])) ?></td>
                                 <td class="text-end" data-order="<?= (int) round((float) $row['less90']) ?>"><?= number_format(round((float) $row['less90'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['more90']) ?>"><?= number_format(round((float) $row['more90'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['more90']) ?>">&#8377;<?= number_format(round((float) $row['more90'])) ?></td>
                                 <td class="<?= $rowOutstanding > 0 ? 'debit-text' : '' ?>" data-order="<?= htmlspecialchars($dueDateTs ? date('Y-m-d', $dueDateTs) : '') ?>">
-                                    <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : '—') ?>
+                                    <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : '�') ?>
                                 </td>
                             </tr>
 <?php endforeach; ?>
@@ -323,16 +323,16 @@ foreach ($ledgerRows as $row) {
                                 <td></td>
                                 <td></td>
                                 <td></td>
-                                <td class="text-end">₹<?= number_format(round($summary['invamt'])) ?></td>
-                                <td class="text-end">₹<?= number_format(round($summary['recvamt'])) ?></td>
-                                <td class="text-end">₹<?= number_format(round($summary['amtout'])) ?></td>
+                                <td class="text-end">&#8377;<?= number_format(round($summary['invamt'])) ?></td>
+                                <td class="text-end">&#8377;<?= number_format(round($summary['recvamt'])) ?></td>
+                                <td class="text-end">&#8377;<?= number_format(round($summary['amtout'])) ?></td>
                                 <td class="text-end"><?= number_format(round($summary['less30'])) ?></td>
                                 <td class="text-end"><?= number_format(round($summary['less40'])) ?></td>
                                 <td class="text-end"><?= number_format(round($summary['less45'])) ?></td>
                                 <td class="text-end"><?= number_format(round($summary['less50'])) ?></td>
                                 <td class="text-end"><?= number_format(round($summary['less60'])) ?></td>
-                                <td class="text-end"><?= number_format(round($summary['less90'])) ?></td>
-                                <td class="text-end"><?= number_format(round($summary['more90'])) ?></td>
+                                <td class="text-end">&#8377;<?= number_format(round($summary['less90'])) ?></td>
+                                <td class="text-end">&#8377;<?= number_format(round($summary['more90'])) ?></td>
                                 <td></td>
                             </tr>
                         </tfoot>
