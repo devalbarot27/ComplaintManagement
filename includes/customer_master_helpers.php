@@ -136,122 +136,106 @@ function customer_master_dealer_code_from_user_row(array $row): string
 }
 
 /**
+ * @return array{code: string, name: string, text: string}
+ */
+function customer_master_dealer_address_option(array $row, string $code): array
+{
+    $name = trim((string) ($row['cuname'] ?? ''));
+    $labelName = $name !== '' ? $name : $code;
+
+    return [
+        'code' => $code,
+        'name' => $labelName,
+        'text' => $labelName . ' - [' . $code . ']',
+    ];
+}
+
+/**
+ * Same lookup as Create Order Dealer Address (customer_address.adr_code).
+ *
  * @return array{code: string, name: string, text: string}|null
  */
 function customer_master_dealer_get(PDO $conn, string $cuno): ?array
 {
-    require_once __DIR__ . '/admin_access_helpers.php';
-
     $cuno = trim($cuno);
     if ($cuno === '') {
         return null;
     }
 
     $stmt = $conn->prepare('
-        SELECT
-            TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\'))) AS dealer_code,
-            TRIM(COALESCE(
-                NULLIF(TRIM(cm.cuname), \'\'),
-                NULLIF(TRIM(um.name), \'\'),
-                NULLIF(TRIM(um.username), \'\'),
-                TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\')))
-            )) AS dealer_name
-        FROM user_master um
-        LEFT JOIN customer_master cm
-            ON TRIM(cm.cuno) = TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\')))
-        WHERE um.deleted_at IS NULL
-          AND um.role = :dealer_role
-          AND TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\'))) = TRIM(:cuno)
-        ORDER BY um.name ASC NULLS LAST, um.username ASC
+        SELECT adr_code, cuname, cuno
+        FROM customer_address
+        WHERE length(adr_code) = 9
+          AND TRIM(adr_code) = TRIM(:code)
         LIMIT 1
     ');
-    $stmt->bindValue(':dealer_role', DEALER_USER_ROLE, PDO::PARAM_INT);
-    $stmt->bindValue(':cuno', $cuno);
+    $stmt->bindValue(':code', $cuno);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        $code = trim((string) ($row['adr_code'] ?? ''));
+        return $code !== '' ? customer_master_dealer_address_option($row, $code) : null;
+    }
+
+    // Existing Customer Master rows and locked dealer users store cuno, not adr_code.
+    $stmt = $conn->prepare('
+        SELECT adr_code, cuname, cuno
+        FROM customer_address
+        WHERE length(adr_code) = 9
+          AND TRIM(cuno) = TRIM(:code)
+        ORDER BY cuname
+        LIMIT 1
+    ');
+    $stmt->bindValue(':code', $cuno);
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
         return null;
     }
 
-    $code = trim((string) ($row['dealer_code'] ?? ''));
-    $name = trim((string) ($row['dealer_name'] ?? ''));
-    if ($code === '') {
-        return null;
-    }
-
-    return [
-        'code' => $code,
-        'name' => $name !== '' ? $name : $code,
-        'text' => ($name !== '' ? $name : $code) . ' - [' . $code . ']',
-    ];
+    return customer_master_dealer_address_option($row, $cuno);
 }
 
 /**
- * Active Dealer role users only (excludes soft-deleted users).
+ * Same search as Create Order Dealer Address (orderClass::customer_master).
  *
  * @return array<int, array{id: string, text: string, name: string}>
  */
 function customer_master_dealer_search(PDO $conn, string $search, int $limit = 50): array
 {
-    require_once __DIR__ . '/admin_access_helpers.php';
-
     $limit = max(1, min(100, $limit));
     $search = trim($search);
 
-    $sql = '
-        SELECT
-            dealer_code,
-            MIN(dealer_name) AS dealer_name
-        FROM (
-            SELECT
-                TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\'))) AS dealer_code,
-                TRIM(COALESCE(
-                    NULLIF(TRIM(cm.cuname), \'\'),
-                    NULLIF(TRIM(um.name), \'\'),
-                    NULLIF(TRIM(um.username), \'\'),
-                    TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\')))
-                )) AS dealer_name
-            FROM user_master um
-            LEFT JOIN customer_master cm
-                ON TRIM(cm.cuno) = TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\')))
-            WHERE um.deleted_at IS NULL
-              AND um.role = :dealer_role
-              AND TRIM(COALESCE(NULLIF(TRIM(um.customer_code), \'\'), NULLIF(TRIM(um.customer_number), \'\'))) <> \'\'
-        ) dealers
-        WHERE 1 = 1
-    ';
-    $params = [':dealer_role' => DEALER_USER_ROLE];
+    $sql = 'SELECT adr_code, cuname
+        FROM customer_address
+        WHERE length(adr_code) = 9';
+    $params = [];
     if ($search !== '') {
         $sql .= ' AND (
-            LOWER(dealer_name) LIKE LOWER(:search)
-            OR LOWER(dealer_code) LIKE LOWER(:search)
-        )';
+                LOWER(cuname) LIKE LOWER(:search)
+                OR adr_code LIKE :search
+             )';
         $params[':search'] = '%' . $search . '%';
     }
-    $sql .= ' GROUP BY dealer_code ORDER BY dealer_name ASC NULLS LAST, dealer_code ASC LIMIT ' . (int) $limit;
+    $sql .= ' ORDER BY cuname LIMIT ' . (int) $limit;
 
     $stmt = $conn->prepare($sql);
     foreach ($params as $key => $value) {
-        if ($key === ':dealer_role') {
-            $stmt->bindValue($key, $value, PDO::PARAM_INT);
-        } else {
-            $stmt->bindValue($key, $value);
-        }
+        $stmt->bindValue($key, $value);
     }
     $stmt->execute();
 
     $results = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $code = trim((string) ($row['dealer_code'] ?? ''));
+        $code = trim((string) ($row['adr_code'] ?? ''));
         if ($code === '') {
             continue;
         }
-        $name = trim((string) ($row['dealer_name'] ?? ''));
-        $labelName = $name !== '' ? $name : $code;
+        $option = customer_master_dealer_address_option($row, $code);
         $results[] = [
-            'id' => $code,
-            'text' => $labelName . ' - [' . $code . ']',
-            'name' => $labelName,
+            'id' => $option['code'],
+            'text' => $option['text'],
+            'name' => $option['name'],
         ];
     }
 
