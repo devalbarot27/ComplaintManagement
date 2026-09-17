@@ -330,19 +330,6 @@ function initInstalledBaseAddCustomerFormValidation() {
         });
     }
 
-    function checkUniqueFields() {
-        return $.ajax({
-            url: 'api/customer_master_check_unique.php',
-            type: 'POST',
-            dataType: 'json',
-            data: {
-                record_id: 0,
-                email: form.querySelector('[name="email"]').value.trim(),
-                mobile: form.querySelector('[name="mobile"]').value.trim()
-            }
-        });
-    }
-
     let isSubmitting = false;
     const submitButton = document.getElementById('installedBaseAddCustomerSubmitBtn');
 
@@ -365,81 +352,68 @@ function initInstalledBaseAddCustomerFormValidation() {
             return;
         }
 
-        checkUniqueFields()
-            .done(function (response) {
-                if (response && response.errors && Object.keys(response.errors).length > 0) {
-                    showErrors(response.errors);
-                    return;
+        isSubmitting = true;
+        if (submitButton) {
+            submitButton.classList.add('disabled_btn');
+            submitButton.disabled = true;
+        }
+
+        const formData = $(form).serialize();
+
+        $.ajax({
+            url: 'api/customer_master_create.php',
+            type: 'POST',
+            dataType: 'json',
+            data: formData
+        }).done(function (result) {
+            if (!result || !result.success || !result.id) {
+                showInstalledBaseAddCustomerAlert((result && result.error) || 'Failed to save customer.');
+                if (result && result.field_errors) {
+                    showErrors(result.field_errors);
                 }
+                return;
+            }
 
-                isSubmitting = true;
-                if (submitButton) {
-                    submitButton.classList.add('disabled_btn');
-                    submitButton.disabled = true;
+            const label = result.text || result.customer_name || '';
+            if (typeof setInstalledBaseCustomerSelect2 === 'function'
+                && document.getElementById('installedBaseCustomerSelect')) {
+                setInstalledBaseCustomerSelect2(result.id, label);
+            }
+            if (typeof setComplaintCustomerSelect2 === 'function'
+                && document.getElementById('complaintCustomerSelect')) {
+                setComplaintCustomerSelect2(result.id, label);
+            }
+            if (typeof applyOrderBookingEndCustomer === 'function'
+                && document.getElementById('orderBookingEndCustomerSelect')) {
+                applyOrderBookingEndCustomer(result);
+            }
+
+            closeInstalledBaseAddCustomerModal();
+        }).fail(function (xhr) {
+            let message = 'Failed to save customer.';
+            let fieldErrors = null;
+            try {
+                const payload = xhr.responseJSON || JSON.parse(xhr.responseText || '{}');
+                if (payload && payload.error) {
+                    message = payload.error;
                 }
-
-                const formData = $(form).serialize();
-
-                $.ajax({
-                    url: 'api/customer_master_create.php',
-                    type: 'POST',
-                    dataType: 'json',
-                    data: formData
-                }).done(function (result) {
-                    if (!result || !result.success || !result.id) {
-                        showInstalledBaseAddCustomerAlert((result && result.error) || 'Failed to save customer.');
-                        if (result && result.field_errors) {
-                            showErrors(result.field_errors);
-                        }
-                        return;
-                    }
-
-                    const label = result.text || result.customer_name || '';
-                    if (typeof setInstalledBaseCustomerSelect2 === 'function'
-                        && document.getElementById('installedBaseCustomerSelect')) {
-                        setInstalledBaseCustomerSelect2(result.id, label);
-                    }
-                    if (typeof setComplaintCustomerSelect2 === 'function'
-                        && document.getElementById('complaintCustomerSelect')) {
-                        setComplaintCustomerSelect2(result.id, label);
-                    }
-                    if (typeof applyOrderBookingEndCustomer === 'function'
-                        && document.getElementById('orderBookingEndCustomerSelect')) {
-                        applyOrderBookingEndCustomer(result);
-                    }
-
-                    closeInstalledBaseAddCustomerModal();
-                }).fail(function (xhr) {
-                    let message = 'Failed to save customer.';
-                    let fieldErrors = null;
-                    try {
-                        const payload = xhr.responseJSON || JSON.parse(xhr.responseText || '{}');
-                        if (payload && payload.error) {
-                            message = payload.error;
-                        }
-                        if (payload && payload.field_errors) {
-                            fieldErrors = payload.field_errors;
-                        }
-                    } catch (err) {
-                        // keep default message
-                    }
-                    showInstalledBaseAddCustomerAlert(message);
-                    if (fieldErrors) {
-                        showErrors(fieldErrors);
-                    }
-                }).always(function () {
-                    isSubmitting = false;
-                    if (submitButton) {
-                        submitButton.classList.remove('disabled_btn');
-                        submitButton.disabled = false;
-                    }
-                });
-            })
-            .fail(function () {
-                showErrors({
-                    email: ['Unable to verify email and mobile. Please try again.']
-                });
-            });
+                if (payload && payload.field_errors) {
+                    fieldErrors = payload.field_errors;
+                }
+            } catch (err) {
+                // keep default message
+            }
+            showInstalledBaseAddCustomerAlert(message);
+            if (fieldErrors) {
+                showErrors(fieldErrors);
+            }
+        }).always(function () {
+            isSubmitting = false;
+            if (submitButton) {
+                submitButton.classList.remove('disabled_btn');
+                submitButton.disabled = false;
+            }
+        });
     });
 }
 

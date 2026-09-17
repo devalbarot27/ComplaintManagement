@@ -59,17 +59,12 @@ function customer_master_ensure_schema(PDO $conn): void
                 deleted_at TIMESTAMP NULL
             )
         ");
-        $conn->exec("
-            CREATE UNIQUE INDEX customer_masters_email_active_uidx
-            ON customer_masters (LOWER(TRIM(email)))
-            WHERE deleted_at IS NULL
-        ");
-        $conn->exec("
-            CREATE UNIQUE INDEX customer_masters_mobile_active_uidx
-            ON customer_masters (TRIM(mobile))
-            WHERE deleted_at IS NULL
-        ");
     }
+
+    $conn->exec('DROP INDEX IF EXISTS customer_masters_email_active_uidx');
+    $conn->exec('DROP INDEX IF EXISTS customer_masters_mobile_active_uidx');
+    $conn->exec('DROP INDEX IF EXISTS customer_contact_masters_email_active_uidx');
+    $conn->exec('DROP INDEX IF EXISTS customer_contact_masters_mobile_active_uidx');
 
     $conn->exec("
         ALTER TABLE customer_masters

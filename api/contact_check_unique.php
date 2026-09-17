@@ -48,21 +48,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     exit;
 }
 
-$recordId = (int) ($_POST['record_id'] ?? 0);
-$email = trim((string) ($_POST['email'] ?? ''));
-$mobile = trim((string) ($_POST['mobile'] ?? ''));
-
-$errors = [];
-
-if ($email !== '' && contact_email_exists($obconn, $email, $recordId)) {
-    $errors['email'] = ['Email already exists'];
-}
-
-if ($mobile !== '' && contact_mobile_exists($obconn, $mobile, $recordId)) {
-    $errors['mobile'] = ['Mobile already exists'];
-}
-
 echo json_encode([
-    'valid' => empty($errors),
-    'errors' => $errors,
+    'valid' => true,
+    'errors' => [],
 ], JSON_UNESCAPED_UNICODE);

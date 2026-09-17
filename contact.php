@@ -35,10 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_contact'])) {
 
         if ($validationError !== null) {
             $error_message = $validationError;
-        } elseif (contact_email_exists($obconn, $data['email'], $recordId)) {
-            $error_message = 'Email already exists. Please choose a different email.';
-        } elseif (contact_mobile_exists($obconn, $data['mobile'], $recordId)) {
-            $error_message = 'Mobile already exists. Please choose a different mobile number.';
         } else {
             try {
                 if ($isEdit) {

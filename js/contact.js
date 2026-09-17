@@ -223,24 +223,6 @@ function initContactFormValidation() {
         });
     }
 
-    function getRecordId() {
-        const recordId = document.getElementById('contactRecordId');
-        return recordId && recordId.value !== '' ? parseInt(recordId.value, 10) : 0;
-    }
-
-    function checkUniqueFields(recordId) {
-        return $.ajax({
-            url: 'api/contact_check_unique.php',
-            type: 'POST',
-            dataType: 'json',
-            data: {
-                record_id: recordId || 0,
-                email: form.querySelector('[name="email"]').value.trim(),
-                mobile: form.querySelector('[name="mobile"]').value.trim()
-            }
-        });
-    }
-
     let isSubmitting = false;
     const submitButton = document.getElementById('submitContactBtn');
 
@@ -258,24 +240,11 @@ function initContactFormValidation() {
             return;
         }
 
-        checkUniqueFields(getRecordId())
-            .done(function (response) {
-                if (response && response.errors && Object.keys(response.errors).length > 0) {
-                    showErrors(response.errors);
-                    return;
-                }
-
-                isSubmitting = true;
-                if (submitButton) {
-                    submitButton.classList.add('disabled_btn');
-                }
-                form.submit();
-            })
-            .fail(function () {
-                showErrors({
-                    email: ['Unable to verify email and mobile. Please try again.']
-                });
-            });
+        isSubmitting = true;
+        if (submitButton) {
+            submitButton.classList.add('disabled_btn');
+        }
+        form.submit();
     });
 }
 

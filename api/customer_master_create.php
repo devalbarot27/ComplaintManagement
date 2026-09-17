@@ -50,26 +50,6 @@ if ($validationError !== null) {
     exit;
 }
 
-if (customer_master_email_exists($obconn, $data['email'])) {
-    http_response_code(422);
-    api_json_echo([
-        'success' => false,
-        'error' => 'Email already exists. Please choose a different email.',
-        'field_errors' => ['email' => ['Email already exists']],
-    ]);
-    exit;
-}
-
-if (customer_master_mobile_exists($obconn, $data['mobile'])) {
-    http_response_code(422);
-    api_json_echo([
-        'success' => false,
-        'error' => 'Mobile already exists. Please choose a different mobile number.',
-        'field_errors' => ['mobile' => ['Mobile already exists']],
-    ]);
-    exit;
-}
-
 try {
     $newId = customer_master_insert($obconn, $data, current_username());
     if ($newId <= 0) {

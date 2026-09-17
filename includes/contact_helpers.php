@@ -17,42 +17,33 @@ function contact_ensure_schema(PDO $conn): void
         LIMIT 1
     ");
     $tableStmt->execute();
-    if ((bool) $tableStmt->fetchColumn()) {
-        return;
+    if (!(bool) $tableStmt->fetchColumn()) {
+        $conn->exec("
+            CREATE TABLE contacts (
+                id SERIAL PRIMARY KEY,
+                customer_id INTEGER NOT NULL,
+                first_name VARCHAR(100) NOT NULL,
+                last_name VARCHAR(100) NOT NULL,
+                email VARCHAR(150) NOT NULL,
+                mobile VARCHAR(15) NOT NULL,
+                created_by VARCHAR(150) NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_by VARCHAR(150) NULL,
+                updated_at TIMESTAMP NULL,
+                deleted_at TIMESTAMP NULL,
+                CONSTRAINT contacts_customer_id_fkey
+                    FOREIGN KEY (customer_id) REFERENCES customer_masters (id)
+            )
+        ");
+        $conn->exec("
+            CREATE INDEX contacts_customer_id_idx
+            ON contacts (customer_id)
+            WHERE deleted_at IS NULL
+        ");
     }
 
-    $conn->exec("
-        CREATE TABLE contacts (
-            id SERIAL PRIMARY KEY,
-            customer_id INTEGER NOT NULL,
-            first_name VARCHAR(100) NOT NULL,
-            last_name VARCHAR(100) NOT NULL,
-            email VARCHAR(150) NOT NULL,
-            mobile VARCHAR(15) NOT NULL,
-            created_by VARCHAR(150) NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_by VARCHAR(150) NULL,
-            updated_at TIMESTAMP NULL,
-            deleted_at TIMESTAMP NULL,
-            CONSTRAINT contacts_customer_id_fkey
-                FOREIGN KEY (customer_id) REFERENCES customer_masters (id)
-        )
-    ");
-    $conn->exec("
-        CREATE UNIQUE INDEX contacts_email_active_uidx
-        ON contacts (LOWER(TRIM(email)))
-        WHERE deleted_at IS NULL
-    ");
-    $conn->exec("
-        CREATE UNIQUE INDEX contacts_mobile_active_uidx
-        ON contacts (TRIM(mobile))
-        WHERE deleted_at IS NULL
-    ");
-    $conn->exec("
-        CREATE INDEX contacts_customer_id_idx
-        ON contacts (customer_id)
-        WHERE deleted_at IS NULL
-    ");
+    $conn->exec('DROP INDEX IF EXISTS contacts_email_active_uidx');
+    $conn->exec('DROP INDEX IF EXISTS contacts_mobile_active_uidx');
 }
 
 function contact_email_pattern(): string

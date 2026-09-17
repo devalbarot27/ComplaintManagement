@@ -61,10 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_customer_maste
 
         if ($validationError !== null) {
             $error_message = $validationError;
-        } elseif (customer_master_email_exists($obconn, $data['email'], $recordId)) {
-            $error_message = 'Email already exists. Please choose a different email.';
-        } elseif (customer_master_mobile_exists($obconn, $data['mobile'], $recordId)) {
-            $error_message = 'Mobile already exists. Please choose a different mobile number.';
         } else {
             try {
                 if ($isEdit) {
