@@ -241,7 +241,7 @@ try {
     $focSeeAll = foc_claim_see_all_approvals($obconn);
     $focSql = "
         SELECT
-            fc.id, fc.complaint_id, fc.warranty_status, fc.justification, fc.l1_status, fc.l2_status,
+            fc.id, fc.complaint_id, fc.warranty_status, fc.justification, fc.foc_value, fc.l1_status, fc.l2_status,
             fc.l1_approver_user_id, fc.l2_approver_user_id,
             fc.l1_remarks, fc.l1_by_username, fc.l1_at,
             fc.l2_remarks, fc.l2_by_username, fc.l2_at,
@@ -316,6 +316,7 @@ try {
             'warranty_label' => $row['warranty_status'],
             'warranty_class' => warranty_status_badge_class($row['warranty_status']),
             'justification'  => $row['justification'] ?? '',
+            'foc_value'      => foc_claim_format_value($row['foc_value'] ?? null),
             'stage_label'    => $isL1Pending
                 ? 'Lock-in Engineer: Pending'
                 : 'Business Head: Pending',
@@ -626,6 +627,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                     <th width="14%">Customer</th>
                                     <th width="14%">Details</th>
                                     <th width="10%">Warranty</th>
+                                    <th width="10%">FOC Value</th>
                                     <th width="12%">Stage</th>
                                     <th width="10%">Submitted By</th>
                                     <th width="12%">Submitted On</th>
@@ -696,6 +698,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                             </span>
                                             <?php endif; ?>
                                         </td>
+                                        <td><?= htmlspecialchars((string) ($row['foc_value'] ?? '-')) ?></td>
                                         <td>
                                             <span class="status-badge border border-dark">
                                                 <?= htmlspecialchars((string) ($row['stage_label'] ?? '-')) ?>
@@ -718,6 +721,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                                 data-products-detail-html="<?= htmlspecialchars((string) ($row['products_detail_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-parts-html="<?= htmlspecialchars((string) ($row['parts_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-warranty="<?= htmlspecialchars((string) ($row['warranty_label'] ?? '')) ?>"
+                                                data-foc-value="<?= htmlspecialchars((string) ($row['foc_value'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-justification="<?= htmlspecialchars((string) ($row['justification'] ?? '')) ?>"
                                                 data-stage="<?= htmlspecialchars((string) ($row['stage_label'] ?? '')) ?>"
                                                 data-overall-status="<?= htmlspecialchars((string) ($row['overall_status'] ?? '')) ?>"
@@ -802,6 +806,12 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                             </div>
                         </div>
                         <div class="row g-3" id="viewClaimFocFields">
+                            <div class="col-md-4 form-group d-none" id="viewClaimFocNumberWrap">
+                                <label class="form-label" id="viewClaimIdLabel"><i class="bi bi-hash"></i> FOC ID</label>
+                                <div class="approval-detail-value">
+                                    <a id="viewClaimFocNumberLink" href="#" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">#<span id="viewClaimFocNumber"></span></a>
+                                </div>
+                            </div>
                             <div class="col-md-4 form-group">
                                 <label class="form-label"><i class="bi bi-ticket-detailed"></i> Call Ticket</label>
                                 <div class="approval-detail-value">
@@ -841,6 +851,10 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                 <div class="approval-detail-value">
                                     <span class="status-badge border border-dark" id="viewClaimOverall"></span>
                                 </div>
+                            </div>
+                            <div class="col-md-4 form-group d-none" id="viewClaimFocValueWrap">
+                                <label class="form-label"><i class="bi bi-currency-rupee"></i> FOC Value</label>
+                                <div class="approval-detail-value" id="viewClaimFocValue"></div>
                             </div>
                             <div class="col-12 form-group" id="viewClaimJustificationWrap">
                                 <label class="form-label"><i class="bi bi-chat-left-text"></i> Justification</label>
@@ -1263,7 +1277,9 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                             document.getElementById('viewCartL2Remarks').textContent = d.l2Remarks || '-';
                         }
                     } else {
-                        document.getElementById('viewClaimTitle').textContent = (isFoc ? 'FOC Parts Claim' : 'Service Claim') + ' #' + d.claimId;
+                        document.getElementById('viewClaimTitle').textContent = isFoc
+                            ? ('FOC ID #' + d.claimId)
+                            : ('Service Claim ID #' + d.claimId);
                         document.getElementById('viewClaimSubtitle').textContent = isFoc ?
                             'Review FOC part claim details, service logs, and take action.' :
                             'Review service claim details and take action.';
@@ -1301,6 +1317,37 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         document.getElementById('viewClaimOverall').textContent = d.overallStatus || '-';
                         document.getElementById('viewClaimSubmittedBy').textContent = d.submittedBy || '-';
                         document.getElementById('viewClaimSubmittedOn').textContent = submittedOnLabel;
+                        const focNumberWrap = document.getElementById('viewClaimFocNumberWrap');
+                        const focNumberEl = document.getElementById('viewClaimFocNumber');
+                        const focNumberLink = document.getElementById('viewClaimFocNumberLink');
+                        const claimIdLabel = document.getElementById('viewClaimIdLabel');
+                        if (claimIdLabel) {
+                            claimIdLabel.innerHTML = isFoc
+                                ? '<i class="bi bi-hash"></i> FOC ID'
+                                : '<i class="bi bi-hash"></i> Service Claim ID';
+                        }
+                        if (focNumberEl) {
+                            focNumberEl.textContent = d.claimId || '';
+                        }
+                        if (focNumberLink) {
+                            if (d.claimId) {
+                                focNumberLink.href = (isFoc ? 'foc_claim_details.php' : 'service_claim_details.php')
+                                    + '?id=' + encodeURIComponent(btoa(String(d.claimId)));
+                                focNumberLink.classList.remove('disabled');
+                                focNumberLink.setAttribute('aria-disabled', 'false');
+                            } else {
+                                focNumberLink.href = '#';
+                                focNumberLink.classList.add('disabled');
+                                focNumberLink.setAttribute('aria-disabled', 'true');
+                            }
+                        }
+                        setHidden(focNumberWrap, false);
+                        const focValueWrap = document.getElementById('viewClaimFocValueWrap');
+                        const focValueEl = document.getElementById('viewClaimFocValue');
+                        if (focValueEl) {
+                            focValueEl.textContent = d.focValue || '-';
+                        }
+                        setHidden(focValueWrap, !isFoc);
                         setHidden(document.getElementById('viewClaimJustificationWrap'), !isFoc || !d.justification);
                         const focApprovalWrap = document.getElementById('viewClaimFocApprovalWrap');
                         const l1Wrap = document.getElementById('viewClaimFocL1Wrap');

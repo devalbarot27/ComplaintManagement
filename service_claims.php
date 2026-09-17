@@ -518,7 +518,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 </button>
                 <?php endif; ?>
                 <button class="close-form-btn cancel-btn" id="closeClaimForm" type="button" style="display:none;">
-                    <i class="bi bi-x-lg"></i> Cancel
+                    <i class="bi bi-arrow-left"></i> Back
                 </button>
             </div>
         </div>
@@ -537,6 +537,9 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                         </p>
                     </div>
                 </div>
+                <button type="button" class="btn btn-light border" id="backClaimForm">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
             </div>
 
             <form method="POST" id="serviceClaimForm" enctype="multipart/form-data" novalidate>
@@ -653,7 +656,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
 
                 <div class="complaint-form-footer d-flex justify-content-end gap-2 p-3">
                     <button type="button" class="btn btn-outline-secondary" id="cancelClaimForm">
-                        <i class="bi bi-x-lg"></i> Cancel
+                        <i class="bi bi-arrow-left"></i> Back
                     </button>
                     <button type="submit" name="submit_service_claim" class="btn btn-complaint-primary">
                         <i class="bi bi-send"></i> Submit Call Closure
@@ -683,7 +686,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 <table id="serviceClaimsTable" class="table table-hover booking-table w-100">
                     <thead>
                         <tr>
-                            <th width="6%">#</th>
+                            <th width="10%">ID</th>
                             <th width="16%">Call Ticket</th>
                             <th width="12%">Fab Number</th>
                             <th width="14%">Customer</th>
@@ -742,7 +745,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             $overallStatus = service_claim_overall_status_label($row);
                         ?>
                         <tr>
-                            <td><?= $claimId ?></td>
+                            <td>#<?= $claimId ?></td>
                             <td>
                                 <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                     #<?= $complaintId ?>
@@ -825,6 +828,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
     const openBtn   = document.getElementById('openClaimForm');
     const closeBtn  = document.getElementById('closeClaimForm');
     const cancelBtn = document.getElementById('cancelClaimForm');
+    const backBtn   = document.getElementById('backClaimForm');
     const formCard  = document.getElementById('claimFormCard');
     const tableCard = document.getElementById('claimTableCard');
     const complaintSelect = document.getElementById('complaintId');
@@ -858,6 +862,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
     if (openBtn) openBtn.addEventListener('click', showForm);
     if (closeBtn) closeBtn.addEventListener('click', hideForm);
     if (cancelBtn) cancelBtn.addEventListener('click', hideForm);
+    if (backBtn) backBtn.addEventListener('click', hideForm);
 
     function complaintDetailsUrl(id) {
         return 'complaint_details.php?id=' + encodeURIComponent(btoa(String(id)));

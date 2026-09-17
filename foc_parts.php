@@ -59,6 +59,8 @@ if ($isCreatePost || $isResubmitPost) {
         ? (int) ($editingClaim['complaint_id'] ?? 0)
         : (int) ($_POST['complaint_id'] ?? 0);
     $justification  = trim($_POST['justification'] ?? '');
+    $parsedFocValue = foc_claim_parse_value((string) ($_POST['foc_value'] ?? ''));
+    $focValue       = $parsedFocValue['value'];
     $cartItems      = json_decode($_POST['cart_items'] ?? '[]', true);
 
     $complaint = warranty_claims_find_complaint($obconn, $complaintId);
@@ -104,6 +106,9 @@ if ($isCreatePost || $isResubmitPost) {
     } elseif (!in_array($warrantyStatus, warranty_claims_workflow_statuses(), true)) {
         $field_errors['warranty_status'] = 'Warranty status could not be determined for this call ticket. Ensure the fab has a commissioning date in Installed Base.';
         $error_message = $field_errors['warranty_status'];
+    } elseif ($parsedFocValue['error'] !== null) {
+        $field_errors['foc_value'] = $parsedFocValue['error'];
+        $error_message = $field_errors['foc_value'];
     } elseif ($hasNewParts && $justification === '') {
         $error_message = 'Justification is required.';
     } elseif (strlen($justification) > 500) {
@@ -123,6 +128,7 @@ if ($isCreatePost || $isResubmitPost) {
                     (int) $editingClaim['id'],
                     $justification,
                     $warrantyStatus,
+                    $focValue,
                     $items,
                     $dpconn
                 );
@@ -150,6 +156,7 @@ if ($isCreatePost || $isResubmitPost) {
                     (
                         complaint_id,
                         justification,
+                        foc_value,
                         warranty_status,
                         l1_status,
                         l2_status,
@@ -162,6 +169,7 @@ if ($isCreatePost || $isResubmitPost) {
                     (
                         :complaint_id,
                         :justification,
+                        :foc_value,
                         :warranty_status,
                         :l1_status,
                         :l2_status,
@@ -174,6 +182,7 @@ if ($isCreatePost || $isResubmitPost) {
                 ");
                 $stmt->bindValue(':complaint_id',        $complaintId, PDO::PARAM_INT);
                 $stmt->bindValue(':justification',        $justification !== '' ? $justification : null);
+                $stmt->bindValue(':foc_value',             $focValue);
                 $stmt->bindValue(':warranty_status',      $warrantyStatus);
                 $stmt->bindValue(':l1_status',             $stage['l1_status']);
                 $stmt->bindValue(':l2_status',             $stage['l2_status']);
@@ -286,7 +295,7 @@ try {
     $listScope = foc_parts_list_scope($obconn);
     $claimStmt = $obconn->prepare("
         SELECT
-            fc.id, fc.complaint_id, fc.justification,
+            fc.id, fc.complaint_id, fc.justification, fc.foc_value,
             fc.warranty_status, fc.l1_status, fc.l1_by_username, fc.l1_at, fc.l1_remarks,
             fc.l2_status, fc.l2_by_username, fc.l2_at, fc.l2_remarks,
             fc.overall_status, fc.ln_order_number, fc.created_by_username, fc.created_at,
@@ -338,11 +347,18 @@ $recentComplaints = warranty_claims_recent_complaints($obconn);
 
 $selectedComplaintIdForForm = (int) ($_POST['complaint_id'] ?? 0);
 $formJustification = (string) ($_POST['justification'] ?? '');
+$formFocValue = (string) ($_POST['foc_value'] ?? '');
 $rejectionRemarksHtml = '';
 if ($isEditMode) {
     $selectedComplaintIdForForm = (int) ($editingClaim['complaint_id'] ?? 0);
     if ($formJustification === '') {
         $formJustification = (string) ($editingClaim['justification'] ?? '');
+    }
+    if ($formFocValue === '') {
+        $storedFocValue = $editingClaim['foc_value'] ?? '';
+        $formFocValue = ($storedFocValue !== null && $storedFocValue !== '')
+            ? number_format((float) $storedFocValue, 2, '.', '')
+            : '';
     }
     $ticketInList = false;
     foreach ($recentComplaints as $recentComplaint) {
@@ -481,7 +497,7 @@ $showFocForm = $isEditMode || $error_message !== '';
                 </button>
                 <?php endif; ?>
                 <button class="close-form-btn cancel-btn" id="closeFocForm" type="button"<?= $showFocForm ? '' : ' style="display:none;"' ?>>
-                    <i class="bi bi-x-lg"></i> Cancel
+                    <i class="bi bi-arrow-left"></i> Back
                 </button>
             </div>
         </div>
@@ -502,6 +518,9 @@ $showFocForm = $isEditMode || $error_message !== '';
                         </p>
                     </div>
                 </div>
+                <button type="button" class="btn btn-light border" id="backFocForm">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
             </div>
 
             <form method="POST" id="focClaimForm" novalidate>
@@ -571,6 +590,16 @@ $showFocForm = $isEditMode || $error_message !== '';
                                     readonly>
                                 <div class="text-danger validation-msg" data-field="warranty_status"><?= htmlspecialchars($field_errors['warranty_status'] ?? '') ?></div>
                                 <small class="text-muted">Auto-filled from the Warranty Claims workflow (commissioning date). Not editable.</small>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label" for="focValue">
+                                    <i class="bi bi-currency-rupee"></i> FOC Value <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control<?= isset($field_errors['foc_value']) ? ' is-invalid' : '' ?>"
+                                    id="focValue" name="foc_value" inputmode="decimal"
+                                    placeholder="Enter FOC Value"
+                                    value="<?= htmlspecialchars($formFocValue, ENT_QUOTES, 'UTF-8') ?>" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');" maxlength="10">
+                                <div class="text-danger validation-msg" data-field="foc_value"><?= htmlspecialchars($field_errors['foc_value'] ?? '') ?></div>
                             </div>
                         </div>
                     </section>
@@ -676,7 +705,7 @@ $showFocForm = $isEditMode || $error_message !== '';
 
                 <div class="complaint-form-footer d-flex justify-content-end gap-2 p-3">
                     <button type="button" class="btn btn-outline-secondary" id="cancelFocForm">
-                        <i class="bi bi-x-lg"></i> Cancel
+                        <i class="bi bi-arrow-left"></i> Back
                     </button>
                     <button type="submit" name="<?= $isEditMode ? 'resubmit_foc_claim' : 'submit_foc_claim' ?>" class="btn btn-complaint-primary">
                         <i class="bi bi-send"></i> <?= $isEditMode ? 'Resubmit Claim' : 'Submit Claim' ?>
@@ -706,7 +735,7 @@ $showFocForm = $isEditMode || $error_message !== '';
                     <table id="focClaimsTable" class="table table-hover booking-table w-100">
                         <thead>
                             <tr>
-                                <th width="6%">#</th>
+                                <th width="10%">ID</th>
                                 <th width="10%">Call Ticket</th>
                                 <th width="12%">Fab Number</th>
                                 <th width="14%">Customer</th>
@@ -714,6 +743,7 @@ $showFocForm = $isEditMode || $error_message !== '';
                                 <th width="14%">Part Name</th>
                                 <th width="8%">Qty</th>
                                 <th width="10%">Warranty</th>
+                                <th width="10%">FOC Value</th>
                                 <th width="10%">Lock-in Engineer</th>
                                 <th width="10%">Business Head</th>
                                 <th width="14%">Overall Status</th>
@@ -749,7 +779,7 @@ $showFocForm = $isEditMode || $error_message !== '';
                                 );
                             ?>
                             <tr>
-                                <td><?= $claimId ?></td>
+                                <td>#<?= $claimId ?></td>
                                 <td>
                                     <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                         #<?= $complaintId ?>
@@ -765,6 +795,7 @@ $showFocForm = $isEditMode || $error_message !== '';
                                         <?= htmlspecialchars((string) ($row['warranty_status'] ?? '-')) ?>
                                     </span>
                                 </td>
+                                <td><?= htmlspecialchars(foc_claim_format_value($row['foc_value'] ?? null)) ?></td>
                                 <td>
                                     <span class="status-badge border border-dark">
                                         <?= htmlspecialchars((string) ($row['l1_status'] ?? '-')) ?>
@@ -815,6 +846,7 @@ $showFocForm = $isEditMode || $error_message !== '';
     const openBtn   = document.getElementById('openFocForm');
     const closeBtn  = document.getElementById('closeFocForm');
     const cancelBtn = document.getElementById('cancelFocForm');
+    const backBtn   = document.getElementById('backFocForm');
     const formCard  = document.getElementById('focFormCard');
     const tableCard = document.getElementById('focTableCard');
     const complaintSelect = document.getElementById('complaintId');
@@ -853,6 +885,7 @@ $showFocForm = $isEditMode || $error_message !== '';
     if (openBtn) openBtn.addEventListener('click', showForm);
     if (closeBtn) closeBtn.addEventListener('click', hideForm);
     if (cancelBtn) cancelBtn.addEventListener('click', hideForm);
+    if (backBtn) backBtn.addEventListener('click', hideForm);
 
     function complaintDetailsUrl(id) {
         return 'complaint_details.php?id=' + encodeURIComponent(btoa(String(id)));
@@ -1156,6 +1189,7 @@ $showFocForm = $isEditMode || $error_message !== '';
 
     const focClaimForm = document.getElementById('focClaimForm');
     const justificationInput = document.getElementById('justification');
+    const focValueInput = document.getElementById('focValue');
 
     function setFieldError(field, message) {
         const msg = document.querySelector('.validation-msg[data-field="' + field + '"]');
@@ -1182,11 +1216,19 @@ $showFocForm = $isEditMode || $error_message !== '';
         }
     }
 
+    if (focValueInput) {
+        focValueInput.addEventListener('input', function () {
+            clearFieldError('foc_value', focValueInput);
+        });
+    }
+
     if (focClaimForm) {
         focClaimForm.addEventListener('submit', function (e) {
             setFieldError('cart_items', '');
             setFieldError('justification', '');
+            setFieldError('foc_value', '');
             if (justificationInput) justificationInput.classList.remove('is-invalid');
+            if (focValueInput) focValueInput.classList.remove('is-invalid');
 
             let blocked = false;
             let firstInvalid = null;
@@ -1215,6 +1257,17 @@ $showFocForm = $isEditMode || $error_message !== '';
                 blocked = true;
                 setFieldError('cart_items', 'Please add at least one part to the cart.');
                 firstInvalid = firstInvalid || document.getElementById('cartItemsTable');
+            }
+            const focValue = focValueInput ? String(focValueInput.value || '').trim() : '';
+            const focNumber = focValue === '' ? NaN : Number(focValue);
+            if (focValue === '' || !isFinite(focNumber) || focNumber < 0) {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('foc_value', focValue === '' ? 'FOC Value is required.' : 'FOC Value must be a valid number.');
+                if (focValueInput) {
+                    focValueInput.classList.add('is-invalid');
+                    firstInvalid = firstInvalid || focValueInput;
+                }
             }
             if (cartHasNewParts() && justificationInput && justificationInput.value.trim() === '') {
                 e.preventDefault();

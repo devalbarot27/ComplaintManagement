@@ -87,7 +87,7 @@ $partsTable .= '</tbody></table></div>';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FOC Claim Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
+    <title>FOC ID #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
     <?php include 'header_css.php'; ?>
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link href="css/complaint_form.css" rel="stylesheet" />
@@ -105,7 +105,7 @@ $partsTable .= '</tbody></table></div>';
             <?php
             record_details_page_header(
                 'FOC Part Claim',
-                'Claim #' . (int) $record['id'],
+                'FOC ID #' . (int) $record['id'],
                 'foc_parts.php',
                 'Back to List',
                 'bi-wrench-adjustable',
@@ -121,6 +121,7 @@ $partsTable .= '</tbody></table></div>';
             record_details_card_start();
 
             record_details_section_start(1, 'Call Ticket', 'Complaint this FOC request relates to');
+            record_details_field('FOC ID', '#' . (int) $record['id'], 'col-md-4');
             record_details_field(
                 'Call Ticket',
                 '<a class="text-primary" href="complaint_details.php?id=' . htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">#' . $complaintId . '</a>',
@@ -166,7 +167,8 @@ $partsTable .= '</tbody></table></div>';
 
             record_details_section_start(3, 'Parts', 'Parts requested on this FOC claim');
             record_details_field('Parts', $partsTable, 'col-md-12', false, true);
-            record_details_field('Justification', (string) ($record['justification'] ?? ''), 'col-md-12', true);
+            record_details_field('Justification', (string) ($record['justification'] ?? ''), 'col-md-8', true);
+            record_details_field('FOC Value', foc_claim_format_value($record['foc_value'] ?? null), 'col-md-4');
             record_details_section_end();
 
             record_details_section_start(4, 'Warranty & Approval', 'Warranty flag, L1/L2 decisions, Ref No and AO Number');

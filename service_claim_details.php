@@ -51,7 +51,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Service Claim Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
+    <title>Service Claim ID #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
     <?php include 'header_css.php'; ?>
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link href="css/complaint_form.css" rel="stylesheet" />
@@ -69,7 +69,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             <?php
             record_details_page_header(
                 'Service Claim',
-                'Claim #' . (int) $record['id'],
+                'Service Claim ID #' . (int) $record['id'],
                 'service_claims.php',
                 'Back to List',
                 'bi-clipboard-check',
@@ -82,6 +82,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_card_start();
 
             record_details_section_start(1, 'Call Ticket', 'Complaint this service visit relates to');
+            record_details_field('Service Claim ID', '#' . (int) $record['id'], 'col-md-4');
             record_details_field(
                 'Call Ticket',
                 '<a class="text-primary" href="complaint_details.php?id=' . htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">#' . $complaintId . '</a>',

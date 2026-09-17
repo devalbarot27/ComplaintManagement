@@ -327,6 +327,37 @@ function warranty_claims_user_id_by_username(PDO $conn, string $username): ?int
     return $id > 0 ? $id : null;
 }
 
+/**
+ * @return array{error: ?string, value: ?string}
+ */
+function foc_claim_parse_value(string $raw): array
+{
+    $normalized = str_replace([',', ' '], '', trim($raw));
+    if ($normalized === '') {
+        return ['error' => 'FOC Value is required.', 'value' => null];
+    }
+    if (!is_numeric($normalized) || (float) $normalized < 0) {
+        return ['error' => 'FOC Value must be a valid number.', 'value' => null];
+    }
+    if ((float) $normalized > 9999999999.99) {
+        return ['error' => 'FOC Value is too large.', 'value' => null];
+    }
+
+    return ['error' => null, 'value' => number_format((float) $normalized, 2, '.', '')];
+}
+
+function foc_claim_format_value($value): string
+{
+    if ($value === null || $value === '') {
+        return '-';
+    }
+    if (!is_numeric($value)) {
+        return '-';
+    }
+
+    return html_entity_decode('&#8377;') . number_format((float) $value, 2, '.', '');
+}
+
 function foc_claim_is_rejected(?array $record): bool
 {
     if ($record === null) {
@@ -412,6 +443,7 @@ function foc_claim_resubmit(
     int $claimId,
     string $justification,
     string $warrantyStatus,
+    $focValue,
     array $items,
     ?PDO $dpconn = null
 ): ?string {
@@ -433,6 +465,7 @@ function foc_claim_resubmit(
         UPDATE foc_claims
         SET justification = :justification,
             warranty_status = :warranty_status,
+            foc_value = :foc_value,
             l1_status = :l1_status,
             l2_status = :l2_status,
             l1_approver_user_id = :l1_approver_user_id,
@@ -450,6 +483,7 @@ function foc_claim_resubmit(
     ");
     $update->bindValue(':justification', $justification !== '' ? $justification : null);
     $update->bindValue(':warranty_status', $warrantyStatus);
+    $update->bindValue(':foc_value', $focValue);
     $update->bindValue(':l1_status', $stage['l1_status']);
     $update->bindValue(':l2_status', $stage['l2_status']);
     foc_claim_bind_nullable_user_id($update, ':l1_approver_user_id', $approvers['l1'] ?? null);
@@ -642,6 +676,7 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 part_description VARCHAR(255) NULL,
                 qty INTEGER NULL,
                 justification VARCHAR(500) NULL,
+                foc_value NUMERIC(12,2) NULL,
                 warranty_status VARCHAR(20) NOT NULL,
                 l1_status VARCHAR(20) NOT NULL DEFAULT 'Pending',
                 l1_by_username VARCHAR(150) NULL,
@@ -672,6 +707,9 @@ function warranty_claims_ensure_schema(PDO $conn): void
     }
     if (!$columnExists($conn, 'foc_claims', 'l2_approver_user_id')) {
         $conn->exec("ALTER TABLE foc_claims ADD COLUMN l2_approver_user_id INTEGER NULL");
+    }
+    if (!$columnExists($conn, 'foc_claims', 'foc_value')) {
+        $conn->exec("ALTER TABLE foc_claims ADD COLUMN foc_value NUMERIC(12,2) NULL");
     }
 
     if (!$tableExists($conn, 'foc_claim_items')) {
@@ -1555,6 +1593,14 @@ function foc_approval_extra_html(PDO $conn, array $record): string
 
     $html = '<div class="row g-3 pt-2 border-top">';
     $html .= '<div class="col-12"><label class="form-label mb-0"><i class="bi bi-info-circle"></i> More Information</label></div>';
+    $html .= foc_approval_field_html(
+        'FOC ID',
+        '<a href="foc_claim_details.php?id=' . htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8')
+            . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">#' . (int) $claimId . '</a>',
+        'col-md-4',
+        false,
+        true
+    );
     if ($installedBaseId > 0 && $machineModel !== '') {
         $encodedIb = rawurlencode(base64_encode((string) $installedBaseId));
         $machineModelHtml = '<a href="installed_base_details.php?id=' . htmlspecialchars($encodedIb, ENT_QUOTES, 'UTF-8')
@@ -1567,6 +1613,7 @@ function foc_approval_extra_html(PDO $conn, array $record): string
     $html .= foc_approval_field_html('Commissioned', $commissioned);
     $warrantyDetails = installed_base_warranty_details($ibCommissioningDate);
     $html .= foc_approval_field_html('Machine Warranty', (string) ($warrantyDetails['status'] ?? $warranty['status'] ?? $record['warranty_status'] ?? ''));
+    $html .= foc_approval_field_html('FOC Value', foc_claim_format_value($record['foc_value'] ?? null));
     if (!empty($warrantyDetails['end_date_label']) && $warrantyDetails['end_date_label'] !== '-') {
         $html .= foc_approval_field_html(
             (string) $warrantyDetails['end_date_heading'],
