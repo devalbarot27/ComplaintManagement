@@ -2811,13 +2811,14 @@ function foc_claim_ln_customer_master_defaults(PDO $obconn, string $customerCode
 
     $transporter = 'T01';
     require_once __DIR__ . '/order_cart_schema.php';
-    if (plexecom_public_table_exists($obconn, 'dealercode_and_transportercode')) {
+    if (plexecom_public_table_exists($obconn, 'dealercode_and_transportercode')
+        && plexecom_public_column_exists($obconn, 'dealercode_and_transportercode', 'trans_code')
+        && plexecom_public_column_exists($obconn, 'dealercode_and_transportercode', 'cuno')
+    ) {
         $transStmt = $obconn->prepare("
             SELECT trans_code
             FROM dealercode_and_transportercode
             WHERE TRIM(cuno) = TRIM(:cuno)
-               OR TRIM(dealer_code) = TRIM(:cuno)
-            ORDER BY id
             LIMIT 1
         ");
         $transStmt->bindValue(':cuno', $customerCode, PDO::PARAM_STR);
