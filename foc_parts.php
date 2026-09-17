@@ -496,8 +496,8 @@ $showFocForm = $isEditMode || $error_message !== '';
                     <i class="bi bi-plus-lg"></i> New FOC Claim
                 </button>
                 <?php endif; ?>
-                <button class="close-form-btn cancel-btn" id="closeFocForm" type="button"<?= $showFocForm ? '' : ' style="display:none;"' ?>>
-                    <i class="bi bi-arrow-left"></i> Back
+                <button class="close-form-btn cancel-btn<?= $showFocForm ? ' show' : '' ?>" id="closeFocForm" type="button">
+                    <i class="bi bi-x-lg"></i> Cancel
                 </button>
             </div>
         </div>
@@ -518,9 +518,6 @@ $showFocForm = $isEditMode || $error_message !== '';
                         </p>
                     </div>
                 </div>
-                <button type="button" class="btn btn-light border" id="backFocForm">
-                    <i class="bi bi-arrow-left"></i> Back
-                </button>
             </div>
 
             <form method="POST" id="focClaimForm" novalidate>
@@ -703,11 +700,9 @@ $showFocForm = $isEditMode || $error_message !== '';
 
                 </div><!-- /.complaint-form-body -->
 
-                <div class="complaint-form-footer d-flex justify-content-end gap-2 p-3">
-                    <button type="button" class="btn btn-outline-secondary" id="cancelFocForm">
-                        <i class="bi bi-arrow-left"></i> Back
-                    </button>
-                    <button type="submit" name="<?= $isEditMode ? 'resubmit_foc_claim' : 'submit_foc_claim' ?>" class="btn btn-complaint-primary">
+                <div class="complaint-form-actions">
+                    <button type="button" class="cancel-btn" id="cancelFocForm">Cancel</button>
+                    <button type="submit" name="<?= $isEditMode ? 'resubmit_foc_claim' : 'submit_foc_claim' ?>" class="submit-btn btn-complaint-primary">
                         <i class="bi bi-send"></i> <?= $isEditMode ? 'Resubmit Claim' : 'Submit Claim' ?>
                     </button>
                 </div>
@@ -846,7 +841,6 @@ $showFocForm = $isEditMode || $error_message !== '';
     const openBtn   = document.getElementById('openFocForm');
     const closeBtn  = document.getElementById('closeFocForm');
     const cancelBtn = document.getElementById('cancelFocForm');
-    const backBtn   = document.getElementById('backFocForm');
     const formCard  = document.getElementById('focFormCard');
     const tableCard = document.getElementById('focTableCard');
     const complaintSelect = document.getElementById('complaintId');
@@ -866,7 +860,7 @@ $showFocForm = $isEditMode || $error_message !== '';
         formCard.style.display = 'block';
         tableCard.style.display = 'none';
         if (openBtn) openBtn.style.display  = 'none';
-        if (closeBtn) closeBtn.style.display = '';
+        if (closeBtn) closeBtn.classList.add('show');
         formCard.scrollIntoView({ behavior: 'smooth' });
     }
 
@@ -879,13 +873,12 @@ $showFocForm = $isEditMode || $error_message !== '';
         formCard.style.display = 'none';
         tableCard.style.display = 'block';
         if (openBtn) openBtn.style.display  = '';
-        if (closeBtn) closeBtn.style.display = 'none';
+        if (closeBtn) closeBtn.classList.remove('show');
     }
 
     if (openBtn) openBtn.addEventListener('click', showForm);
     if (closeBtn) closeBtn.addEventListener('click', hideForm);
     if (cancelBtn) cancelBtn.addEventListener('click', hideForm);
-    if (backBtn) backBtn.addEventListener('click', hideForm);
 
     function complaintDetailsUrl(id) {
         return 'complaint_details.php?id=' + encodeURIComponent(btoa(String(id)));

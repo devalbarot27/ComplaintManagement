@@ -167,7 +167,6 @@ function initAmcFormToggle() {
     const openBtn = document.getElementById('openAmcForm');
     const closeBtn = document.getElementById('closeAmcForm');
     const cancelBtn = document.getElementById('cancelAmcForm');
-    const backBtn = document.getElementById('backAmcForm');
     const formCard = document.getElementById('amcFormCard');
     const tableCard = document.getElementById('amcTableCard');
     const form = document.getElementById('amcForm');
@@ -184,7 +183,7 @@ function initAmcFormToggle() {
             openBtn.style.display = 'none';
         }
         if (closeBtn) {
-            closeBtn.style.display = '';
+            closeBtn.classList.add('show');
         }
         ['#amcInstalledBaseSelect', '#amcType'].forEach(function (selector) {
             const $select = $(selector);
@@ -207,7 +206,7 @@ function initAmcFormToggle() {
             openBtn.style.display = '';
         }
         if (closeBtn) {
-            closeBtn.style.display = 'none';
+            closeBtn.classList.remove('show');
         }
         if (form) {
             form.reset();
@@ -227,9 +226,6 @@ function initAmcFormToggle() {
     }
     if (cancelBtn) {
         cancelBtn.addEventListener('click', hideForm);
-    }
-    if (backBtn) {
-        backBtn.addEventListener('click', hideForm);
     }
 }
 

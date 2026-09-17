@@ -517,8 +517,8 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                     <i class="bi bi-plus-lg"></i> New Call Closure
                 </button>
                 <?php endif; ?>
-                <button class="close-form-btn cancel-btn" id="closeClaimForm" type="button" style="display:none;">
-                    <i class="bi bi-arrow-left"></i> Back
+                <button class="close-form-btn cancel-btn" id="closeClaimForm" type="button">
+                    <i class="bi bi-x-lg"></i> Cancel
                 </button>
             </div>
         </div>
@@ -537,9 +537,6 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                         </p>
                     </div>
                 </div>
-                <button type="button" class="btn btn-light border" id="backClaimForm">
-                    <i class="bi bi-arrow-left"></i> Back
-                </button>
             </div>
 
             <form method="POST" id="serviceClaimForm" enctype="multipart/form-data" novalidate>
@@ -654,11 +651,9 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
 
                 </div><!-- /.complaint-form-body -->
 
-                <div class="complaint-form-footer d-flex justify-content-end gap-2 p-3">
-                    <button type="button" class="btn btn-outline-secondary" id="cancelClaimForm">
-                        <i class="bi bi-arrow-left"></i> Back
-                    </button>
-                    <button type="submit" name="submit_service_claim" class="btn btn-complaint-primary">
+                <div class="complaint-form-actions">
+                    <button type="button" class="cancel-btn" id="cancelClaimForm">Cancel</button>
+                    <button type="submit" name="submit_service_claim" class="submit-btn btn-complaint-primary">
                         <i class="bi bi-send"></i> Submit Call Closure
                     </button>
                 </div>
@@ -828,7 +823,6 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
     const openBtn   = document.getElementById('openClaimForm');
     const closeBtn  = document.getElementById('closeClaimForm');
     const cancelBtn = document.getElementById('cancelClaimForm');
-    const backBtn   = document.getElementById('backClaimForm');
     const formCard  = document.getElementById('claimFormCard');
     const tableCard = document.getElementById('claimTableCard');
     const complaintSelect = document.getElementById('complaintId');
@@ -847,7 +841,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
         formCard.style.display = 'block';
         tableCard.style.display = 'none';
         if (openBtn) openBtn.style.display  = 'none';
-        if (closeBtn) closeBtn.style.display = '';
+        if (closeBtn) closeBtn.classList.add('show');
         formCard.scrollIntoView({ behavior: 'smooth' });
     }
 
@@ -856,13 +850,12 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
         formCard.style.display = 'none';
         tableCard.style.display = 'block';
         if (openBtn) openBtn.style.display  = '';
-        if (closeBtn) closeBtn.style.display = 'none';
+        if (closeBtn) closeBtn.classList.remove('show');
     }
 
     if (openBtn) openBtn.addEventListener('click', showForm);
     if (closeBtn) closeBtn.addEventListener('click', hideForm);
     if (cancelBtn) cancelBtn.addEventListener('click', hideForm);
-    if (backBtn) backBtn.addEventListener('click', hideForm);
 
     function complaintDetailsUrl(id) {
         return 'complaint_details.php?id=' + encodeURIComponent(btoa(String(id)));

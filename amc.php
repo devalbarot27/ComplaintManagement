@@ -154,8 +154,8 @@ $amcContracts = amc_list($obconn);
                 <button class="new-order-btn btn-complaint-primary" id="openAmcForm" type="button" style="<?= $reopenAmcForm ? 'display:none;' : '' ?>">
                     <i class="bi bi-plus-lg"></i> New AMC Contract
                 </button>
-                <button class="close-form-btn cancel-btn" id="closeAmcForm" type="button" style="<?= $reopenAmcForm ? '' : 'display:none;' ?>">
-                    <i class="bi bi-arrow-left"></i> Back
+                <button class="close-form-btn cancel-btn<?= $reopenAmcForm ? ' show' : '' ?>" id="closeAmcForm" type="button">
+                    <i class="bi bi-x-lg"></i> Cancel
                 </button>
             </div>
             <?php endif; ?>
@@ -175,9 +175,6 @@ $amcContracts = amc_list($obconn);
                         </p>
                     </div>
                 </div>
-                <button type="button" class="btn btn-light border" id="backAmcForm">
-                    <i class="bi bi-arrow-left"></i> Back
-                </button>
             </div>
 
             <form method="POST" id="amcForm" novalidate>
@@ -364,11 +361,9 @@ $amcContracts = amc_list($obconn);
 
                 </div>
 
-                <div class="complaint-form-footer d-flex justify-content-end gap-2 p-3">
-                    <button type="button" class="btn btn-outline-secondary" id="cancelAmcForm">
-                        <i class="bi bi-arrow-left"></i> Back
-                    </button>
-                    <button type="submit" name="submit_amc" class="btn btn-complaint-primary">
+                <div class="complaint-form-actions">
+                    <button type="button" class="cancel-btn" id="cancelAmcForm">Cancel</button>
+                    <button type="submit" name="submit_amc" class="submit-btn btn-complaint-primary">
                         <i class="bi bi-send"></i> Register AMC
                     </button>
                 </div>
