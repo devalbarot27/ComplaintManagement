@@ -167,9 +167,11 @@ function customer_master_dealer_get(PDO $conn, string $cuno): ?array
         FROM customer_address
         WHERE length(adr_code) = 9
           AND TRIM(adr_code) = TRIM(:code)
+             AND cuno = :cuno
         LIMIT 1
     ');
     $stmt->bindValue(':code', $cuno);
+    $stmt->bindValue(':cuno', $_SESSION['customer_number_vayu'] ?? '');
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($row) {
@@ -183,10 +185,12 @@ function customer_master_dealer_get(PDO $conn, string $cuno): ?array
         FROM customer_address
         WHERE length(adr_code) = 9
           AND TRIM(cuno) = TRIM(:code)
+          AND cuno = :cuno
         ORDER BY cuname
         LIMIT 1
     ');
     $stmt->bindValue(':code', $cuno);
+    $stmt->bindValue(':cuno', $_SESSION['customer_number_vayu'] ?? '');
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
