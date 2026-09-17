@@ -14,7 +14,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 $term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? ''));
 
-$scope = after_market_list_scope($obconn);
+$scope = installed_base_list_scope($obconn);
 $scopeWhere = after_market_scope_where_for_alias($scope['where'], 'ib');
 
 $sql = "

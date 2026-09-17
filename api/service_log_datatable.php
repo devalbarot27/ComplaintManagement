@@ -23,7 +23,7 @@ $allowedOrderColumns = [
 ];
 
 $req = dt_parse_request($allowedOrderColumns, 'id');
-$listScope = after_market_list_scope($obconn);
+$listScope = service_log_list_scope($obconn);
 $baseWhere = $listScope['where'];
 $filterParams = $listScope['params'];
 

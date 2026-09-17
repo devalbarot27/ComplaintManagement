@@ -357,7 +357,7 @@ function spare_parts_list_for_installed_base(PDO $conn, int $installedBaseId): a
         return [];
     }
 
-    $scope = after_market_list_scope($conn);
+    $scope = spare_parts_list_scope($conn);
     $scopeWhere = after_market_scope_where_for_alias($scope['where'], 'sp');
 
     $stmt = $conn->prepare("

@@ -42,7 +42,7 @@ $runningHours = (string) ($installedBase['running_hours'] ?? '');
 $machineModel = service_log_machine_model_from_installed_base($installedBase);
 $installedBaseLabel = '#' . $installedBaseId . ' - ' . $fabNumber . ' - ' . $customerName;
 
-$serviceLogScope = after_market_list_scope($obconn);
+$serviceLogScope = service_log_list_scope($obconn);
 $serviceLogWhere = after_market_scope_where_for_alias($serviceLogScope['where'], 'sl');
 
 $serviceLogStmt = $obconn->prepare('

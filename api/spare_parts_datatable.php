@@ -34,7 +34,7 @@ $orderColumnMap = [
 ];
 
 $req = dt_parse_request($allowedOrderColumns, 'id');
-$listScope = after_market_list_scope($obconn);
+$listScope = spare_parts_list_scope($obconn);
 $baseWhere = after_market_scope_where_for_alias($listScope['where'], 'sp');
 $filterParams = $listScope['params'];
 

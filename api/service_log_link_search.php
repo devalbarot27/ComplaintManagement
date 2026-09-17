@@ -20,7 +20,7 @@ if (!after_market_user_can_access_record($obconn, 'installed_base', $installedBa
     exit;
 }
 
-$scope = after_market_list_scope($obconn);
+$scope = service_log_list_scope($obconn);
 
 $sql = "
     SELECT id, order_id, serial_number, engineer_name, visit_date, closure_date

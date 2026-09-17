@@ -225,6 +225,18 @@ function user_associated_dealer_submitter_exists_sql(string $usernameExpr, strin
 }
 
 /**
+ * Match associated dealer username or submitter user id
+ * (including same customer_code dealer engineers).
+ */
+function user_associated_dealer_user_record_exists_sql(
+    string $usernameExpr,
+    string $userIdExpr,
+    string $prefix = 'assoc'
+): string {
+    return user_associated_dealer_complaint_exists_sql($usernameExpr, $userIdExpr, $prefix);
+}
+
+/**
  * Complaint Entry: match associated dealer username or added_by user id
  * (including same customer_code dealer engineers).
  */

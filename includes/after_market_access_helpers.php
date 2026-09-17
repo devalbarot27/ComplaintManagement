@@ -3,6 +3,7 @@
 require_once __DIR__ . '/admin_access_helpers.php';
 require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/rbac_access_helpers.php';
+require_once __DIR__ . '/user_helpers.php';
 require_once __DIR__ . '/installed_base_helpers.php';
 require_once __DIR__ . '/sales_coordinator_access_helpers.php';
 
@@ -38,10 +39,86 @@ function after_market_list_scope(PDO $conn): array
 }
 
 /**
+ * @return array{where: string, params: array<string, mixed>}
+ */
+function after_market_associated_dealer_table_scope(PDO $conn, string $table, string $prefix): array
+{
+    $scope = after_market_list_scope($conn);
+
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
+        return $scope;
+    }
+
+    if (!user_is_associated_dealer_approver($conn)) {
+        return $scope;
+    }
+
+    return [
+        'where' => "{$table}.deleted_at IS NULL AND (
+                {$table}.username = :username
+                OR " . user_associated_dealer_user_record_exists_sql(
+                    "{$table}.username",
+                    "{$table}.created_by",
+                    $prefix
+                ) . '
+            )',
+        'params' => array_merge(
+            [':username' => current_username()],
+            user_associated_dealer_scope_params($conn, $prefix)
+        ),
+    ];
+}
+
+/**
+ * Installed Base Capture: System Admin / CCS Admin / Management see all;
+ * L1/L2 approval users also see records submitted by associated dealers;
+ * others see own records.
+ *
+ * @return array{where: string, params: array<string, mixed>}
+ */
+function installed_base_list_scope(PDO $conn): array
+{
+    return after_market_associated_dealer_table_scope($conn, 'installed_base', 'ib');
+}
+
+/**
+ * Service Log Capture: System Admin / CCS Admin / Management see all;
+ * L1/L2 approval users also see records submitted by associated dealers;
+ * others see own records.
+ *
+ * @return array{where: string, params: array<string, mixed>}
+ */
+function service_log_list_scope(PDO $conn): array
+{
+    return after_market_associated_dealer_table_scope($conn, 'service_logs', 'sl');
+}
+
+/**
+ * Spare Parts Consumption: System Admin / CCS Admin / Management see all;
+ * L1/L2 approval users also see records submitted by associated dealers;
+ * others see own records.
+ *
+ * @return array{where: string, params: array<string, mixed>}
+ */
+function spare_parts_list_scope(PDO $conn): array
+{
+    return after_market_associated_dealer_table_scope($conn, 'spare_parts_consumption', 'sp');
+}
+
+/**
  * Prefix scope column names with a table alias without altering bind placeholders (e.g. :username).
  */
 function after_market_scope_where_for_alias(string $where, string $tableAlias): string
 {
+    $where = preg_replace('/\binstalled_base\.deleted_at\b/', $tableAlias . '.deleted_at', $where);
+    $where = preg_replace('/\binstalled_base\.username\b/', $tableAlias . '.username', $where);
+    $where = preg_replace('/\binstalled_base\.created_by\b/', $tableAlias . '.created_by', $where);
+    $where = preg_replace('/\bservice_logs\.deleted_at\b/', $tableAlias . '.deleted_at', $where);
+    $where = preg_replace('/\bservice_logs\.username\b/', $tableAlias . '.username', $where);
+    $where = preg_replace('/\bservice_logs\.created_by\b/', $tableAlias . '.created_by', $where);
+    $where = preg_replace('/\bspare_parts_consumption\.deleted_at\b/', $tableAlias . '.deleted_at', $where);
+    $where = preg_replace('/\bspare_parts_consumption\.username\b/', $tableAlias . '.username', $where);
+    $where = preg_replace('/\bspare_parts_consumption\.created_by\b/', $tableAlias . '.created_by', $where);
     // Qualify only bare outer-table columns; leave subquery aliases (e.g. um_sc.deleted_at) unchanged.
     $where = preg_replace('/(?<![.\w])deleted_at\b/', $tableAlias . '.deleted_at', $where);
     $where = preg_replace('/\bTRIM\(username\)/', 'TRIM(' . $tableAlias . '.username)', $where);
@@ -57,7 +134,15 @@ function after_market_user_can_access_record(PDO $conn, string $table, int $id):
         return false;
     }
 
-    $scope = after_market_list_scope($conn);
+    if ($table === 'installed_base') {
+        $scope = installed_base_list_scope($conn);
+    } elseif ($table === 'service_logs') {
+        $scope = service_log_list_scope($conn);
+    } elseif ($table === 'spare_parts_consumption') {
+        $scope = spare_parts_list_scope($conn);
+    } else {
+        $scope = after_market_list_scope($conn);
+    }
     $stmt = $conn->prepare("
         SELECT id
         FROM {$table}
