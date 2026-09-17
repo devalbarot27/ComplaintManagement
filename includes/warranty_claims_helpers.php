@@ -18,6 +18,112 @@ require_once __DIR__ . '/admin_access_helpers.php';
 
 /**
  * System Admin / CCS Admin / Management see all FOC claims.
+ */
+function foc_parts_sees_all_records(?PDO $conn = null): bool
+{
+    if ($conn !== null && !isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    return is_system_admin() || is_ccs_admin_user() || is_management_user();
+}
+
+/**
+ * L1/L2 Approval users are ELGi Engineer or Management assigned as Level 1 or
+ * Level 2 for dealers.
+ */
+function foc_current_user_is_l1_approver(PDO $conn): bool
+{
+    return foc_current_user_is_named_approver_for_level($conn, 'l1');
+}
+
+function foc_current_user_is_l2_approver(PDO $conn): bool
+{
+    return foc_current_user_is_named_approver_for_level($conn, 'l2');
+}
+
+function foc_current_user_is_associated_dealer_approver(PDO $conn): bool
+{
+    return foc_current_user_is_l1_approver($conn) || foc_current_user_is_l2_approver($conn);
+}
+
+function foc_current_user_is_named_approver_for_level(PDO $conn, string $level): bool
+{
+    require_once __DIR__ . '/user_helpers.php';
+
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (!is_elgi_engineer_user() && !is_management_user()) {
+        return false;
+    }
+
+    user_ensure_schema($conn);
+    $flags = user_current_approval_flags($conn);
+
+    return !empty($flags[$level === 'l2' ? 'l2' : 'l1']);
+}
+
+function foc_associated_dealer_submitter_exists_sql(string $alias = 'fc'): string
+{
+    return "
+        EXISTS (
+            SELECT 1
+            FROM user_master um_foc_dealer
+            WHERE um_foc_dealer.deleted_at IS NULL
+              AND (
+                um_foc_dealer.level_1_approver_id = :foc_approver_user_id
+                OR um_foc_dealer.level_2_approver_id = :foc_approver_user_id_l2
+              )
+              AND (
+                LOWER(TRIM(um_foc_dealer.username)) = LOWER(TRIM(COALESCE({$alias}.created_by_username, '')))
+                OR (
+                    TRIM(COALESCE(um_foc_dealer.customer_code, '')) <> ''
+                    AND EXISTS (
+                        SELECT 1
+                        FROM user_master um_foc_submitter
+                        WHERE um_foc_submitter.deleted_at IS NULL
+                          AND TRIM(COALESCE(um_foc_submitter.customer_code, '')) <> ''
+                          AND TRIM(um_foc_submitter.customer_code) = TRIM(um_foc_dealer.customer_code)
+                          AND LOWER(TRIM(um_foc_submitter.username)) = LOWER(TRIM(COALESCE({$alias}.created_by_username, '')))
+                    )
+                )
+            )
+        )
+    ";
+}
+
+function foc_record_is_from_associated_dealer(PDO $conn, array $record): bool
+{
+    if (!foc_current_user_is_associated_dealer_approver($conn)) {
+        return false;
+    }
+
+    $userId = (int) (current_user_id($conn) ?? 0);
+    if ($userId <= 0) {
+        return false;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT 1
+        FROM foc_claims fc
+        WHERE fc.id = :foc_id
+          AND fc.deleted_at IS NULL
+          AND ' . foc_associated_dealer_submitter_exists_sql('fc') . '
+        LIMIT 1
+    ');
+    $stmt->bindValue(':foc_id', (int) ($record['id'] ?? 0), PDO::PARAM_INT);
+    $stmt->bindValue(':foc_approver_user_id', $userId, PDO::PARAM_INT);
+    $stmt->bindValue(':foc_approver_user_id_l2', $userId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * System Admin / CCS Admin / Management see all FOC claims.
+ * ELGi Engineer L1/L2 approvers also see claims submitted by associated dealers.
  * Other roles see only claims they submitted.
  *
  * @return array{where: string, params: array<string, mixed>, see_all: bool}
@@ -28,7 +134,7 @@ function foc_parts_list_scope(PDO $conn): array
         admin_refresh_session_role($conn);
     }
 
-    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
+    if (foc_parts_sees_all_records($conn)) {
         return [
             'where' => 'fc.deleted_at IS NULL',
             'params' => [],
@@ -36,12 +142,26 @@ function foc_parts_list_scope(PDO $conn): array
         ];
     }
 
+    $where = 'fc.deleted_at IS NULL
+            AND LOWER(TRIM(COALESCE(fc.created_by_username, \'\'))) = LOWER(TRIM(:foc_scope_username))';
+    $params = [
+        ':foc_scope_username' => current_username(),
+    ];
+
+    $currentUserId = (int) (current_user_id($conn) ?? 0);
+    if (foc_current_user_is_associated_dealer_approver($conn) && $currentUserId > 0) {
+        $where = 'fc.deleted_at IS NULL
+            AND (
+                LOWER(TRIM(COALESCE(fc.created_by_username, \'\'))) = LOWER(TRIM(:foc_scope_username))
+                OR ' . foc_associated_dealer_submitter_exists_sql('fc') . '
+            )';
+        $params[':foc_approver_user_id'] = $currentUserId;
+        $params[':foc_approver_user_id_l2'] = $currentUserId;
+    }
+
     return [
-        'where' => 'fc.deleted_at IS NULL
-            AND LOWER(TRIM(COALESCE(fc.created_by_username, \'\'))) = LOWER(TRIM(:foc_scope_username))',
-        'params' => [
-            ':foc_scope_username' => current_username(),
-        ],
+        'where' => $where,
+        'params' => $params,
         'see_all' => false,
     ];
 }
@@ -52,7 +172,11 @@ function foc_parts_user_can_see_submitted_by(PDO $conn): bool
         admin_refresh_session_role($conn);
     }
 
-    return is_system_admin() || is_ccs_admin_user() || is_management_user();
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
+        return true;
+    }
+
+    return foc_current_user_is_associated_dealer_approver($conn);
 }
 
 /**
@@ -64,7 +188,7 @@ function foc_parts_user_can_access_claim(PDO $conn, ?array $record): bool
         return false;
     }
 
-    if (foc_parts_user_can_see_submitted_by($conn)) {
+    if (foc_parts_sees_all_records($conn)) {
         return true;
     }
 
@@ -73,7 +197,8 @@ function foc_parts_user_can_access_claim(PDO $conn, ?array $record): bool
         return true;
     }
 
-    return foc_claim_user_is_named_approver($conn, $record);
+    return foc_claim_user_is_named_approver($conn, $record)
+        || foc_record_is_from_associated_dealer($conn, $record);
 }
 
 function foc_claim_see_all_approvals(PDO $conn): bool
@@ -387,7 +512,7 @@ function foc_claim_user_can_resubmit(PDO $conn, ?array $record): bool
         return false;
     }
 
-    if (foc_parts_user_can_see_submitted_by($conn)) {
+    if (foc_parts_sees_all_records($conn)) {
         return true;
     }
 
@@ -566,7 +691,11 @@ function service_claims_list_scope(PDO $conn): array
 
 function service_claims_user_can_see_submitted_by(PDO $conn): bool
 {
-    return foc_parts_user_can_see_submitted_by($conn);
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    return is_system_admin() || is_ccs_admin_user() || is_management_user();
 }
 
 /**
