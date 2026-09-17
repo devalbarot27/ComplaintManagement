@@ -161,7 +161,11 @@ function initCustomerMasterDealerSelect2(selectId, nameHiddenId, codeLockedId, o
             dataType: 'json',
             delay: 250,
             data: function (params) {
-                return { q: params.term || '' };
+                const dealerSelect = document.getElementById('dealerlist');
+                return {
+                    q: params.term || '',
+                    dealer: dealerSelect ? String($(dealerSelect).val() || '').trim() : ''
+                };
             },
             processResults: function (data) {
                 return data;

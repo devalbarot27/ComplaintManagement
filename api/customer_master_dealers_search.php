@@ -31,8 +31,9 @@ if (!$canSearch) {
     exit;
 }
 
-$term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? ''));
+$term = trim((string) ($_GET['q'] ?? $_GET['term'] ?? $_GET['search'] ?? ''));
 $code = trim((string) ($_GET['code'] ?? $_GET['id'] ?? ''));
+$dealer = trim((string) ($_GET['dealer'] ?? ''));
 
 try {
     if ($code !== '') {
@@ -53,7 +54,7 @@ try {
     }
 
     echo json_encode([
-        'results' => customer_master_dealer_search($obconn, $term, 50),
+        'results' => customer_master_dealer_search($obconn, $term, 50, $dealer),
     ]);
 } catch (Throwable $e) {
     echo json_encode(['results' => []]);

@@ -167,11 +167,9 @@ function customer_master_dealer_get(PDO $conn, string $cuno): ?array
         FROM customer_address
         WHERE length(adr_code) = 9
           AND TRIM(adr_code) = TRIM(:code)
-             AND cuno = :cuno
         LIMIT 1
     ');
     $stmt->bindValue(':code', $cuno);
-    $stmt->bindValue(':cuno', $_SESSION['customer_number_vayu'] ?? '');
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($row) {
@@ -185,12 +183,10 @@ function customer_master_dealer_get(PDO $conn, string $cuno): ?array
         FROM customer_address
         WHERE length(adr_code) = 9
           AND TRIM(cuno) = TRIM(:code)
-          AND cuno = :cuno
         ORDER BY cuname
         LIMIT 1
     ');
     $stmt->bindValue(':code', $cuno);
-    $stmt->bindValue(':cuno', $_SESSION['customer_number_vayu'] ?? '');
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
@@ -202,18 +198,27 @@ function customer_master_dealer_get(PDO $conn, string $cuno): ?array
 
 /**
  * Same search as Create Order Dealer Address (orderClass::customer_master).
+ * Filtered by selected dealer cuno, else session customer_number_vayu.
  *
  * @return array<int, array{id: string, text: string, name: string}>
  */
-function customer_master_dealer_search(PDO $conn, string $search, int $limit = 50): array
+function customer_master_dealer_search(PDO $conn, string $search, int $limit = 50, string $dealer = ''): array
 {
     $limit = max(1, min(100, $limit));
     $search = trim($search);
+    $dealer = trim($dealer);
 
     $sql = 'SELECT adr_code, cuname
         FROM customer_address
         WHERE length(adr_code) = 9';
     $params = [];
+    if ($dealer !== '') {
+        $sql .= ' AND cuno = :dealer';
+        $params[':dealer'] = $dealer;
+    } else {
+        $sql .= ' AND cuno = :cuno';
+        $params[':cuno'] = trim((string) ($_SESSION['customer_number_vayu'] ?? ''));
+    }
     if ($search !== '') {
         $sql .= ' AND (
                 LOWER(cuname) LIKE LOWER(:search)
