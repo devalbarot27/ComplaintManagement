@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/admin_access_helpers.php';
 require_once __DIR__ . '/current_username_helpers.php';
+require_once __DIR__ . '/user_helpers.php';
 require_once __DIR__ . '/sales_coordinator_access_helpers.php';
 
 /** Complaint status IDs */
@@ -49,7 +50,9 @@ function complaint_status_badge(int $status): string
 }
 
 /**
- * Complaint Entry visibility: System Admin, Management, and CCS Admin see all; others see own or assigned records.
+ * Complaint Entry visibility: System Admin, Management, and CCS Admin see all;
+ * L1/L2 approval users also see complaints submitted by associated dealers;
+ * others see own or assigned records.
  *
  * @return array{where: string, params: array<string, mixed>}
  */
@@ -72,30 +75,35 @@ function complaint_entry_list_scope(PDO $conn): array
 
     $username = current_username();
     $userId = current_user_id($conn);
+    $whereParts = ['complaints.username = :username'];
+    $params = [
+        ':username' => $username,
+    ];
 
     if ($userId !== null && $userId > 0) {
-        return [
-            'where' => 'deleted_at IS NULL AND (
-                username = :username
-                OR EXISTS (
+        $whereParts[] = 'EXISTS (
                     SELECT 1
                     FROM complaint_assignments ca
                     WHERE ca.complaint_id = complaints.id
                       AND ca.assigned_to = :user_id
-                )
-            )',
-            'params' => [
-                ':username' => $username,
-                ':user_id' => $userId,
-            ],
-        ];
+                )';
+        $params[':user_id'] = $userId;
+    }
+
+    if (user_is_associated_dealer_approver($conn)) {
+        $whereParts[] = user_associated_dealer_complaint_exists_sql(
+            'complaints.username',
+            'complaints.added_by',
+            'ce'
+        );
+        $params = array_merge($params, user_associated_dealer_scope_params($conn, 'ce'));
     }
 
     return [
-        'where' => 'deleted_at IS NULL AND username = :username',
-        'params' => [
-            ':username' => $username,
-        ],
+        'where' => 'complaints.deleted_at IS NULL AND (
+                ' . implode("\n                OR ", $whereParts) . '
+            )',
+        'params' => $params,
     ];
 }
 

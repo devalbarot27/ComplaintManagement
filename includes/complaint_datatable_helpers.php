@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/complaint_status.php';
 require_once __DIR__ . '/admin_access_helpers.php';
+require_once __DIR__ . '/user_helpers.php';
 require_once __DIR__ . '/rbac_access_helpers.php';
 
 function dt_parse_request(array $allowedOrderColumns, string $defaultOrderColumn = 'id'): array
@@ -165,7 +166,8 @@ function complaint_user_can_closure(PDO $conn): bool
 }
 
 /**
- * "Added By" column is visible to Management, CCS Admin, and System Admin only.
+ * "Added By" column is visible to Management, CCS Admin, System Admin,
+ * and L1/L2 approval users viewing associated-dealer complaints.
  */
 function complaint_can_view_added_by_column(?PDO $conn = null): bool
 {
@@ -173,7 +175,11 @@ function complaint_can_view_added_by_column(?PDO $conn = null): bool
         admin_ensure_session_role($conn);
     }
 
-    return is_system_admin() || is_management_user() || is_ccs_admin_user();
+    if (is_system_admin() || is_management_user() || is_ccs_admin_user()) {
+        return true;
+    }
+
+    return $conn !== null && user_is_associated_dealer_approver($conn);
 }
 
 /**

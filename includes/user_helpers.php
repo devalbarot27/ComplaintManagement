@@ -225,6 +225,49 @@ function user_associated_dealer_submitter_exists_sql(string $usernameExpr, strin
 }
 
 /**
+ * Complaint Entry: match associated dealer username or added_by user id
+ * (including same customer_code dealer engineers).
+ */
+function user_associated_dealer_complaint_exists_sql(
+    string $usernameExpr,
+    string $addedByExpr,
+    string $prefix = 'assoc'
+): string {
+    $p1 = ':' . $prefix . '_approver_id';
+    $p2 = ':' . $prefix . '_approver_id_l2';
+
+    return "
+        EXISTS (
+            SELECT 1
+            FROM user_master um_assoc
+            WHERE um_assoc.deleted_at IS NULL
+              AND (
+                    um_assoc.level_1_approver_id = {$p1}
+                    OR um_assoc.level_2_approver_id = {$p2}
+              )
+              AND (
+                    LOWER(TRIM(um_assoc.username)) = LOWER(TRIM(COALESCE({$usernameExpr}, '')))
+                    OR um_assoc.id = {$addedByExpr}
+                    OR (
+                        TRIM(COALESCE(um_assoc.customer_code, '')) <> ''
+                        AND EXISTS (
+                            SELECT 1
+                            FROM user_master um_peer
+                            WHERE um_peer.deleted_at IS NULL
+                              AND TRIM(COALESCE(um_peer.customer_code, '')) <> ''
+                              AND TRIM(um_peer.customer_code) = TRIM(um_assoc.customer_code)
+                              AND (
+                                    LOWER(TRIM(um_peer.username)) = LOWER(TRIM(COALESCE({$usernameExpr}, '')))
+                                    OR um_peer.id = {$addedByExpr}
+                              )
+                        )
+                    )
+              )
+        )
+    ";
+}
+
+/**
  * Recent orders: match associated dealer username (usr_name) or dealer code (cuno).
  */
 function user_associated_dealer_order_exists_sql(

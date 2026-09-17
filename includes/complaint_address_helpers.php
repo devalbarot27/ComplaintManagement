@@ -116,6 +116,9 @@ function complaint_customer_join_sql(string $complaintAlias = 'c', string $cmAli
 function complaint_scope_where_for_alias(string $where, string $tableAlias = 'c'): string
 {
     $where = preg_replace('/\bcomplaints\.id\b/', $tableAlias . '.id', $where);
+    $where = preg_replace('/\bcomplaints\.username\b/', $tableAlias . '.username', $where);
+    $where = preg_replace('/\bcomplaints\.added_by\b/', $tableAlias . '.added_by', $where);
+    $where = preg_replace('/\bcomplaints\.deleted_at\b/', $tableAlias . '.deleted_at', $where);
     $where = preg_replace('/(?<![.\w])deleted_at\b/', $tableAlias . '.deleted_at', $where);
     $where = preg_replace('/(?<![.\w])username\s*=/', $tableAlias . '.username =', $where);
     $where = preg_replace('/(?<![.\w])status\s*=/', $tableAlias . '.status =', $where);
