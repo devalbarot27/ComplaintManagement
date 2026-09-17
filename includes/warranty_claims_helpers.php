@@ -2730,6 +2730,7 @@ function warranty_claims_get_ln_bearer_token(): string
  * FOC claims don't capture delivery address/transporter/payment-term/order-type
  * themselves, so the dealer's most recent regular order (plexecom_customer_units)
  * is used to source those defaults for the zero-value LN sales order.
+ * First-time dealers fall back to customer_master plus FOC-safe order defaults.
  */
 function foc_claim_ln_reference_defaults(PDO $obconn, string $customerCode): ?array
 {
@@ -2738,20 +2739,104 @@ function foc_claim_ln_reference_defaults(PDO $obconn, string $customerCode): ?ar
         return null;
     }
 
-    $stmt = $obconn->prepare("
+    $orderSql = "
         SELECT areacode, deladdr, transporter, paycode, otcode,
                dpst, warehouse, aoseries, company
-        FROM plexecom_customer_units
-        WHERE cuno = :cuno
+        FROM %s
+        WHERE TRIM(cuno) = TRIM(:cuno)
         ORDER BY indent_date DESC, oid DESC
+        LIMIT 1
+    ";
+
+    foreach (['plexecom_customer_units', 'plexecom_customer_units15062026'] as $table) {
+        try {
+            $stmt = $obconn->prepare(sprintf($orderSql, $table));
+            $stmt->bindValue(':cuno', $customerCode, PDO::PARAM_STR);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row !== false) {
+                return $row;
+            }
+        } catch (PDOException $e) {
+            // Archive table may not exist in every environment.
+        }
+    }
+
+    return foc_claim_ln_customer_master_defaults($obconn, $customerCode);
+}
+
+/**
+ * Build LN header defaults from ERP customer_master when the dealer has no
+ * previous plexecom order to copy delivery/payment fields from.
+ *
+ * @return array<string, mixed>|null
+ */
+function foc_claim_ln_customer_master_defaults(PDO $obconn, string $customerCode): ?array
+{
+    $stmt = $obconn->prepare("
+        SELECT
+            TRIM(COALESCE(areacode, '')) AS areacode,
+            TRIM(COALESCE(adr_code, '')) AS deladdr,
+            TRIM(COALESCE(paytermcode, '')) AS paycode,
+            cmp AS company
+        FROM customer_master
+        WHERE TRIM(cuno) = TRIM(:cuno)
         LIMIT 1
     ");
     $stmt->bindValue(':cuno', $customerCode, PDO::PARAM_STR);
     $stmt->execute();
-
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row === false) {
+        return null;
+    }
 
-    return $row !== false ? $row : null;
+    $areacode = trim((string) ($row['areacode'] ?? ''));
+    $deladdr = strtoupper(trim((string) ($row['deladdr'] ?? '')));
+    if ($areacode === '' || $deladdr === '') {
+        return null;
+    }
+
+    $transporter = 'T01';
+    try {
+        $transStmt = $obconn->prepare("
+            SELECT trans_code
+            FROM dealercode_and_transportercode
+            WHERE TRIM(cuno) = TRIM(:cuno)
+               OR TRIM(dealer_code) = TRIM(:cuno)
+            ORDER BY id
+            LIMIT 1
+        ");
+        $transStmt->bindValue(':cuno', $customerCode, PDO::PARAM_STR);
+        $transStmt->execute();
+        $trans = trim((string) $transStmt->fetchColumn());
+        if ($trans !== '') {
+            $transporter = $trans;
+        }
+    } catch (PDOException $e) {
+        // Keep T01 when the mapping table is empty or missing.
+    }
+
+    $paycode = trim((string) ($row['paycode'] ?? ''));
+    if ($paycode === '') {
+        $paycode = '804';
+    }
+
+    $company = trim((string) ($row['company'] ?? ''));
+    if ($company === '' || $company === '400') {
+        $company = '401';
+    }
+
+    return [
+        'areacode'    => $areacode,
+        'deladdr'     => $deladdr,
+        'transporter' => $transporter,
+        'paycode'     => $paycode,
+        'otcode'      => '1',
+        'dpst'        => 'Y0001',
+        'warehouse'   => '257',
+        'aoseries'    => 'YUF',
+        'company'     => $company,
+    ];
 }
 
 /**
@@ -2827,7 +2912,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
 
     $defaults = foc_claim_ln_reference_defaults($obconn, $cuno);
     if ($defaults === null) {
-        error_log("FOC claim #{$claimId}: aborting - no plexecom_customer_units row found for cuno='{$cuno}'.");
+        error_log("FOC claim #{$claimId}: aborting - no previous order or customer_master defaults for cuno='{$cuno}'.");
         throw new Exception("No previous order found for customer {$cuno} to source delivery/payment details from.");
     }
 
@@ -2863,6 +2948,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $street2 = '';
     $city = '';
     $pincode = '';
+    $country = '';
     $emailValue = null;
     $pincodeValue = 0;
     $districtValue = null;
@@ -2871,6 +2957,13 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $getAddr->bindParam(":addrCode", $deladdr);
     $getAddr->execute();
     $fetAddr = $getAddr->fetch(PDO::FETCH_ASSOC);
+
+    if (!$fetAddr) {
+        $getAddrOb = $obconn->prepare("SELECT * FROM customer_address WHERE adr_code=:addrCode limit 1");
+        $getAddrOb->bindParam(":addrCode", $deladdr);
+        $getAddrOb->execute();
+        $fetAddr = $getAddrOb->fetch(PDO::FETCH_ASSOC);
+    }
 
     if ($fetAddr) {
         $cuname = $fetAddr['cuname'];
@@ -2932,7 +3025,12 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $number   = str_pad($number, 2, "0", STR_PAD_LEFT);
     $newIndno = $indcat1 . 'N' . $letter . $number;
 
-    $customerStmt = $obconn->prepare("SELECT cm.adr_code, cm.country,ca.custaddr FROM customer_master cm LEFT JOIN customer_address ca ON ca.adr_code = cm.adr_code AND ca.cuno = cm.cuno WHERE cm.cuno=:cuno ");
+    $customerStmt = $obconn->prepare("
+        SELECT cm.adr_code, cm.country, cm.cuname, cm.st1, cm.st2, cm.city, cm.state, cm.pin, ca.custaddr
+        FROM customer_master cm
+        LEFT JOIN customer_address ca ON ca.adr_code = cm.adr_code AND ca.cuno = cm.cuno
+        WHERE TRIM(cm.cuno) = TRIM(:cuno)
+    ");
 
     $customerStmt->execute([
         ':cuno' => $cuno
@@ -2941,8 +3039,23 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $customer = $customerStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
     $adrcode = $customer['adr_code'] ?? null;
-    $country = trim((string) ($customer['country'] ?? ''));
+    $country = trim((string) ($customer['country'] ?? $country ?? ''));
     $invaddr = (string) ($customer['custaddr'] ?? '');
+
+    if (trim((string) $cuname) === '' && trim((string) ($customer['cuname'] ?? '')) !== '') {
+        $cuname = (string) $customer['cuname'];
+        $street1 = (string) ($customer['st1'] ?? '');
+        $street2 = (string) ($customer['st2'] ?? '');
+        $city = (string) ($customer['city'] ?? '');
+        $state = trim((string) ($customer['state'] ?? '')) !== '' ? trim((string) $customer['state']) : 'TN';
+        $pincode = trim((string) ($customer['pin'] ?? ''));
+        $pincodeValue = ($pincode) ? str_replace(' ', '', $pincode) : 000;
+        $districtValue = $city !== '' ? $city : null;
+    }
+
+    if ($invaddr === '' && ($street1 !== '' || $city !== '')) {
+        $invaddr = trim($street1 . ' ' . $street2 . ' ' . $city . ' ' . $pincode);
+    }
 
     $dpstStmt = $obconn->prepare("SELECT product_group FROM dpst_master WHERE dpst_code = :dpst");
     $dpstStmt->execute([':dpst' => $dpst]);

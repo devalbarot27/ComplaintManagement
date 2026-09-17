@@ -1449,7 +1449,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
             if (typeof $.fn.DataTable !== 'undefined' && document.getElementById('approvalsTable')) {
                 $('#approvalsTable').DataTable({
                     order: [
-                        [9, 'desc']
+                        [10, 'desc']
                     ],
                     pageLength: 10,
                     columnDefs: [{
