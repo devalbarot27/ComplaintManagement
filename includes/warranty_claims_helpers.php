@@ -306,6 +306,27 @@ function warranty_claims_notify_user(
     notification_create($conn, $userId, $title, $message, $moduleSlug, $referenceId);
 }
 
+function warranty_claims_user_id_by_username(PDO $conn, string $username): ?int
+{
+    $username = trim($username);
+    if ($username === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id
+        FROM user_master
+        WHERE deleted_at IS NULL
+          AND LOWER(TRIM(username)) = LOWER(TRIM(:username))
+        LIMIT 1
+    ');
+    $stmt->bindValue(':username', $username);
+    $stmt->execute();
+    $id = (int) $stmt->fetchColumn();
+
+    return $id > 0 ? $id : null;
+}
+
 function foc_claim_is_rejected(?array $record): bool
 {
     if ($record === null) {
@@ -532,6 +553,10 @@ function service_claims_user_can_access_claim(PDO $conn, ?array $record): bool
         return true;
     }
 
+    if (foc_claim_user_is_named_approver($conn, $record)) {
+        return true;
+    }
+
     // Approvers / settlement actors may open claims from Approvals.
     require_once __DIR__ . '/user_helpers.php';
     $flags = user_current_approval_flags($conn);
@@ -676,6 +701,7 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 service_date DATE NOT NULL,
                 resolution_notes VARCHAR(1000) NULL,
                 visit_charge_price NUMERIC(12,2) NULL,
+                warranty_status VARCHAR(40) NULL,
                 ccs_warranty_claim VARCHAR(5) NULL,
                 ccs_remarks VARCHAR(500) NULL,
                 ccs_marked_by_username VARCHAR(150) NULL,
@@ -685,6 +711,11 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 l1_at TIMESTAMP NULL,
                 l1_remarks VARCHAR(500) NULL,
                 l1_approver_user_id INTEGER NULL,
+                l2_status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+                l2_by_username VARCHAR(150) NULL,
+                l2_at TIMESTAMP NULL,
+                l2_remarks VARCHAR(500) NULL,
+                l2_approver_user_id INTEGER NULL,
                 po_number VARCHAR(100) NULL,
                 po_attachment VARCHAR(255) NULL,
                 po_attachment_original VARCHAR(255) NULL,
@@ -708,7 +739,35 @@ function warranty_claims_ensure_schema(PDO $conn): void
     if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'l1_approver_user_id')) {
         $conn->exec("ALTER TABLE service_claims ADD COLUMN l1_approver_user_id INTEGER NULL");
     }
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'l2_status')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN l2_status VARCHAR(20) NOT NULL DEFAULT 'Pending'");
+    }
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'l2_by_username')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN l2_by_username VARCHAR(150) NULL");
+    }
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'l2_at')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN l2_at TIMESTAMP NULL");
+    }
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'l2_remarks')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN l2_remarks VARCHAR(500) NULL");
+    }
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'l2_approver_user_id')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN l2_approver_user_id INTEGER NULL");
+    }
 
+    // Legacy L1-only claims must not re-enter the L2 Approvals inbox after the L2 columns are added.
+    $conn->exec("
+        UPDATE service_claims
+        SET l2_status = 'Not Required'
+        WHERE deleted_at IS NULL
+          AND l2_status = 'Pending'
+          AND l1_status IN ('Approved', 'Rejected', 'Not Required')
+          AND overall_status NOT IN ('Pending L1 Approval', 'Pending L2 Approval', 'Pending CCS Review')
+    ");
+
+    if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'warranty_status')) {
+        $conn->exec("ALTER TABLE service_claims ADD COLUMN warranty_status VARCHAR(40) NULL");
+    }
     if ($tableExists($conn, 'service_claims') && !$columnExists($conn, 'service_claims', 'visit_charge_price')) {
         $conn->exec("ALTER TABLE service_claims ADD COLUMN visit_charge_price NUMERIC(12,2) NULL");
     }
@@ -768,21 +827,21 @@ function service_claim_po_attachment_html(?string $storedName, ?string $original
 function service_claim_po_validate_upload(?array $fileField): array
 {
     if ($fileField === null || !isset($fileField['error']) || (int) $fileField['error'] === UPLOAD_ERR_NO_FILE) {
-        return ['error' => 'PO attachment is required.', 'file' => null];
+        return ['error' => 'Attachment is required.', 'file' => null];
     }
 
     if ((int) $fileField['error'] !== UPLOAD_ERR_OK) {
-        return ['error' => 'Unable to upload the PO attachment. Please try again.', 'file' => null];
+        return ['error' => 'Unable to upload the attachment. Please try again.', 'file' => null];
     }
 
     $name = (string) ($fileField['name'] ?? '');
     $extension = strtolower((string) pathinfo($name, PATHINFO_EXTENSION));
     if (!in_array($extension, service_claim_po_allowed_extensions(), true)) {
-        return ['error' => 'Invalid PO attachment type. Allowed: PDF, JPG, PNG, DOC, DOCX.', 'file' => null];
+        return ['error' => 'Invalid attachment type. Allowed: PDF, JPG, PNG, DOC, DOCX.', 'file' => null];
     }
 
     if ((int) ($fileField['size'] ?? 0) > service_claim_po_max_file_size()) {
-        return ['error' => 'PO attachment must be 2 MB or smaller.', 'file' => null];
+        return ['error' => 'Attachment must be 2 MB or smaller.', 'file' => null];
     }
 
     return [
@@ -810,7 +869,7 @@ function service_claim_po_store_upload(array $file): array
     $stored = uniqid('service_claim_po_', true) . '.' . $file['extension'];
     $target = $dir . DIRECTORY_SEPARATOR . $stored;
     if (!move_uploaded_file($file['tmp_name'], $target)) {
-        throw new RuntimeException('Unable to save PO attachment.');
+        throw new RuntimeException('Unable to save attachment.');
     }
 
     return [
@@ -1717,6 +1776,110 @@ function foc_claim_apply_decision(
 }
 
 /**
+ * Apply an L1 or L2 decision to a service claim (same rules as FOC Parts).
+ * Returns an error message, or null on success.
+ */
+function service_claim_apply_decision(
+    PDO $conn,
+    int $claimId,
+    string $level,
+    string $decision,
+    string $remarks,
+    string $byUsername
+): ?string {
+    if (!in_array($level, ['l1', 'l2'], true)
+        || !in_array($decision, [FOC_STAGE_APPROVED, FOC_STAGE_REJECTED], true)
+        || $claimId <= 0
+    ) {
+        return 'Invalid service claim approval request.';
+    }
+
+    if ($decision === FOC_STAGE_REJECTED && $remarks === '') {
+        return 'Remarks are required to reject a claim.';
+    }
+
+    $claimStmt = $conn->prepare('SELECT * FROM service_claims WHERE id = :id AND deleted_at IS NULL');
+    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $claimStmt->execute();
+    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($claim === false) {
+        return 'Service claim not found.';
+    }
+
+    if ($level === 'l1' && ($claim['l1_status'] ?? '') !== FOC_STAGE_PENDING) {
+        return 'This claim has already been actioned at L1.';
+    }
+
+    if ($level === 'l2' && (!foc_claim_l1_allows_level2($claim) || ($claim['l2_status'] ?? '') !== FOC_STAGE_PENDING)) {
+        return 'This claim is not ready for L2 approval.';
+    }
+
+    if (!foc_claim_is_assigned_to_current_user($conn, $claim, $level)) {
+        return 'You are not assigned for this service claim approval request.';
+    }
+
+    if ($level === 'l1') {
+        $overallStatus = $decision === FOC_STAGE_APPROVED ? 'Pending L2 Approval' : 'Rejected';
+        $update = $conn->prepare("
+            UPDATE service_claims
+            SET l1_status = :status, l1_by_username = :by, l1_at = CURRENT_TIMESTAMP,
+                l1_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+        ");
+        $update->bindValue(':status', $decision);
+        $update->bindValue(':by', $byUsername);
+        $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
+        $update->bindValue(':overall_status', $overallStatus);
+        $update->bindValue(':id', $claimId, PDO::PARAM_INT);
+        $update->execute();
+
+        if ($decision === FOC_STAGE_APPROVED) {
+            warranty_claims_notify_user(
+                $conn,
+                foc_claim_assigned_user_id_for_level($claim, 'l2'),
+                'service-claims',
+                'Service Claim Pending L2 Approval',
+                'Service claim #' . $claimId . ' has been approved at L1 and needs Business Head approval.',
+                $claimId
+            );
+        }
+    } else {
+        $overallStatus = $decision === FOC_STAGE_APPROVED ? 'Approved' : 'Rejected';
+        $update = $conn->prepare("
+            UPDATE service_claims
+            SET l2_status = :status, l2_by_username = :by, l2_at = CURRENT_TIMESTAMP,
+                l2_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
+            WHERE id = :id
+        ");
+        $update->bindValue(':status', $decision);
+        $update->bindValue(':by', $byUsername);
+        $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
+        $update->bindValue(':overall_status', $overallStatus);
+        $update->bindValue(':id', $claimId, PDO::PARAM_INT);
+        $update->execute();
+
+        if ($decision === FOC_STAGE_APPROVED) {
+            service_claim_notify_invoice_pending($conn, $claimId);
+        }
+    }
+
+    return null;
+}
+
+function service_claim_notify_invoice_pending(PDO $conn, int $claimId): void
+{
+    warranty_claims_notify_role_holders(
+        $conn,
+        'service-claims',
+        'raise-invoice',
+        'Service Claim Approved - Invoice Pending',
+        'Service claim #' . $claimId . ' has been approved. Please raise the predefined visit-charge invoice.',
+        $claimId
+    );
+}
+
+/**
  * Apply a Lock-in Engineer decision to a service claim.
  * Returns an error message, or null on success.
  */
@@ -1727,49 +1890,7 @@ function service_claim_apply_l1_decision(
     string $remarks,
     string $byUsername
 ): ?string {
-    if ($claimId <= 0 || !in_array($decision, [SERVICE_CLAIM_L1_APPROVED, SERVICE_CLAIM_L1_REJECTED], true)) {
-        return 'Invalid service claim approval request.';
-    }
-
-    if ($decision === SERVICE_CLAIM_L1_REJECTED && $remarks === '') {
-        return 'Remarks are required to reject a claim.';
-    }
-
-    $claimStmt = $conn->prepare('SELECT * FROM service_claims WHERE id = :id AND deleted_at IS NULL');
-    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
-    $claimStmt->execute();
-    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($claim === false || ($claim['overall_status'] ?? '') !== 'Pending L1 Approval') {
-        return 'This claim is not pending L1 approval.';
-    }
-
-    $overallStatus = $decision === SERVICE_CLAIM_L1_APPROVED ? 'Approved - Pending Invoice' : 'Rejected';
-    $update = $conn->prepare("
-        UPDATE service_claims
-        SET l1_status = :status, l1_by_username = :by, l1_at = CURRENT_TIMESTAMP,
-            l1_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
-        WHERE id = :id
-    ");
-    $update->bindValue(':status', $decision);
-    $update->bindValue(':by', $byUsername);
-    $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
-    $update->bindValue(':overall_status', $overallStatus);
-    $update->bindValue(':id', $claimId, PDO::PARAM_INT);
-    $update->execute();
-
-    if ($decision === SERVICE_CLAIM_L1_APPROVED) {
-        warranty_claims_notify_role_holders(
-            $conn,
-            'service-claims',
-            'raise-invoice',
-            'Service Claim Approved - Invoice Pending',
-            'Service claim #' . $claimId . ' has been approved. Please raise the predefined visit-charge invoice.',
-            $claimId
-        );
-    }
-
-    return null;
+    return service_claim_apply_decision($conn, $claimId, 'l1', $decision, $remarks, $byUsername);
 }
 
 function warranty_status_badge_class(?string $status): string
@@ -2053,6 +2174,8 @@ function service_claim_overall_badge_class(?string $status): string
     $map = [
         'Pending CCS Review' => 'bg-warning text-dark',
         'Pending L1 Approval' => 'bg-info text-dark',
+        'Pending L2 Approval' => 'bg-info text-dark',
+        'Approved' => 'bg-success',
         'Approved - Pending Invoice' => 'bg-primary',
         'Invoice Raised - Pending Settlement' => 'bg-info text-dark',
         'Settled' => 'bg-success',
@@ -2060,6 +2183,49 @@ function service_claim_overall_badge_class(?string $status): string
     ];
 
     return $map[$status] ?? 'bg-secondary';
+}
+
+function service_claim_warranty_status_label(array $row, ?string $commissioningDate = null): string
+{
+    $stored = trim((string) ($row['warranty_status'] ?? ''));
+    if ($stored !== '' && $stored !== 'Unknown') {
+        return $stored;
+    }
+
+    $status = trim((string) (installed_base_warranty_status($commissioningDate)['status'] ?? ''));
+    if ($status !== '' && $status !== 'Unknown') {
+        return $status;
+    }
+
+    return $stored !== '' ? $stored : '-';
+}
+
+function service_claim_overall_status_label(array $row): string
+{
+    $l1 = (string) ($row['l1_status'] ?? '');
+    $l2 = (string) ($row['l2_status'] ?? '');
+    $overall = trim((string) ($row['overall_status'] ?? ''));
+
+    if ($l1 === FOC_STAGE_REJECTED || $l2 === FOC_STAGE_REJECTED || $overall === 'Rejected') {
+        return 'Rejected';
+    }
+    if ($l1 === FOC_STAGE_PENDING) {
+        return 'Pending L1 Approval';
+    }
+    if (foc_claim_l1_allows_level2($row) && $l2 === FOC_STAGE_PENDING) {
+        return 'Pending L2 Approval';
+    }
+    if ($l2 === FOC_STAGE_APPROVED
+        || ($l1 === FOC_STAGE_NOT_REQUIRED && $l2 === FOC_STAGE_NOT_REQUIRED)
+        || in_array($overall, ['Approved', 'Approved - Pending Invoice', 'Invoice Raised - Pending Settlement', 'Settled'], true)
+    ) {
+        return 'Approved';
+    }
+    if (in_array($overall, ['Pending L1 Approval', 'Pending L2 Approval', 'Approved', 'Rejected'], true)) {
+        return $overall;
+    }
+
+    return $overall !== '' ? $overall : '-';
 }
 
 function service_claim_get_by_id(PDO $conn, int $id): ?array
@@ -2081,7 +2247,9 @@ function service_claim_get_by_id(PDO $conn, int $id): ?array
             cm.city AS customer_city,
             cm.district AS customer_district,
             cm.state AS customer_state,
-            COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
+            COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name,
+            COALESCE(NULLIF(TRIM(um_l1.name), ''), NULLIF(TRIM(sc.l1_by_username), ''), '-') AS l1_by_name,
+            COALESCE(NULLIF(TRIM(um_l2.name), ''), NULLIF(TRIM(sc.l2_by_username), ''), '-') AS l2_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
         LEFT JOIN customer_masters cm
@@ -2090,6 +2258,12 @@ function service_claim_get_by_id(PDO $conn, int $id): ?array
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
            AND um.deleted_at IS NULL
+        LEFT JOIN user_master um_l1
+            ON LOWER(TRIM(um_l1.username)) = LOWER(TRIM(sc.l1_by_username))
+           AND um_l1.deleted_at IS NULL
+        LEFT JOIN user_master um_l2
+            ON LOWER(TRIM(um_l2.username)) = LOWER(TRIM(sc.l2_by_username))
+           AND um_l2.deleted_at IS NULL
         WHERE sc.id = :id
           AND sc.deleted_at IS NULL
         LIMIT 1

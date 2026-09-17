@@ -17,8 +17,7 @@ order_approval_ensure_schema($obconn);
 $approvalFlags = user_current_approval_flags($obconn);
 $canApproveL1Foc = $approvalFlags['l1'];
 $canApproveL2Foc = $approvalFlags['l2'];
-$canApproveL1Service = rbac_user_can($obconn, 'service-claims', 'approve-l1');
-$canApproveL1Service = true;
+$canApproveService = $approvalFlags['l1'] || $approvalFlags['l2'] || foc_claim_see_all_approvals($obconn);
 $canApproval          = rbac_user_can($obconn, 'approvals', 'view');
 $canOrderApproval     = order_approval_can_access($obconn);
 $canViewCustomerMaster = rbac_user_can($obconn, 'customer-master', 'view');
@@ -123,17 +122,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['foc_decision'])) {
 
 
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['l1_decision'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['service_decision'])) {
     $claimId  = (int) ($_POST['claim_id'] ?? 0);
-    $decision = trim((string) ($_POST['l1_decision'] ?? ''));
-    $remarks  = trim((string) ($_POST['l1_remarks'] ?? ''));
+    $level    = trim((string) ($_POST['level'] ?? ''));
+    $decision = trim((string) ($_POST['service_decision'] ?? ''));
+    $remarks  = trim((string) ($_POST['approval_remarks'] ?? ''));
 
-    if (!$canApproveL1Service) {
+    $claimStmt = $obconn->prepare('SELECT * FROM service_claims WHERE id = :id AND deleted_at IS NULL');
+    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $claimStmt->execute();
+    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($claim === false) {
+        $_SESSION['error_message'] = 'Service claim not found.';
+        header('Location: approvals.php');
+        exit;
+    }
+
+    if (!foc_claim_is_assigned_to_current_user($obconn, $claim, $level)) {
         header('Location: access_denied.php');
         exit;
     }
 
-    $applyError = service_claim_apply_l1_decision($obconn, $claimId, $decision, $remarks, $userName);
+    $applyError = service_claim_apply_decision($obconn, $claimId, $level, $decision, $remarks, $userName);
+    if ($applyError !== null) {
+        $_SESSION['error_message'] = $applyError;
+    } else {
+        $_SESSION['success_message'] = 'Service claim #' . $claimId . ' has been ' . strtolower($decision) . ' at ' . strtoupper($level) . '.';
+    }
+    header('Location: approvals.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['l1_decision'])) {
+    $claimId  = (int) ($_POST['claim_id'] ?? 0);
+    $decision = trim((string) ($_POST['l1_decision'] ?? ''));
+    $remarks  = trim((string) ($_POST['l1_remarks'] ?? $_POST['approval_remarks'] ?? ''));
+
+    $claimStmt = $obconn->prepare('SELECT * FROM service_claims WHERE id = :id AND deleted_at IS NULL');
+    $claimStmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $claimStmt->execute();
+    $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($claim === false || !foc_claim_is_assigned_to_current_user($obconn, $claim, 'l1')) {
+        header('Location: access_denied.php');
+        exit;
+    }
+
+    $applyError = service_claim_apply_decision($obconn, $claimId, 'l1', $decision, $remarks, $userName);
     if ($applyError !== null) {
         $_SESSION['error_message'] = $applyError;
     } else {
@@ -197,13 +233,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['order_decision']) ||
     exit;
 }
 
-// FOC: Lock-in Engineer (L1) Pending, or Business Head (L2) Pending after L1 Approved.
-// Service: Lock-in Engineer (L1) Pending only.
+// FOC + Service: Lock-in Engineer (L1) Pending, or Business Head (L2) Pending after L1 Approved.
 $approvalItems = [];
+$currentUserId = current_user_id($obconn);
 
 try {
     $focSeeAll = foc_claim_see_all_approvals($obconn);
-    $currentUserId = current_user_id($obconn);
     $focSql = "
         SELECT
             fc.id, fc.complaint_id, fc.warranty_status, fc.justification, fc.l1_status, fc.l2_status,
@@ -307,10 +342,13 @@ try {
 }
 
 try {
-    $stmt = $obconn->query("
+    $serviceSeeAll = foc_claim_see_all_approvals($obconn);
+    $serviceSql = "
         SELECT
             sc.*, c.fab_number, c.customer_id, cm.customer_name,
-            COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name
+            COALESCE(NULLIF(TRIM(um.name), ''), NULLIF(TRIM(sc.created_by_username), ''), '-') AS created_by_name,
+            COALESCE(NULLIF(TRIM(um_l1.name), ''), NULLIF(TRIM(sc.l1_by_username), ''), '-') AS l1_by_name,
+            COALESCE(NULLIF(TRIM(um_l2.name), ''), NULLIF(TRIM(sc.l2_by_username), ''), '-') AS l2_by_name
         FROM service_claims sc
         INNER JOIN complaints c ON c.id = sc.complaint_id
         LEFT JOIN customer_masters cm
@@ -319,49 +357,107 @@ try {
         LEFT JOIN user_master um
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
            AND um.deleted_at IS NULL
+        LEFT JOIN user_master um_l1
+            ON LOWER(TRIM(um_l1.username)) = LOWER(TRIM(sc.l1_by_username))
+           AND um_l1.deleted_at IS NULL
+        LEFT JOIN user_master um_l2
+            ON LOWER(TRIM(um_l2.username)) = LOWER(TRIM(sc.l2_by_username))
+           AND um_l2.deleted_at IS NULL
         WHERE sc.deleted_at IS NULL
-          AND sc.l1_status = '" . SERVICE_CLAIM_L1_PENDING . "'
-       AND sc.overall_status = 'Pending L1 Approval'
-        ORDER BY sc.created_at DESC
-    "); //    AND sc.overall_status = 'Pending L1 Approval'
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $poNumber = trim((string) ($row['po_number'] ?? ''));
-        $serviceDetails = 'KM: ' . $row['km_travelled'] . ' | Service Date: ' . $row['service_date'];
-        if ($poNumber !== '') {
-            $serviceDetails .= ' | PO: ' . $poNumber;
+          AND sc.overall_status IN ('Pending L1 Approval', 'Pending L2 Approval')
+          AND (
+                sc.l1_status = '" . FOC_STAGE_PENDING . "'
+                OR (
+                    (sc.l1_status = '" . FOC_STAGE_APPROVED . "' OR sc.l1_status = '" . FOC_STAGE_NOT_REQUIRED . "')
+                    AND sc.l2_status = '" . FOC_STAGE_PENDING . "'
+                )
+          )
+    ";
+    if (!$serviceSeeAll) {
+        if ($currentUserId === null || $currentUserId <= 0) {
+            $serviceSql = '';
+        } else {
+            $serviceSql .= "
+          AND (
+                (sc.l1_status = '" . FOC_STAGE_PENDING . "' AND sc.l1_approver_user_id = :assigned_user_id)
+                OR (
+                    (sc.l1_status = '" . FOC_STAGE_APPROVED . "' OR sc.l1_status = '" . FOC_STAGE_NOT_REQUIRED . "')
+                    AND sc.l2_status = '" . FOC_STAGE_PENDING . "'
+                    AND sc.l2_approver_user_id = :assigned_user_id
+                )
+          )
+            ";
         }
-        $poAttachmentHtml = service_claim_po_attachment_html(
-            (string) ($row['po_attachment'] ?? ''),
-            (string) ($row['po_attachment_original'] ?? '')
+    }
+    if ($serviceSql !== '') {
+        $serviceSql .= ' ORDER BY sc.created_at DESC';
+        $stmt = $obconn->prepare($serviceSql);
+        if (!$serviceSeeAll) {
+            $stmt->bindValue(':assigned_user_id', $currentUserId, PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        $serviceRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $serviceCommissioningLookup = installed_base_commissioning_lookup(
+            $obconn,
+            [],
+            array_map(static fn ($claimRow) => (string) ($claimRow['fab_number'] ?? ''), $serviceRows)
         );
-        $serviceDetailsHtml = htmlspecialchars($serviceDetails, ENT_QUOTES, 'UTF-8');
-        if ($poAttachmentHtml !== '') {
-            $serviceDetailsHtml .= '<div class="mt-1">' . $poAttachmentHtml . '</div>';
-        }
+        foreach ($serviceRows as $row) {
+            $isL1Pending = ($row['l1_status'] ?? '') === FOC_STAGE_PENDING;
+            $level = $isL1Pending ? 'l1' : 'l2';
+            $canDecide = foc_claim_is_assigned_to_current_user($obconn, $row, $level);
+            $poNumber = trim((string) ($row['po_number'] ?? ''));
+            $serviceDetails = 'KM: ' . $row['km_travelled'] . ' | Service Date: ' . $row['service_date'];
+            if ($poNumber !== '') {
+                $serviceDetails .= ' | Invoice: ' . $poNumber;
+            }
+            $poAttachmentHtml = service_claim_po_attachment_html(
+                (string) ($row['po_attachment'] ?? ''),
+                (string) ($row['po_attachment_original'] ?? '')
+            );
+            $serviceDetailsHtml = htmlspecialchars($serviceDetails, ENT_QUOTES, 'UTF-8');
+            if ($poAttachmentHtml !== '') {
+                $serviceDetailsHtml .= '<div class="mt-1">' . $poAttachmentHtml . '</div>';
+            }
+            $serviceCommissioningDate = installed_base_commissioning_resolve(
+                $serviceCommissioningLookup,
+                0,
+                (string) ($row['fab_number'] ?? '')
+            );
+            $warrantyLabel = service_claim_warranty_status_label($row, $serviceCommissioningDate);
 
-        $approvalItems[] = [
-            'claim_type'     => 'service',
-            'id'             => (int) $row['id'],
-            'complaint_id'   => (int) $row['complaint_id'],
-            'fab_number'     => $row['fab_number'],
-            'customer_name'  => $row['customer_name'],
-            'customer_id'    => (int) ($row['customer_id'] ?? 0),
-            'details'        => $serviceDetails,
-            'details_html'   => $serviceDetailsHtml,
-            'warranty_label' => $row['ccs_warranty_claim'] !== null && $row['ccs_warranty_claim'] !== '' ? $row['ccs_warranty_claim'] : 'Pending',
-            'warranty_class' => !empty($row['ccs_warranty_claim']) ? ($row['ccs_warranty_claim'] === 'Yes' ? 'bg-success' : 'bg-secondary') : 'bg-warning text-dark',
-            'justification'  => '',
-            'stage_label'    => 'Lock-in Engineer: Pending',
-            'overall_status' => $row['overall_status'],
-            'created_by'     => $row['created_by_name'] ?? $row['created_by_username'],
-            'created_at'     => $row['created_at'],
-            'level'          => 'l1',
-            'action_url'     => 'approvals.php',
-            'decision_field' => 'l1_decision',
-            'remarks_field'  => 'l1_remarks',
-            'action_type'    => 'approve',
-            'can_decide'     => $canApproveL1Service,
-        ];
+            $approvalItems[] = [
+                'claim_type'     => 'service',
+                'id'             => (int) $row['id'],
+                'complaint_id'   => (int) $row['complaint_id'],
+                'fab_number'     => $row['fab_number'],
+                'customer_name'  => $row['customer_name'],
+                'customer_id'    => (int) ($row['customer_id'] ?? 0),
+                'details'        => $serviceDetails,
+                'details_html'   => $serviceDetailsHtml,
+                'warranty_label' => $warrantyLabel,
+                'warranty_class' => warranty_status_badge_class($warrantyLabel),
+                'justification'  => '',
+                'stage_label'    => $isL1Pending
+                    ? 'Lock-in Engineer: Pending'
+                    : 'Business Head: Pending',
+                'overall_status' => $row['overall_status'],
+                'created_by'     => $row['created_by_name'] ?? $row['created_by_username'],
+                'created_at'     => $row['created_at'],
+                'level'          => $level,
+                'action_url'     => 'approvals.php',
+                'decision_field' => 'service_decision',
+                'remarks_field'  => 'approval_remarks',
+                'action_type'    => 'approve',
+                'can_decide'     => $canDecide,
+                'l1_remarks'     => (string) ($row['l1_remarks'] ?? ''),
+                'l1_by'          => (string) ($row['l1_by_name'] ?? $row['l1_by_username'] ?? ''),
+                'l1_at'          => !empty($row['l1_at']) ? date('d M Y h:i A', strtotime((string) $row['l1_at'])) : '',
+                'l2_remarks'     => (string) ($row['l2_remarks'] ?? ''),
+                'l2_by'          => (string) ($row['l2_by_name'] ?? $row['l2_by_username'] ?? ''),
+                'l2_at'          => !empty($row['l2_at']) ? date('d M Y h:i A', strtotime((string) $row['l2_at'])) : '',
+            ];
+        }
     }
 } catch (PDOException $e) {
     // Table may not exist yet; silently continue
@@ -529,7 +625,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                     <th width="12%">Fab / Order Ref</th>
                                     <th width="14%">Customer</th>
                                     <th width="14%">Details</th>
-                                    <th width="10%">Warranty / CCS</th>
+                                    <th width="10%">Warranty</th>
                                     <th width="12%">Stage</th>
                                     <th width="10%">Submitted By</th>
                                     <th width="12%">Submitted On</th>
@@ -729,7 +825,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                 <div class="approval-detail-value" id="viewClaimParts"></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label"><i class="bi bi-shield-check"></i> Warranty / CCS</label>
+                                <label class="form-label"><i class="bi bi-shield-check"></i> Warranty</label>
                                 <div class="approval-detail-value">
                                     <span class="status-badge border border-dark" id="viewClaimWarranty"></span>
                                 </div>
@@ -1209,8 +1305,8 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         const focApprovalWrap = document.getElementById('viewClaimFocApprovalWrap');
                         const l1Wrap = document.getElementById('viewClaimFocL1Wrap');
                         const l2Wrap = document.getElementById('viewClaimFocL2Wrap');
-                        const showL1 = isFoc && (hasDetailValue(d.l1Remarks) || hasDetailValue(d.l1By) || hasDetailValue(d.l1At));
-                        const showL2 = isFoc && (hasDetailValue(d.l2Remarks) || hasDetailValue(d.l2By) || hasDetailValue(d.l2At));
+                        const showL1 = hasDetailValue(d.l1Remarks) || hasDetailValue(d.l1By) || hasDetailValue(d.l1At);
+                        const showL2 = hasDetailValue(d.l2Remarks) || hasDetailValue(d.l2By) || hasDetailValue(d.l2At);
                         setHidden(focApprovalWrap, !showL1 && !showL2);
                         setHidden(l1Wrap, !showL1);
                         setHidden(l2Wrap, !showL2);
@@ -1319,7 +1415,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         targets: -1
                     }],
                     language: {
-                        emptyTable: 'There are no pending Warranty / CCS or Order Approval items to show.'
+                        emptyTable: 'There are no pending Warranty or Order Approval items to show.'
                     }
                 });
             }

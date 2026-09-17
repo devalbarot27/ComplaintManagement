@@ -63,10 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
             $field_errors['service_date'] = 'Service Date is required.';
             $error_message = $field_errors['service_date'];
         } elseif ($poNumber === '') {
-            $field_errors['po_number'] = 'PO Number is required.';
+            $field_errors['po_number'] = 'Invoice is required.';
             $error_message = $field_errors['po_number'];
         } elseif (strlen($poNumber) > 100) {
-            $field_errors['po_number'] = 'PO Number cannot exceed 100 characters.';
+            $field_errors['po_number'] = 'Invoice cannot exceed 100 characters.';
             $error_message = $field_errors['po_number'];
         } elseif ($poUpload['error'] !== null) {
             $field_errors['po_attachment'] = $poUpload['error'];
@@ -74,10 +74,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
         } elseif (strlen($resolutionNotes) > 1000) {
             $error_message = 'Resolution notes cannot exceed 1000 characters.';
         } else {
+            $approvers = foc_claim_resolve_approver_ids($obconn, current_user_id($obconn));
+            if ($approvers['error'] !== null) {
+                $error_message = $approvers['error'];
+            } else {
+            $stage = foc_claim_initial_stage($approvers);
+            $resolvedWarranty = warranty_claims_resolve_status_for_complaint($obconn, $complaintId);
+            $warrantyStatus = trim((string) ($resolvedWarranty['status'] ?? ''));
+            if (!in_array($warrantyStatus, warranty_claims_workflow_statuses(), true)) {
+                $warrantyStatus = '';
+            }
             $storedPo = null;
             try {
                 if (empty($poUpload['file'])) {
-                    throw new RuntimeException('PO attachment is required.');
+                    throw new RuntimeException('Attachment is required.');
                 }
                 $storedPo = service_claim_po_store_upload($poUpload['file']);
                 $visitCharge = distance_wise_price_find_for_km($obconn, (float) $kmTravelled);
@@ -87,13 +97,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
                     (
                         complaint_id, km_travelled, service_date, resolution_notes,
                         po_number, po_attachment, po_attachment_original,
-                        visit_charge_price, overall_status, created_by_username
+                        visit_charge_price, warranty_status, l1_status, l2_status,
+                        l1_approver_user_id, l2_approver_user_id,
+                        overall_status, created_by_username
                     )
                     VALUES
                     (
                         :complaint_id, :km_travelled, :service_date, :resolution_notes,
                         :po_number, :po_attachment, :po_attachment_original,
-                        :visit_charge_price, :overall_status, :created_by_username
+                        :visit_charge_price, :warranty_status, :l1_status, :l2_status,
+                        :l1_approver_user_id, :l2_approver_user_id,
+                        :overall_status, :created_by_username
                     )
                     RETURNING id
                 ");
@@ -109,22 +123,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
                 } else {
                     $stmt->bindValue(':visit_charge_price', number_format((float) $visitCharge['price'], 2, '.', ''));
                 }
-                $stmt->bindValue(':overall_status', 'Pending CCS Review');
+                $stmt->bindValue(':warranty_status', $warrantyStatus !== '' ? $warrantyStatus : null);
+                $stmt->bindValue(':l1_status', $stage['l1_status']);
+                $stmt->bindValue(':l2_status', $stage['l2_status']);
+                foc_claim_bind_nullable_user_id($stmt, ':l1_approver_user_id', $approvers['l1'] ?? null);
+                foc_claim_bind_nullable_user_id($stmt, ':l2_approver_user_id', $approvers['l2'] ?? null);
+                $stmt->bindValue(':overall_status', $stage['overall_status']);
                 $stmt->bindValue(':created_by_username', $userName);
                 $stmt->execute();
 
                 $newClaimId = (int) $stmt->fetchColumn();
 
-                warranty_claims_notify_role_holders(
-                    $obconn,
-                    'service-claims',
-                    'mark-warranty',
-                    'New Service Claim Pending CCS Review',
-                    'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs a warranty eligibility decision.',
-                    $newClaimId
-                );
-
-                $_SESSION['success_message'] = 'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending CCS warranty review.';
+                if (($stage['notify_level'] ?? '') === 'l2') {
+                    warranty_claims_notify_user(
+                        $obconn,
+                        $approvers['l2'],
+                        'service-claims',
+                        'New Service Claim Pending L2 Approval',
+                        'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs Business Head approval.',
+                        $newClaimId
+                    );
+                    $_SESSION['success_message'] = 'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending L2 (Business Head) approval.';
+                } elseif (($stage['notify_level'] ?? '') === 'l1') {
+                    warranty_claims_notify_user(
+                        $obconn,
+                        $approvers['l1'],
+                        'service-claims',
+                        'New Service Claim Pending L1 Approval',
+                        'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' needs Lock-in Engineer approval.',
+                        $newClaimId
+                    );
+                    $_SESSION['success_message'] = 'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully. Pending L1 (Lock-in Engineer) approval.';
+                } else {
+                    if (($stage['overall_status'] ?? '') === 'Approved') {
+                        service_claim_notify_invoice_pending($obconn, $newClaimId);
+                    }
+                    $_SESSION['success_message'] = 'Service claim #' . $newClaimId . ' for call ticket #' . $complaintId . ' submitted successfully.';
+                }
                 header('Location: service_claims.php');
                 exit;
             } catch (PDOException $e) {
@@ -138,6 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
                 }
                 $field_errors['po_attachment'] = $e->getMessage();
                 $error_message = $field_errors['po_attachment'];
+            }
             }
         }
     }
@@ -171,30 +207,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_warranty'])) {
         exit;
     }
 
-    // Either Yes or No moves the claim to Lock-in Engineer approval (BRD step 4).
+    $requesterUserId = warranty_claims_user_id_by_username(
+        $obconn,
+        (string) ($claim['created_by_username'] ?? '')
+    );
+    $approvers = foc_claim_resolve_approver_ids($obconn, $requesterUserId);
+    if ($approvers['error'] !== null) {
+        $_SESSION['error_message'] = $approvers['error'];
+        header('Location: service_claims.php');
+        exit;
+    }
+    $stage = foc_claim_initial_stage($approvers);
+
     $update = $obconn->prepare("
         UPDATE service_claims
         SET ccs_warranty_claim = :warranty_claim, ccs_remarks = :remarks,
             ccs_marked_by_username = :by, ccs_marked_at = CURRENT_TIMESTAMP,
-            overall_status = 'Pending L1 Approval', updated_at = CURRENT_TIMESTAMP
+            l1_status = :l1_status, l2_status = :l2_status,
+            l1_approver_user_id = :l1_approver_user_id,
+            l2_approver_user_id = :l2_approver_user_id,
+            overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
     ");
     $update->bindValue(':warranty_claim', $warrantyClaim);
     $update->bindValue(':remarks', $ccsRemarks !== '' ? $ccsRemarks : null);
     $update->bindValue(':by', $userName);
+    $update->bindValue(':l1_status', $stage['l1_status']);
+    $update->bindValue(':l2_status', $stage['l2_status']);
+    foc_claim_bind_nullable_user_id($update, ':l1_approver_user_id', $approvers['l1'] ?? null);
+    foc_claim_bind_nullable_user_id($update, ':l2_approver_user_id', $approvers['l2'] ?? null);
+    $update->bindValue(':overall_status', $stage['overall_status']);
     $update->bindValue(':id', $claimId, PDO::PARAM_INT);
     $update->execute();
 
-    warranty_claims_notify_role_holders(
-        $obconn,
-        'service-claims',
-        'approve-l1',
-        'Service Claim Pending L1 Approval',
-        'Service claim #' . $claimId . ' has been marked "' . $warrantyClaim . '" by CCS and needs Lock-in Engineer approval.',
-        $claimId
-    );
-
-    $_SESSION['success_message'] = 'Warranty eligibility recorded. Claim moved to L1 approval.';
+    if (($stage['notify_level'] ?? '') === 'l2') {
+        warranty_claims_notify_user(
+            $obconn,
+            $approvers['l2'],
+            'service-claims',
+            'Service Claim Pending L2 Approval',
+            'Service claim #' . $claimId . ' has been marked "' . $warrantyClaim . '" by CCS and needs Business Head approval.',
+            $claimId
+        );
+        $_SESSION['success_message'] = 'Warranty eligibility recorded. Claim moved to L2 (Business Head) approval.';
+    } elseif (($stage['notify_level'] ?? '') === 'l1') {
+        warranty_claims_notify_user(
+            $obconn,
+            $approvers['l1'],
+            'service-claims',
+            'Service Claim Pending L1 Approval',
+            'Service claim #' . $claimId . ' has been marked "' . $warrantyClaim . '" by CCS and needs Lock-in Engineer approval.',
+            $claimId
+        );
+        $_SESSION['success_message'] = 'Warranty eligibility recorded. Claim moved to L1 (Lock-in Engineer) approval.';
+    } else {
+        if (($stage['overall_status'] ?? '') === 'Approved') {
+            service_claim_notify_invoice_pending($obconn, $claimId);
+        }
+        $_SESSION['success_message'] = 'Warranty eligibility recorded.';
+    }
     header('Location: service_claims.php');
     exit;
 }
@@ -228,35 +299,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['l1_decision'])) {
     $claimStmt->execute();
     $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($claim === false || $claim['overall_status'] !== 'Pending L1 Approval') {
-        $_SESSION['error_message'] = 'This claim is not pending L1 approval.';
-        header('Location: ' . $redirectTo);
+    if ($claim === false || !foc_claim_is_assigned_to_current_user($obconn, $claim, 'l1')) {
+        header('Location: access_denied.php');
         exit;
     }
 
-    $overallStatus = $decision === SERVICE_CLAIM_L1_APPROVED ? 'Approved - Pending Invoice' : 'Rejected';
-    $update = $obconn->prepare("
-        UPDATE service_claims
-        SET l1_status = :status, l1_by_username = :by, l1_at = CURRENT_TIMESTAMP,
-            l1_remarks = :remarks, overall_status = :overall_status, updated_at = CURRENT_TIMESTAMP
-        WHERE id = :id
-    ");
-    $update->bindValue(':status', $decision);
-    $update->bindValue(':by', $userName);
-    $update->bindValue(':remarks', $remarks !== '' ? $remarks : null);
-    $update->bindValue(':overall_status', $overallStatus);
-    $update->bindValue(':id', $claimId, PDO::PARAM_INT);
-    $update->execute();
-
-    if ($decision === SERVICE_CLAIM_L1_APPROVED) {
-        warranty_claims_notify_role_holders(
-            $obconn,
-            'service-claims',
-            'raise-invoice',
-            'Service Claim Approved - Invoice Pending',
-            'Service claim #' . $claimId . ' has been approved. Please raise the predefined visit-charge invoice.',
-            $claimId
-        );
+    $applyError = service_claim_apply_decision($obconn, $claimId, 'l1', $decision, $remarks, $userName);
+    if ($applyError !== null) {
+        $_SESSION['error_message'] = $applyError;
+        header('Location: ' . $redirectTo);
+        exit;
     }
 
     $_SESSION['success_message'] = 'Service claim #' . $claimId . ' has been ' . strtolower($decision) . ' at L1.';
@@ -280,7 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['raise_invoice'])) {
     $claimStmt->execute();
     $claim = $claimStmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($claim === false || $claim['overall_status'] !== 'Approved - Pending Invoice') {
+    if ($claim === false || !in_array((string) ($claim['overall_status'] ?? ''), ['Approved', 'Approved - Pending Invoice'], true)) {
         $_SESSION['error_message'] = 'This claim is not ready for invoicing.';
         header('Location: service_claims.php');
         exit;
@@ -531,7 +583,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             <span class="complaint-form-section__badge">2</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Call Closure Details</h3>
-                                <p class="complaint-form-section__hint">Distance travelled and PO Number with attachment are mandatory to close the call.</p>
+                                <p class="complaint-form-section__hint">Distance travelled and Invoice with attachment are mandatory to close the call.</p>
                             </div>
                         </div>
                         <div class="row g-3">
@@ -565,16 +617,16 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             </div>
                             <div class="col-md-4 form-group">
                                 <label class="form-label" for="poNumber">
-                                    <i class="bi bi-receipt"></i> PO Number <span class="text-danger">*</span>
+                                    <i class="bi bi-receipt"></i> Invoice <span class="text-danger">*</span>
                                 </label>
                                 <input type="text" class="form-control<?= isset($field_errors['po_number']) ? ' is-invalid' : '' ?>" id="poNumber" name="po_number"
-                                    maxlength="100" placeholder="Enter PO Number"
+                                    maxlength="100" placeholder="Enter Invoice"
                                     value="<?= htmlspecialchars($_POST['po_number'] ?? '') ?>">
                                 <div class="text-danger validation-msg" data-field="po_number"><?= htmlspecialchars($field_errors['po_number'] ?? '') ?></div>
                             </div>
                             <div class="col-md-8 form-group">
                                 <label class="form-label" for="poAttachment">
-                                    <i class="bi bi-paperclip"></i> PO Attachment <span class="text-danger">*</span>
+                                    <i class="bi bi-paperclip"></i> Attachment <span class="text-danger">*</span>
                                 </label>
                                 <input type="file" class="form-control<?= isset($field_errors['po_attachment']) ? ' is-invalid' : '' ?>" id="poAttachment" name="po_attachment"
                                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
@@ -616,7 +668,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                     <div>
                         <h2 class="complaint-form-header__title">Warranty Service Claims</h2>
                         <p class="complaint-form-header__subtitle">
-                            Track call closures, CCS review, L1 approval and visit-charge status.
+                            Track call closures, L1 / L2 approval and visit-charge status.
                         </p>
                     </div>
                 </div>
@@ -632,10 +684,11 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             <th width="14%">Customer</th>
                             <th width="12%">KM</th>
                             <th width="12%">Service Date</th>
-                            <th width="12%">PO Number</th>
-                            <th width="10%">Warranty (CCS)</th>
-                            <th width="10%">L1 (Lock-in Engineer)</th>
-                            <th width="10%">Invoice</th>
+                            <th width="12%">Invoice</th>
+                            <th width="10%">Attachment</th>
+                            <th width="10%">Warranty</th>
+                            <th width="10%">Lock-in Engineer</th>
+                            <th width="10%">Business Head</th>
                             <th width="10%">Settlement</th>
                             <th width="14%">Overall Status</th>
                             <?php if ($canSeeSubmittedBy) { ?>
@@ -674,14 +727,14 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             $priceLabel = ($priceValue === null || $priceValue === '')
                                 ? ''
                                 : distance_wise_price_format_number($priceValue);
-                            $ccsClaim = trim((string) ($row['ccs_warranty_claim'] ?? ''));
-                            $overallStatus = trim((string) ($row['overall_status'] ?? ''));
                             $serviceClaimCoverage = amc_coverage_resolve($serviceClaimAmcLookup, 0, (string) ($row['fab_number'] ?? ''));
                             $serviceClaimCommissioningDate = installed_base_commissioning_resolve(
                                 $serviceClaimCommissioningLookup,
                                 0,
                                 (string) ($row['fab_number'] ?? '')
                             );
+                            $warrantyStatus = service_claim_warranty_status_label($row, $serviceClaimCommissioningDate);
+                            $overallStatus = service_claim_overall_status_label($row);
                         ?>
                         <tr>
                             <td><?= $claimId ?></td>
@@ -701,20 +754,18 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             <td><?= htmlspecialchars($serviceDateLabel) ?></td>
                             <td>
                                 <?php if ($poNumberLabel !== ''): ?>
-                                    <div class="fw-semibold"><?= htmlspecialchars($poNumberLabel) ?></div>
-                                    <?php if ($poAttachmentHtml !== ''): ?>
-                                    <div class="small"><?= $poAttachmentHtml ?></div>
-                                    <?php endif; ?>
+                                    <?= htmlspecialchars($poNumberLabel) ?>
                                 <?php else: ?>
                                     -
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if ($ccsClaim !== ''): ?>
-                                    <span class="status-badge border border-dark"><?= htmlspecialchars($ccsClaim) ?></span>
-                                <?php else: ?>
-                                    <span class="status-badge border border-dark">Pending</span>
-                                <?php endif; ?>
+                                <?= $poAttachmentHtml !== '' ? $poAttachmentHtml : '-' ?>
+                            </td>
+                            <td>
+                                <span class="status-badge border border-dark">
+                                    <?= htmlspecialchars($warrantyStatus) ?>
+                                </span>
                             </td>
                             <td>
                                 <span class="status-badge border border-dark">
@@ -722,7 +773,9 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                 </span>
                             </td>
                             <td>
-                                -
+                                <span class="status-badge border border-dark">
+                                    <?= htmlspecialchars((string) ($row['l2_status'] ?? '-')) ?>
+                                </span>
                             </td>
                             <td>
                                -
@@ -950,7 +1003,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
             if (poValue === '') {
                 e.preventDefault();
                 blocked = true;
-                setFieldError('po_number', 'PO Number is required.');
+                setFieldError('po_number', 'Invoice is required.');
                 if (poNumberInput) {
                     poNumberInput.classList.add('is-invalid');
                     firstInvalid = firstInvalid || poNumberInput;
@@ -963,7 +1016,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
             if (!poFile) {
                 e.preventDefault();
                 blocked = true;
-                setFieldError('po_attachment', 'PO attachment is required.');
+                setFieldError('po_attachment', 'Attachment is required.');
                 if (poAttachmentInput) {
                     poAttachmentInput.classList.add('is-invalid');
                     firstInvalid = firstInvalid || poAttachmentInput;
@@ -974,13 +1027,13 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 if (poAllowedExtensions.indexOf(poExt) === -1) {
                     e.preventDefault();
                     blocked = true;
-                    setFieldError('po_attachment', 'Invalid PO attachment type. Allowed: PDF, JPG, PNG, DOC, DOCX.');
+                    setFieldError('po_attachment', 'Invalid attachment type. Allowed: PDF, JPG, PNG, DOC, DOCX.');
                     poAttachmentInput.classList.add('is-invalid');
                     firstInvalid = firstInvalid || poAttachmentInput;
                 } else if (poFile.size > poMaxFileSize) {
                     e.preventDefault();
                     blocked = true;
-                    setFieldError('po_attachment', 'PO attachment must be 2 MB or smaller.');
+                    setFieldError('po_attachment', 'Attachment must be 2 MB or smaller.');
                     poAttachmentInput.classList.add('is-invalid');
                     firstInvalid = firstInvalid || poAttachmentInput;
                 }

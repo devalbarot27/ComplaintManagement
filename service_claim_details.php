@@ -32,13 +32,15 @@ $complaintId = (int) ($record['complaint_id'] ?? 0);
 $encodedComplaintId = rawurlencode(base64_encode((string) $complaintId));
 $fabNumber = trim((string) ($record['fab_number'] ?? ''));
 $installedBaseId = $fabNumber !== '' ? installed_base_find_id_by_fab($obconn, $fabNumber) : null;
-$ccsClaim = trim((string) ($record['ccs_warranty_claim'] ?? ''));
-$ccsBadge = $ccsClaim === ''
-    ? '<span class="status-badge border border-dark">Pending</span>'
-    : '<span class="status-badge border border-dark">'
-        . htmlspecialchars($ccsClaim, ENT_QUOTES, 'UTF-8') . '</span>';
+$serviceClaimCommissioningDate = installed_base_commissioning_date_for_machine($obconn, (int) ($installedBaseId ?? 0), $fabNumber);
+$warrantyStatus = service_claim_warranty_status_label($record, $serviceClaimCommissioningDate);
+$overallStatus = service_claim_overall_status_label($record);
+$warrantyBadge = '<span class="status-badge border border-dark">'
+    . htmlspecialchars($warrantyStatus, ENT_QUOTES, 'UTF-8') . '</span>';
 $l1Badge = '<span class="status-badge border border-dark">'
     . htmlspecialchars((string) ($record['l1_status'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</span>';
+$l2Badge = '<span class="status-badge border border-dark">'
+    . htmlspecialchars((string) ($record['l2_status'] ?? '-'), ENT_QUOTES, 'UTF-8') . '</span>';
 $serviceDate = trim((string) ($record['service_date'] ?? ''));
 $serviceDateLabel = $serviceDate !== '' ? date('d M Y', strtotime($serviceDate)) : '-';
 $visitPrice = $record['visit_charge_price'] ?? '';
@@ -73,7 +75,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
                 'bi-clipboard-check',
                 [
                     record_details_id_chip((int) $record['id']),
-                    '<span class="status-badge border border-dark">' . htmlspecialchars((string) ($record['overall_status'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>',
+                    '<span class="status-badge border border-dark">' . htmlspecialchars($overallStatus, ENT_QUOTES, 'UTF-8') . '</span>',
                 ]
             );
 
@@ -100,7 +102,6 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             } else {
                 record_details_field('Fab Number', $fabNumber, 'col-md-4');
             }
-            $serviceClaimCommissioningDate = installed_base_commissioning_date_for_machine($obconn, (int) ($installedBaseId ?? 0), $fabNumber);
             foreach (installed_base_warranty_detail_fields($serviceClaimCommissioningDate) as $warrantyField) {
                 record_details_field($warrantyField['label'], $warrantyField['value'], 'col-md-4');
             }
@@ -123,7 +124,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_field('State', (string) ($record['customer_state'] ?? ''), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(3, 'Call Closure Details', 'Distance, visit charge, PO and resolution');
+            record_details_section_start(3, 'Call Closure Details', 'Distance, visit charge, invoice and resolution');
             record_details_field('Distance Travelled (KMs)', (string) ($record['km_travelled'] ?? ''), 'col-md-4');
             record_details_field(
                 'Price',
@@ -133,26 +134,35 @@ $visitPrice = $record['visit_charge_price'] ?? '';
                 'col-md-4'
             );
             record_details_field('Service Date', $serviceDateLabel, 'col-md-4');
-            record_details_field('PO Number', (string) ($record['po_number'] ?? ''), 'col-md-4');
+            record_details_field('Invoice', (string) ($record['po_number'] ?? ''), 'col-md-4');
             $poAttachmentHtml = service_claim_po_attachment_html(
                 (string) ($record['po_attachment'] ?? ''),
                 (string) ($record['po_attachment_original'] ?? '')
             );
             if ($poAttachmentHtml !== '') {
-                record_details_field('PO Attachment', $poAttachmentHtml, 'col-md-8', false, true);
+                record_details_field('Attachment', $poAttachmentHtml, 'col-md-8', false, true);
             } else {
-                record_details_field('PO Attachment', '-', 'col-md-8');
+                record_details_field('Attachment', '-', 'col-md-8');
             }
             record_details_field('Resolution Notes', (string) ($record['resolution_notes'] ?? ''), 'col-md-12', true);
             record_details_section_end();
 
-            record_details_section_start(4, 'Approval & Settlement', 'CCS, L1, invoice and settlement status');
-            record_details_field('Warranty (CCS)', $ccsBadge, 'col-md-4', false, true);
-            record_details_field('CCS Remarks', (string) ($record['ccs_remarks'] ?? ''), 'col-md-4');
-            record_details_field('CCS Marked By', (string) ($record['ccs_marked_by_username'] ?? ''), 'col-md-4');
-            record_details_field('L1 Status', $l1Badge, 'col-md-4', false, true);
-            record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
-            record_details_field('L1 By', (string) ($record['l1_by_username'] ?? ''), 'col-md-4');
+            record_details_section_start(4, 'Warranty & Approval', 'Warranty flag, L1/L2 decisions, invoice and settlement status');
+            record_details_field('Machine Warranty Status', $warrantyBadge, 'col-md-4', false, true);
+            record_details_field('Lock-in Engineer', $l1Badge, 'col-md-4', false, true);
+            record_details_field('Business Head', $l2Badge, 'col-md-4', false, true);
+            //record_details_field('CCS Remarks', (string) ($record['ccs_remarks'] ?? ''), 'col-md-4');
+            //record_details_field('CCS Marked By', (string) ($record['ccs_marked_by_username'] ?? ''), 'col-md-4');
+            if (($record['l1_status'] ?? '') !== FOC_STAGE_NOT_REQUIRED) {
+                record_details_field('L1 Remarks', (string) ($record['l1_remarks'] ?? ''), 'col-md-4');
+                record_details_field('L1 By', (string) ($record['l1_by_name'] ?? $record['l1_by_username'] ?? ''), 'col-md-4');
+                record_details_field('L1 At', rbac_format_datetime($record['l1_at'] ?? null), 'col-md-4');
+            }
+            if (($record['l2_status'] ?? '') !== FOC_STAGE_NOT_REQUIRED) {
+                record_details_field('L2 Remarks', (string) ($record['l2_remarks'] ?? ''), 'col-md-4');
+                record_details_field('L2 By', (string) ($record['l2_by_name'] ?? $record['l2_by_username'] ?? ''), 'col-md-4');
+                record_details_field('L2 At', rbac_format_datetime($record['l2_at'] ?? null), 'col-md-4');
+            }
             record_details_field('Invoice Number', (string) ($record['invoice_number'] ?? ''), 'col-md-4');
             record_details_field('Invoice Amount', (string) ($record['invoice_amount'] ?? ''), 'col-md-4');
             record_details_field('Settlement', trim((string) (($record['settlement_type'] ?? '') . ' ' . ($record['settlement_reference'] ?? ''))), 'col-md-4');

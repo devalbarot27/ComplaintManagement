@@ -82,9 +82,7 @@ function user_approval_config_levels_for_user(PDO $conn, ?int $userId, string $m
     }
 
     $levels['l1'] = user_approval_config_bool_from_value($row['level_1_approval'] ?? false);
-    if ($moduleSlug !== user_approval_config_module_service()) {
-        $levels['l2'] = user_approval_config_bool_from_value($row['level_2_approval'] ?? false);
-    }
+    $levels['l2'] = user_approval_config_bool_from_value($row['level_2_approval'] ?? false);
 
     return $levels;
 }
@@ -168,10 +166,6 @@ function user_approval_config_from_post(array $post): array
     $level1 = !empty($post['level_1_approval']);
     $level2 = !empty($post['level_2_approval']);
 
-    if ($moduleSlug === user_approval_config_module_service()) {
-        $level2 = false;
-    }
-
     return [
         'user_id' => (int) ($post['user_id'] ?? 0),
         'module_slug' => $moduleSlug,
@@ -206,9 +200,6 @@ function user_approval_config_validate(PDO $conn, array $data): ?string
 
     $level1 = !empty($data['level_1_approval']);
     $level2 = !empty($data['level_2_approval']);
-    if ($moduleSlug === user_approval_config_module_service()) {
-        $level2 = false;
-    }
 
     if (!$level1 && !$level2) {
         return 'Select at least one approval level.';
