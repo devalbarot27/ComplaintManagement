@@ -827,7 +827,7 @@ function service_claim_po_attachment_html(?string $storedName, ?string $original
 function service_claim_po_validate_upload(?array $fileField): array
 {
     if ($fileField === null || !isset($fileField['error']) || (int) $fileField['error'] === UPLOAD_ERR_NO_FILE) {
-        return ['error' => 'Attachment is required.', 'file' => null];
+        return ['error' => null, 'file' => null];
     }
 
     if ((int) $fileField['error'] !== UPLOAD_ERR_OK) {

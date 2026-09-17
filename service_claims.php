@@ -62,9 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
         } elseif ($serviceDate === '') {
             $field_errors['service_date'] = 'Service Date is required.';
             $error_message = $field_errors['service_date'];
-        } elseif ($poNumber === '') {
-            $field_errors['po_number'] = 'Invoice is required.';
-            $error_message = $field_errors['po_number'];
         } elseif (strlen($poNumber) > 100) {
             $field_errors['po_number'] = 'Invoice cannot exceed 100 characters.';
             $error_message = $field_errors['po_number'];
@@ -86,10 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
             }
             $storedPo = null;
             try {
-                if (empty($poUpload['file'])) {
-                    throw new RuntimeException('Attachment is required.');
+                if (!empty($poUpload['file'])) {
+                    $storedPo = service_claim_po_store_upload($poUpload['file']);
                 }
-                $storedPo = service_claim_po_store_upload($poUpload['file']);
                 $visitCharge = distance_wise_price_find_for_km($obconn, (float) $kmTravelled);
 
                 $stmt = $obconn->prepare("
@@ -115,9 +111,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
                 $stmt->bindValue(':km_travelled', (float) $kmTravelled);
                 $stmt->bindValue(':service_date', $serviceDate);
                 $stmt->bindValue(':resolution_notes', $resolutionNotes !== '' ? $resolutionNotes : null);
-                $stmt->bindValue(':po_number', $poNumber);
-                $stmt->bindValue(':po_attachment', $storedPo['stored']);
-                $stmt->bindValue(':po_attachment_original', $storedPo['original']);
+                if ($poNumber !== '') {
+                    $stmt->bindValue(':po_number', $poNumber);
+                } else {
+                    $stmt->bindValue(':po_number', null, PDO::PARAM_NULL);
+                }
+                if ($storedPo !== null) {
+                    $stmt->bindValue(':po_attachment', $storedPo['stored']);
+                    $stmt->bindValue(':po_attachment_original', $storedPo['original']);
+                } else {
+                    $stmt->bindValue(':po_attachment', null, PDO::PARAM_NULL);
+                    $stmt->bindValue(':po_attachment_original', null, PDO::PARAM_NULL);
+                }
                 if ($visitCharge === null) {
                     $stmt->bindValue(':visit_charge_price', null, PDO::PARAM_NULL);
                 } else {
@@ -583,7 +588,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             <span class="complaint-form-section__badge">2</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Call Closure Details</h3>
-                                <p class="complaint-form-section__hint">Distance travelled and Invoice with attachment are mandatory to close the call.</p>
+                                <p class="complaint-form-section__hint">Distance travelled is mandatory to close the call. Invoice and attachment are optional.</p>
                             </div>
                         </div>
                         <div class="row g-3">
@@ -617,7 +622,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             </div>
                             <div class="col-md-4 form-group">
                                 <label class="form-label" for="poNumber">
-                                    <i class="bi bi-receipt"></i> Invoice <span class="text-danger">*</span>
+                                    <i class="bi bi-receipt"></i> Invoice
                                 </label>
                                 <input type="text" class="form-control<?= isset($field_errors['po_number']) ? ' is-invalid' : '' ?>" id="poNumber" name="po_number"
                                     maxlength="100" placeholder="Enter Invoice"
@@ -626,7 +631,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             </div>
                             <div class="col-md-8 form-group">
                                 <label class="form-label" for="poAttachment">
-                                    <i class="bi bi-paperclip"></i> Attachment <span class="text-danger">*</span>
+                                    <i class="bi bi-paperclip"></i> Attachment
                                 </label>
                                 <input type="file" class="form-control<?= isset($field_errors['po_attachment']) ? ' is-invalid' : '' ?>" id="poAttachment" name="po_attachment"
                                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
@@ -1000,10 +1005,10 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
             }
 
             const poValue = poNumberInput ? String(poNumberInput.value || '').trim() : '';
-            if (poValue === '') {
+            if (poValue.length > 100) {
                 e.preventDefault();
                 blocked = true;
-                setFieldError('po_number', 'Invoice is required.');
+                setFieldError('po_number', 'Invoice cannot exceed 100 characters.');
                 if (poNumberInput) {
                     poNumberInput.classList.add('is-invalid');
                     firstInvalid = firstInvalid || poNumberInput;
@@ -1013,15 +1018,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
             const poFile = poAttachmentInput && poAttachmentInput.files && poAttachmentInput.files[0]
                 ? poAttachmentInput.files[0]
                 : null;
-            if (!poFile) {
-                e.preventDefault();
-                blocked = true;
-                setFieldError('po_attachment', 'Attachment is required.');
-                if (poAttachmentInput) {
-                    poAttachmentInput.classList.add('is-invalid');
-                    firstInvalid = firstInvalid || poAttachmentInput;
-                }
-            } else {
+            if (poFile) {
                 const poName = String(poFile.name || '');
                 const poExt = poName.includes('.') ? poName.split('.').pop().toLowerCase() : '';
                 if (poAllowedExtensions.indexOf(poExt) === -1) {
