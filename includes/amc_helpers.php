@@ -862,7 +862,7 @@ function amc_service_log_option_label(array $row): string
         $parts[] = $engineer;
     }
 
-    return implode(' · ', $parts);
+    return implode(' ï¿½ ', $parts);
 }
 
 /**

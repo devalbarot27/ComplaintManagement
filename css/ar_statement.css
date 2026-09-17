@@ -213,6 +213,16 @@
 
             }
 
+            .booking-card .dataTables_wrapper {
+                overflow: hidden;
+            }
+
+            .booking-card table.dataTable tfoot td {
+                padding: 16px 18px;
+                border-top: 1px solid #e2e8f0;
+                white-space: nowrap;
+            }
+
             @media(max-width:768px) {
 
                 .ar-grid {
@@ -223,4 +233,41 @@
                     min-width: 1100px;
                 }
 
+            }
+
+            .booking-card .dataTables_wrapper .dataTables_paginate .paginate_button {
+                padding: 0 !important;
+            }
+
+            .booking-card .page-item.active .page-link {
+                background-color: #000 !important;
+                border-color: #000 !important;
+                color: #fff !important;
+            }
+
+            .booking-card .page-link {
+                color: #000 !important;
+                background-color: #fff !important;
+                border: 1px solid #000 !important;
+            }
+
+            .booking-card .page-link:hover {
+                background-color: #000 !important;
+                color: #fff !important;
+                border-color: #000 !important;
+            }
+
+            .booking-card .page-item.disabled .page-link {
+                color: #6c757d !important;
+                background-color: #fff !important;
+                border-color: #dee2e6 !important;
+            }
+
+            .booking-card .page-link:focus,
+            .booking-card .page-link:active,
+            .booking-card .page-link:focus-visible,
+            .booking-card .dataTables_wrapper .dataTables_paginate .paginate_button:focus,
+            .booking-card .dataTables_wrapper .dataTables_paginate .paginate_button:active {
+                box-shadow: none !important;
+                outline: none !important;
             }

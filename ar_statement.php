@@ -83,8 +83,13 @@ foreach ($ledgerRows as $row) {
     <?php include('header_css.php'); ?>
 
     <link href="css/order_acknowledge_style.css" rel="stylesheet" />
-
+    <link href="css/new_complaint.css" rel="stylesheet" />
     <link href="css/ar_statement.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
+    <link href="css/datatable_custom.css" rel="stylesheet" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 
 </head>
 
@@ -232,37 +237,15 @@ foreach ($ledgerRows as $row) {
 
                     <div class="booking-actions">
 
-                        <!-- SEARCH -->
-
-                        <div class="search-box">
-
-                            <i class="bi bi-search"></i>
-
-                            <input type="text" id="ledgerSearchInput"
-                                placeholder="Search invoice no...">
-
-                        </div>
-
-                        <!-- FILTER -->
-
                         <select class="filter-select" id="ledgerStatusFilter">
-
                             <option value="">All Status</option>
-
                             <option value="outstanding">Outstanding</option>
-
                             <option value="settled">Settled</option>
-
                         </select>
 
-                        <!-- DOWNLOAD -->
-
                         <button class="download-btn" id="downloadStatementBtn" type="button">
-
                             <i class="bi bi-download"></i>
-
                             Download Statement
-
                         </button>
 
                     </div>
@@ -273,12 +256,10 @@ foreach ($ledgerRows as $row) {
 
                 <div class="table-responsive">
 
-                    <table class="booking-table" id="ledgerTable">
+                    <table class="table table-hover booking-table w-100" id="ledgerTable">
 
                         <thead>
-
                             <tr>
-
                                 <th>DPST</th>
                                 <th>Document Date</th>
                                 <th>Invoice No</th>
@@ -294,63 +275,54 @@ foreach ($ledgerRows as $row) {
                                 <th>61-90<br>days</th>
                                 <th>Above 90<br>days</th>
                                 <th>Due Date</th>
-
                             </tr>
-
                         </thead>
 
                         <tbody>
-
-<?php if (empty($ledgerRows)): ?>
-                            <tr>
-                                <td colspan="15" class="text-center text-muted">No AR records found.</td>
-                            </tr>
-<?php else: foreach ($ledgerRows as $row): $rowOutstanding = (float) $row['amtout']; ?>
+<?php foreach ($ledgerRows as $row):
+    $rowOutstanding = (float) $row['amtout'];
+    $docDateRaw = trim((string) ($row['docdt'] ?? ''));
+    $dueDateRaw = trim((string) ($row['duedate'] ?? ''));
+    $docDateTs = $docDateRaw !== '' ? strtotime($docDateRaw) : false;
+    $dueDateTs = $dueDateRaw !== '' ? strtotime($dueDateRaw) : false;
+?>
                             <tr data-status="<?= $rowOutstanding > 0 ? 'outstanding' : 'settled' ?>">
-
-                                <td class="fw-semibold">
-                                    <?= htmlspecialchars((string) $row['dpst']) ?>
+                                <td class="fw-semibold"><?= htmlspecialchars((string) $row['dpst']) ?></td>
+                                <td data-order="<?= htmlspecialchars($docDateTs ? date('Y-m-d', $docDateTs) : '') ?>">
+                                    <?= htmlspecialchars($docDateTs ? date('d M Y', $docDateTs) : '') ?>
                                 </td>
-
-                                <td><?= htmlspecialchars(!empty($row['docdt']) ? date('d M Y', strtotime((string) $row['docdt'])) : '') ?></td>
-
                                 <td><?= htmlspecialchars(trim((string) $row['invpre']) . '-' . trim((string) $row['invno'])) ?></td>
-
                                 <td><?= htmlspecialchars(trim((string) $row['currency']) !== '' ? $row['currency'] : 'INR') ?></td>
-
-                                <td class="debit-text text-end">
+                                <td class="debit-text text-end" data-order="<?= (int) round((float) $row['invamt']) ?>">
                                     ₹<?= number_format(round((float) $row['invamt'])) ?>
                                 </td>
-
-                                <td class="credit-text text-end">
+                                <td class="credit-text text-end" data-order="<?= (int) round((float) $row['recvamt']) ?>">
                                     ₹<?= number_format(round((float) $row['recvamt'])) ?>
                                 </td>
-
-                                <td class="fw-semibold text-end">
+                                <td class="fw-semibold text-end" data-order="<?= (int) round($rowOutstanding) ?>">
                                     ₹<?= number_format(round($rowOutstanding)) ?>
                                 </td>
-
-                                <td class="text-end"><?= number_format(round((float) $row['less30'])) ?></td>
-                                <td class="text-end"><?= number_format(round((float) $row['less40'])) ?></td>
-                                <td class="text-end"><?= number_format(round((float) $row['less45'])) ?></td>
-                                <td class="text-end"><?= number_format(round((float) $row['less50'])) ?></td>
-                                <td class="text-end"><?= number_format(round((float) $row['less60'])) ?></td>
-                                <td class="text-end"><?= number_format(round((float) $row['less90'])) ?></td>
-                                <td class="text-end"><?= number_format(round((float) $row['more90'])) ?></td>
-
-                                <td class="<?= $rowOutstanding > 0 ? 'debit-text' : '' ?>">
-                                    <?= htmlspecialchars(!empty($row['duedate']) ? date('d M Y', strtotime((string) $row['duedate'])) : '—') ?>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less30']) ?>"><?= number_format(round((float) $row['less30'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less40']) ?>"><?= number_format(round((float) $row['less40'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less45']) ?>"><?= number_format(round((float) $row['less45'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less50']) ?>"><?= number_format(round((float) $row['less50'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less60']) ?>"><?= number_format(round((float) $row['less60'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less90']) ?>"><?= number_format(round((float) $row['less90'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['more90']) ?>"><?= number_format(round((float) $row['more90'])) ?></td>
+                                <td class="<?= $rowOutstanding > 0 ? 'debit-text' : '' ?>" data-order="<?= htmlspecialchars($dueDateTs ? date('Y-m-d', $dueDateTs) : '') ?>">
+                                    <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : '—') ?>
                                 </td>
-
                             </tr>
-<?php endforeach; endif; ?>
-
+<?php endforeach; ?>
                         </tbody>
 
 <?php if (!empty($ledgerRows)): ?>
                         <tfoot>
                             <tr class="fw-bold">
-                                <td colspan="4">Total Amount</td>
+                                <td>Total Amount</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
                                 <td class="text-end">₹<?= number_format(round($summary['invamt'])) ?></td>
                                 <td class="text-end">₹<?= number_format(round($summary['recvamt'])) ?></td>
                                 <td class="text-end">₹<?= number_format(round($summary['amtout'])) ?></td>
@@ -374,45 +346,7 @@ foreach ($ledgerRows as $row) {
 
         </div>
 
-        <script>
-            const ledgerTable = document.getElementById('ledgerTable');
-            const searchInput = document.getElementById('ledgerSearchInput');
-            const statusFilter = document.getElementById('ledgerStatusFilter');
-
-            function applyLedgerFilters() {
-                if (!ledgerTable) {
-                    return;
-                }
-                const search = (searchInput?.value || '').trim().toLowerCase();
-                const status = statusFilter?.value || '';
-                ledgerTable.querySelectorAll('tbody tr[data-status]').forEach((tr) => {
-                    const matchesSearch = search === '' || tr.textContent.toLowerCase().includes(search);
-                    const matchesStatus = status === '' || tr.dataset.status === status;
-                    tr.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
-                });
-            }
-
-            searchInput?.addEventListener('input', applyLedgerFilters);
-            statusFilter?.addEventListener('change', applyLedgerFilters);
-
-            document.getElementById('downloadStatementBtn')?.addEventListener('click', () => {
-                if (!ledgerTable) {
-                    return;
-                }
-                const rows = [...ledgerTable.querySelectorAll('tr')].filter((tr) => tr.style.display !== 'none');
-                const csv = rows.map((tr) =>
-                    [...tr.querySelectorAll('th,td')]
-                        .map((cell) => '"' + cell.textContent.trim().replace(/"/g, '""').replace(/\s+/g, ' ') + '"')
-                        .join(',')
-                ).join('\n');
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'AR_Statement.csv';
-                link.click();
-                URL.revokeObjectURL(link.href);
-            });
-        </script>
+        <script src="js/ar_statement.js"></script>
     </div>
 </body>
 
