@@ -168,7 +168,8 @@ function amc_action_permissions(PDO $conn): array
 }
 
 /**
- * Added By is visible to System Admin, CCS Admin, and Management only.
+ * Added By is visible to System Admin, CCS Admin, Management, and L1/L2
+ * approvers who can view associated-dealer AMC records.
  */
 function amc_can_view_added_by(?PDO $conn = null): bool
 {
@@ -176,7 +177,11 @@ function amc_can_view_added_by(?PDO $conn = null): bool
         admin_ensure_session_role($conn);
     }
 
-    return is_system_admin() || is_ccs_admin_user() || is_management_user();
+    if (is_system_admin() || is_ccs_admin_user() || is_management_user()) {
+        return true;
+    }
+
+    return $conn !== null && amc_current_user_is_associated_dealer_approver($conn);
 }
 
 /**
@@ -184,7 +189,108 @@ function amc_can_view_added_by(?PDO $conn = null): bool
  */
 function amc_sees_all_records(?PDO $conn = null): bool
 {
-    return amc_can_view_added_by($conn);
+    return is_system_admin() || is_ccs_admin_user() || is_management_user();
+}
+
+/**
+ * L1/L2 Approval users are ELGi Engineer or Management assigned as Level 1 or
+ * Level 2 for dealers.
+ */
+function amc_current_user_is_l1_approver(PDO $conn): bool
+{
+    return amc_current_user_is_named_approver_for_level($conn, 'l1');
+}
+
+function amc_current_user_is_l2_approver(PDO $conn): bool
+{
+    return amc_current_user_is_named_approver_for_level($conn, 'l2');
+}
+
+function amc_current_user_is_associated_dealer_approver(PDO $conn): bool
+{
+    return amc_current_user_is_l1_approver($conn) || amc_current_user_is_l2_approver($conn);
+}
+
+function amc_current_user_is_named_approver_for_level(PDO $conn, string $level): bool
+{
+    require_once __DIR__ . '/user_helpers.php';
+
+    if (!isset($_SESSION['role'])) {
+        admin_refresh_session_role($conn);
+    }
+
+    if (!is_elgi_engineer_user() && !is_management_user()) {
+        return false;
+    }
+
+    user_ensure_schema($conn);
+    $flags = user_current_approval_flags($conn);
+
+    return !empty($flags[$level === 'l2' ? 'l2' : 'l1']);
+}
+
+function amc_associated_dealer_submitter_exists_sql(string $alias = 'ac'): string
+{
+    return "
+        EXISTS (
+            SELECT 1
+            FROM user_master um_l1_dealer
+            WHERE um_l1_dealer.deleted_at IS NULL
+              AND (
+                um_l1_dealer.level_1_approver_id = :amc_approver_user_id
+                OR um_l1_dealer.level_2_approver_id = :amc_approver_user_id_l2
+              )
+              AND (
+                TRIM(um_l1_dealer.id::text) = TRIM(COALESCE({$alias}.created_by::text, ''))
+                OR LOWER(TRIM(um_l1_dealer.username)) = LOWER(TRIM(COALESCE(
+                    NULLIF(TRIM({$alias}.username), ''),
+                    NULLIF(TRIM({$alias}.created_by::text), ''),
+                    ''
+                )))
+                OR (
+                    TRIM(COALESCE(um_l1_dealer.customer_code, '')) <> ''
+                    AND EXISTS (
+                        SELECT 1
+                        FROM user_master um_l1_submitter
+                        WHERE um_l1_submitter.deleted_at IS NULL
+                          AND TRIM(COALESCE(um_l1_submitter.customer_code, '')) <> ''
+                          AND TRIM(um_l1_submitter.customer_code) = TRIM(um_l1_dealer.customer_code)
+                          AND (
+                            TRIM(um_l1_submitter.id::text) = TRIM(COALESCE({$alias}.created_by::text, ''))
+                            OR LOWER(TRIM(um_l1_submitter.username)) = LOWER(TRIM(COALESCE(NULLIF(TRIM({$alias}.username), ''), '')))
+                          )
+                    )
+                )
+            )
+        )
+    ";
+}
+
+function amc_record_is_from_associated_dealer(PDO $conn, array $record): bool
+{
+    if (!amc_current_user_is_associated_dealer_approver($conn)) {
+        return false;
+    }
+
+    $userId = (int) (current_user_id($conn) ?? 0);
+    if ($userId <= 0) {
+        return false;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT 1
+        FROM amc_contracts ac
+        WHERE ac.id = :amc_id
+          AND ac.deleted_at IS NULL
+          AND ' . amc_associated_dealer_submitter_exists_sql('ac') . '
+        LIMIT 1
+    ');
+    $stmt->bindValue(':amc_id', (int) ($record['id'] ?? 0), PDO::PARAM_INT);
+    $stmt->bindValue(':amc_approver_user_id', $userId, PDO::PARAM_INT);
+    $stmt->bindValue(':amc_approver_user_id_l2', $userId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
 }
 
 /**
@@ -205,17 +311,30 @@ function amc_list_scope(PDO $conn): array
     }
 
     $currentUserId = (string) (int) (current_user_id($conn) ?? 0);
-
-    return [
-        'where' => 'ac.deleted_at IS NULL
+    $where = 'ac.deleted_at IS NULL
             AND (
                 TRIM(COALESCE(ac.created_by::text, \'\')) = :amc_scope_user_id
                 OR LOWER(TRIM(COALESCE(NULLIF(TRIM(ac.username), \'\'), NULLIF(TRIM(ac.created_by::text), \'\'), \'\'))) = LOWER(TRIM(:amc_scope_username))
-            )',
-        'params' => [
-            ':amc_scope_user_id' => $currentUserId,
-            ':amc_scope_username' => current_username(),
-        ],
+            )';
+    $params = [
+        ':amc_scope_user_id' => $currentUserId,
+        ':amc_scope_username' => current_username(),
+    ];
+
+    if (amc_current_user_is_associated_dealer_approver($conn) && (int) $currentUserId > 0) {
+        $where = 'ac.deleted_at IS NULL
+            AND (
+                TRIM(COALESCE(ac.created_by::text, \'\')) = :amc_scope_user_id
+                OR LOWER(TRIM(COALESCE(NULLIF(TRIM(ac.username), \'\'), NULLIF(TRIM(ac.created_by::text), \'\'), \'\'))) = LOWER(TRIM(:amc_scope_username))
+                OR ' . amc_associated_dealer_submitter_exists_sql('ac') . '
+            )';
+        $params[':amc_approver_user_id'] = (int) $currentUserId;
+        $params[':amc_approver_user_id_l2'] = (int) $currentUserId;
+    }
+
+    return [
+        'where' => $where,
+        'params' => $params,
         'see_all' => false,
     ];
 }
@@ -292,7 +411,11 @@ function amc_user_can_access_record(PDO $conn, ?array $record): bool
 
     $currentId = (string) (int) (current_user_id($conn) ?? 0);
 
-    return $currentId !== '0' && $createdBy === $currentId;
+    if ($currentId !== '0' && $createdBy === $currentId) {
+        return true;
+    }
+
+    return amc_record_is_from_associated_dealer($conn, $record);
 }
 
 function amc_added_by_select_sql(string $alias = 'ac', string $userAlias = 'um_added'): string
