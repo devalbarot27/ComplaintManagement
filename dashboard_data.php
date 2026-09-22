@@ -252,7 +252,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 
             </button>
 */ ?>
-      <a href="javascript:void(0)" class="action-btn" style="text-decoration: none;">
+      <a href="https://c-doc.elgi.com/login.php" class="action-btnn add-item-btn" style="text-decoration: none;" title="Click here to see CDOC" target="_blank">
                 <i class="bi bi-file-earmark-medical"></i>
                 CDOC
                 </a>
@@ -634,7 +634,8 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
             </div>
             </a>    
             <?php endif; ?>
-            <?php /*
+           
+<?php if ($canViewComplaintView): ?>
             <a href="ar_statement.php" style="text-decoration: none;">
             <div class="quick-item">
 
@@ -648,7 +649,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 
             </div>
             </a>
-            */ ?>
+                 <?php endif; ?>
 
         </div>
 
