@@ -196,7 +196,7 @@ $renderSparePartsDetailField = static function (
                     'col-md-4'
                 );
                 $renderSparePartsDetailField(
-                    'Service Type',
+                    'Complaint Category',
                     spare_parts_display_value($sparePartsRecord['warranty_chargeable'] ?? null),
                     'col-md-4'
                 );

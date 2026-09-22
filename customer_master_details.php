@@ -419,7 +419,7 @@ $customerMasterRelatedEmpty = static function (string $icon, string $message): v
                                     <th width="12%">Serial No.</th>
                                     <th width="12%">Fab Number</th>
                                     <th width="16%">Machine Model</th>
-                                    <th width="12%">Service Type</th>
+                                    <th width="12%">Complaint Category</th>
                                     <th width="14%">Engineer</th>
                                     <th width="12%">Visit Date</th>
                                     <th width="12%">Action</th>
@@ -453,7 +453,7 @@ $customerMasterRelatedEmpty = static function (string $icon, string $message): v
                                         <?php } ?>
                                     </td>
                                     <td data-label="Machine Model"><?php echo htmlspecialchars($machineModel, ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td data-label="Service Type"><?php echo htmlspecialchars(service_log_display_value($serviceLogRow['warranty_chargeable'] ?? null), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td data-label="Complaint Category"><?php echo htmlspecialchars(service_log_display_value($serviceLogRow['warranty_chargeable'] ?? null), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td data-label="Engineer"><?php echo htmlspecialchars(service_log_display_value($serviceLogRow['engineer_name'] ?? null), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td data-label="Visit Date"><?php echo htmlspecialchars(service_log_format_date($serviceLogRow['visit_date'] ?? null), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td data-label="Action"><?php echo service_log_entry_actions($serviceLogId, $serviceLogViewPermissions); ?></td>

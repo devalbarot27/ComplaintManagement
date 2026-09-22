@@ -326,9 +326,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                 </div>
                                 <?php include __DIR__ . '/includes/service_log_warranty_amc_fields.php'; ?>
                                 <div class="col-md-4 form-group">
-                                    <label class="form-label"><i class="bi bi-shield-check"></i> Service Type <span class="text-danger">*</span></label>
+                                    <label class="form-label"><i class="bi bi-shield-check"></i> Complaint Category <span class="text-danger">*</span></label>
                                     <select class="form-control" name="warranty_chargeable" id="serviceLogWarrantySelect"
-                                        data-placeholder="Search service type">
+                                        data-placeholder="Search complaint category">
                                         <option value=""></option>
                                         <?php foreach ($warrantyTypes as $type) { ?>
                                         <option value="<?php echo htmlspecialchars($type); ?>"><?php echo htmlspecialchars($type); ?></option>
@@ -498,7 +498,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                 <th width="5%">ID</th>
                                 <th width="10%">Serial No.</th>
                                 <th width="12%">Machine Model</th>
-                                <th width="10%">Service Type</th>
+                                <th width="10%">Complaint Category</th>
                                 <th width="12%">Engineer</th>
                                 <th width="10%">Visit Date</th>
                                 <th width="10%">Closure Date</th>

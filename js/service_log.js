@@ -277,7 +277,7 @@ function initServiceLogStaticSelect2() {
             selectId: 'serviceLogWarrantySelect',
             validationField: 'warranty_chargeable',
             allowClear: false,
-            noResultsText: 'No service type found'
+            noResultsText: 'No complaint category found'
         },
         {
             selectId: 'serviceLogPartReplacedSelect',

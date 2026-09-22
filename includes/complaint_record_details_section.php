@@ -77,7 +77,7 @@ $complaintStatusLabel = $statusMap[$complaint['status']] ?? 'Unknown';
                     );
                 }
                 $renderComplaintDetailField(
-                    'Complaint Category',
+                    'Call Complaint',
                     complaint_category_display_name($complaint),
                     'col-md-4'
                 );

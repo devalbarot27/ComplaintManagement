@@ -34,17 +34,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_complaint_cate
         try {
             if ($isEdit) {
                 if (!complaint_category_get_by_id($obconn, $recordId)) {
-                    $error_message = 'Complaint category not found or already deleted.';
+                    $error_message = 'Call Complaint not found or already deleted.';
                 } else {
                     complaint_category_update($obconn, $recordId, $data);
-                    $success_message = 'Complaint category updated successfully.';
+                    $success_message = 'Call Complaint updated successfully.';
                 }
             } else {
                 complaint_category_insert($obconn, $data, $createdByUserId);
-                $success_message = 'Complaint category saved successfully.';
+                $success_message = 'Call Complaint saved successfully.';
             }
         } catch (PDOException $e) {
-            $error_message = $isEdit ? 'Failed to update complaint category.' : 'Failed to save complaint category.';
+            $error_message = $isEdit ? 'Failed to update Call Complaint.' : 'Failed to save Call Complaint.';
         }
     }
 }
@@ -57,7 +57,7 @@ $statusOptions = rbac_status_options();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complaint Category</title>
+    <title>Call Complaint</title>
     <?php include 'header_css.php'; ?>
     <link href="css/new_complaint.css" rel="stylesheet" />
     <link href="css/complaint_buttons.css" rel="stylesheet" />
@@ -105,11 +105,11 @@ $statusOptions = rbac_status_options();
 
             <div class="page-header">
                 <div>
-                    <div class="page-subtitle">Manage complaint category options for complaint entry.</div>
+                    <div class="page-subtitle">Manage call complaint options for call complaint entry.</div>
                 </div>
                 <div class="header-btn-group">
                     <button class="new-order-btn btn-complaint-primary" id="openComplaintCategoryForm" type="button">
-                        <i class="bi bi-plus-lg"></i> Add Complaint Category
+                        <i class="bi bi-plus-lg"></i> Add Call Complaint
                     </button>
                     <button class="close-form-btn cancel-btn" id="closeComplaintCategoryForm" type="button">
                         <i class="bi bi-x-lg"></i> Cancel
@@ -122,8 +122,8 @@ $statusOptions = rbac_status_options();
                     <div class="complaint-form-header__main">
                         <div class="complaint-form-header__icon"><i class="bi bi-tags"></i></div>
                         <div>
-                            <h2 class="complaint-form-header__title" id="complaintCategoryFormModeLabel">Add Complaint Category</h2>
-                            <p class="complaint-form-header__subtitle">Enter category name and status.</p>
+                            <h2 class="complaint-form-header__title" id="complaintCategoryFormModeLabel">Add Call Complaint</h2>
+                            <p class="complaint-form-header__subtitle">Enter call complaint name and status.</p>
                         </div>
                     </div>
                 </div>
@@ -155,7 +155,7 @@ $statusOptions = rbac_status_options();
                     <div class="complaint-form-actions">
                         <button type="button" class="cancel-btn" id="cancelComplaintCategoryForm">Cancel</button>
                         <button class="submit-btn btn-complaint-primary" type="submit" id="submitComplaintCategoryBtn">
-                            <i class="bi bi-check-lg"></i> Save Complaint Category
+                            <i class="bi bi-check-lg"></i> Save Call Complaint
                         </button>
                     </div>
                 </form>
@@ -163,7 +163,7 @@ $statusOptions = rbac_status_options();
 
             <div class="booking-card">
                 <div class="booking-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div class="booking-title">Complaint Category List</div>
+                    <div class="booking-title">Call Complaint List</div>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <select class="form-control form-control-sm" id="complaintCategoryStatusFilter" style="width:auto; min-width:130px;">
                             <option value="">All Status</option>

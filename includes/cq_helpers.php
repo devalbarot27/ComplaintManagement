@@ -3,7 +3,7 @@
 /**
  * Customer Quality (CQ) qualification + CCS Server referral.
  *
- * Complaint Category + Warranty Status (from Commissioned Date) + Service Type
+ * Call Complaint + Warranty Status (from Commissioned Date) + Service Type
  * (captured on the Service Update, from the Service Log) determine whether a
  * complaint qualifies for Customer Quality review. Qualifying complaints
  * require the service engineer to pick failed part(s) before saving the
@@ -65,7 +65,7 @@ function cq_next_autorca_trackno(PDO $ccsConn): string
     return (string) ((int) $stmt->fetchColumn() + 1);
 }
 
-/** Step 1: Complaint Category = Product Performance Issue / Parts / Accessories. */
+/** Step 1: Call Complaint = Product Performance Issue / Parts / Accessories. */
 function cq_complaint_category_qualifies(string $categoryName): bool
 {
     // Tolerate whitespace/case/"Issue"-suffix variants (category names are admin-managed free text).
@@ -267,7 +267,7 @@ function cq_create_referral(
              NULL, NULL, NULL, NULL, NULL, NULL, NULL)
     ");
 
-    $remarks = 'CQ referral - Service Type: ' . $serviceType . ', Warranty Status: ' . $warrantyStatus . ', Category: ' . $categoryName;
+    $remarks = 'CQ referral - Complaint Category: ' . $serviceType . ', Warranty Status: ' . $warrantyStatus . ', Category: ' . $categoryName;
     $trackNumbers = [];
 
     foreach ($failedParts as $part) {

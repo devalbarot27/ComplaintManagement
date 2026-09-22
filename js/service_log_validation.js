@@ -55,7 +55,7 @@ function initServiceLogFormValidation() {
         warranty_chargeable: {
             presence: {
                 allowEmpty: false,
-                message: '^Service Type is required'
+                message: '^Complaint Category is required'
             }
         },
         complaint_date: {

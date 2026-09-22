@@ -1625,7 +1625,7 @@ function foc_approval_extra_html(PDO $conn, array $record): string
         $html .= foc_approval_field_html('AMC End Date', (string) $coverage['end_date_label']);
     }
     $html .= foc_approval_field_html('Call Ticket Status', $complaintStatusLabel);
-    $html .= foc_approval_field_html('Complaint Category', $complaintCategory);
+    $html .= foc_approval_field_html('Call Complaint', $complaintCategory);
     $html .= foc_approval_field_html('Mobile', (string) ($record['customer_mobile'] ?? ''));
     $html .= foc_approval_field_html('Email', (string) ($record['customer_email'] ?? ''));
     $html .= foc_approval_field_html('Address', $address, 'col-12');
@@ -1673,7 +1673,7 @@ function foc_approval_extra_html(PDO $conn, array $record): string
         $html .= foc_approval_field_html('Service Log', $logLink, 'col-md-4', false, true);
         $html .= foc_approval_field_html('Visit Date', service_log_format_date($log['visit_date'] ?? null));
         $html .= foc_approval_field_html('Engineer', service_log_display_value($log['engineer_name'] ?? null));
-        $html .= foc_approval_field_html('Service Type', service_log_display_value($log['warranty_chargeable'] ?? null));
+        $html .= foc_approval_field_html('Complaint Category', service_log_display_value($log['warranty_chargeable'] ?? null));
         $html .= foc_approval_field_html('Running Hours', service_log_display_value($log['running_hours'] ?? null));
         $html .= foc_approval_field_html('Log Date', service_log_format_date($log['complaint_date'] ?? null));
         $html .= foc_approval_field_html('Serial Number', service_log_format_serial_number_for_display($log['serial_number'] ?? null));

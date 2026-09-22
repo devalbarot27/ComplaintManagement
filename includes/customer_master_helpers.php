@@ -501,7 +501,7 @@ function customer_master_lookup_pincode(PDO $conn, string $pincode): ?array
     return $row ?: null;
 }
 
-function customer_master_validate(PDO $conn, array $data): ?string
+function customer_master_validate(PDO $conn, array $data, bool $gstRequired = false): ?string
 {
     if ($data['customer_name'] === '') {
         return 'Customer Name is required.';
@@ -602,6 +602,9 @@ function customer_master_validate(PDO $conn, array $data): ?string
     }
 
     $gstNumber = trim((string) ($data['gst_number'] ?? ''));
+    if ($gstRequired && $gstNumber === '') {
+        return 'GST Number is required.';
+    }
     if ($gstNumber !== '') {
         if (strlen($gstNumber) > 30) {
             return 'GST Number cannot exceed 30 characters.';

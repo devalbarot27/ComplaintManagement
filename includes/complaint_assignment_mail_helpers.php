@@ -59,7 +59,7 @@ function complaint_mail_complaint_lines(array $complaint, int $complaintId): arr
         'Complaint ID: ' . $complaintId,
         'Fab Number: ' . ($complaint['fab_number'] ?? '-'),
         'Customer Name: ' . ($complaint['customer_name'] ?? '-'),
-        'Complaint Category: ' . ($categoryName !== '' ? $categoryName : '-'),
+        'Call Complaint: ' . ($categoryName !== '' ? $categoryName : '-'),
         'Complaint Description: ' . ($complaint['complaint_description'] ?? '-'),
     ];
 }

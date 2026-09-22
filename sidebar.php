@@ -60,17 +60,17 @@
     } else if ($currentPage == 'assign_permissions.php') {
         $pageName = "Assign Permissions";
     } else if ($currentPage == 'complaint_categories.php') {
-        $pageName = "Complaint Category";
+        $pageName = "Call Complaint";
     } else if ($currentPage == 'complaint_category_details.php') {
-        $pageName = "Complaint Category Details";
+        $pageName = "Call Complaint Details";
     } else if ($currentPage == 'industry_segments.php') {
         $pageName = "Industry Segment";
     } else if ($currentPage == 'industry_segment_details.php') {
         $pageName = "Industry Segment Details";
     } else if ($currentPage == 'warranty_chargeable.php') {
-        $pageName = "Warranty / Chargeable";
+        $pageName = "Complaint Category";
     } else if ($currentPage == 'warranty_chargeable_details.php') {
-        $pageName = "Warranty / Chargeable Details";
+        $pageName = "Complaint Category Details";
     } else if ($currentPage == 'part_replaced.php') {
         $pageName = "Part Replaced";
     } else if ($currentPage == 'part_replaced_details.php') {
@@ -479,7 +479,7 @@
                   <a href="complaint_categories.php"
                       class="menu-item <?= in_array($currentPage, ['complaint_categories.php', 'complaint_category_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-tags"></i>
-                      Complaint Category
+                      Call Complaint
                   </a>
 
                   <a href="industry_segments.php"
@@ -491,7 +491,7 @@
                   <a href="warranty_chargeable.php"
                       class="menu-item <?= in_array($currentPage, ['warranty_chargeable.php', 'warranty_chargeable_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-shield-check"></i>
-                      Warranty / Chargeable
+                      Complaint Category
                   </a>
 
                   <a href="part_replaced.php"

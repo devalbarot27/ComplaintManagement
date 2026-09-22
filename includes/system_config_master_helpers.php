@@ -19,8 +19,8 @@ function scm_registry(): array
         ],
         'warranty_chargeable' => [
             'table' => 'warranty_chargeable_types',
-            'label' => 'Service Type',
-            'label_plural' => 'Service Types',
+            'label' => 'Complaint Category',
+            'label_plural' => 'Complaint Category',
             'page' => 'warranty_chargeable.php',
             'details_page' => 'warranty_chargeable_details.php',
             'delete_page' => 'delete_warranty_chargeable.php',

@@ -3,7 +3,7 @@
  * Renders Complaint Details linked to a Service Log.
  * Shows only when a raised/linked complaint exists.
  * Expects: $serviceLogLinkedComplaint (array from complaint_service_log_linked_complaint_context)
- * Optional: $serviceLogLinkedComplaintEmbedded (bool) ù compact layout when nested in service log card
+ * Optional: $serviceLogLinkedComplaintEmbedded (bool) ÔøΩ compact layout when nested in service log card
  */
 require_once __DIR__ . '/complaint_status.php';
 require_once __DIR__ . '/complaint_category_helpers.php';
@@ -101,7 +101,7 @@ $wrapperClass = $serviceLogLinkedComplaintEmbedded
                     'col-md-3'
                 );
                 $renderLinkedComplaintField(
-                    'Complaint Category',
+                    'Call Complaint',
                     complaint_category_display_name($complaint),
                     'col-md-3'
                 );

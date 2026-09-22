@@ -93,7 +93,7 @@ try {
         exit;
     }
 
-    // Customer Quality (CQ) qualification check: Complaint Category + Warranty Status + Service Type.
+    // Customer Quality (CQ) qualification check: Call Complaint + Warranty Status + Service Type.
     // Service Type is read from the complaint's own Service Log (warranty_chargeable field,
     // labeled "Service Type" in the Add/Edit Service Log modal) - not a separate user input here.
     $cqServiceType = '';
@@ -281,7 +281,7 @@ try {
             $complaint_id,
             'CQ Referral',
             'Customer Quality referral(s) created in CCS (trackno: ' . implode(', ', $cqTrackNumbers)
-                . '; Service Type: ' . $cqServiceType . ', Warranty Status: ' . $cqWarrantyStatus . ').',
+                . '; Complaint Category: ' . $cqServiceType . ', Warranty Status: ' . $cqWarrantyStatus . ').',
             $created_by
         );
     } elseif ($cqQualifies) {

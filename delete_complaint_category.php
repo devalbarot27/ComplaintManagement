@@ -18,15 +18,15 @@ if ($id <= 0) {
 
 try {
     if (!complaint_category_get_by_id($obconn, $id)) {
-        $_SESSION['error_message'] = 'Complaint category not found or already deleted.';
+        $_SESSION['error_message'] = 'Call complaint not found or already deleted.';
         header('Location: complaint_categories.php');
         exit;
     }
 
     complaint_category_soft_delete($obconn, $id);
-    $_SESSION['success_message'] = 'Complaint category deleted successfully.';
+    $_SESSION['success_message'] = 'Call complaint deleted successfully.';
 } catch (PDOException $e) {
-    $_SESSION['error_message'] = 'Failed to delete complaint category.';
+    $_SESSION['error_message'] = 'Failed to delete call complaint.';
 }
 
 header('Location: complaint_categories.php');

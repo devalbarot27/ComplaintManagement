@@ -9,6 +9,7 @@ $cmModalDealerContext = null;
 if (isset($obconn) && $obconn instanceof PDO) {
     $cmModalDealerContext = customer_master_logged_in_dealer_context($obconn);
 }
+$customerModalRequireGst = !empty($customerModalRequireGst);
 ?>
 <div class="modal fade" id="installedBaseAddCustomerModal" tabindex="-1" aria-hidden="true"
     aria-labelledby="installedBaseAddCustomerModalTitle">
@@ -25,9 +26,13 @@ if (isset($obconn) && $obconn instanceof PDO) {
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <form method="POST" id="installedBaseAddCustomerForm" novalidate>
+            <form method="POST" id="installedBaseAddCustomerForm" novalidate
+                <?php echo $customerModalRequireGst ? 'data-require-gst="1"' : ''; ?>>
                 <div class="complaint-form-body p-4">
                     <div id="installedBaseAddCustomerAlert" class="alert alert-danger d-none mb-3" role="alert"></div>
+                    <?php if ($customerModalRequireGst) { ?>
+                    <input type="hidden" name="require_gst" value="1">
+                    <?php } ?>
                     <div class="row  g-3">
                         <div class="col-md-4">
                             <label class="form-label">Customer Name <span class="text-danger">*</span></label>
@@ -99,7 +104,7 @@ if (isset($obconn) && $obconn instanceof PDO) {
                             <div class="text-danger validation-msg" data-field="dealer_code"></div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">GST Number</label>
+                            <label class="form-label">GST Number<?php echo $customerModalRequireGst ? ' <span class="text-danger">*</span>' : ''; ?></label>
                             <input type="text" class="form-control" name="gst_number" maxlength="15"
                                 placeholder="GST number" style="text-transform: uppercase;">
                             <div class="text-danger validation-msg" data-field="gst_number"></div>

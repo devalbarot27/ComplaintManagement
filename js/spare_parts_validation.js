@@ -33,7 +33,7 @@ function initSparePartsFormValidation() {
         warranty_chargeable: {
             presence: {
                 allowEmpty: false,
-                message: '^Service Type is required'
+                message: '^Complaint Category is required'
             }
         },
         running_hours: {

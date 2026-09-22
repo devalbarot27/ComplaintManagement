@@ -631,7 +631,10 @@ $freightPercentage = 4;
     </div>
 
     <?php if ($canAddCustomerMaster) { ?>
-    <?php include 'includes/installed_base_customer_modal.php'; ?>
+    <?php
+    $customerModalRequireGst = true;
+    include 'includes/installed_base_customer_modal.php';
+    ?>
     <?php } ?>
 </body>
 

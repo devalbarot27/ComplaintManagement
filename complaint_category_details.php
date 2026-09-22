@@ -17,7 +17,7 @@ if ($id <= 0) {
 $record = complaint_category_get_by_id($obconn, $id);
 
 if (!$record) {
-    die('Complaint category not found.');
+    die('Call complaint not found.');
 }
 ?>
 <!DOCTYPE html>
@@ -26,7 +26,7 @@ if (!$record) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complaint Category Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
+    <title>Call Complaint Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
     <?php include 'header_css.php'; ?>
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -40,7 +40,7 @@ if (!$record) {
         <div class="content">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <div>
-                    <h5 class="mb-1">Complaint Category #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></h5>
+                    <h5 class="mb-1">Call Complaint #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></h5>
                 </div>
                 <div>
                     <a href="complaint_categories.php" class="btn btn-light border">Back to List</a>

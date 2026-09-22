@@ -51,11 +51,11 @@ function service_log_validate_draft(PDO $conn, array $data, int $recordId = 0): 
     }
 
     if ($data['warranty_chargeable'] === '') {
-        return 'Service Type is required.';
+        return 'Complaint Category is required.';
     }
 
     if (!scm_option_exists($conn, 'warranty_chargeable', $data['warranty_chargeable'])) {
-        return 'Invalid Service Type selection.';
+        return 'Invalid Complaint Category selection.';
     }
 
     if ($data['complaint_date'] === '') {

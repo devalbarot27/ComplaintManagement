@@ -121,7 +121,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                                 <th width="5%">ID</th>
                                 <th width="10%">Fab Number</th>
                                 <th width="10%">Customer Name</th>                              
-                                <th width="10%">Complaint Category</th>
+                                <th width="10%">Call Complaint</th>
                                 <th width="10%">Assigned To</th>
                                 <th width="15%">Assigned Date</th>
                                 <th>Remarks</th>
@@ -243,7 +243,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                                     <span class="badge" id="cqWarrantyStatusBadge">-</span>
                                 </div>
                                 <div class="col-md-7">
-                                    <div class="text-muted small mb-1">Service Type (from Service Log)</div>
+                                    <div class="text-muted small mb-1">Complaint Category (from Service Log)</div>
                                     <div id="cqServiceTypeDisplay">-</div>
                                 </div>
                             </div>

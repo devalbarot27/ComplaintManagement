@@ -34,7 +34,7 @@ function complaintServiceLogInitSelect2() {
             selectId: 'ibServiceLogWarrantySelect',
             validationField: 'warranty_chargeable',
             allowClear: false,
-            noResultsText: 'No service type found'
+            noResultsText: 'No complaint category found'
         }, select2Options),
         Object.assign({
             selectId: 'ibServiceLogPartReplacedSelect',

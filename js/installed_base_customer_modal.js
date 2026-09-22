@@ -84,6 +84,10 @@ function initInstalledBaseAddCustomerFormValidation() {
         return;
     }
 
+    const requireGst = form.getAttribute('data-require-gst') === '1'
+        || (form.querySelector('[name="require_gst"]')
+            && String(form.querySelector('[name="require_gst"]').value || '') === '1');
+
     if (typeof validate.validators.ccmEmailFormat === 'undefined') {
         validate.validators.ccmEmailFormat = function (value) {
             if (!value) {
@@ -172,9 +176,14 @@ function initInstalledBaseAddCustomerFormValidation() {
         dealer_code: {
             presence: { allowEmpty: false, message: '^Dealer Name is required' }
         },
-        gst_number: {
-            ccmGstNumber: true
-        },
+        gst_number: requireGst
+            ? {
+                presence: { allowEmpty: false, message: '^GST Number is required' },
+                ccmGstNumber: true
+            }
+            : {
+                ccmGstNumber: true
+            },
         pan_number: {
             ccmPanNumber: true
         }

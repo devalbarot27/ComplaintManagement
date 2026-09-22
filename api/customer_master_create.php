@@ -39,7 +39,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 $data = customer_master_from_post($_POST);
 $data = customer_master_apply_dealer_rules($obconn, $data);
-$validationError = customer_master_validate($obconn, $data);
+$gstRequired = isset($_POST['require_gst']) && (string) $_POST['require_gst'] === '1';
+$validationError = customer_master_validate($obconn, $data, $gstRequired);
 
 if ($validationError !== null) {
     http_response_code(422);

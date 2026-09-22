@@ -518,7 +518,7 @@ function initInstalledBaseServiceLogSelect2() {
             selectId: 'ibServiceLogWarrantySelect',
             validationField: 'warranty_chargeable',
             allowClear: false,
-            noResultsText: 'No service type found'
+            noResultsText: 'No complaint category found'
         }, select2Options),
         Object.assign({
             selectId: 'ibServiceLogPartReplacedSelect',
@@ -606,7 +606,7 @@ function initInstalledBaseServiceLogValidation() {
             presence: { allowEmpty: false, message: '^Machine Model is required' }
         },
         warranty_chargeable: {
-            presence: { allowEmpty: false, message: '^Service Type is required' }
+            presence: { allowEmpty: false, message: '^Complaint Category is required' }
         },
         complaint_date: {
             presence: { allowEmpty: false, message: '^Log Date is required' }

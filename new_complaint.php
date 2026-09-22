@@ -63,7 +63,7 @@ if(isset($_POST['submit_complaint']))
     } elseif (!ln_invoice_fabno_exists($dpconn, $fab_number)) {
         $error_message = 'Selected Fab Number was not found in invoice details.';
     } elseif ($complaintCategory === null) {
-        $error_message = 'Complaint Category is required.';
+        $error_message = 'Call Complaint is required.';
     } elseif (strlen($remarks) > 500) {
         $error_message = 'Remarks cannot exceed 500 characters.';
     } elseif (
@@ -414,10 +414,10 @@ if(isset($_POST['submit_complaint']))
                                 <div class="col-md-6 form-group">
                                     <label class="form-label" for="complaintCategorySelect">
                                         <i class="bi bi-tags"></i>
-                                        Complaint Category <span class="text-danger">*</span>
+                                        Call Complaint <span class="text-danger">*</span>
                                     </label>
                                     <select class="form-control" name="complaint_category_id" id="complaintCategorySelect"
-                                        data-placeholder="Select complaint category">
+                                        data-placeholder="Select call complaint">
                                         <?php echo $complaintCategoryOptionsHtml; ?>
                                     </select>
                                     <input type="hidden" name="complaint_category_name" id="complaintCategoryName" value="">
@@ -512,7 +512,7 @@ if(isset($_POST['submit_complaint']))
                                 <th width="5%">ID</th>
                                 <th width="10%">Fab Number</th>
                                 <th width="12%">Customer Name</th>                              
-                                <th width="12%">Complaint Category</th>
+                                <th width="12%">Call Complaint</th>
                                 <th>Customer Address</th>
                                 <?php if ($showAddedByColumn) { ?>
                                 <th width="12%">Added By</th>
@@ -768,7 +768,7 @@ function initComplaintFormValidation() {
         complaint_category_id: {
             presence: {
                 allowEmpty: false,
-                message: '^Complaint Category is required'
+                message: '^Call Complaint is required'
             }
         },
         remarks: {
@@ -910,7 +910,7 @@ function initComplaintCategorySelect2() {
     initStaticSelect2('complaintForm', 'complaintCategorySelect', {
         validationField: 'complaint_category_id',
         allowClear: false,
-        noResultsText: 'No complaint category found'
+        noResultsText: 'No call complaint found'
     });
 
     $('#complaintCategorySelect').on('select2:select select2:clear', syncComplaintCategoryName);

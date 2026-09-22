@@ -191,11 +191,11 @@ function spare_parts_validate(PDO $conn, array $data): ?string
     }
 
     if ($data['warranty_chargeable'] === '') {
-        return 'Service Type is required.';
+        return 'Complaint Category is required.';
     }
 
     if (!scm_option_exists($conn, 'warranty_chargeable', $data['warranty_chargeable'])) {
-        return 'Invalid Service Type selection.';
+        return 'Invalid Complaint Category selection.';
     }
 
     $items = spare_parts_resolve_items($data);

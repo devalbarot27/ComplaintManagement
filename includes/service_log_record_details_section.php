@@ -191,7 +191,7 @@ $renderServiceLogDetailField = static function (
                     );
                 }
                 $renderServiceLogDetailField(
-                    'Service Type',
+                    'Complaint Category',
                     service_log_display_value($serviceLogRecord['warranty_chargeable'] ?? null),
                     'col-md-4'
                 );
