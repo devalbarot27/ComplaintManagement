@@ -391,6 +391,64 @@ function spare_parts_list_for_installed_base(PDO $conn, int $installedBaseId): a
     return array_values($unique);
 }
 
+/**
+ * Spare Parts Consumption records linked to a customer via Installed Base.
+ *
+ * @return list<array<string, mixed>>
+ */
+function spare_parts_list_for_customer(PDO $conn, int $customerId): array
+{
+    if ($customerId <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare('
+        SELECT
+            sp.id,
+            sp.serial_number,
+            sp.consumption_date,
+            sp.warranty_chargeable,
+            sp.service_log_id,
+            sp.created_at,
+            sp.installed_base_id,
+            COALESCE(NULLIF(TRIM(sp.fab_number), \'\'), ib.fab_number) AS fab_number,
+            COALESCE(spi_agg.item_count, 0) AS item_count,
+            spi_first.spare_kit_number,
+            COALESCE(spi_agg.total_qty, 0) AS quantity,
+            COALESCE(spi_agg.total_order_value, 0) AS order_value
+        FROM spare_parts_consumption sp
+        INNER JOIN installed_base ib
+            ON ib.id = sp.installed_base_id
+           AND ib.deleted_at IS NULL
+        LEFT JOIN (
+            SELECT
+                spare_parts_consumption_id,
+                COUNT(*)::int AS item_count,
+                MIN(id) AS first_item_id,
+                SUM(quantity) AS total_qty,
+                SUM(order_value) AS total_order_value
+            FROM spare_parts_consumption_items
+            WHERE deleted_at IS NULL
+            GROUP BY spare_parts_consumption_id
+        ) spi_agg ON spi_agg.spare_parts_consumption_id = sp.id
+        LEFT JOIN spare_parts_consumption_items spi_first
+            ON spi_first.id = spi_agg.first_item_id
+           AND spi_first.deleted_at IS NULL
+        WHERE ib.customer_id = :customer_id
+          AND sp.deleted_at IS NULL
+        ORDER BY sp.created_at DESC, sp.id DESC
+    ');
+    $stmt->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $unique = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $unique[(int) $row['id']] = $row;
+    }
+
+    return array_values($unique);
+}
+
 function spare_parts_soft_delete_items_for_consumption(PDO $conn, int $consumptionId): void
 {
     if ($consumptionId <= 0) {

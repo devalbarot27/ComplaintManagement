@@ -1803,6 +1803,47 @@ function amc_list_for_installed_base(PDO $conn, int $installedBaseId, string $fa
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/**
+ * AMC contracts linked to a Customer Master row (direct customer_id or Installed Base).
+ *
+ * @return list<array<string, mixed>>
+ */
+function amc_list_for_customer(PDO $conn, int $customerId): array
+{
+    if ($customerId <= 0) {
+        return [];
+    }
+
+    amc_ensure_schema($conn);
+
+    $stmt = $conn->prepare('
+        SELECT
+            ac.*,
+            ' . amc_added_by_select_sql() . '
+        FROM amc_contracts ac
+        ' . amc_added_by_join_sql() . '
+        LEFT JOIN installed_base ib
+            ON ib.id = ac.installed_base_id
+           AND ib.deleted_at IS NULL
+        WHERE ac.deleted_at IS NULL
+          AND (
+            ac.customer_id = :customer_id
+            OR ib.customer_id = :customer_id_ib
+          )
+        ORDER BY ac.amc_end_date DESC, ac.id DESC
+    ');
+    $stmt->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+    $stmt->bindValue(':customer_id_ib', $customerId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $unique = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $unique[(int) $row['id']] = $row;
+    }
+
+    return array_values($unique);
+}
+
 function amc_find_visit_by_id(PDO $conn, int $visitId): ?array
 {
     if ($visitId <= 0) {

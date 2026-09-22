@@ -195,6 +195,49 @@ function installed_base_customer_join_sql(string $ibAlias = 'ib', string $cmAlia
        AND {$cmAlias}.deleted_at IS NULL";
 }
 
+/**
+ * Installed Base Capture records linked to a Customer Master row.
+ *
+ * @return list<array<string, mixed>>
+ */
+function installed_base_list_for_customer(PDO $conn, int $customerId): array
+{
+    if ($customerId <= 0) {
+        return [];
+    }
+
+    installed_base_ensure_schema($conn);
+
+    $stmt = $conn->prepare("
+        SELECT
+            ib.id,
+            ib.order_id,
+            ib.fab_number,
+            ib.dealer_name,
+            ib.machine_model,
+            ib.machine_model_code,
+            ib.commissioning_date,
+            ib.invoice_date,
+            ib.running_hours,
+            ib.created_at,
+            cm.customer_name
+        FROM installed_base ib
+        " . installed_base_customer_join_sql('ib', 'cm') . "
+        WHERE ib.customer_id = :customer_id
+          AND ib.deleted_at IS NULL
+        ORDER BY ib.created_at DESC, ib.id DESC
+    ");
+    $stmt->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $unique = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $unique[(int) $row['id']] = $row;
+    }
+
+    return array_values($unique);
+}
+
 function installed_base_from_post(array $post): array
 {
     return [

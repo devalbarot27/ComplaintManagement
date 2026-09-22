@@ -5,6 +5,12 @@ include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
 
+$canViewArStatement = rbac_can_access_menu($obconn, 'ar_statement.php');
+ if (!$canViewArStatement) {
+    header('Location: access_denied.php');
+    exit;
+ }  
+
 $active_menu = 'ar_statement';
 
 $cuno = trim((string) ($_SESSION['customer_number_vayu'] ?? ''));
@@ -310,7 +316,7 @@ foreach ($ledgerRows as $row) {
                                 <td class="text-end" data-order="<?= (int) round((float) $row['less90']) ?>"><?= number_format(round((float) $row['less90'])) ?></td>
                                 <td class="text-end" data-order="<?= (int) round((float) $row['more90']) ?>">&#8377;<?= number_format(round((float) $row['more90'])) ?></td>
                                 <td class="<?= $rowOutstanding > 0 ? 'debit-text' : '' ?>" data-order="<?= htmlspecialchars($dueDateTs ? date('Y-m-d', $dueDateTs) : '') ?>">
-                                    <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : '—') ?>
+                                    <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : 'ï¿½') ?>
                                 </td>
                             </tr>
 <?php endforeach; ?>

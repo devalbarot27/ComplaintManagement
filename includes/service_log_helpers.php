@@ -1033,6 +1033,52 @@ function service_log_list_for_installed_base(PDO $conn, int $installedBaseId): a
     return array_values($unique);
 }
 
+/**
+ * Service Log Capture records linked to a customer via Installed Base.
+ *
+ * @return list<array<string, mixed>>
+ */
+function service_log_list_for_customer(PDO $conn, int $customerId): array
+{
+    if ($customerId <= 0) {
+        return [];
+    }
+
+    $stmt = $conn->prepare('
+        SELECT
+            sl.id,
+            sl.serial_number,
+            sl.machine_model,
+            sl.warranty_chargeable,
+            sl.engineer_name,
+            sl.visit_date,
+            sl.closure_date,
+            sl.created_at,
+            sl.is_draft,
+            sl.installed_base_id,
+            COALESCE(NULLIF(TRIM(sl.fab_number), \'\'), ib.fab_number) AS fab_number,
+            ib.order_id,
+            ib.machine_model AS ib_machine_model,
+            ib.machine_model_code AS ib_machine_model_code
+        FROM service_logs sl
+        INNER JOIN installed_base ib
+            ON ib.id = sl.installed_base_id
+           AND ib.deleted_at IS NULL
+        WHERE ib.customer_id = :customer_id
+          AND sl.deleted_at IS NULL
+        ORDER BY sl.created_at DESC, sl.id DESC
+    ');
+    $stmt->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $unique = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $unique[(int) $row['id']] = $row;
+    }
+
+    return array_values($unique);
+}
+
 function service_log_linked_installed_base_display_fields(?array $installedBaseRecord, array $serviceLogRecord): array
 {
     if (!empty($installedBaseRecord) && is_array($installedBaseRecord)) {

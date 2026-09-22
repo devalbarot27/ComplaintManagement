@@ -113,6 +113,55 @@ function complaint_customer_join_sql(string $complaintAlias = 'c', string $cmAli
        AND {$cmAlias}.deleted_at IS NULL";
 }
 
+/**
+ * Complaint Entry records linked to a Customer Master row.
+ *
+ * @return list<array<string, mixed>>
+ */
+function complaint_list_for_customer(PDO $conn, int $customerId): array
+{
+    if ($customerId <= 0) {
+        return [];
+    }
+
+    complaint_ensure_schema($conn);
+
+    $installedBaseSelect = complaint_table_has_column($conn, 'installed_base_id')
+        ? 'c.installed_base_id,'
+        : 'NULL::int AS installed_base_id,';
+
+    $stmt = $conn->prepare('
+        SELECT
+            c.id,
+            c.fab_number,
+            ' . $installedBaseSelect . '
+            c.complaint_category_name,
+            c.status,
+            c.created_at,
+            c.username,
+            cm.street_1,
+            cm.street_2,
+            cm.pincode,
+            cm.city,
+            cm.district,
+            cm.state
+        FROM complaints c
+        ' . complaint_customer_join_sql('c', 'cm') . '
+        WHERE c.customer_id = :customer_id
+          AND c.deleted_at IS NULL
+        ORDER BY c.created_at DESC, c.id DESC
+    ');
+    $stmt->bindValue(':customer_id', $customerId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $unique = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $unique[(int) $row['id']] = $row;
+    }
+
+    return array_values($unique);
+}
+
 function complaint_scope_where_for_alias(string $where, string $tableAlias = 'c'): string
 {
     $where = preg_replace('/\bcomplaints\.id\b/', $tableAlias . '.id', $where);
