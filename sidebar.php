@@ -299,6 +299,10 @@
               </div>
           <?php } ?>
 
+
+          <?php 
+          $canViewArStatement = rbac_can_access_menu($obconn, 'ar_statement.php');
+          if ($canViewArStatement) { ?>
                     <div class="menu-section">
               <div class="menu-heading">ACCOUNTS</div>
 
@@ -308,6 +312,7 @@
                   AR Statement
               </a>
           </div>
+          <?php } ?>
 
           <?php
             $canComplaintEntry = rbac_can_access_menu($obconn, 'new_complaint.php');

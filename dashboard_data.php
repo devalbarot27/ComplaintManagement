@@ -56,6 +56,7 @@ $showAddedByColumn = is_system_admin() || is_management_user() || is_ccs_admin_u
     || user_is_associated_dealer_approver($obconn);
 $canViewDispatchedOrders = $orderModulePermissions['dispatched'];
 $canViewComplaintView = $orderModulePermissions['complaint-view'];
+$canViewArStatement = rbac_can_access_menu($obconn, 'ar_statement.php');
 $canViewAnyOrderCards = $canViewCreatedOrders
 || $canViewRecentOrders
 || $canViewAcknowledgedOrders
@@ -635,7 +636,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
             </a>    
             <?php endif; ?>
            
-<?php if ($canViewComplaintView): ?>
+<?php if ($canViewArStatement): ?>
             <a href="ar_statement.php" style="text-decoration: none;">
             <div class="quick-item">
 

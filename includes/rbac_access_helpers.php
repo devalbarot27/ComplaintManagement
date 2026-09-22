@@ -56,6 +56,7 @@ function rbac_admin_pages(): array
         'amc_details.php',
         'delete_amc.php',
         'warranty_claims.php',
+        'ar_statement.php',
 
     ];
 }
@@ -101,6 +102,7 @@ function rbac_page_access_rules(): array
         'contact.php' => ['module' => 'contact', 'permission' => 'view'],
         'contact_details.php' => ['module' => 'contact', 'permission' => 'view'],
         'delete_contact.php' => ['module' => 'contact', 'permission' => 'delete'],
+        'ar_statement.php' => ['module' => 'ar-statement', 'permission' => 'view'],
         'access_denied.php' => null,
         'notifications.php' => null,
     ];
@@ -146,6 +148,7 @@ function rbac_api_access_rules(): array
         'customer_master_get.php' => ['module' => 'customer-master', 'permission' => 'view'],
         'contact_datatable.php' => ['module' => 'contact', 'permission' => 'view'],
         'contact_get.php' => ['module' => 'contact', 'permission' => 'view'],
+        'ar_statement.php' => ['module' => 'ar-statement', 'permission' => 'view'],
     ];
 }
 
@@ -173,6 +176,7 @@ function rbac_sidebar_modules(): array
         'warranty_claims.php' => ['module' => 'warranty-claims', 'permission' => 'view'],
         'customer_master.php' => ['module' => 'customer-master', 'permission' => 'view'],
         'contact.php' => ['module' => 'contact', 'permission' => 'view'],
+        'ar_statement.php' => ['module' => 'ar-statement', 'permission' => 'view'],
     ];
 }
 
