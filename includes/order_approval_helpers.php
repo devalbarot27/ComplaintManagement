@@ -1156,10 +1156,23 @@ function order_approval_stamp_order_lines(
 function order_approval_order_lines(PDO $conn, string $refno): array
 {
     $stmt = $conn->prepare('
-        SELECT *
-        FROM plexecom_customer_units
-        WHERE refno = :refno
-        ORDER BY oid ASC
+        SELECT
+            u.*,
+            (
+                SELECT pm.level_1_approval_price
+                FROM product_master_vayu pm
+                WHERE UPPER(TRIM(pm.tplcode)) = UPPER(TRIM(u.tplcode))
+                ORDER BY
+                    CASE
+                        WHEN TRIM(COALESCE(pm.dpst, \'\')) = TRIM(COALESCE(u.dpst, \'\')) THEN 0
+                        ELSE 1
+                    END,
+                    pm.id DESC
+                LIMIT 1
+            ) AS product_dealer_price
+        FROM plexecom_customer_units u
+        WHERE u.refno = :refno
+        ORDER BY u.oid ASC
     ');
     $stmt->bindValue(':refno', $refno);
     $stmt->execute();
@@ -1251,6 +1264,11 @@ function order_approval_products_summary(array $lines): array
         }
         $price = order_approval_format_money($line['price'] ?? null);
         $clp = order_approval_format_money($line['cos'] ?? null);
+        $dealerPrice = array_key_exists('product_dealer_price', $line)
+            && $line['product_dealer_price'] !== null
+            && $line['product_dealer_price'] !== ''
+            ? order_approval_format_money($line['product_dealer_price'])
+            : '-';
         $label = $code !== '' ? $code : 'Item';
         if ($name !== '') {
             $label .= ' - ' . $name;
@@ -1263,6 +1281,11 @@ function order_approval_products_summary(array $lines): array
         $htmlParts[] = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
 
         $detailHtml = '<div class="mb-2">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
+        if ($dealerPrice !== '-') {
+            $detailHtml .= '<div class="mt-1"><strong>Dealer Price:</strong> '
+                . htmlspecialchars($dealerPrice, ENT_QUOTES, 'UTF-8')
+                . '</div>';
+        }
         if ($clp !== '-') {
             $detailHtml .= '<div class="mt-1"><strong>CLP - Customer List Price:</strong> '
                 . htmlspecialchars($clp, ENT_QUOTES, 'UTF-8')
