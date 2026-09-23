@@ -311,6 +311,307 @@ function foc_claim_is_assigned_to_current_user(PDO $conn, ?array $claim, ?string
     return $assigned !== null && $assigned === $userId;
 }
 
+function warranty_claims_mail_from_address(): string
+{
+    return 'noreply@vayudealerportal.com';
+}
+
+function warranty_claims_mail_headers(): string
+{
+    $fromAddress = warranty_claims_mail_from_address();
+
+    return 'From: Dealer Portal <' . $fromAddress . ">\r\n"
+        . 'Reply-To: ' . $fromAddress . "\r\n"
+        . 'Content-Type: text/plain; charset=UTF-8' . "\r\n"
+        . 'X-Mailer: PHP/' . phpversion();
+}
+
+/**
+ * @return array{email: string, name: string}|null
+ */
+function warranty_claims_approver_mail_recipient(PDO $conn, int $userId): ?array
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $user = user_get_by_id($conn, $userId);
+    if ($user === null) {
+        return null;
+    }
+
+    $email = trim((string) ($user['email'] ?? ''));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return null;
+    }
+
+    $name = trim((string) ($user['name'] ?? ''));
+    if ($name === '') {
+        $name = trim((string) ($user['username'] ?? 'Approver'));
+    }
+
+    return [
+        'email' => $email,
+        'name' => $name,
+    ];
+}
+
+function foc_parts_send_l1_email(PDO $conn, int $userId, int $claimId, string $detail = ''): bool
+{
+    $recipient = warranty_claims_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $claimId <= 0) {
+        return false;
+    }
+
+    $subject = 'FOC Parts Claim #' . $claimId . ' needs Level 1 Approval';
+    $message = implode("\r\n", [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'An FOC Parts claim is waiting for your Level 1 Approval.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: FOC Parts',
+        'Approval: Level 1 Approval',
+        $detail !== '' ? 'Details: ' . $detail : '',
+        '',
+        'Please log in to the Dealer Portal and open Approvals to review this claim.',
+        '',
+        'This is an automated notification.',
+    ]);
+
+    return (bool) mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+}
+
+function foc_parts_send_l2_email(PDO $conn, int $userId, int $claimId, string $detail = ''): bool
+{
+    $recipient = warranty_claims_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $claimId <= 0) {
+        return false;
+    }
+
+    $subject = 'FOC Parts Claim #' . $claimId . ' needs Level 2 Approval';
+    $message = implode("\r\n", [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'An FOC Parts claim is waiting for your Level 2 Approval.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: FOC Parts',
+        'Approval: Level 2 Approval',
+        $detail !== '' ? 'Details: ' . $detail : '',
+        '',
+        'Please log in to the Dealer Portal and open Approvals to review this claim.',
+        '',
+        'This is an automated notification.',
+    ]);
+
+    return (bool) mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+}
+
+function foc_parts_send_l1_decision_email_to_creator(
+    PDO $conn,
+    int $creatorUserId,
+    int $claimId,
+    string $decision,
+    string $remarks = ''
+): bool {
+    $recipient = warranty_claims_approver_mail_recipient($conn, $creatorUserId);
+    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
+    if ($recipient === null || $claimId <= 0) {
+        return false;
+    }
+
+    $decisionLabel = $decision === 'rejected' ? 'rejected' : 'approved';
+    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
+    $subject = 'FOC Parts Claim #' . $claimId . ' has been ' . $decisionLabel . ' at Level 1';
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'Your FOC Parts claim has been ' . $decisionLabel . ' by the Level 1 Approval user.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: FOC Parts',
+        'Decision: ' . $decisionTitle,
+        'Approval: Level 1 Approval',
+    ];
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $lines[] = 'Remarks: ' . $remarks;
+    }
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal to view this claim.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+}
+
+function foc_parts_send_l2_decision_email_to_creator(
+    PDO $conn,
+    int $creatorUserId,
+    int $claimId,
+    string $decision,
+    string $remarks = ''
+): bool {
+    $recipient = warranty_claims_approver_mail_recipient($conn, $creatorUserId);
+    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
+    if ($recipient === null || $claimId <= 0) {
+        return false;
+    }
+
+    $decisionLabel = $decision === 'rejected' ? 'rejected' : 'approved';
+    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
+    $subject = 'FOC Parts Claim #' . $claimId . ' has been ' . $decisionLabel . ' at Level 2';
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'Your FOC Parts claim has been ' . $decisionLabel . ' by the Level 2 Approval user.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: FOC Parts',
+        'Decision: ' . $decisionTitle,
+        'Approval: Level 2 Approval',
+    ];
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $lines[] = 'Remarks: ' . $remarks;
+    }
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal to view this claim.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+}
+
+function service_claim_send_l1_email(PDO $conn, int $userId, int $claimId, string $detail = ''): bool
+{
+    $recipient = warranty_claims_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $claimId <= 0) {
+        return false;
+    }
+
+    $subject = 'Service Claim #' . $claimId . ' needs Level 1 Approval';
+    $message = implode("\r\n", [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'A Service Claim is waiting for your Level 1 Approval.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: Service Claim',
+        'Approval: Level 1 Approval',
+        $detail !== '' ? 'Details: ' . $detail : '',
+        '',
+        'Please log in to the Dealer Portal and open Approvals to review this claim.',
+        '',
+        'This is an automated notification.',
+    ]);
+
+    return (bool) mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+}
+
+function service_claim_send_l2_email(PDO $conn, int $userId, int $claimId, string $detail = ''): bool
+{
+    $recipient = warranty_claims_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $claimId <= 0) {
+        return false;
+    }
+
+    $subject = 'Service Claim #' . $claimId . ' needs Level 2 Approval';
+    $message = implode("\r\n", [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'A Service Claim is waiting for your Level 2 Approval.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: Service Claim',
+        'Approval: Level 2 Approval',
+        $detail !== '' ? 'Details: ' . $detail : '',
+        '',
+        'Please log in to the Dealer Portal and open Approvals to review this claim.',
+        '',
+        'This is an automated notification.',
+    ]);
+
+    return (bool) mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+}
+
+function service_claim_send_l1_decision_email_to_creator(
+    PDO $conn,
+    int $creatorUserId,
+    int $claimId,
+    string $decision,
+    string $remarks = ''
+): bool {
+    $recipient = warranty_claims_approver_mail_recipient($conn, $creatorUserId);
+    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
+    if ($recipient === null || $claimId <= 0) {
+        return false;
+    }
+
+    $decisionLabel = $decision === 'rejected' ? 'rejected' : 'approved';
+    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
+    $subject = 'Service Claim #' . $claimId . ' has been ' . $decisionLabel . ' at Level 1';
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'Your Service Claim has been ' . $decisionLabel . ' by the Level 1 Approval user.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: Service Claim',
+        'Decision: ' . $decisionTitle,
+        'Approval: Level 1 Approval',
+    ];
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $lines[] = 'Remarks: ' . $remarks;
+    }
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal to view this claim.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+}
+
+function service_claim_send_l2_decision_email_to_creator(
+    PDO $conn,
+    int $creatorUserId,
+    int $claimId,
+    string $decision,
+    string $remarks = ''
+): bool {
+    $recipient = warranty_claims_approver_mail_recipient($conn, $creatorUserId);
+    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
+    if ($recipient === null || $claimId <= 0) {
+        return false;
+    }
+
+    $decisionLabel = $decision === 'rejected' ? 'rejected' : 'approved';
+    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
+    $subject = 'Service Claim #' . $claimId . ' has been ' . $decisionLabel . ' at Level 2';
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'Your Service Claim has been ' . $decisionLabel . ' by the Level 2 Approval user.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: Service Claim',
+        'Decision: ' . $decisionTitle,
+        'Approval: Level 2 Approval',
+    ];
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $lines[] = 'Remarks: ' . $remarks;
+    }
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal to view this claim.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+}
+
 function warranty_claims_notify_user(
     PDO $conn,
     ?int $userId,
@@ -324,6 +625,33 @@ function warranty_claims_notify_user(
     }
 
     notification_create($conn, $userId, $title, $message, $moduleSlug, $referenceId);
+
+    $claimId = (int) ($referenceId ?? 0);
+    $moduleSlug = strtolower(trim($moduleSlug));
+    $titleUpper = strtoupper($title);
+    $isL1 = strpos($titleUpper, 'L1') !== false;
+    $isL2 = strpos($titleUpper, 'L2') !== false;
+
+    if ($moduleSlug === 'foc-parts') {
+        if ($isL1) {
+            foc_parts_send_l1_email($conn, $userId, $claimId, $message);
+            return;
+        }
+        if ($isL2) {
+            foc_parts_send_l2_email($conn, $userId, $claimId, $message);
+        }
+        return;
+    }
+
+    if ($moduleSlug === 'service-claims') {
+        if ($isL1) {
+            service_claim_send_l1_email($conn, $userId, $claimId, $message);
+            return;
+        }
+        if ($isL2) {
+            service_claim_send_l2_email($conn, $userId, $claimId, $message);
+        }
+    }
 }
 
 function warranty_claims_user_id_by_username(PDO $conn, string $username): ?int
@@ -1864,6 +2192,15 @@ function foc_claim_apply_decision(
         $update->execute();
     }
 
+    $creatorUserId = warranty_claims_user_id_by_username($conn, (string) ($claim['created_by_username'] ?? ''));
+    if ($creatorUserId !== null && $creatorUserId > 0) {
+        if ($level === 'l1') {
+            foc_parts_send_l1_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
+        } elseif ($level === 'l2') {
+            foc_parts_send_l2_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
+        }
+    }
+
     return null;
 }
 
@@ -2054,6 +2391,15 @@ function service_claim_apply_decision(
                 $conn->commit();
             }
             service_claim_notify_invoice_pending($conn, $claimId);
+        }
+    }
+
+    $creatorUserId = warranty_claims_user_id_by_username($conn, (string) ($claim['created_by_username'] ?? ''));
+    if ($creatorUserId !== null && $creatorUserId > 0) {
+        if ($level === 'l1') {
+            service_claim_send_l1_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
+        } elseif ($level === 'l2') {
+            service_claim_send_l2_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
         }
     }
 

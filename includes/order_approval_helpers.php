@@ -827,6 +827,130 @@ function order_approval_append_history(
     $stmt->execute();
 }
 
+function order_approval_mail_from_address(): string
+{
+    return 'noreply@vayudealerportal.com';
+}
+
+function order_approval_mail_headers(): string
+{
+    $fromAddress = order_approval_mail_from_address();
+
+    return 'From: Dealer Portal <' . $fromAddress . ">\r\n"
+        . 'Reply-To: ' . $fromAddress . "\r\n"
+        . 'Content-Type: text/plain; charset=UTF-8' . "\r\n"
+        . 'X-Mailer: PHP/' . phpversion();
+}
+
+/**
+ * Units orders use aoseries YUU / company 401 / warehouse Y0001.
+ */
+function order_approval_is_unit_order(PDO $conn, string $refno): bool
+{
+    $refno = trim($refno);
+    if ($refno === '') {
+        return false;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT aoseries, company, dpst
+        FROM plexecom_customer_units
+        WHERE TRIM(refno) = TRIM(:refno)
+        LIMIT 1
+    ");
+    $stmt->bindValue(':refno', $refno);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return false;
+    }
+
+    $aoseries = strtoupper(trim((string) ($row['aoseries'] ?? '')));
+    $company = (int) ($row['company'] ?? 0);
+    $dpst = strtoupper(trim((string) ($row['dpst'] ?? '')));
+
+    return $aoseries === 'YUU' || $company === 401 || $dpst === 'Y0001';
+}
+
+function order_approval_approver_mail_recipient(PDO $conn, int $userId): ?array
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $user = user_get_by_id($conn, $userId);
+    if ($user === null) {
+        return null;
+    }
+
+    $email = trim((string) ($user['email'] ?? ''));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return null;
+    }
+
+    $name = trim((string) ($user['name'] ?? ''));
+    if ($name === '') {
+        $name = trim((string) ($user['username'] ?? 'Approver'));
+    }
+
+    return [
+        'email' => $email,
+        'name' => $name,
+    ];
+}
+
+function order_approval_send_l1_email(PDO $conn, int $userId, string $refno): bool
+{
+    $refno = trim($refno);
+    $recipient = order_approval_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $refno === '') {
+        return false;
+    }
+
+    $subject = 'Unit Order ' . $refno . ' needs Level 1 Approval';
+    $message = implode("\r\n", [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'A Units order is waiting for your Level 1 Approval.',
+        '',
+        'Order No: ' . $refno,
+        'Order Type: Units',
+        'Approval: Level 1 Approval',
+        '',
+        'Please log in to the Dealer Portal and open Approvals to review this order.',
+        '',
+        'This is an automated notification.',
+    ]);
+
+    return (bool) mail($recipient['email'], $subject, $message, order_approval_mail_headers());
+}
+
+function order_approval_send_l2_email(PDO $conn, int $userId, string $refno): bool
+{
+    $refno = trim($refno);
+    $recipient = order_approval_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $refno === '') {
+        return false;
+    }
+
+    $subject = 'Unit Order ' . $refno . ' needs Level 2 Approval';
+    $message = implode("\r\n", [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'A Units order is waiting for your Level 2 Approval.',
+        '',
+        'Order No: ' . $refno,
+        'Order Type: Units',
+        'Approval: Level 2 Approval',
+        '',
+        'Please log in to the Dealer Portal and open Approvals to review this order.',
+        '',
+        'This is an automated notification.',
+    ]);
+
+    return (bool) mail($recipient['email'], $subject, $message, order_approval_mail_headers());
+}
+
 function order_approval_notify_assigned_approver(
     PDO $conn,
     int $requestId,
@@ -853,6 +977,95 @@ function order_approval_notify_assigned_approver(
         'order-approval',
         $requestId
     );
+
+    if (!order_approval_is_unit_order($conn, $itemCode)) {
+        return;
+    }
+
+    if ($level === 'level_1') {
+        order_approval_send_l1_email($conn, $assignedToUserId, $itemCode);
+        return;
+    }
+
+    if ($level === 'level_2') {
+        order_approval_send_l2_email($conn, $assignedToUserId, $itemCode);
+    }
+}
+
+function order_approval_send_l1_decision_email_to_creator(
+    PDO $conn,
+    int $creatorUserId,
+    string $refno,
+    string $decision,
+    string $remarks = ''
+): bool {
+    $refno = trim($refno);
+    $recipient = order_approval_approver_mail_recipient($conn, $creatorUserId);
+    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
+    if ($recipient === null || $refno === '') {
+        return false;
+    }
+
+    $decisionLabel = $decision === 'rejected' ? 'rejected' : 'approved';
+    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
+    $subject = 'Order ' . $refno . ' has been ' . $decisionLabel . ' at Level 1';
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'Your order request has been ' . $decisionLabel . ' by the Level 1 Approval user.',
+        '',
+        'Order No: ' . $refno,
+        'Decision: ' . $decisionTitle,
+        'Approval: Level 1 Approval',
+    ];
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $lines[] = 'Remarks: ' . $remarks;
+    }
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal to view this order.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
+}
+
+function order_approval_send_l2_decision_email_to_creator(
+    PDO $conn,
+    int $creatorUserId,
+    string $refno,
+    string $decision,
+    string $remarks = ''
+): bool {
+    $refno = trim($refno);
+    $recipient = order_approval_approver_mail_recipient($conn, $creatorUserId);
+    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
+    if ($recipient === null || $refno === '') {
+        return false;
+    }
+
+    $decisionLabel = $decision === 'rejected' ? 'rejected' : 'approved';
+    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
+    $subject = 'Order ' . $refno . ' has been ' . $decisionLabel . ' at Level 2';
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'Your order request has been ' . $decisionLabel . ' by the Level 2 Approval user.',
+        '',
+        'Order No: ' . $refno,
+        'Decision: ' . $decisionTitle,
+        'Approval: Level 2 Approval',
+    ];
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $lines[] = 'Remarks: ' . $remarks;
+    }
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal to view this order.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
 }
 
 /**
@@ -1744,6 +1957,15 @@ function order_approval_decide(
         $updOrd->bindValue(':refno', $refno);
         $updOrd->execute();
 
+        $creatorUserId = order_approval_order_requester_user_id($conn, $header, $request);
+        if ($creatorUserId > 0) {
+            if ($currentLevel === 'level_1') {
+                order_approval_send_l1_decision_email_to_creator($conn, $creatorUserId, $refno, 'rejected', $trimmedRemarks);
+            } elseif ($currentLevel === 'level_2') {
+                order_approval_send_l2_decision_email_to_creator($conn, $creatorUserId, $refno, 'rejected', $trimmedRemarks);
+            }
+        }
+
         return [
             'error' => null,
             'generate_ao' => false,
@@ -1805,6 +2027,11 @@ function order_approval_decide(
             $actedByUserId,
             'Order'
         );
+
+        $creatorUserId = order_approval_order_requester_user_id($conn, $header, $request);
+        if ($creatorUserId > 0) {
+            order_approval_send_l1_decision_email_to_creator($conn, $creatorUserId, $refno, 'approved', $trimmedRemarks);
+        }
 
         return [
             'error' => null,
@@ -1870,6 +2097,15 @@ function order_approval_decide(
         return array_merge($empty, ['error' => 'This request is no longer pending.']);
     }
     order_approval_append_history($conn, $requestId, 'approved', $trimmedRemarks, $actedBy, $actedByUserId);
+
+    $creatorUserId = order_approval_order_requester_user_id($conn, $header, $request);
+    if ($creatorUserId > 0) {
+        if ($currentLevel === 'level_1') {
+            order_approval_send_l1_decision_email_to_creator($conn, $creatorUserId, $refno, 'approved', $trimmedRemarks);
+        } elseif ($currentLevel === 'level_2') {
+            order_approval_send_l2_decision_email_to_creator($conn, $creatorUserId, $refno, 'approved', $trimmedRemarks);
+        }
+    }
 
     $levelLabel = order_approval_level_label($currentLevel);
 
