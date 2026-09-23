@@ -922,7 +922,7 @@ function order_approval_send_l1_email(PDO $conn, int $userId, string $refno): bo
         'This is an automated notification.',
     ]);
 
-    return (bool) mail($recipient['email'], $subject, $message, order_approval_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, $message, order_approval_mail_headers());
 }
 
 function order_approval_send_l2_email(PDO $conn, int $userId, string $refno): bool
@@ -948,7 +948,7 @@ function order_approval_send_l2_email(PDO $conn, int $userId, string $refno): bo
         'This is an automated notification.',
     ]);
 
-    return (bool) mail($recipient['email'], $subject, $message, order_approval_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, $message, order_approval_mail_headers());
 }
 
 function order_approval_notify_assigned_approver(
@@ -1027,7 +1027,7 @@ function order_approval_send_l1_decision_email_to_creator(
     $lines[] = '';
     $lines[] = 'This is an automated notification.';
 
-    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
 }
 
 function order_approval_send_l2_decision_email_to_creator(
@@ -1065,7 +1065,7 @@ function order_approval_send_l2_decision_email_to_creator(
     $lines[] = '';
     $lines[] = 'This is an automated notification.';
 
-    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
 }
 
 /**

@@ -379,7 +379,7 @@ function foc_parts_send_l1_email(PDO $conn, int $userId, int $claimId, string $d
         'This is an automated notification.',
     ]);
 
-    return (bool) mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
 }
 
 function foc_parts_send_l2_email(PDO $conn, int $userId, int $claimId, string $detail = ''): bool
@@ -405,7 +405,7 @@ function foc_parts_send_l2_email(PDO $conn, int $userId, int $claimId, string $d
         'This is an automated notification.',
     ]);
 
-    return (bool) mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
 }
 
 function foc_parts_send_l1_decision_email_to_creator(
@@ -443,7 +443,7 @@ function foc_parts_send_l1_decision_email_to_creator(
     $lines[] = '';
     $lines[] = 'This is an automated notification.';
 
-    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
 }
 
 function foc_parts_send_l2_decision_email_to_creator(
@@ -481,7 +481,7 @@ function foc_parts_send_l2_decision_email_to_creator(
     $lines[] = '';
     $lines[] = 'This is an automated notification.';
 
-    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
 }
 
 function service_claim_send_l1_email(PDO $conn, int $userId, int $claimId, string $detail = ''): bool
@@ -507,7 +507,7 @@ function service_claim_send_l1_email(PDO $conn, int $userId, int $claimId, strin
         'This is an automated notification.',
     ]);
 
-    return (bool) mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
 }
 
 function service_claim_send_l2_email(PDO $conn, int $userId, int $claimId, string $detail = ''): bool
@@ -533,7 +533,7 @@ function service_claim_send_l2_email(PDO $conn, int $userId, int $claimId, strin
         'This is an automated notification.',
     ]);
 
-    return (bool) mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
 }
 
 function service_claim_send_l1_decision_email_to_creator(
@@ -571,7 +571,7 @@ function service_claim_send_l1_decision_email_to_creator(
     $lines[] = '';
     $lines[] = 'This is an automated notification.';
 
-    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
 }
 
 function service_claim_send_l2_decision_email_to_creator(
@@ -609,7 +609,7 @@ function service_claim_send_l2_decision_email_to_creator(
     $lines[] = '';
     $lines[] = 'This is an automated notification.';
 
-    return (bool) mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
 }
 
 function warranty_claims_notify_user(
