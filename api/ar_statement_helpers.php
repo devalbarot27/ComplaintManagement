@@ -1,8 +1,8 @@
 <?php
 
-require_once __DIR__ . '/admin_access_helpers.php';
-require_once __DIR__ . '/current_username_helpers.php';
-require_once __DIR__ . '/user_helpers.php';
+require_once __DIR__ . '/includes/admin_access_helpers.php';
+require_once __DIR__ . '/includes/current_username_helpers.php';
+require_once __DIR__ . '/includes/user_helpers.php';
 
 /**
  * VAYU Engineers (ELGi Engineer) and Business Head / Manager / System Admin
