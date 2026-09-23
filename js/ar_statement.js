@@ -1,4 +1,82 @@
 $(function () {
+    const $dealerFilter = $('#arDealerFilter');
+    if ($dealerFilter.length) {
+        const applyDealerFilter = function (cuno) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('dealer', cuno);
+            window.location.href = url.pathname + url.search + url.hash;
+        };
+
+        if (typeof $.fn.select2 !== 'undefined') {
+            let localResults = [];
+            try {
+                localResults = JSON.parse($dealerFilter.attr('data-options') || '[]');
+            } catch (e) {
+                localResults = [];
+            }
+            if (!Array.isArray(localResults)) {
+                localResults = [];
+            }
+
+            const select2Options = {
+                width: '260px',
+                placeholder: $dealerFilter.data('placeholder') || 'Dealer Name',
+                allowClear: true,
+                minimumInputLength: 0,
+                minimumResultsForSearch: 0,
+                dropdownParent: $dealerFilter.parent(),
+                ajax: {
+                    url: 'api/ar_statement_dealers_search.php',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { q: params.term || '' };
+                    },
+                    processResults: function (data, params) {
+                        const results = (data && Array.isArray(data.results)) ? data.results : [];
+                        if (results.length) {
+                            return { results: results };
+                        }
+                        const term = String((params && params.term) || '').toLowerCase();
+                        const filtered = localResults.filter(function (item) {
+                            if (!term) {
+                                return true;
+                            }
+                            return String(item.text || '').toLowerCase().indexOf(term) !== -1
+                                || String(item.id || '').toLowerCase().indexOf(term) !== -1;
+                        });
+                        return { results: filtered };
+                    },
+                    transport: function (params, success, failure) {
+                        const request = $.ajax(params);
+                        request.then(success).fail(function () {
+                            success({ results: localResults });
+                        });
+                        return request;
+                    },
+                    cache: true
+                },
+                language: {
+                    noResults: function () {
+                        return 'No dealer found';
+                    },
+                    searching: function () {
+                        return 'Searching...';
+                    }
+                }
+            };
+
+            $dealerFilter.select2(select2Options);
+            $dealerFilter.on('select2:select select2:clear', function () {
+                applyDealerFilter(String($(this).val() || '').trim());
+            });
+        } else {
+            $dealerFilter.on('change', function () {
+                applyDealerFilter(String($(this).val() || '').trim());
+            });
+        }
+    }
+
     const $table = $('#ledgerTable');
     if (!$table.length || typeof $.fn.DataTable === 'undefined') {
         return;
@@ -61,7 +139,8 @@ $(function () {
         const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = 'AR_Statement.csv';
+        const selectedDealer = String($('#arDealerFilter').val() || '').trim().replace(/[^\w.-]+/g, '_');
+        link.download = selectedDealer ? ('AR_Statement_' + selectedDealer + '.csv') : 'AR_Statement.csv';
         link.click();
         URL.revokeObjectURL(link.href);
     });

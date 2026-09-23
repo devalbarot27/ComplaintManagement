@@ -149,6 +149,7 @@ function rbac_api_access_rules(): array
         'contact_datatable.php' => ['module' => 'contact', 'permission' => 'view'],
         'contact_get.php' => ['module' => 'contact', 'permission' => 'view'],
         'ar_statement.php' => ['module' => 'ar-statement', 'permission' => 'view'],
+        'ar_statement_dealers_search.php' => ['module' => 'ar-statement', 'permission' => 'view'],
     ];
 }
 

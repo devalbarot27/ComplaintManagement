@@ -4,6 +4,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
+require_once 'includes/ar_statement_helpers.php';
 
 $canViewArStatement = rbac_can_access_menu($obconn, 'ar_statement.php');
  if (!$canViewArStatement) {
@@ -13,7 +14,21 @@ $canViewArStatement = rbac_can_access_menu($obconn, 'ar_statement.php');
 
 $active_menu = 'ar_statement';
 
-$cuno = trim((string) ($_SESSION['customer_number_vayu'] ?? ''));
+$canFilterDealers = ar_statement_user_can_filter_dealers($obconn);
+$canViewAllDealers = ar_statement_user_can_view_all_dealers();
+$cuno = ar_statement_resolve_cuno($obconn);
+$selectedDealer = $cuno !== '' ? ar_statement_dealer_get($dpconn, $obconn, $cuno) : null;
+$assignedDealerOptions = [];
+if ($canFilterDealers && !$canViewAllDealers) {
+    $assignedDealerOptions = ar_statement_dealers_for_codes(
+        $dpconn,
+        $obconn,
+        ar_statement_assigned_dealer_codes($obconn)
+    );
+    if ($assignedDealerOptions === []) {
+        $assignedDealerOptions = ar_statement_search_all_dealers($dpconn, $obconn, '', 50);
+    }
+}
 
 $summary = [
     'invamt' => 0.0, 'recvamt' => 0.0, 'amtout' => 0.0,
@@ -38,7 +53,7 @@ if ($cuno !== '') {
             COALESCE(SUM(more90), 0) AS more90,
             MAX(docdt) AS max_docdt
         FROM arst_new
-        WHERE cuno = :cuno
+        WHERE TRIM(cuno) = TRIM(:cuno)
     ');
     $summaryStmt->bindValue(':cuno', $cuno);
     $summaryStmt->execute();
@@ -55,7 +70,7 @@ if ($cuno !== '') {
         SELECT dpst, docdt, invpre, invno, currency, invamt, recvamt, amtout,
                less30, less40, less45, less50, less60, less90, more90, duedate
         FROM arst_new
-        WHERE cuno = :cuno
+        WHERE TRIM(cuno) = TRIM(:cuno)
         ORDER BY docdt DESC
     ');
     $rowsStmt->bindValue(':cuno', $cuno);
@@ -93,9 +108,16 @@ foreach ($ledgerRows as $row) {
     <link href="css/ar_statement.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
     <link href="css/datatable_custom.css" rel="stylesheet" />
+    <?php if ($canFilterDealers): ?>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <link href="css/select2_change.css" rel="stylesheet" />
+    <?php endif; ?>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+    <?php if ($canFilterDealers): ?>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <?php endif; ?>
 
 </head>
 
@@ -239,9 +261,46 @@ foreach ($ledgerRows as $row) {
 
                     <div class="booking-title">
                         Account Ledger
+                        <?php if ($selectedDealer !== null): ?>
+                        <div class="booking-subtitle">
+                            <?= htmlspecialchars((string) $selectedDealer['text']) ?>
+                        </div>
+                        <?php elseif ($canFilterDealers): ?>
+                        <div class="booking-subtitle">
+                            Select a dealer to view the AR statement
+                        </div>
+                        <?php endif; ?>
                     </div>
 
                     <div class="booking-actions">
+
+                        <?php if ($canFilterDealers):
+                            $dealerFilterOptions = $canViewAllDealers
+                                ? ($selectedDealer !== null ? [[
+                                    'id' => $selectedDealer['code'],
+                                    'text' => $selectedDealer['text'],
+                                ]] : [])
+                                : $assignedDealerOptions;
+                            $dealerFilterOptionsJson = htmlspecialchars(
+                                json_encode(array_values($dealerFilterOptions), JSON_UNESCAPED_UNICODE),
+                                ENT_QUOTES,
+                                'UTF-8'
+                            );
+                        ?>
+                        <select class="filter-select ar-dealer-filter" id="arDealerFilter"
+                            data-placeholder="Dealer Name"
+                            data-ajax="1"
+                            data-options="<?= $dealerFilterOptionsJson ?>"
+                            aria-label="Dealer Name">
+                            <option value=""></option>
+                            <?php foreach ($dealerFilterOptions as $dealerOption): ?>
+                            <option value="<?= htmlspecialchars((string) $dealerOption['id']) ?>"
+                                <?= $cuno === $dealerOption['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) $dealerOption['text']) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php endif; ?>
 
                         <select class="filter-select" id="ledgerStatusFilter">
                             <option value="">All Status</option>
@@ -352,7 +411,7 @@ foreach ($ledgerRows as $row) {
 
         </div>
 
-        <script src="js/ar_statement.js"></script>
+        <script src="js/ar_statement.js?v=<?= (int) @filemtime(__DIR__ . '/js/ar_statement.js') ?>"></script>
     </div>
 </body>
 
