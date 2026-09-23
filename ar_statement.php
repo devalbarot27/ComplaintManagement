@@ -316,7 +316,7 @@ foreach ($ledgerRows as $row) {
                                 <td class="text-end" data-order="<?= (int) round((float) $row['less90']) ?>"><?= number_format(round((float) $row['less90'])) ?></td>
                                 <td class="text-end" data-order="<?= (int) round((float) $row['more90']) ?>">&#8377;<?= number_format(round((float) $row['more90'])) ?></td>
                                 <td class="<?= $rowOutstanding > 0 ? 'debit-text' : '' ?>" data-order="<?= htmlspecialchars($dueDateTs ? date('Y-m-d', $dueDateTs) : '') ?>">
-                                    <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : '�') ?>
+                                    <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : ' ') ?>
                                 </td>
                             </tr>
 <?php endforeach; ?>
