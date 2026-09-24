@@ -408,6 +408,40 @@ function foc_parts_send_l2_email(PDO $conn, int $userId, int $claimId, string $d
     return (bool) @mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
 }
 
+function foc_parts_send_reminder_email(PDO $conn, int $userId, int $claimId, string $level, string $detail = ''): bool
+{
+    $level = $level === 'l2' ? 'l2' : ($level === 'l1' ? 'l1' : '');
+    $recipient = warranty_claims_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $claimId <= 0 || $level === '') {
+        return false;
+    }
+
+    $levelLabel = $level === 'l2' ? 'Level 2 Approval' : 'Level 1 Approval';
+    $subject = 'Reminder: FOC Parts Claim #' . $claimId . ' needs ' . $levelLabel;
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'This is a weekly reminder.',
+        'An FOC Parts claim is still waiting for your ' . $levelLabel . '.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: FOC Parts',
+        'Approval: ' . $levelLabel,
+    ];
+    $detail = trim($detail);
+    if ($detail !== '') {
+        $lines[] = 'Details: ' . $detail;
+    }
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal and open Approvals to review this claim.';
+    $lines[] = '';
+    $lines[] = 'Reminders continue once a week until this claim is approved or rejected.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
+}
+
 function foc_parts_send_l1_decision_email_to_creator(
     PDO $conn,
     int $creatorUserId,
@@ -534,6 +568,40 @@ function service_claim_send_l2_email(PDO $conn, int $userId, int $claimId, strin
     ]);
 
     return (bool) @mail($recipient['email'], $subject, $message, warranty_claims_mail_headers());
+}
+
+function service_claim_send_reminder_email(PDO $conn, int $userId, int $claimId, string $level, string $detail = ''): bool
+{
+    $level = $level === 'l2' ? 'l2' : ($level === 'l1' ? 'l1' : '');
+    $recipient = warranty_claims_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $claimId <= 0 || $level === '') {
+        return false;
+    }
+
+    $levelLabel = $level === 'l2' ? 'Level 2 Approval' : 'Level 1 Approval';
+    $subject = 'Reminder: Service Claim #' . $claimId . ' needs ' . $levelLabel;
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'This is a weekly reminder.',
+        'A Service Claim is still waiting for your ' . $levelLabel . '.',
+        '',
+        'Claim No: #' . $claimId,
+        'Claim Type: Service Claim',
+        'Approval: ' . $levelLabel,
+    ];
+    $detail = trim($detail);
+    if ($detail !== '') {
+        $lines[] = 'Details: ' . $detail;
+    }
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal and open Approvals to review this claim.';
+    $lines[] = '';
+    $lines[] = 'Reminders continue once a week until this claim is approved or rejected.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
 }
 
 function service_claim_send_l1_decision_email_to_creator(

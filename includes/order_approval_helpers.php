@@ -951,6 +951,45 @@ function order_approval_send_l2_email(PDO $conn, int $userId, string $refno): bo
     return (bool) @mail($recipient['email'], $subject, $message, order_approval_mail_headers());
 }
 
+function order_approval_send_reminder_email(PDO $conn, int $userId, string $refno, string $level): bool
+{
+    $refno = trim($refno);
+    $level = $level === 'level_2' ? 'level_2' : ($level === 'level_1' ? 'level_1' : '');
+    $recipient = order_approval_approver_mail_recipient($conn, $userId);
+    if ($recipient === null || $refno === '' || $level === '') {
+        return false;
+    }
+
+    $levelLabel = order_approval_level_label($level);
+    $isUnit = order_approval_is_unit_order($conn, $refno);
+    $orderLabel = $isUnit ? 'Unit Order' : 'Order';
+    $waitingLine = $isUnit
+        ? 'A Units order is still waiting for your ' . $levelLabel . '.'
+        : 'An order is still waiting for your ' . $levelLabel . '.';
+
+    $subject = 'Reminder: ' . $orderLabel . ' ' . $refno . ' needs ' . $levelLabel;
+    $lines = [
+        'Hello ' . $recipient['name'] . ',',
+        '',
+        'This is a weekly reminder.',
+        $waitingLine,
+        '',
+        'Order No: ' . $refno,
+    ];
+    if ($isUnit) {
+        $lines[] = 'Order Type: Units';
+    }
+    $lines[] = 'Approval: ' . $levelLabel;
+    $lines[] = '';
+    $lines[] = 'Please log in to the Dealer Portal and open Approvals to review this order.';
+    $lines[] = '';
+    $lines[] = 'Reminders continue once a week until this order is approved or rejected.';
+    $lines[] = '';
+    $lines[] = 'This is an automated notification.';
+
+    return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
+}
+
 function order_approval_notify_assigned_approver(
     PDO $conn,
     int $requestId,
