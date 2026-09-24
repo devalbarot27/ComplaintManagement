@@ -21,7 +21,7 @@ if ($fetchCustomer && !empty(trim($fetchCustomer['customer_code']))) {
 } else {
     session_unset();
     $_SESSION['error'] = "Customer code is not mapped";
-    header("Location: /ComplaintManagement/login.php");
+    header("Location: /vayupower/login.php");
     exit;
 }
 
