@@ -4,7 +4,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
 require_once 'includes/current_username_helpers.php';
-require_once 'api/ar_statement_helpers.php';
+require_once 'includes/ar_statement_helpers.php';
 
 $canViewArStatement = rbac_can_access_menu($obconn, 'ar_statement.php');
  if (!$canViewArStatement) {
