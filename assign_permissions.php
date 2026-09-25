@@ -25,6 +25,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_role_permissio
         $error_message = 'Selected role not found.';
     } else {
         try {
+            if ($selectedRoleId === MANAGEMENT_USER_ROLE) {
+                $blockedPermissionIds = role_permission_ids_for_module_slugs(
+                    $obconn,
+                    role_permission_management_hidden_module_slugs()
+                );
+                $permissionIds = array_values(array_diff(
+                    array_map('intval', (array) $permissionIds),
+                    $blockedPermissionIds
+                ));
+            }
             role_permission_save($obconn, $selectedRoleId, (array) $permissionIds, $createdBy);
             $success_message = 'Permissions assigned successfully.';
         } catch (PDOException $e) {
@@ -34,6 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_role_permissio
 }
 
 $permissionMatrix = $selectedRoleId > 0 ? role_permission_matrix($obconn, $selectedRoleId) : [];
+if ($selectedRoleId === MANAGEMENT_USER_ROLE) {
+    $permissionMatrix = role_permission_matrix_without_modules(
+        $permissionMatrix,
+        role_permission_management_hidden_module_slugs()
+    );
+}
 $selectedRole = $selectedRoleId > 0 ? role_get_by_id($obconn, $selectedRoleId) : null;
 $totalPermissionCount = 0;
 $assignedPermissionCount = 0;

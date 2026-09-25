@@ -73,6 +73,85 @@ function role_permission_save(PDO $conn, int $roleId, array $permissionIds, stri
     }
 }
 
+/**
+ * Modules Management cannot be granted on Assign Permissions.
+ *
+ * @return list<string>
+ */
+function role_permission_management_hidden_module_slugs(): array
+{
+    return ['order-booking', 'foc-parts', 'service-claims', 'warranty-claims'];
+}
+
+/**
+ * @param array<int, array<string, mixed>> $matrix
+ * @param list<string> $moduleSlugs
+ * @return array<int, array<string, mixed>>
+ */
+function role_permission_matrix_without_modules(array $matrix, array $moduleSlugs): array
+{
+    $blocked = [];
+    foreach ($moduleSlugs as $slug) {
+        $slug = strtolower(trim((string) $slug));
+        if ($slug !== '') {
+            $blocked[$slug] = true;
+        }
+    }
+
+    if ($blocked === []) {
+        return $matrix;
+    }
+
+    $visible = [];
+    foreach ($matrix as $module) {
+        $slug = strtolower(trim((string) ($module['module_slug'] ?? '')));
+        if (!isset($blocked[$slug])) {
+            $visible[] = $module;
+        }
+    }
+
+    return $visible;
+}
+
+/**
+ * @param list<string> $moduleSlugs
+ * @return list<int>
+ */
+function role_permission_ids_for_module_slugs(PDO $conn, array $moduleSlugs): array
+{
+    $slugs = [];
+    foreach ($moduleSlugs as $slug) {
+        $slug = strtolower(trim((string) $slug));
+        if ($slug !== '') {
+            $slugs[] = $slug;
+        }
+    }
+
+    if ($slugs === []) {
+        return [];
+    }
+
+    $placeholders = [];
+    foreach ($slugs as $index => $slug) {
+        $placeholders[] = ':slug' . $index;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT p.id
+        FROM permissions p
+        INNER JOIN modules m ON m.id = p.module_id
+        WHERE p.deleted_at IS NULL
+          AND m.deleted_at IS NULL
+          AND LOWER(TRIM(m.module_slug)) IN (' . implode(', ', $placeholders) . ')
+    ');
+    foreach ($slugs as $index => $slug) {
+        $stmt->bindValue(':slug' . $index, $slug);
+    }
+    $stmt->execute();
+
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
 function role_permission_matrix(PDO $conn, int $roleId): array
 {
     $modules = permission_get_by_module_grouped($conn);
