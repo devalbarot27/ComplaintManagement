@@ -159,6 +159,34 @@
   margin-bottom: 10px;
 }
 
+.order-form-grid .order-end-customer-picker {
+  grid-column: span 2;
+}
+
+.order-end-customer-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-end-customer-picker__field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.order-end-customer-picker__field .select2-container {
+  width: 100% !important;
+}
+
+.order-end-customer-picker__row .btn {
+  flex: 0 0 auto;
+  height: 38px;
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
 
 /* INPUT */
 
@@ -229,6 +257,20 @@
 
   .order-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .order-form-grid .order-end-customer-picker {
+    grid-column: auto;
+  }
+
+  .order-end-customer-picker__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-end-customer-picker__row .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .order-form-grid--add-item {

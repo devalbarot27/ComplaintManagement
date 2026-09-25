@@ -400,25 +400,22 @@ $freightPercentage = 4;
                     }
                     ?>
                     <div id="endCustomerAddressDiv">
-                        <div class="form-group">
+                        <div class="form-group<?php echo $canAddCustomerMaster ? ' order-end-customer-picker' : ''; ?>">
                             <label for="orderBookingEndCustomerSelect">Select Customer</label>
-                            <div class="d-flex gap-2 align-items-start flex-wrap">
-                                <div class="flex-grow-1" style="min-width:220px;">
+                            <div class="order-end-customer-picker__row">
+                                <div class="order-end-customer-picker__field">
                                     <select class="form-control" id="orderBookingEndCustomerSelect"
                                         data-placeholder="Search customer" style="width:100%;">
                                         <option value=""></option>
                                     </select>
                                 </div>
-                               
-                            </div>
-                        </div>
-                        <div class="form-group">
-                        <?php if ($canAddCustomerMaster) { ?>
-                        <button type="button" class="btn btn-outline-dark btn-sm mt-1 w-50"
+                                <?php if ($canAddCustomerMaster) { ?>
+                                <button type="button" class="btn btn-outline-dark btn-sm"
                                     id="addNewCustomerFromOrderBookingBtn" title="Add New Customer">
                                     <i class="bi bi-plus-lg"></i> Add New Customer
                                 </button>
-                        <?php } ?>
+                                <?php } ?>
+                            </div>
                         </div>
 
                         <div class="form-group d-none">
