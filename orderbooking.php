@@ -408,6 +408,7 @@ $freightPercentage = 4;
                                         data-placeholder="Search customer" style="width:100%;">
                                         <option value=""></option>
                                     </select>
+                                    <div id="orderBookingEndCustomerGstMsg" class="order-end-customer-gst-msg" hidden></div>
                                 </div>
                                 <?php if ($canAddCustomerMaster) { ?>
                                 <button type="button" class="btn btn-outline-dark btn-sm"
@@ -416,7 +417,6 @@ $freightPercentage = 4;
                                 </button>
                                 <?php } ?>
                             </div>
-                            <div id="orderBookingEndCustomerGstMsg" class="order-end-customer-gst-msg" hidden></div>
                         </div>
 
                         <div class="form-group d-none">
