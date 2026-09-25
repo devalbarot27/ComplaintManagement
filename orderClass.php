@@ -37,6 +37,27 @@ class orderClass
         return order_approval_submit_block_message($this->obconn, $this->userId);
     }
 
+    private function endCustomerGstMissingMessage(): ?string
+    {
+        if ((string) ($_POST['deliveryAddressType'] ?? '1') !== '2') {
+            return null;
+        }
+
+        $customerId = (int) ($_POST['customer_id'] ?? 0);
+        if ($customerId <= 0) {
+            return null;
+        }
+
+        require_once __DIR__ . '/includes/customer_master_helpers.php';
+        $customer = customer_master_get_by_id($this->obconn, $customerId);
+        $gstNumber = trim((string) ($customer['gst_number'] ?? ''));
+        if ($customer === null || $gstNumber === '') {
+            return 'GST Number is missing for the selected customer.';
+        }
+
+        return null;
+    }
+
     private function ensureCartItemsApprovedForSubmit(): void
     {
         $message = $this->orderApprovalSubmitBlockMessage();
@@ -2543,6 +2564,13 @@ class orderClass
                 return json_encode([
                     'status' => 'error',
                     'message' => 'Please enter a valid email address',
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+            $gstMissingMessage = $this->endCustomerGstMissingMessage();
+            if ($gstMissingMessage !== null) {
+                return json_encode([
+                    'status' => 'error',
+                    'message' => $gstMissingMessage,
                 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             }
             $emailValue = ($email !== '') ? $email : null;

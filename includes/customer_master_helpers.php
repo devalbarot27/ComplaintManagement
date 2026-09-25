@@ -897,7 +897,7 @@ function customer_master_search_select2(PDO $conn, string $search, int $limit = 
     $scope = customer_master_list_scope_filter($conn);
 
     $sql = '
-        SELECT id, customer_name, email, mobile, street_1, street_2, pincode, city, district, state
+        SELECT id, customer_name, email, mobile, street_1, street_2, pincode, city, district, state, gst_number
         FROM customer_masters
         WHERE deleted_at IS NULL
     ' . $scope['sql'];
@@ -939,6 +939,7 @@ function customer_master_search_select2(PDO $conn, string $search, int $limit = 
             'city' => trim((string) ($row['city'] ?? '')),
             'district' => trim((string) ($row['district'] ?? '')),
             'state' => trim((string) ($row['state'] ?? '')),
+            'gst_number' => trim((string) ($row['gst_number'] ?? '')),
         ];
     }
 

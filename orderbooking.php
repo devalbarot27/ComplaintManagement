@@ -416,6 +416,7 @@ $freightPercentage = 4;
                                 </button>
                                 <?php } ?>
                             </div>
+                            <div id="orderBookingEndCustomerGstMsg" class="order-end-customer-gst-msg" hidden></div>
                         </div>
 
                         <div class="form-group d-none">
@@ -1646,6 +1647,22 @@ $freightPercentage = 4;
         return false;
     }
 
+    function blockSubmitIfCustomerGstMissing() {
+        if (typeof orderBookingEndCustomerGstBlockMessage !== 'function') {
+            return false;
+        }
+
+        const message = orderBookingEndCustomerGstBlockMessage();
+        if (!message) {
+            return false;
+        }
+
+        alert(message);
+        $("#loader").hide();
+        setCartActionButtonsVisible(true);
+        return true;
+    }
+
     function cartHasApprovalPriceItems() {
         if (cartIsSparesOrder()) {
             return false;
@@ -1773,6 +1790,10 @@ $freightPercentage = 4;
                 $("#endCustomerEmail").focus();
                 return;
             }
+        }
+
+        if (blockSubmitIfCustomerGstMissing()) {
+            return;
         }
 
         data = {
@@ -1937,6 +1958,10 @@ $freightPercentage = 4;
                 $("#endCustomerEmail").focus();
                 return;
             }
+        }
+
+        if (blockSubmitIfCustomerGstMissing()) {
+            return;
         }
 
         data = {
@@ -2104,6 +2129,10 @@ $freightPercentage = 4;
                 setCartActionButtonsVisible(true);
                 return;
             }
+        }
+
+        if (blockSubmitIfCustomerGstMissing()) {
+            return;
         }
 
         var data = {

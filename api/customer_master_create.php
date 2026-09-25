@@ -75,6 +75,7 @@ try {
         'city' => trim((string) ($data['city'] ?? '')),
         'district' => trim((string) ($data['district'] ?? '')),
         'state' => trim((string) ($data['state'] ?? '')),
+        'gst_number' => trim((string) ($data['gst_number'] ?? '')),
     ]);
 } catch (PDOException $e) {
     http_response_code(500);

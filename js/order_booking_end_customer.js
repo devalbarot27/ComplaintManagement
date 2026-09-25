@@ -20,6 +20,70 @@ function resetOrderBookingEndCustomerSelect2() {
     setOrderBookingEndCustomerSelect2('', '');
 }
 
+function orderBookingEndCustomerGstMissingMessage() {
+    return 'GST Number is missing for the selected customer.';
+}
+
+function showOrderBookingEndCustomerGstMessage(message) {
+    const el = document.getElementById('orderBookingEndCustomerGstMsg');
+    if (!el) {
+        return;
+    }
+
+    const text = message != null ? String(message).trim() : '';
+    el.textContent = text;
+    el.hidden = text === '';
+}
+
+function clearOrderBookingEndCustomerGstMessage() {
+    showOrderBookingEndCustomerGstMessage('');
+}
+
+function setOrderBookingEndCustomerGstNumber(gstNumber) {
+    const select = document.getElementById('orderBookingEndCustomerSelect');
+    if (!select) {
+        return;
+    }
+
+    select.dataset.gstNumber = gstNumber != null ? String(gstNumber).trim() : '';
+}
+
+function syncOrderBookingEndCustomerGstMessage(data) {
+    const customerId = String($('#orderBookingEndCustomerSelect').val() || '').trim();
+    const gstNumber = data && data.gst_number != null ? String(data.gst_number).trim() : '';
+    setOrderBookingEndCustomerGstNumber(gstNumber);
+
+    if (customerId !== '' && gstNumber === '') {
+        showOrderBookingEndCustomerGstMessage(orderBookingEndCustomerGstMissingMessage());
+        return false;
+    }
+
+    clearOrderBookingEndCustomerGstMessage();
+    return true;
+}
+
+function orderBookingEndCustomerGstBlockMessage() {
+    const deliveryType = document.getElementById('deliveryAddressType');
+    if (!deliveryType || String(deliveryType.value) !== '2') {
+        return '';
+    }
+
+    const select = document.getElementById('orderBookingEndCustomerSelect');
+    const customerId = String($('#orderBookingEndCustomerSelect').val() || '').trim();
+    if (!select || customerId === '') {
+        return '';
+    }
+
+    if (String(select.dataset.gstNumber || '').trim() !== '') {
+        clearOrderBookingEndCustomerGstMessage();
+        return '';
+    }
+
+    const message = orderBookingEndCustomerGstMissingMessage();
+    showOrderBookingEndCustomerGstMessage(message);
+    return message;
+}
+
 function clearOrderBookingEndCustomerFields() {
     const form = document.getElementById('orderBookingForm');
     ['endCustomerName', 'endCustomerEmail', 'endCustomerStreet1', 'endCustomerStreet2'].forEach(function (id) {
@@ -43,6 +107,9 @@ function clearOrderBookingEndCustomerFields() {
             stateCode.value = '';
         }
     }
+
+    setOrderBookingEndCustomerGstNumber('');
+    clearOrderBookingEndCustomerGstMessage();
 }
 
 function fillOrderBookingEndCustomerFields(data) {
@@ -68,6 +135,8 @@ function fillOrderBookingEndCustomerFields(data) {
     if (street2El) {
         street2El.value = data.street_2 != null ? String(data.street_2) : '';
     }
+
+    syncOrderBookingEndCustomerGstMessage(data);
 
     if (form && typeof setPincodeSelect2 === 'function') {
         setPincodeSelect2(form, 'orderBookingPincodeSelect', {
@@ -143,7 +212,7 @@ function initOrderBookingEndCustomerSelect2() {
     $customer.off('select2:select.orderBookingEndCustomer select2:clear.orderBookingEndCustomer');
     $customer.on('select2:select.orderBookingEndCustomer', function (e) {
         const data = (e.params && e.params.data) ? e.params.data : null;
-        if (data) {
+        if (data && Object.prototype.hasOwnProperty.call(data, 'gst_number')) {
             fillOrderBookingEndCustomerFields(data);
             return;
         }
