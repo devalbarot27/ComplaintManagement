@@ -86,11 +86,11 @@ function fillComplaintCategoryForm(record) {
 
     document.getElementById('complaintCategoryRecordId').value = record.id || '';
     document.getElementById('complaintCategoryFormModeLabel').textContent = record.id
-        ? 'Edit Call Complaint'
-        : 'Add SCall Complaint';
+        ? 'Edit Call Type'
+        : 'Add SCall Type';
     document.getElementById('submitComplaintCategoryBtn').innerHTML = record.id
-        ? '<i class="bi bi-check-lg"></i> Update Call Complaint'
-        : '<i class="bi bi-check-lg"></i> Save Call Complaint';
+        ? '<i class="bi bi-check-lg"></i> Update Call Type'
+        : '<i class="bi bi-check-lg"></i> Save Call Type';
 
     form.querySelector('[name="name"]').value = record.name || '';
     form.querySelector('[name="status"]').value = record.status || 'active';
@@ -103,7 +103,7 @@ function resetComplaintCategoryForm() {
     }
     form.reset();
     document.getElementById('complaintCategoryRecordId').value = '';
-    document.getElementById('complaintCategoryFormModeLabel').textContent = 'Add Call Complaint';
+    document.getElementById('complaintCategoryFormModeLabel').textContent = 'Add Call Type';
     document.getElementById('submitComplaintCategoryBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save Complaint Category';
     form.querySelector('[name="status"]').value = 'active';
     form.querySelectorAll('.is-invalid').forEach(function (el) {
@@ -158,7 +158,7 @@ function bootComplaintCategoriesPage() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             })
             .fail(function () {
-                alert('Failed to load call complaint details.');
+                alert('Failed to load call type details.');
             });
     });
 

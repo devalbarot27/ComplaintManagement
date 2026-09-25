@@ -60,9 +60,9 @@
     } else if ($currentPage == 'assign_permissions.php') {
         $pageName = "Assign Permissions";
     } else if ($currentPage == 'complaint_categories.php') {
-        $pageName = "Call Complaint";
+        $pageName = "Call Type";
     } else if ($currentPage == 'complaint_category_details.php') {
-        $pageName = "Call Complaint Details";
+        $pageName = "Call Type Details";
     } else if ($currentPage == 'industry_segments.php') {
         $pageName = "Industry Segment";
     } else if ($currentPage == 'industry_segment_details.php') {
@@ -479,7 +479,7 @@
                   <a href="complaint_categories.php"
                       class="menu-item <?= in_array($currentPage, ['complaint_categories.php', 'complaint_category_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-tags"></i>
-                      Call Complaint
+                      Call Type
                   </a>
 
                   <a href="industry_segments.php"

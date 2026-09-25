@@ -2066,7 +2066,7 @@ function foc_approval_extra_html(PDO $conn, array $record): string
         $html .= foc_approval_field_html('AMC End Date', (string) $coverage['end_date_label']);
     }
     $html .= foc_approval_field_html('Call Ticket Status', $complaintStatusLabel);
-    $html .= foc_approval_field_html('Call Complaint', $complaintCategory);
+    $html .= foc_approval_field_html('Call Type', $complaintCategory);
     $html .= foc_approval_field_html('Mobile', (string) ($record['customer_mobile'] ?? ''));
     $html .= foc_approval_field_html('Email', (string) ($record['customer_email'] ?? ''));
     $html .= foc_approval_field_html('Address', $address, 'col-12');

@@ -89,7 +89,7 @@ function complaint_category_entry_actions(int $id): string
             </button>
             <a href="delete_complaint_category.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
-                onclick="return confirm(\'Delete this call complaint?\');" title="Delete">
+                onclick="return confirm(\'Delete this call type?\');" title="Delete">
                 <i class="bi bi-trash"></i>
             </a>
         </div>

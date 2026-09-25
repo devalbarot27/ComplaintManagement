@@ -121,7 +121,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                                 <th width="5%">ID</th>
                                 <th width="10%">Fab Number</th>
                                 <th width="10%">Customer Name</th>                              
-                                <th width="10%">Call Complaint</th>
+                                <th width="10%">Call Type</th>
                                 <th width="10%">Assigned To</th>
                                 <th width="15%">Assigned Date</th>
                                 <th>Remarks</th>

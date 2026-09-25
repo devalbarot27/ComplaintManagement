@@ -101,7 +101,7 @@ $wrapperClass = $serviceLogLinkedComplaintEmbedded
                     'col-md-3'
                 );
                 $renderLinkedComplaintField(
-                    'Call Complaint',
+                    'Call Type',
                     complaint_category_display_name($complaint),
                     'col-md-3'
                 );
