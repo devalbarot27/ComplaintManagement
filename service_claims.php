@@ -79,16 +79,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_claim'
             $error_message = $field_errors['po_attachment'];
         } elseif (strlen($resolutionNotes) > 1000) {
             $error_message = 'Resolution notes cannot exceed 1000 characters.';
-        } elseif ($batchCode === '') {
-            $error_message = 'Batch Code is required.';
-        } elseif (strlen($batchCode) > 8) {
-            $error_message = 'Batch Code cannot exceed 8 characters.';
         } elseif ($customerNumber !== '' && strlen($customerNumber) > 9) {
             $error_message = 'Customer number cannot exceed 9 characters.';
         } elseif ($customerArea !== '' && strlen($customerArea) > 3) {
             $error_message = 'Customer area cannot exceed 3 characters.';
         } elseif (!is_numeric($claimAmount) || (float) $claimAmount < 0) {
-            $error_message = 'Claim amount must be a valid non-negative amount.';
+            $field_errors['claim_amount'] = 'Claim Amount is required and must be a valid non-negative amount.';
+            $error_message = $field_errors['claim_amount'];
         } elseif ($dispute !== '' && !in_array($dispute, ['Yes', 'No'], true)) {
             $error_message = 'Dispute must be Yes or No.';
         } elseif (strlen($disputeRemarks) > 500) {
@@ -637,36 +634,20 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                         </div>
                         <div class="row g-3">
                             <div class="col-md-4 form-group">
-                                <label class="form-label" for="batchCode">Batch Code <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="batchCode" name="batch_code" maxlength="8"
-                                    value="<?= htmlspecialchars($_POST['batch_code'] ?? '') ?>" required>
-                            </div>
-                            <div class="col-md-4 form-group">
                                 <label class="form-label" for="claimAmount">Claim Amount <span class="text-danger">*</span></label>
-                                <input type="number" step="0.01" min="0" class="form-control" id="claimAmount" name="claim_amount"
+                                <input type="number" step="0.01" min="0" class="form-control<?= isset($field_errors['claim_amount']) ? ' is-invalid' : '' ?>" id="claimAmount" name="claim_amount"
                                     value="<?= htmlspecialchars($_POST['claim_amount'] ?? '') ?>" required>
+                                <div class="text-danger validation-msg" data-field="claim_amount"><?= htmlspecialchars($field_errors['claim_amount'] ?? '') ?></div>
                             </div>
                             <div class="col-md-4 form-group">
-                                <label class="form-label" for="dispute">Dispute</label>
-                                <select class="form-control" id="dispute" name="dispute">
-                                    <option value="">Select</option>
-                                    <option value="Yes" <?= (($_POST['dispute'] ?? '') === 'Yes') ? 'selected' : '' ?>>Yes</option>
-                                    <option value="No" <?= (($_POST['dispute'] ?? '') === 'No') ? 'selected' : '' ?>>No</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 form-group">
                                 <label class="form-label" for="claimInvoiceNumber">Invoice Number</label>
                                 <input type="text" class="form-control" id="claimInvoiceNumber" name="claim_invoice_number"
                                     value="<?= htmlspecialchars($_POST['claim_invoice_number'] ?? '') ?>">
                             </div>
-                            <div class="col-md-6 form-group">
+                            <div class="col-md-4 form-group">
                                 <label class="form-label" for="claimInvoiceDate">Invoice Date</label>
                                 <input type="date" class="form-control" id="claimInvoiceDate" name="claim_invoice_date"
                                     value="<?= htmlspecialchars($_POST['claim_invoice_date'] ?? '') ?>">
-                            </div>
-                            <div class="col-md-12 form-group">
-                                <label class="form-label" for="disputeRemarks">Dispute Remarks</label>
-                                <textarea class="form-control" id="disputeRemarks" name="dispute_remarks" rows="2" maxlength="1000"><?= htmlspecialchars($_POST['dispute_remarks'] ?? '') ?></textarea>
                             </div>
                         </div>
                     </section>
@@ -1000,6 +981,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
     }
 
     const claimForm = document.getElementById('serviceClaimForm');
+    const claimAmountInput = document.getElementById('claimAmount');
     const kmInput = document.getElementById('kmTravelled');
     const serviceDateInput = document.getElementById('serviceDate');
     const poNumberInput = document.getElementById('poNumber');
@@ -1030,6 +1012,14 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 clearFieldError('complaint_id', complaintSelect);
             });
         }
+    }
+    if (claimAmountInput) {
+        claimAmountInput.addEventListener('input', function () {
+            clearFieldError('claim_amount', claimAmountInput);
+        });
+        claimAmountInput.addEventListener('change', function () {
+            clearFieldError('claim_amount', claimAmountInput);
+        });
     }
     if (kmInput) {
         kmInput.addEventListener('input', function () {
@@ -1069,6 +1059,18 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                 setFieldError('complaint_id', 'Please select a Call Ticket Number.');
                 complaintSelect.classList.add('is-invalid');
                 firstInvalid = firstInvalid || complaintSelect;
+            }
+
+            const claimAmountValue = claimAmountInput ? String(claimAmountInput.value || '').trim() : '';
+            const claimAmountNumber = parseFloat(claimAmountValue);
+            if (claimAmountValue === '' || isNaN(claimAmountNumber) || !isFinite(claimAmountNumber) || claimAmountNumber < 0) {
+                e.preventDefault();
+                blocked = true;
+                setFieldError('claim_amount', 'Claim Amount is required and must be a valid non-negative amount.');
+                if (claimAmountInput) {
+                    claimAmountInput.classList.add('is-invalid');
+                    firstInvalid = firstInvalid || claimAmountInput;
+                }
             }
 
             const kmValue = kmInput ? String(kmInput.value || '').trim() : '';
