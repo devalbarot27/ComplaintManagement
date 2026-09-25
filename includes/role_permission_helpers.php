@@ -74,43 +74,13 @@ function role_permission_save(PDO $conn, int $roleId, array $permissionIds, stri
 }
 
 /**
- * Modules Management cannot be granted on Assign Permissions.
+ * Modules Management can see on Assign Permissions, but cannot select.
  *
  * @return list<string>
  */
-function role_permission_management_hidden_module_slugs(): array
+function role_permission_management_locked_module_slugs(): array
 {
     return ['order-booking', 'foc-parts', 'service-claims', 'warranty-claims'];
-}
-
-/**
- * @param array<int, array<string, mixed>> $matrix
- * @param list<string> $moduleSlugs
- * @return array<int, array<string, mixed>>
- */
-function role_permission_matrix_without_modules(array $matrix, array $moduleSlugs): array
-{
-    $blocked = [];
-    foreach ($moduleSlugs as $slug) {
-        $slug = strtolower(trim((string) $slug));
-        if ($slug !== '') {
-            $blocked[$slug] = true;
-        }
-    }
-
-    if ($blocked === []) {
-        return $matrix;
-    }
-
-    $visible = [];
-    foreach ($matrix as $module) {
-        $slug = strtolower(trim((string) ($module['module_slug'] ?? '')));
-        if (!isset($blocked[$slug])) {
-            $visible[] = $module;
-        }
-    }
-
-    return $visible;
 }
 
 /**

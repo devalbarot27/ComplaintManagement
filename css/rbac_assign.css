@@ -73,3 +73,19 @@
     height: 16px;
     cursor: pointer;
 }
+
+.rbac-module-block.is-locked {
+    background: #f3f4f6;
+}
+
+.rbac-module-block.is-locked .rbac-module-check-all,
+.rbac-module-block.is-locked .rbac-permission-item {
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.rbac-module-block.is-locked .rbac-module-check-all input[type="checkbox"],
+.rbac-module-block.is-locked .rbac-permission-item input[type="checkbox"] {
+    cursor: not-allowed;
+    accent-color: #9ca3af;
+}

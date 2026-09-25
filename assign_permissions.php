@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_role_permissio
             if ($selectedRoleId === MANAGEMENT_USER_ROLE) {
                 $blockedPermissionIds = role_permission_ids_for_module_slugs(
                     $obconn,
-                    role_permission_management_hidden_module_slugs()
+                    role_permission_management_locked_module_slugs()
                 );
                 $permissionIds = array_values(array_diff(
                     array_map('intval', (array) $permissionIds),
@@ -44,17 +44,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_role_permissio
 }
 
 $permissionMatrix = $selectedRoleId > 0 ? role_permission_matrix($obconn, $selectedRoleId) : [];
-if ($selectedRoleId === MANAGEMENT_USER_ROLE) {
-    $permissionMatrix = role_permission_matrix_without_modules(
-        $permissionMatrix,
-        role_permission_management_hidden_module_slugs()
-    );
+$lockedModuleSlugs = $selectedRoleId === MANAGEMENT_USER_ROLE
+    ? array_fill_keys(role_permission_management_locked_module_slugs(), true)
+    : [];
+foreach ($permissionMatrix as &$module) {
+    $moduleSlug = strtolower(trim((string) ($module['module_slug'] ?? '')));
+    $module['locked'] = isset($lockedModuleSlugs[$moduleSlug]);
 }
+unset($module);
 $selectedRole = $selectedRoleId > 0 ? role_get_by_id($obconn, $selectedRoleId) : null;
 $totalPermissionCount = 0;
 $assignedPermissionCount = 0;
 
 foreach ($permissionMatrix as $module) {
+    if (!empty($module['locked'])) {
+        continue;
+    }
     foreach ($module['permissions'] as $permission) {
         $totalPermissionCount++;
         if (!empty($permission['assigned'])) {
@@ -76,6 +81,7 @@ foreach ($permissionMatrix as $module) {
     }
     $safePermissionMatrix[] = [
         'module_name' => htmlspecialchars((string) ($module['module_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'locked' => !empty($module['locked']),
         'permissions' => $safePermissions,
     ];
 }
@@ -183,11 +189,13 @@ unset($permissionMatrix, $module, $permission, $safePermissions);
                             </button>
                         </div>
 
-                        <?php foreach ($safePermissionMatrix as $module) { ?>
-                        <div class="rbac-module-block">
+                        <?php foreach ($safePermissionMatrix as $module) {
+                            $moduleLocked = !empty($module['locked']);
+                            ?>
+                        <div class="rbac-module-block<?php echo $moduleLocked ? ' is-locked' : ''; ?>">
                             <div class="rbac-module-title">
                                 <label class="rbac-module-check-all">
-                                    <input type="checkbox" class="module-check-all">
+                                    <input type="checkbox" class="module-check-all"<?php echo $moduleLocked ? ' disabled' : ''; ?>>
                                     <span><?php echo $module['module_name']; ?></span>
                                 </label>
                             </div>
@@ -198,13 +206,14 @@ unset($permissionMatrix, $module, $permission, $safePermissions);
                                 <?php foreach ($module['permissions'] as $permission) {
                                     $safePermissionId = htmlspecialchars((string) (int) $permission['id'], ENT_QUOTES, 'UTF-8');
                                     $safePermissionName = (string) $permission['permission_name'];
-                                    $permissionChecked = !empty($permission['assigned']);
+                                    $permissionChecked = !$moduleLocked && !empty($permission['assigned']);
                                     ?>
                                 <label class="rbac-permission-item">
                                     <input type="checkbox"
                                         class="permission-checkbox"
                                         name="permission_ids[]"
                                         value="<?php echo $safePermissionId; ?>"
+                                        <?php if ($moduleLocked) { ?>disabled<?php } ?>
                                         <?php if ($permissionChecked) { ?>checked<?php } ?>>
                                     <span><?php echo $safePermissionName; ?></span>
                                 </label>

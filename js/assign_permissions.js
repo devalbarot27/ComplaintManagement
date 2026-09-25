@@ -1,5 +1,7 @@
 function getPermissionCheckboxes() {
-    return Array.prototype.slice.call(document.querySelectorAll('.permission-checkbox'));
+    return Array.prototype.slice.call(document.querySelectorAll('.permission-checkbox')).filter(function (box) {
+        return !box.disabled;
+    });
 }
 
 function updateAssignedSummary() {
@@ -44,7 +46,11 @@ function updateModuleCheckboxStates() {
     document.querySelectorAll('.rbac-module-block').forEach(function (block) {
         const moduleCheck = block.querySelector('.module-check-all');
         const boxes = Array.prototype.slice.call(block.querySelectorAll('.permission-checkbox'));
-        if (!moduleCheck || boxes.length === 0) {
+        if (!moduleCheck || moduleCheck.disabled || boxes.length === 0) {
+            if (moduleCheck && moduleCheck.disabled) {
+                moduleCheck.checked = false;
+                moduleCheck.indeterminate = false;
+            }
             return;
         }
 
@@ -94,6 +100,9 @@ function initAssignPermissionCheckAll() {
             }
 
             block.querySelectorAll('.permission-checkbox').forEach(function (box) {
+                if (box.disabled) {
+                    return;
+                }
                 box.checked = moduleCheck.checked;
             });
 
