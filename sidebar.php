@@ -107,6 +107,8 @@
         $pageName = "FOC Part & Service Claim";
     } else if ($currentPage == 'service_claims.php') {
         $pageName = "Warranty Service Claims";
+    } else if ($currentPage == 'service_claim_details.php') {
+        $pageName = "Warranty Service Claims Details";
     } else if ($currentPage == 'warranty_claims.php') {
         $pageName = "Installed Base Warranty";
     } else if ($currentPage == 'approvals.php') {
