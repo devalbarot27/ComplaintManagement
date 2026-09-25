@@ -80,7 +80,8 @@ function role_permission_save(PDO $conn, int $roleId, array $permissionIds, stri
  */
 function role_permission_management_locked_module_slugs(): array
 {
-    return ['order-booking', 'foc-parts', 'service-claims', 'warranty-claims'];
+    //return ['order-booking', 'foc-parts', 'service-claims', 'warranty-claims'];
+    return [];
 }
 
 /**
