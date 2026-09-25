@@ -2883,6 +2883,44 @@ function service_claim_get_by_id(PDO $conn, int $id): ?array
     return $row ?: null;
 }
 
+/**
+ * Reimbursement fields captured with the service claim and held until CCS approval.
+ *
+ * @return array{claim_amount: string, invno: string, invdt: string}
+ */
+function service_claim_reimbursement_details(PDO $conn, int $claimId): array
+{
+    $empty = [
+        'claim_amount' => '',
+        'invno' => '',
+        'invdt' => '',
+    ];
+
+    if ($claimId <= 0) {
+        return $empty;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT claim_amount, invno, invdt
+        FROM service_claim_reimbursement_pending
+        WHERE service_claim_id = :id
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $claimId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($row === false) {
+        return $empty;
+    }
+
+    return [
+        'claim_amount' => (string) ($row['claim_amount'] ?? ''),
+        'invno' => (string) ($row['invno'] ?? ''),
+        'invdt' => (string) ($row['invdt'] ?? ''),
+    ];
+}
+
 function service_claim_format_km_value($km): string
 {
     if ($km === null || $km === '') {

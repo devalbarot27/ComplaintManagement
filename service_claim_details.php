@@ -125,7 +125,23 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_field('State', (string) ($record['customer_state'] ?? ''), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(3, 'Call Closure Details', 'Distance, visit charge, invoice and resolution');
+            $reimbursement = service_claim_reimbursement_details($obconn, (int) $record['id']);
+            $reimbursementInvoiceDate = trim((string) ($reimbursement['invdt'] ?? ''));
+            $reimbursementInvoiceDateLabel = $reimbursementInvoiceDate !== ''
+                ? date('d M Y', strtotime($reimbursementInvoiceDate))
+                : '-';
+
+            record_details_section_start(3, 'Reimbursement Claim Details', 'These details are sent to CCS only after the claim is approved.');
+            record_details_field(
+                'Claim Amount',
+                distance_wise_price_format_rupees($reimbursement['claim_amount'] ?? ''),
+                'col-md-4'
+            );
+            record_details_field('Invoice Number', (string) ($reimbursement['invno'] ?? ''), 'col-md-4');
+            record_details_field('Invoice Date', $reimbursementInvoiceDateLabel, 'col-md-4');
+            record_details_section_end();
+
+            record_details_section_start(4, 'Call Closure Details', 'Distance, visit charge, invoice and resolution');
             record_details_field('Distance Travelled (KMs)', (string) ($record['km_travelled'] ?? ''), 'col-md-4');
             record_details_field(
                 'Price',
@@ -148,7 +164,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_field('Resolution Notes', (string) ($record['resolution_notes'] ?? ''), 'col-md-12', true);
             record_details_section_end();
 
-            record_details_section_start(4, 'Warranty & Approval', 'Warranty flag, L1/L2 decisions, invoice and settlement status');
+            record_details_section_start(5, 'Warranty & Approval', 'Warranty flag, L1/L2 decisions, invoice and settlement status');
             record_details_field('Machine Warranty Status', $warrantyBadge, 'col-md-4', false, true);
             record_details_field('Lock-in Engineer', $l1Badge, 'col-md-4', false, true);
             record_details_field('Business Head', $l2Badge, 'col-md-4', false, true);
@@ -169,7 +185,7 @@ $visitPrice = $record['visit_charge_price'] ?? '';
             record_details_field('Settlement', trim((string) (($record['settlement_type'] ?? '') . ' ' . ($record['settlement_reference'] ?? ''))), 'col-md-4');
             record_details_section_end();
 
-            record_details_section_start(5, 'Audit Trail', 'Creation and update history', true);
+            record_details_section_start(6, 'Audit Trail', 'Creation and update history', true);
             if ($canSeeSubmittedBy) {
                 record_details_field('Submitted By', rbac_display_value($record['created_by_name'] ?? $record['created_by_username'] ?? ''), 'col-md-6');
             }

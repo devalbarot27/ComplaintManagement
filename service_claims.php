@@ -480,7 +480,7 @@ try {
             ON LOWER(TRIM(um.username)) = LOWER(TRIM(sc.created_by_username))
            AND um.deleted_at IS NULL
         WHERE {$listScope['where']}
-        ORDER BY sc.created_at ASC
+        ORDER BY sc.created_at DESC, sc.id DESC
     ");
     foreach ($listScope['params'] as $key => $value) {
         $claimStmt->bindValue($key, $value);
@@ -810,7 +810,7 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                             $overallStatus = service_claim_overall_status_label($row);
                         ?>
                         <tr>
-                            <td>#<?= $claimId ?></td>
+                            <td data-order="<?= $claimId ?>">#<?= $claimId ?></td>
                             <td>
                                 <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                     #<?= $complaintId ?>
