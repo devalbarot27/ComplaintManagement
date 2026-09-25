@@ -45,7 +45,7 @@ function service_claim_reminder_ensure_schema(PDO $conn): void
 
 /**
  * Pending service claims whose current approver has been waiting at least
- * 7 days and has not been emailed a reminder for this level in the last 7 days.
+ * 7 days and has not already been reminded for this level in the last 7 days.
  *
  * @return array<int, array<string, mixed>>
  */
@@ -107,7 +107,6 @@ function service_claim_reminder_fetch_due(PDO $conn): array
               WHERE l.claim_id = due.id
                 AND l.recipient_user_id = due.approver_user_id
                 AND l.approval_level = due.approval_level
-                AND l.email_sent = 1
                 AND l.created_at > CURRENT_TIMESTAMP - INTERVAL \'' . $interval . '\'
           )
         ORDER BY due.pending_since ASC, due.id ASC
@@ -203,26 +202,18 @@ function service_claim_reminder_run(PDO $conn): array
             continue;
         }
 
-        if (warranty_claims_approver_mail_recipient($conn, $userId) === null) {
-            $summary['skipped']++;
-            continue;
-        }
-
-        $emailSent = service_claim_send_reminder_email(
-            $conn,
-            $userId,
-            $claimId,
-            $level,
-            service_claim_reminder_detail($row)
-        );
-        if (!$emailSent) {
-            $summary['failed']++;
-            continue;
-        }
-
-        service_claim_reminder_log($conn, $claimId, $userId, $level, true);
-
         $levelLabel = $level === 'l2' ? 'Level 2 Approval' : 'Level 1 Approval';
+        $emailSent = false;
+        if (warranty_claims_approver_mail_recipient($conn, $userId) !== null) {
+            $emailSent = service_claim_send_reminder_email(
+                $conn,
+                $userId,
+                $claimId,
+                $level,
+                service_claim_reminder_detail($row)
+            );
+        }
+
         $notificationId = notification_create(
             $conn,
             $userId,
@@ -231,12 +222,21 @@ function service_claim_reminder_run(PDO $conn): array
             'service-claims',
             $claimId
         );
-        if ($notificationId !== null && $notificationId > 0) {
-            $summary['notifications_created']++;
+        $notificationCreated = $notificationId !== null && $notificationId > 0;
+
+        if (!$emailSent && !$notificationCreated) {
+            $summary['failed']++;
+            continue;
         }
 
+        service_claim_reminder_log($conn, $claimId, $userId, $level, $emailSent);
+        if ($notificationCreated) {
+            $summary['notifications_created']++;
+        }
+        if ($emailSent) {
+            $summary['emails_sent']++;
+        }
         $summary['reminders_sent']++;
-        $summary['emails_sent']++;
     }
 
     return $summary;

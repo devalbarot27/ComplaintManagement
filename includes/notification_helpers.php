@@ -411,11 +411,17 @@ function notification_resolve_redirect_url(
         case 'order-booking':
             return 'order_details.php?id=' . $encodedId;
 
-        // APPROVAL MODULE: Order-level L1 / L2 approval
+        // APPROVAL MODULE: Order, FOC Parts, and Service Claim approvals
         case 'order-approval':
         case 'order_approval':
         case 'cart-approval':
         case 'cart_approval':
+        case 'foc-parts':
+        case 'foc_parts':
+        case 'service-claims':
+        case 'service_claims':
+        case 'service-claim':
+        case 'service_claim':
             return 'approvals.php';
 
         default:

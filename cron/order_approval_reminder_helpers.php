@@ -49,7 +49,7 @@ function order_approval_reminder_ensure_schema(PDO $conn): void
 
 /**
  * Pending requests whose current approver has been waiting at least 7 days
- * and has not been emailed a reminder for this level in the last 7 days.
+ * and has not already been reminded for this level in the last 7 days.
  *
  * @return array<int, array<string, mixed>>
  */
@@ -104,7 +104,6 @@ function order_approval_reminder_fetch_due(PDO $conn): array
               WHERE l.request_id = pending.id
                 AND l.recipient_user_id = pending.assigned_to_user_id
                 AND l.approval_level = pending.current_level
-                AND l.email_sent = 1
                 AND l.created_at > CURRENT_TIMESTAMP - INTERVAL \'' . $interval . '\'
           )
         ORDER BY pending.pending_since ASC, pending.id ASC
@@ -223,20 +222,12 @@ function order_approval_reminder_run(PDO $conn): array
             continue;
         }
 
-        if (order_approval_approver_mail_recipient($conn, $userId) === null) {
-            $summary['skipped']++;
-            continue;
-        }
-
-        $emailSent = order_approval_send_reminder_email($conn, $userId, $refno, $level);
-        if (!$emailSent) {
-            $summary['failed']++;
-            continue;
-        }
-
-        order_approval_reminder_log($conn, $requestId, $userId, $level, true);
-
         $levelLabel = order_approval_level_label($level);
+        $emailSent = false;
+        if (order_approval_approver_mail_recipient($conn, $userId) !== null) {
+            $emailSent = order_approval_send_reminder_email($conn, $userId, $refno, $level);
+        }
+
         $notificationId = notification_create(
             $conn,
             $userId,
@@ -245,12 +236,21 @@ function order_approval_reminder_run(PDO $conn): array
             'order-approval',
             $requestId
         );
-        if ($notificationId !== null && $notificationId > 0) {
-            $summary['notifications_created']++;
+        $notificationCreated = $notificationId !== null && $notificationId > 0;
+
+        if (!$emailSent && !$notificationCreated) {
+            $summary['failed']++;
+            continue;
         }
 
+        order_approval_reminder_log($conn, $requestId, $userId, $level, $emailSent);
+        if ($notificationCreated) {
+            $summary['notifications_created']++;
+        }
+        if ($emailSent) {
+            $summary['emails_sent']++;
+        }
         $summary['reminders_sent']++;
-        $summary['emails_sent']++;
     }
 
     return $summary;
