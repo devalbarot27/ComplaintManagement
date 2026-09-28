@@ -327,6 +327,9 @@ function loadComplaintServiceLogSummary(complaintId) {
                 return;
             }
             renderComplaintServiceLogSummary(data);
+            if (typeof loadCqReviewData === 'function') {
+                loadCqReviewData(complaintId);
+            }
         })
         .fail(function (xhr) {
             const message = xhr.responseJSON && xhr.responseJSON.error
@@ -439,6 +442,9 @@ function reopenServiceUpdateModal(complaintId) {
     }
 
     loadComplaintServiceLogSummary(complaintId);
+    if (typeof loadCqReviewData === 'function') {
+        loadCqReviewData(complaintId);
+    }
 
     const serviceUpdateModalEl = document.getElementById('serviceUpdateModal');
     if (serviceUpdateModalEl) {

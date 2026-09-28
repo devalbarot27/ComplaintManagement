@@ -74,12 +74,34 @@ function complaintServiceUpdateValidateFormFields(form) {
     return errors;
 }
 
+function complaintServiceUpdateValidateFailedParts() {
+    if (typeof cqState === 'undefined' || !cqState || !cqState.qualifies) {
+        return null;
+    }
+
+    const $checked = $('#cqFailedPartsBody .cq-part-check:checked');
+    if (!$checked.length) {
+        return 'Part selection is required';
+    }
+
+    if (typeof syncCqFailedPartsInput === 'function') {
+        syncCqFailedPartsInput();
+    }
+
+    return null;
+}
+
 function complaintServiceUpdateValidateAll(form) {
     const errors = complaintServiceUpdateValidateFormFields(form);
     const serviceLogError = complaintServiceUpdateValidateServiceLog();
+    const failedPartsError = complaintServiceUpdateValidateFailedParts();
 
     if (serviceLogError) {
         errors.service_log = [serviceLogError];
+    }
+
+    if (failedPartsError) {
+        errors.cq_failed_parts = [failedPartsError];
     }
 
     return Object.keys(errors).length ? errors : null;
@@ -92,6 +114,7 @@ function complaintServiceUpdateClearValidationState(form) {
     form.querySelectorAll('.validation-msg').forEach(function (el) {
         el.textContent = '';
     });
+    $('#cqFailedPartsTable').removeClass('is-invalid');
 
     if (typeof clearServiceUpdateServiceLogValidation === 'function') {
         clearServiceUpdateServiceLogValidation();
@@ -115,6 +138,16 @@ function complaintServiceUpdateShowAllErrors(form, errors) {
         if (field === 'service_log') {
             if (typeof showServiceUpdateServiceLogValidation === 'function') {
                 showServiceUpdateServiceLogValidation(message);
+            }
+            return;
+        }
+
+        if (field === 'cq_failed_parts') {
+            $('#cqFailedPartsTable').addClass('is-invalid');
+            $('.validation-msg[data-field="cq_failed_parts"]').text(message);
+            const partsWrap = document.getElementById('cqFailedPartsWrap');
+            if (partsWrap && typeof partsWrap.scrollIntoView === 'function') {
+                partsWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
             return;
         }

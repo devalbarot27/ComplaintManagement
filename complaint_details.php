@@ -10,6 +10,8 @@ include 'includes/complaint_category_helpers.php';
 require_once 'includes/complaint_closure_helpers.php';
 require_once 'includes/complaint_service_log_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
+require_once 'includes/cq_helpers.php';
+require_once 'includes/complaint_service_update_save_helpers.php';
 
 $id = (int)base64_decode($_GET['id'] ?? '', true);
  
@@ -106,6 +108,7 @@ $assignmentStmt->bindValue(':complaint_id', $complaint['id'], PDO::PARAM_INT);
 $assignmentStmt->execute();
 $assignments = $assignmentStmt->fetchAll(PDO::FETCH_ASSOC);
  
+complaint_service_update_ensure_schema($obconn);
 $serviceStmt = $obconn->prepare("
     SELECT
         id,
@@ -115,7 +118,8 @@ $serviceStmt = $obconn->prepare("
         part_replaced,
         service_report,
         created_by,
-        created_at
+        created_at,
+        cq_details
     FROM complaint_service_updates
     WHERE complaint_id = :complaint_id
     ORDER BY created_at DESC, id DESC
@@ -123,11 +127,36 @@ $serviceStmt = $obconn->prepare("
  
 $serviceStmt->bindValue(':complaint_id', $complaint['id'], PDO::PARAM_INT);
 $serviceStmt->execute();
+$cqReferrals = cq_referrals_for_complaint($obconn, (int) $complaint['id']);
 $serviceUpdates = complaint_service_log_attach_view_urls_to_service_updates(
     $obconn,
     (int) $complaint['id'],
     $serviceStmt->fetchAll(PDO::FETCH_ASSOC)
 );
+if ($cqReferrals === []) {
+    foreach ($serviceUpdates as $serviceUpdateRow) {
+        $storedCq = json_decode((string) ($serviceUpdateRow['cq_details'] ?? ''), true);
+        if (!is_array($storedCq)) {
+            continue;
+        }
+        $storedAt = (string) ($serviceUpdateRow['created_at'] ?? '');
+        foreach (($storedCq['parts'] ?? []) as $storedPart) {
+            $storedPartNumber = trim((string) ($storedPart['part_number'] ?? ''));
+            if ($storedPartNumber === '') {
+                continue;
+            }
+            $cqReferrals[] = [
+                'warranty_status' => (string) ($storedCq['warranty_status'] ?? ''),
+                'service_type' => (string) ($storedCq['service_type'] ?? ''),
+                'part_number' => $storedPartNumber,
+                'part_description' => (string) ($storedPart['part_description'] ?? ''),
+                'qty' => (int) ($storedPart['qty'] ?? 0),
+                'trackno' => '',
+                'created_at' => $storedAt,
+            ];
+        }
+    }
+}
 
 complaint_closure_ensure_schema($obconn);
 $closureStmt = $obconn->prepare("
@@ -350,6 +379,7 @@ $machineCommissioningDate = installed_base_commissioning_date_for_machine(
                                     <th>Visit Date</th>
                                     <th>Action Taken</th>
                                     <th>Part Replaced</th>
+                                    <th>Failed Parts</th>
                                     <th>Service Report</th>
                                     <th>Service Log</th>   
                                     <th>Updated On</th>
@@ -366,6 +396,25 @@ $machineCommissioningDate = installed_base_commissioning_date_for_machine(
                                     </td>
                                     <td data-label="Part Replaced">
                                         <?php echo htmlspecialchars($service['part_replaced'] ?: '-'); ?>
+                                    </td>
+                                    <td data-label="Failed Parts">
+                                        <?php
+                                        $cqDetails = json_decode((string) ($service['cq_details'] ?? ''), true);
+                                        $cqPartLabels = [];
+                                        if (is_array($cqDetails)) {
+                                            foreach (($cqDetails['parts'] ?? []) as $cqPart) {
+                                                $cqPartNumber = trim((string) ($cqPart['part_number'] ?? ''));
+                                                if ($cqPartNumber === '') {
+                                                    continue;
+                                                }
+                                                $cqQty = (int) ($cqPart['qty'] ?? 0);
+                                                $cqPartLabels[] = $cqPartNumber . ($cqQty > 0 ? ' x' . $cqQty : '');
+                                            }
+                                        }
+                                        echo $cqPartLabels !== []
+                                            ? htmlspecialchars(implode(', ', $cqPartLabels))
+                                            : '-';
+                                        ?>
                                     </td>
                                     <td data-label="Service Report">
                                         <?php
@@ -413,6 +462,53 @@ $machineCommissioningDate = installed_base_commissioning_date_for_machine(
                     <?php } ?>
                 </div>
             </div>
+
+            <?php if ($cqReferrals !== []) { ?>
+            <div class="card border-1 shadow-sm mb-3 complaint-details-history-card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-clipboard-check text-secondary"></i>
+                        <strong>Customer Quality (CQ) Review</strong>
+                    </div>
+                    <span class="badge border border-secondary text-secondary">
+                        <?php echo count($cqReferrals); ?>
+                        part<?php echo count($cqReferrals) === 1 ? '' : 's'; ?>
+                    </span>
+                </div>
+                <div class="card-body complaint-form-body px-3 pt-3 pb-3">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle complaint-details-table">
+                            <thead>
+                                <tr>
+                                    <th>Warranty Status</th>
+                                    <th>Service Type</th>
+                                    <th>Part Number</th>
+                                    <th>Description</th>
+                                    <th>Qty</th>
+                                    <th>Track No</th>
+                                    <th>Recorded On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($cqReferrals as $cqReferral) {
+                                    $cqRecordedAt = trim((string) ($cqReferral['created_at'] ?? ''));
+                                    ?>
+                                <tr>
+                                    <td data-label="Warranty Status"><?php echo htmlspecialchars((string) ($cqReferral['warranty_status'] ?: '-')); ?></td>
+                                    <td data-label="Service Type"><?php echo htmlspecialchars((string) ($cqReferral['service_type'] ?: '-')); ?></td>
+                                    <td data-label="Part Number"><?php echo htmlspecialchars((string) ($cqReferral['part_number'] ?: '-')); ?></td>
+                                    <td data-label="Description"><?php echo htmlspecialchars((string) ($cqReferral['part_description'] ?: '-')); ?></td>
+                                    <td data-label="Qty"><?php echo (int) ($cqReferral['qty'] ?? 0); ?></td>
+                                    <td data-label="Track No"><?php echo htmlspecialchars((string) ($cqReferral['trackno'] ?: '-')); ?></td>
+                                    <td data-label="Recorded On"><?php echo $cqRecordedAt !== '' ? date('d M Y h:i A', strtotime($cqRecordedAt)) : '-'; ?></td>
+                                </tr>
+                                <?php } ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <?php } ?>
 
             <div class="card border-1 shadow-sm mb-3 complaint-details-history-card">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">

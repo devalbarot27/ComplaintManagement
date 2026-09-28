@@ -104,15 +104,31 @@ try {
     if (cq_complaint_category_qualifies((string) ($complaint['complaint_category_name'] ?? ''))) {
         $cqServiceType = cq_resolve_service_type_for_complaint($obconn, $complaint_id);
         $cqWarrantyStatus = cq_resolve_warranty_status_for_complaint($obconn, $complaint_id)['status'];
-        $cqQualifies = cq_service_type_qualifies($cqWarrantyStatus, $cqServiceType);
+        $cqFocRaised = $cqWarrantyStatus === CQ_WARRANTY_OUT
+            ? cq_complaint_has_foc_claim($obconn, $complaint_id)
+            : false;
+        $cqQualifies = cq_should_require_failed_parts(
+            (string) ($complaint['complaint_category_name'] ?? ''),
+            $cqWarrantyStatus,
+            $cqServiceType,
+            $cqFocRaised
+        );
 
         if ($cqQualifies) {
+            $allowedPartNumbers = [];
+            foreach (warranty_claims_existing_items_for_complaint($obconn, $complaint_id) as $serviceLogPart) {
+                $allowedPartNumber = strtolower(trim((string) ($serviceLogPart['part_number'] ?? '')));
+                if ($allowedPartNumber !== '') {
+                    $allowedPartNumbers[$allowedPartNumber] = true;
+                }
+            }
+
             $rawFailedParts = json_decode($_POST['cq_failed_parts'] ?? '[]', true);
             if (is_array($rawFailedParts)) {
                 foreach ($rawFailedParts as $part) {
                     $partNumber = trim((string) ($part['part_number'] ?? ''));
                     $qty = (int) ($part['qty'] ?? 0);
-                    if ($partNumber === '' || $qty <= 0) {
+                    if ($partNumber === '' || $qty <= 0 || !isset($allowedPartNumbers[strtolower($partNumber)])) {
                         continue;
                     }
                     $cqFailedParts[] = [
@@ -124,7 +140,7 @@ try {
             }
 
             if ($cqFailedParts === []) {
-                $_SESSION['error_message'] = 'Please select at least one failed part for Customer Quality review.';
+                $_SESSION['error_message'] = 'Part selection is required.';
                 header('Location: dse_lse_complaint_list.php');
                 exit;
             }
@@ -175,6 +191,19 @@ try {
         exit;
     }
 
+    $cqDetailsJson = null;
+    if ($cqQualifies && $cqFailedParts !== []) {
+        $cqDetailsJson = json_encode([
+            'warranty_status' => $cqWarrantyStatus,
+            'service_type' => $cqServiceType,
+            'parts' => $cqFailedParts,
+        ], JSON_UNESCAPED_UNICODE);
+        if ($cqDetailsJson === false) {
+            $cqDetailsJson = null;
+        }
+    }
+
+    complaint_service_update_ensure_schema($obconn);
     $obconn->beginTransaction();
  
     $insert = $obconn->prepare("
@@ -188,7 +217,8 @@ try {
             service_report,
             created_by,
             username,
-            distance_travelled
+            distance_travelled,
+            cq_details
         )
         VALUES
         (
@@ -200,8 +230,8 @@ try {
             :service_report,
             :created_by,
             :username,
-            :distance_travelled
-
+            :distance_travelled,
+            :cq_details
         )
     ");
  
@@ -217,6 +247,11 @@ try {
         $insert->bindValue(':distance_travelled', null, PDO::PARAM_NULL);
     } else {
         $insert->bindValue(':distance_travelled', $distance_travelled);
+    }
+    if ($cqDetailsJson === null) {
+        $insert->bindValue(':cq_details', null, PDO::PARAM_NULL);
+    } else {
+        $insert->bindValue(':cq_details', $cqDetailsJson);
     }
     $insert->execute();
 
@@ -262,6 +297,7 @@ try {
         $created_by
     );
 
+    $cqTrackNumbers = [];
     if ($cqQualifies && isset($ccsconn) && $ccsconn instanceof PDO) {
         $cqTrackNumbers = cq_create_referral(
             $ccsconn,
@@ -286,6 +322,18 @@ try {
         );
     } elseif ($cqQualifies) {
         error_log('CQ referral skipped for complaint #' . $complaint_id . ': CCS connection is not configured.');
+    }
+
+    if ($cqQualifies && $cqFailedParts !== []) {
+        cq_save_referrals(
+            $obconn,
+            $complaint_id,
+            $cqWarrantyStatus,
+            $cqServiceType,
+            $cqFailedParts,
+            $cqTrackNumbers,
+            $created_by
+        );
     }
  
     $obconn->commit();

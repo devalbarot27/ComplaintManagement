@@ -1,0 +1,4 @@
+{"ts":"2026-09-28T12:24:33+02:00","event":"create_allowed","resource":"complaint_categories","actor":"user:sysadm","ip":"::1","uri":"/ComplaintManagement/complaint_categories.php","context":{"record_count":1,"recent_count":1,"limit":20}}
+{"ts":"2026-09-28T12:24:50+02:00","event":"create_allowed","resource":"complaint_categories","actor":"user:sysadm","ip":"::1","uri":"/ComplaintManagement/complaint_categories.php","context":{"record_count":1,"recent_count":2,"limit":20}}
+{"ts":"2026-09-28T12:25:00+02:00","event":"create_allowed","resource":"complaint_categories","actor":"user:sysadm","ip":"::1","uri":"/ComplaintManagement/complaint_categories.php","context":{"record_count":1,"recent_count":3,"limit":20}}
+{"ts":"2026-09-28T12:25:07+02:00","event":"create_allowed","resource":"complaint_categories","actor":"user:sysadm","ip":"::1","uri":"/ComplaintManagement/complaint_categories.php","context":{"record_count":1,"recent_count":4,"limit":20}}

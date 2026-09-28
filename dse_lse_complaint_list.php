@@ -234,7 +234,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
                                 <span class="complaint-form-section__badge">3</span>
                                 <div>
                                     <h3 class="complaint-form-section__title">Customer Quality (CQ) Review</h3>
-                                    <p class="complaint-form-section__hint">Required for Product Performance / Parts-Accessories complaints based on warranty status</p>
+                                    <p class="complaint-form-section__hint">Select the failed parts from the Service Log when warranty and service type qualify. Out of Warranty also needs an FOC claim.</p>
                                 </div>
                             </div>
                             <div class="row g-3 align-items-start mb-2">
@@ -324,7 +324,7 @@ $showAddedByColumn = complaint_can_view_added_by_column($obconn);
 <?php } ?>
 
 <?php if ($canServiceUpdateAssignedComplaint) { ?>
-<script src="js/complaint_service_update_service_log.js"></script>
+<script src="js/complaint_service_update_service_log.js?v=<?= (int) @filemtime(__DIR__ . '/js/complaint_service_update_service_log.js') ?>"></script>
 <script src="js/complaint_service_update_save.js"></script>
 <?php } ?>
 
@@ -391,67 +391,77 @@ function escapeCqHtml(value) {
 }
 
 function renderCqFailedPartsOptions() {
-    const body = document.getElementById('cqFailedPartsBody');
-    if (!body) {
+    const $body = $('#cqFailedPartsBody');
+    if (!$body.length) {
         return;
     }
     if (cqState.parts.length === 0) {
-        body.innerHTML = '<tr><td colspan="4" class="text-muted text-center">No parts recorded in Service Log for this call ticket.</td></tr>';
+        $body.html('<tr><td colspan="4" class="text-muted text-center">No parts recorded in Service Log for this call ticket.</td></tr>');
         return;
     }
-    body.innerHTML = cqState.parts.map(function (part, idx) {
+    $body.html(cqState.parts.map(function (part, idx) {
         return '<tr>' +
             '<td><input type="checkbox" class="form-check-input cq-part-check" data-idx="' + idx + '"></td>' +
             '<td>' + escapeCqHtml(part.part_number) + '</td>' +
             '<td>' + escapeCqHtml(part.part_description || '') + '</td>' +
             '<td><input type="number" class="form-control form-control-sm cq-part-qty" data-idx="' + idx + '" min="1" value="' + (part.qty || 1) + '"></td>' +
             '</tr>';
-    }).join('');
+    }).join(''));
 }
 
 function syncCqFailedPartsInput() {
-    const input = document.getElementById('cqFailedPartsInput');
+    const $input = $('#cqFailedPartsInput');
     const selected = [];
-    document.querySelectorAll('.cq-part-check:checked').forEach(function (checkbox) {
-        const idx = parseInt(checkbox.getAttribute('data-idx'), 10);
+    $('#cqFailedPartsBody .cq-part-check:checked').each(function () {
+        const idx = parseInt($(this).attr('data-idx'), 10);
         const part = cqState.parts[idx];
         if (!part) {
             return;
         }
-        const qtyInput = document.querySelector('.cq-part-qty[data-idx="' + idx + '"]');
-        const qty = qtyInput ? parseInt(qtyInput.value, 10) : part.qty;
+        const qty = parseInt($('#cqFailedPartsBody .cq-part-qty[data-idx="' + idx + '"]').val(), 10);
         selected.push({
             part_number: part.part_number,
             part_description: part.part_description,
             qty: qty > 0 ? qty : 1
         });
     });
-    if (input) {
-        input.value = JSON.stringify(selected);
+    if ($input.length) {
+        $input.val(JSON.stringify(selected));
     }
     return selected;
 }
 
-function updateCqReviewVisibility() {
-    const wrap = document.getElementById('cqReviewWrap');
-    const partsWrap = document.getElementById('cqFailedPartsWrap');
-    if (wrap) {
-        wrap.classList.toggle('d-none', !cqState.categoryQualifies);
-    }
-    if (partsWrap) {
-        partsWrap.classList.toggle('d-none', !cqState.qualifies);
-    }
+function clearCqFailedPartsError() {
+    $('.validation-msg[data-field="cq_failed_parts"]').text('');
+    $('#cqFailedPartsTable').removeClass('is-invalid');
 }
 
+function updateCqReviewVisibility() {
+    $('#cqReviewWrap').toggleClass('d-none', !cqState.categoryQualifies);
+    $('#cqFailedPartsWrap').toggleClass('d-none', !cqState.qualifies);
+}
+
+let cqReviewLoadSeq = 0;
+
 function loadCqReviewData(complaintId) {
-    cqState.categoryQualifies = false;
-    cqState.warrantyStatus = '';
-    cqState.serviceType = '';
-    cqState.qualifies = false;
-    cqState.parts = [];
-    updateCqReviewVisibility();
+    const requestSeq = ++cqReviewLoadSeq;
+    const previouslySelected = {};
+    $('#cqFailedPartsBody .cq-part-check:checked').each(function () {
+        const idx = parseInt($(this).attr('data-idx'), 10);
+        const part = cqState.parts[idx];
+        if (part && part.part_number) {
+            previouslySelected[String(part.part_number).toLowerCase()] = true;
+        }
+    });
 
     if (!complaintId) {
+        cqState.categoryQualifies = false;
+        cqState.warrantyStatus = '';
+        cqState.serviceType = '';
+        cqState.qualifies = false;
+        cqState.parts = [];
+        updateCqReviewVisibility();
+        renderCqFailedPartsOptions();
         return;
     }
 
@@ -459,49 +469,41 @@ function loadCqReviewData(complaintId) {
         url: 'api/complaint_cq_review_data.php',
         type: 'GET',
         dataType: 'json',
+        cache: false,
         data: { complaint_id: complaintId }
     }).done(function (res) {
-        console.debug('[CQ debug] complaint_cq_review_data.php response:', res);
-        if (!res || !res.success) {
+        if (requestSeq !== cqReviewLoadSeq || !res || !res.success) {
             return;
         }
         cqState.categoryQualifies = !!res.category_qualifies;
         cqState.warrantyStatus = res.warranty_status || '';
         cqState.serviceType = res.service_type || '';
         cqState.qualifies = !!res.qualifies;
-        cqState.parts = res.parts || [];
+        cqState.parts = Array.isArray(res.parts) ? res.parts : [];
 
-        const badge = document.getElementById('cqWarrantyStatusBadge');
-        if (badge) {
-            badge.textContent = cqState.warrantyStatus || 'Unknown';
-            badge.className = 'badge ' + (res.warranty_badge_class || 'bg-secondary');
-        }
-
-        const serviceTypeDisplay = document.getElementById('cqServiceTypeDisplay');
-        if (serviceTypeDisplay) {
-            serviceTypeDisplay.textContent = cqState.serviceType || 'Not recorded in Service Log';
-        }
+        $('#cqWarrantyStatusBadge')
+            .text(cqState.warrantyStatus || 'Unknown')
+            .attr('class', 'badge ' + (res.warranty_badge_class || 'bg-secondary'));
+        $('#cqServiceTypeDisplay').text(cqState.serviceType || 'Not recorded in Service Log');
 
         renderCqFailedPartsOptions();
+        $('#cqFailedPartsBody .cq-part-check').each(function () {
+            const idx = parseInt($(this).attr('data-idx'), 10);
+            const part = cqState.parts[idx];
+            if (part && previouslySelected[String(part.part_number).toLowerCase()]) {
+                $(this).prop('checked', true);
+            }
+        });
+        syncCqFailedPartsInput();
         updateCqReviewVisibility();
-    }).fail(function (xhr) {
-        console.error('[CQ debug] complaint_cq_review_data.php request failed:', xhr.status, xhr.responseText);
     });
 }
 
 function initCqReviewSection() {
-    const partsBody = document.getElementById('cqFailedPartsBody');
-    if (partsBody) {
-        partsBody.addEventListener('change', function (e) {
-            if (e.target.classList.contains('cq-part-check') || e.target.classList.contains('cq-part-qty')) {
-                syncCqFailedPartsInput();
-                const msg = document.querySelector('.validation-msg[data-field="cq_failed_parts"]');
-                if (msg) {
-                    msg.textContent = '';
-                }
-            }
-        });
-    }
+    $('#cqFailedPartsBody').on('change', '.cq-part-check, .cq-part-qty', function () {
+        syncCqFailedPartsInput();
+        clearCqFailedPartsError();
+    });
 }
 
 function initServiceUpdateValidation() {
@@ -518,6 +520,7 @@ function initServiceUpdateValidation() {
         form.querySelectorAll('.is-invalid').forEach(function (el) {
             el.classList.remove('is-invalid');
         });
+        clearCqFailedPartsError();
         form.querySelectorAll('.validation-msg').forEach(function (el) {
             el.textContent = '';
         });
@@ -532,6 +535,12 @@ function initServiceUpdateValidation() {
             if (typeof showServiceUpdateServiceLogValidation === 'function') {
                 showServiceUpdateServiceLogValidation(message);
             }
+            return;
+        }
+
+        if (fieldName === 'cq_failed_parts') {
+            $('#cqFailedPartsTable').addClass('is-invalid');
+            $('.validation-msg[data-field="cq_failed_parts"]').text(message);
             return;
         }
 
@@ -635,7 +644,7 @@ function initServiceUpdateValidation() {
         }
 
         if (cqState.qualifies && syncCqFailedPartsInput().length === 0) {
-            errors.cq_failed_parts = ['Please select at least one failed part'];
+            errors.cq_failed_parts = ['Part selection is required'];
         }
 
         return Object.keys(errors).length ? errors : null;
@@ -824,6 +833,12 @@ function setCurrentDateTimeInput(input) {
 <script>
 $(document).ready(function () {
     initComplaintServiceUpdateServiceLog();
+    $('#serviceUpdateModal').on('shown.bs.modal', function () {
+        const complaintId = parseInt($('#serviceComplaintId').val() || '0', 10);
+        if (complaintId) {
+            loadCqReviewData(complaintId);
+        }
+    });
 <?php if ($canShowComplaintServiceLogModal) { ?>
     initInstalledBaseServiceLogModal();
     initComplaintServiceLogDraftSave();

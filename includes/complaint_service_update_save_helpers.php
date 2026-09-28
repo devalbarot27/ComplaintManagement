@@ -18,6 +18,10 @@ function complaint_service_update_ensure_schema(PDO $conn): void
         ALTER TABLE complaint_service_updates
         ADD COLUMN IF NOT EXISTS distance_travelled NUMERIC(10, 2) NULL
     ');
+    $conn->exec('
+        ALTER TABLE complaint_service_updates
+        ADD COLUMN IF NOT EXISTS cq_details TEXT NULL
+    ');
 }
 
 function complaint_service_update_normalize_distance(?string $distance): ?string

@@ -600,3 +600,7 @@ padding: 0px !important;
     border-radius: 8px;
     padding: 0.75rem;
 }
+
+#cqFailedPartsTable.is-invalid {
+    border: 1px solid #dc3545;
+}

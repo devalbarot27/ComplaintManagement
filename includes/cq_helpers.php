@@ -11,12 +11,10 @@
  * CCS/RCA database's `autorca_details` table (one row per failed part) via
  * the $ccsconn connection in pdo_obconn.php - there is no local staging copy.
  *
- * NOTE: the warranty thresholds/labels here (1 year / 1.6 years, "Under
- * Warranty" / "Uptime Warranty" / "Out of Warranty") are specific to this CQ
- * qualification rule and intentionally separate from
- * installed_base_warranty_status() in warranty_claims_helpers.php (12/24/36
- * month "Standard/Uptime/Out of Warranty" used by the Warranty Claims report)
- * - the two features use different BRDs with different thresholds.
+ * Warranty status uses the same Standard / Uptime / Out of Warranty windows as
+ * installed_base_warranty_status() (12 months, then 24 months, then out).
+ * Out of Warranty also requires an FOC claim on the complaint before failed
+ * parts are requested.
  */
 
 require_once __DIR__ . '/installed_base_helpers.php';
@@ -26,13 +24,9 @@ const CQ_QUALIFYING_COMPLAINT_CATEGORIES = [
     'Parts / Accessories',
 ];
 
-const CQ_WARRANTY_UNDER = 'Under Warranty';
+const CQ_WARRANTY_STANDARD = 'Standard Warranty';
 const CQ_WARRANTY_UPTIME = 'Uptime Warranty';
 const CQ_WARRANTY_OUT = 'Out of Warranty';
-
-/** Warranty thresholds in years, measured from the machine's Commissioned Date. */
-const CQ_WARRANTY_UNDER_YEARS = 1.0;
-const CQ_WARRANTY_UPTIME_YEARS = 1.6;
 
 const CQ_SERVICE_TYPE_FACTORY_FITTED = 'Complaint - Factory Fitted Parts Failure';
 const CQ_SERVICE_TYPE_NO_PARTS_REPLACED = 'No Parts Replaced - Setting Done';
@@ -65,16 +59,22 @@ function cq_next_autorca_trackno(PDO $ccsConn): string
     return (string) ((int) $stmt->fetchColumn() + 1);
 }
 
+function cq_normalize_complaint_category(string $categoryName): string
+{
+    $categoryName = strtolower(trim(preg_replace('/\s+/', ' ', $categoryName) ?? ''));
+    $categoryName = preg_replace('/\s*issue$/', '', $categoryName) ?? $categoryName;
+
+    return trim($categoryName);
+}
+
 /** Step 1: Call Type = Product Performance Issue / Parts / Accessories. */
 function cq_complaint_category_qualifies(string $categoryName): bool
 {
     // Tolerate whitespace/case/"Issue"-suffix variants (category names are admin-managed free text).
-    $categoryName = strtolower(trim(preg_replace('/\s+/', ' ', $categoryName) ?? ''));
-    $categoryName = preg_replace('/\s*issue$/', '', $categoryName) ?? $categoryName;
+    $categoryName = cq_normalize_complaint_category($categoryName);
 
     foreach (CQ_QUALIFYING_COMPLAINT_CATEGORIES as $qualifying) {
-        $normalizedQualifying = strtolower(preg_replace('/\s*issue$/', '', $qualifying) ?? $qualifying);
-        if ($categoryName === $normalizedQualifying) {
+        if ($categoryName === cq_normalize_complaint_category($qualifying)) {
             return true;
         }
     }
@@ -84,44 +84,33 @@ function cq_complaint_category_qualifies(string $categoryName): bool
 
 
 /**
- * Step 2: Warranty status from the Commissioned Date.
- * < 1 year = Under Warranty, 1 to <1.6 years = Uptime Warranty, >=1.6 years = Out of Warranty.
+ * Step 2: Standard Warranty (first 12 months), Uptime Warranty (months 13-36),
+ * or Out of Warranty after that.
  *
  * @return array{status: string, years_elapsed: ?float}
  */
 function cq_warranty_status_from_commissioning_date(?string $commissioningDate): array
 {
-    $commissioningDate = trim((string) $commissioningDate);
-    if ($commissioningDate === '') {
-        return ['status' => '', 'years_elapsed' => null];
+    require_once __DIR__ . '/warranty_claims_helpers.php';
+
+    $warranty = installed_base_warranty_status($commissioningDate);
+    $status = trim((string) ($warranty['status'] ?? ''));
+    if ($status === '' || $status === 'Unknown') {
+        $status = '';
     }
 
-    $normalized = installed_base_format_date_for_input($commissioningDate);
-    $timestamp = $normalized !== '' ? strtotime($normalized) : false;
-    if ($timestamp === false) {
-        return ['status' => '', 'years_elapsed' => null];
-    }
+    $monthsElapsed = $warranty['months_elapsed'] ?? null;
 
-    $commissioned = (new DateTimeImmutable('@' . $timestamp))->setTime(0, 0, 0);
-    $today = new DateTimeImmutable('today');
-    $daysElapsed = $today < $commissioned ? 0 : $today->diff($commissioned)->days;
-    $yearsElapsed = $daysElapsed / 365.25;
-
-    if ($yearsElapsed < CQ_WARRANTY_UNDER_YEARS) {
-        $status = CQ_WARRANTY_UNDER;
-    } elseif ($yearsElapsed < CQ_WARRANTY_UPTIME_YEARS) {
-        $status = CQ_WARRANTY_UPTIME;
-    } else {
-        $status = CQ_WARRANTY_OUT;
-    }
-
-    return ['status' => $status, 'years_elapsed' => $yearsElapsed];
+    return [
+        'status' => $status,
+        'years_elapsed' => $monthsElapsed === null ? null : ((int) $monthsElapsed) / 12,
+    ];
 }
 
 function cq_warranty_status_badge_class(string $status): string
 {
     $map = [
-        CQ_WARRANTY_UNDER => 'bg-success',
+        CQ_WARRANTY_STANDARD => 'bg-success',
         CQ_WARRANTY_UPTIME => 'bg-info text-dark',
         CQ_WARRANTY_OUT => 'bg-danger',
     ];
@@ -136,7 +125,7 @@ function cq_qualifying_service_types_for_warranty_status(string $warrantyStatus)
         return [CQ_SERVICE_TYPE_SUPPLIED_SPARES];
     }
 
-    if (in_array($warrantyStatus, [CQ_WARRANTY_UNDER, CQ_WARRANTY_UPTIME], true)) {
+    if (in_array($warrantyStatus, [CQ_WARRANTY_STANDARD, CQ_WARRANTY_UPTIME], true)) {
         return [CQ_SERVICE_TYPE_FACTORY_FITTED, CQ_SERVICE_TYPE_NO_PARTS_REPLACED, CQ_SERVICE_TYPE_SUPPLIED_SPARES];
     }
 
@@ -164,7 +153,10 @@ function cq_classify_service_type(string $rawServiceType): ?string
         return CQ_SERVICE_TYPE_FACTORY_FITTED;
     }
 
-    if (strpos($normalized, 'no parts replaced') !== false || strpos($normalized, 'setting done') !== false) {
+    if (strpos($normalized, 'no parts replaced') !== false
+        || strpos($normalized, 'no part replaced') !== false
+        || strpos($normalized, 'setting done') !== false
+    ) {
         return CQ_SERVICE_TYPE_NO_PARTS_REPLACED;
     }
 
@@ -185,10 +177,52 @@ function cq_service_type_qualifies(string $warrantyStatus, string $rawServiceTyp
     return in_array($classified, cq_qualifying_service_types_for_warranty_status($warrantyStatus), true);
 }
 
-/** Whether the complaint qualifies for CQ review (mandatory failed-part selection + CCS referral). */
-function cq_should_require_failed_parts(string $categoryName, string $warrantyStatus, string $serviceType): bool
+/** Whether an FOC claim has been raised for this complaint. */
+function cq_complaint_has_foc_claim(PDO $conn, int $complaintId): bool
 {
-    return cq_complaint_category_qualifies($categoryName) && cq_service_type_qualifies($warrantyStatus, $serviceType);
+    if ($complaintId <= 0) {
+        return false;
+    }
+
+    try {
+        $stmt = $conn->prepare('
+            SELECT 1
+            FROM foc_claims
+            WHERE complaint_id = :complaint_id
+              AND deleted_at IS NULL
+            LIMIT 1
+        ');
+        $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+        $stmt->execute();
+    } catch (PDOException $e) {
+        return false;
+    }
+
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * Failed parts are required when the category matches and:
+ * - Standard or Uptime Warranty, and the Service Log type is factory-fitted,
+ *   no-part-replaced, or supplied-spares failure; or
+ * - Out of Warranty, the Service Log type is supplied-spares failure, and an
+ *   FOC claim has been raised for the complaint.
+ */
+function cq_should_require_failed_parts(
+    string $categoryName,
+    string $warrantyStatus,
+    string $serviceType,
+    bool $focRaised = false
+): bool {
+    if (!cq_complaint_category_qualifies($categoryName) || !cq_service_type_qualifies($warrantyStatus, $serviceType)) {
+        return false;
+    }
+
+    if ($warrantyStatus === CQ_WARRANTY_OUT) {
+        return $focRaised;
+    }
+
+    return true;
 }
 
 /**
@@ -307,4 +341,94 @@ function cq_create_referral(
     error_log('CQ referral tracknos [' . implode(',', $trackNumbers) . '] created in autorca_details for complaint #' . $complaintId . '.');
 
     return $trackNumbers;
+}
+
+function cq_ensure_schema(PDO $conn): void
+{
+    $conn->exec('
+        CREATE TABLE IF NOT EXISTS cq_referrals (
+            id SERIAL PRIMARY KEY,
+            complaint_id INTEGER NOT NULL REFERENCES complaints(id),
+            warranty_status VARCHAR(80) NULL,
+            service_type VARCHAR(255) NULL,
+            part_number VARCHAR(100) NOT NULL,
+            part_description VARCHAR(255) NULL,
+            qty INTEGER NOT NULL DEFAULT 1,
+            trackno VARCHAR(50) NULL,
+            created_by INTEGER NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ');
+}
+
+/**
+ * @param array<int, array{part_number:string, part_description?:string, qty:int}> $failedParts
+ * @param array<int, string> $trackNumbers
+ */
+function cq_save_referrals(
+    PDO $conn,
+    int $complaintId,
+    string $warrantyStatus,
+    string $serviceType,
+    array $failedParts,
+    array $trackNumbers,
+    int $createdBy
+): void {
+    if ($complaintId <= 0 || $failedParts === []) {
+        return;
+    }
+
+    cq_ensure_schema($conn);
+
+    $insert = $conn->prepare('
+        INSERT INTO cq_referrals
+            (complaint_id, warranty_status, service_type, part_number, part_description, qty, trackno, created_by)
+        VALUES
+            (:complaint_id, :warranty_status, :service_type, :part_number, :part_description, :qty, :trackno, :created_by)
+    ');
+
+    $trackIndex = 0;
+    foreach ($failedParts as $part) {
+        $partNumber = trim((string) ($part['part_number'] ?? ''));
+        if ($partNumber === '') {
+            continue;
+        }
+
+        $description = trim((string) ($part['part_description'] ?? ''));
+        $trackNo = trim((string) ($trackNumbers[$trackIndex] ?? ''));
+        $trackIndex++;
+
+        $insert->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+        $insert->bindValue(':warranty_status', $warrantyStatus !== '' ? $warrantyStatus : null);
+        $insert->bindValue(':service_type', $serviceType !== '' ? $serviceType : null);
+        $insert->bindValue(':part_number', $partNumber);
+        $insert->bindValue(':part_description', $description !== '' ? $description : null);
+        $insert->bindValue(':qty', max(1, (int) ($part['qty'] ?? 1)), PDO::PARAM_INT);
+        $insert->bindValue(':trackno', $trackNo !== '' ? $trackNo : null);
+        $insert->bindValue(':created_by', $createdBy > 0 ? $createdBy : null, $createdBy > 0 ? PDO::PARAM_INT : PDO::PARAM_NULL);
+        $insert->execute();
+    }
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function cq_referrals_for_complaint(PDO $conn, int $complaintId): array
+{
+    if ($complaintId <= 0) {
+        return [];
+    }
+
+    cq_ensure_schema($conn);
+
+    $stmt = $conn->prepare('
+        SELECT warranty_status, service_type, part_number, part_description, qty, trackno, created_at
+        FROM cq_referrals
+        WHERE complaint_id = :complaint_id
+        ORDER BY created_at DESC, id DESC
+    ');
+    $stmt->bindValue(':complaint_id', $complaintId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

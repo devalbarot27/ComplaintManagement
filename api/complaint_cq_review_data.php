@@ -8,6 +8,8 @@ require_once dirname(__DIR__) . '/includes/warranty_claims_helpers.php';
 require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Pragma: no-cache');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET' && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -50,7 +52,10 @@ $warrantyStatus = $categoryQualifies
     ? cq_resolve_warranty_status_for_complaint($obconn, $complaintId)['status']
     : '';
 $serviceType = $categoryQualifies ? cq_resolve_service_type_for_complaint($obconn, $complaintId) : '';
-$serviceTypeQualifies = $categoryQualifies && cq_service_type_qualifies($warrantyStatus, $serviceType);
+$focRaised = $categoryQualifies && $warrantyStatus === CQ_WARRANTY_OUT
+    ? cq_complaint_has_foc_claim($obconn, $complaintId)
+    : false;
+$serviceTypeQualifies = cq_should_require_failed_parts($categoryName, $warrantyStatus, $serviceType, $focRaised);
 $parts = $serviceTypeQualifies ? warranty_claims_existing_items_for_complaint($obconn, $complaintId) : [];
 
 api_json_echo([
