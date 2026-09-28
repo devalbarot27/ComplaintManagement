@@ -349,7 +349,7 @@ try {
     service_report_delete_files($storedPaths);
 
     error_log('Failed to save service update: ' . $e->getMessage());
-    $_SESSION['error_message'] = 'Failed to save service update.';
+    $_SESSION['error_message'] = 'Failed to save service update.' . $e->getMessage();
 }
 
 header('Location: dse_lse_complaint_list.php');
