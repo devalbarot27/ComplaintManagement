@@ -22,6 +22,10 @@ function complaint_service_update_ensure_schema(PDO $conn): void
         ALTER TABLE complaint_service_updates
         ADD COLUMN IF NOT EXISTS cq_details TEXT NULL
     ');
+    $conn->exec('
+        ALTER TABLE complaint_service_updates
+        ALTER COLUMN service_report TYPE TEXT
+    ');
 }
 
 function complaint_service_update_normalize_distance(?string $distance): ?string

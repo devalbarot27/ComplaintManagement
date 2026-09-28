@@ -359,6 +359,11 @@ function cq_ensure_schema(PDO $conn): void
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     ');
+    $conn->exec('ALTER TABLE cq_referrals ALTER COLUMN warranty_status TYPE VARCHAR(80)');
+    $conn->exec('ALTER TABLE cq_referrals ALTER COLUMN service_type TYPE VARCHAR(255)');
+    $conn->exec('ALTER TABLE cq_referrals ALTER COLUMN part_number TYPE VARCHAR(100)');
+    $conn->exec('ALTER TABLE cq_referrals ALTER COLUMN part_description TYPE VARCHAR(255)');
+    $conn->exec('ALTER TABLE cq_referrals ALTER COLUMN trackno TYPE VARCHAR(50)');
 }
 
 /**
