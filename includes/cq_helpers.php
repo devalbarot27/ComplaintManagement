@@ -59,6 +59,73 @@ function cq_next_autorca_trackno(PDO $ccsConn): string
     return (string) ((int) $stmt->fetchColumn() + 1);
 }
 
+/**
+ * Character limits for autorca_details. warranty_type on CCS is often varchar(4),
+ * which cannot store "Standard Warranty".
+ *
+ * @return array<string, int>
+ */
+function cq_autorca_column_lengths(PDO $ccsConn): array
+{
+    static $lengths = null;
+    if (is_array($lengths)) {
+        return $lengths;
+    }
+
+    $lengths = [];
+    try {
+        $stmt = $ccsConn->query("
+            SELECT column_name, character_maximum_length
+            FROM information_schema.columns
+            WHERE table_name = 'autorca_details'
+              AND table_schema NOT IN ('pg_catalog', 'information_schema')
+              AND character_maximum_length IS NOT NULL
+        ");
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $lengths[(string) $row['column_name']] = (int) $row['character_maximum_length'];
+        }
+    } catch (PDOException $e) {
+        $lengths = [];
+    }
+
+    return $lengths;
+}
+
+function cq_fit_autorca_value(array $lengths, string $column, string $value): string
+{
+    $maxLength = (int) ($lengths[$column] ?? 0);
+    if ($maxLength <= 0) {
+        return $value;
+    }
+
+    $length = function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
+    if ($length <= $maxLength) {
+        return $value;
+    }
+
+    return function_exists('mb_substr') ? mb_substr($value, 0, $maxLength) : substr($value, 0, $maxLength);
+}
+
+/** CCS warranty_type is a short code when the column cannot hold the full status label. */
+function cq_autorca_warranty_type(array $lengths, string $warrantyStatus): string
+{
+    $maxLength = (int) ($lengths['warranty_type'] ?? 0);
+    $statusLength = function_exists('mb_strlen') ? mb_strlen($warrantyStatus) : strlen($warrantyStatus);
+    if ($maxLength <= 0 || $statusLength <= $maxLength) {
+        return $warrantyStatus;
+    }
+
+    if ($warrantyStatus === CQ_WARRANTY_STANDARD) {
+        $code = 'STW';
+    } elseif ($warrantyStatus === CQ_WARRANTY_UPTIME) {
+        $code = 'UTW';
+    } else {
+        $code = 'OOW';
+    }
+
+    return cq_fit_autorca_value($lengths, 'warranty_type', $code);
+}
+
 function cq_normalize_complaint_category(string $categoryName): string
 {
     $categoryName = strtolower(trim(preg_replace('/\s+/', ' ', $categoryName) ?? ''));
@@ -301,6 +368,7 @@ function cq_create_referral(
              NULL, NULL, NULL, NULL, NULL, NULL, NULL)
     ");
 
+    $columnLengths = cq_autorca_column_lengths($ccsConn);
     $remarks = 'CQ referral - Complaint Category: ' . $serviceType . ', Warranty Status: ' . $warrantyStatus . ', Category: ' . $categoryName;
     $trackNumbers = [];
 
@@ -312,18 +380,22 @@ function cq_create_referral(
 
         for ($attempt = 1; $attempt <= 5; $attempt++) {
             $trackNo = cq_next_autorca_trackno($ccsConn);
+            $trackLimit = (int) ($columnLengths['trackno'] ?? 0);
+            if ($trackLimit > 0 && strlen($trackNo) > $trackLimit) {
+                $trackNo = substr($trackNo, -$trackLimit);
+            }
 
             try {
                 $insert->bindValue(':trackno', $trackNo);
-                $insert->bindValue(':warranty_type', $warrantyStatus);
-                $insert->bindValue(':fabno', $fabNumber);
-                $insert->bindValue(':usr_id', (string) $userId);
-                $insert->bindValue(':ipaddr', $ipAddress);
-                $insert->bindValue(':pgcode', CQ_CCS_PRODUCT_GROUP);
+                $insert->bindValue(':warranty_type', cq_autorca_warranty_type($columnLengths, $warrantyStatus));
+                $insert->bindValue(':fabno', cq_fit_autorca_value($columnLengths, 'fabno', $fabNumber));
+                $insert->bindValue(':usr_id', cq_fit_autorca_value($columnLengths, 'usr_id', (string) $userId));
+                $insert->bindValue(':ipaddr', cq_fit_autorca_value($columnLengths, 'ipaddr', $ipAddress));
+                $insert->bindValue(':pgcode', cq_fit_autorca_value($columnLengths, 'pgcode', CQ_CCS_PRODUCT_GROUP));
                 $insert->bindValue(':subsyscode', null, PDO::PARAM_NULL);
-                $insert->bindValue(':part_code', $partNumber);
-                $insert->bindValue(':complain', $complaintDescription);
-                $insert->bindValue(':remarks', $remarks);
+                $insert->bindValue(':part_code', cq_fit_autorca_value($columnLengths, 'part_code', $partNumber));
+                $insert->bindValue(':complain', cq_fit_autorca_value($columnLengths, 'complain', $complaintDescription));
+                $insert->bindValue(':remarks', cq_fit_autorca_value($columnLengths, 'remarks', $remarks));
                 $insert->execute();
                 $trackNumbers[] = $trackNo;
                 break;
