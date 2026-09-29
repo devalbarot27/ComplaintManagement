@@ -990,21 +990,28 @@ function order_approval_send_reminder_email(PDO $conn, int $userId, string $refn
     return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
 }
 
-function order_approval_notify_creator_rejected(
+function order_approval_notify_creator_decision(
     PDO $conn,
     int $creatorUserId,
     int $requestId,
     string $refno,
     string $level,
-    string $remarks
+    string $decision,
+    string $remarks,
+    bool $sentForLevel2 = false
 ): void {
     $refno = trim($refno);
+    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
     if ($creatorUserId <= 0 || $refno === '') {
         return;
     }
 
     $levelLabel = $level === 'level_2' ? 'Level 2 Approval' : 'Level 1 Approval';
-    $message = 'Order ' . $refno . ' has been rejected at ' . $levelLabel . '.';
+    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
+    $message = 'Order ' . $refno . ' has been ' . $decision . ' at ' . $levelLabel . '.';
+    if ($decision === 'approved' && $sentForLevel2) {
+        $message = 'Order ' . $refno . ' has been approved at Level 1 Approval and sent for Level 2 Approval.';
+    }
     $remarks = trim($remarks);
     if ($remarks !== '') {
         $message .= ' Remarks: ' . $remarks;
@@ -1013,7 +1020,7 @@ function order_approval_notify_creator_rejected(
     notification_create(
         $conn,
         $creatorUserId,
-        'Order Rejected at ' . $levelLabel,
+        'Order ' . $decisionTitle . ' at ' . $levelLabel,
         $message,
         'order-approval',
         $requestId
@@ -2033,7 +2040,7 @@ function order_approval_decide(
             } elseif ($currentLevel === 'level_2') {
                 order_approval_send_l2_decision_email_to_creator($conn, $creatorUserId, $refno, 'rejected', $trimmedRemarks);
             }
-            order_approval_notify_creator_rejected($conn, $creatorUserId, $requestId, $refno, $currentLevel, $trimmedRemarks);
+            order_approval_notify_creator_decision($conn, $creatorUserId, $requestId, $refno, $currentLevel, 'rejected', $trimmedRemarks);
         }
 
         return [
@@ -2101,6 +2108,7 @@ function order_approval_decide(
         $creatorUserId = order_approval_order_requester_user_id($conn, $header, $request);
         if ($creatorUserId > 0) {
             order_approval_send_l1_decision_email_to_creator($conn, $creatorUserId, $refno, 'approved', $trimmedRemarks);
+            order_approval_notify_creator_decision($conn, $creatorUserId, $requestId, $refno, 'level_1', 'approved', $trimmedRemarks, true);
         }
 
         return [
@@ -2175,6 +2183,7 @@ function order_approval_decide(
         } elseif ($currentLevel === 'level_2') {
             order_approval_send_l2_decision_email_to_creator($conn, $creatorUserId, $refno, 'approved', $trimmedRemarks);
         }
+        order_approval_notify_creator_decision($conn, $creatorUserId, $requestId, $refno, $currentLevel, 'approved', $trimmedRemarks);
     }
 
     $levelLabel = order_approval_level_label($currentLevel);

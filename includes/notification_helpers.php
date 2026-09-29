@@ -435,7 +435,10 @@ function notification_resolve_redirect_url(
         case 'order_approval':
         case 'cart-approval':
         case 'cart_approval':
-            if (str_contains($titleKey, 'rejected') && $conn instanceof PDO) {
+            if (
+                $conn instanceof PDO
+                && (str_contains($titleKey, 'rejected') || str_contains($titleKey, 'approved'))
+            ) {
                 $refno = notification_order_approval_refno($conn, $referenceId);
                 if ($refno !== '') {
                     return 'recent_order_details.php?refno=' . rawurlencode($refno);
@@ -445,7 +448,7 @@ function notification_resolve_redirect_url(
 
         case 'foc-parts':
         case 'foc_parts':
-            if (str_contains($titleKey, 'rejected')) {
+            if (str_contains($titleKey, 'rejected at') || str_contains($titleKey, 'approved at')) {
                 return 'foc_claim_details.php?id=' . $encodedId;
             }
             return 'approvals.php';
@@ -454,7 +457,7 @@ function notification_resolve_redirect_url(
         case 'service_claims':
         case 'service-claim':
         case 'service_claim':
-            if (str_contains($titleKey, 'rejected')) {
+            if (str_contains($titleKey, 'rejected at') || str_contains($titleKey, 'approved at')) {
                 return 'service_claim_details.php?id=' . $encodedId;
             }
             return 'approvals.php';

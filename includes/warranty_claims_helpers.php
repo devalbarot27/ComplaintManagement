@@ -680,21 +680,28 @@ function service_claim_send_l2_decision_email_to_creator(
     return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
 }
 
-function warranty_claims_notify_creator_rejected(
+function warranty_claims_notify_creator_decision(
     PDO $conn,
     int $creatorUserId,
     string $moduleSlug,
     string $entityLabel,
     int $claimId,
     string $level,
-    string $remarks
+    string $decision,
+    string $remarks,
+    bool $sentForLevel2 = false
 ): void {
     if ($creatorUserId <= 0 || $claimId <= 0) {
         return;
     }
 
+    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
     $levelLabel = $level === 'l2' ? 'Level 2 Approval' : 'Level 1 Approval';
-    $message = $entityLabel . ' #' . $claimId . ' has been rejected at ' . $levelLabel . '.';
+    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
+    $message = $entityLabel . ' #' . $claimId . ' has been ' . $decision . ' at ' . $levelLabel . '.';
+    if ($decision === 'approved' && $sentForLevel2) {
+        $message = $entityLabel . ' #' . $claimId . ' has been approved at Level 1 Approval and sent for Level 2 Approval.';
+    }
     $remarks = trim($remarks);
     if ($remarks !== '') {
         $message .= ' Remarks: ' . $remarks;
@@ -703,7 +710,7 @@ function warranty_claims_notify_creator_rejected(
     notification_create(
         $conn,
         $creatorUserId,
-        $entityLabel . ' Rejected at ' . $levelLabel,
+        $entityLabel . ' ' . $decisionTitle . ' at ' . $levelLabel,
         $message,
         $moduleSlug,
         $claimId
@@ -2297,17 +2304,17 @@ function foc_claim_apply_decision(
         } elseif ($level === 'l2') {
             foc_parts_send_l2_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
         }
-        if ($decision === FOC_STAGE_REJECTED) {
-            warranty_claims_notify_creator_rejected(
-                $conn,
-                $creatorUserId,
-                'foc-parts',
-                'FOC Claim',
-                $claimId,
-                $level,
-                $remarks
-            );
-        }
+        warranty_claims_notify_creator_decision(
+            $conn,
+            $creatorUserId,
+            'foc-parts',
+            'FOC Claim',
+            $claimId,
+            $level,
+            $decision,
+            $remarks,
+            $level === 'l1' && $decision === FOC_STAGE_APPROVED
+        );
     }
 
     return null;
@@ -2510,17 +2517,17 @@ function service_claim_apply_decision(
         } elseif ($level === 'l2') {
             service_claim_send_l2_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
         }
-        if ($decision === FOC_STAGE_REJECTED) {
-            warranty_claims_notify_creator_rejected(
-                $conn,
-                $creatorUserId,
-                'service-claims',
-                'Service Claim',
-                $claimId,
-                $level,
-                $remarks
-            );
-        }
+        warranty_claims_notify_creator_decision(
+            $conn,
+            $creatorUserId,
+            'service-claims',
+            'Service Claim',
+            $claimId,
+            $level,
+            $decision,
+            $remarks,
+            $level === 'l1' && $decision === FOC_STAGE_APPROVED
+        );
     }
 
     return null;
