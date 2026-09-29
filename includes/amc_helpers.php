@@ -1909,17 +1909,23 @@ function amc_context_for_service_log(PDO $conn, array $serviceLog, ?array $insta
     $installedBaseId = (int) ($installedBaseRecord['id'] ?? ($serviceLog['installed_base_id'] ?? 0));
     $fabNumber = trim((string) ($installedBaseRecord['fab_number'] ?? ($serviceLog['fab_number'] ?? '')));
 
-    if ($contractId <= 0) {
-        $coverage = amc_coverage_for_machine($conn, $installedBaseId, $fabNumber);
-        $contractId = (int) ($coverage['contract_id'] ?? 0);
-    }
+    $linkedContract = $contractId > 0 ? amc_find_by_id($conn, $contractId) : null;
+    $coverage = amc_coverage_for_machine($conn, $installedBaseId, $fabNumber);
+    $activeContractId = (int) ($coverage['contract_id'] ?? 0);
+    $activeContract = $activeContractId > 0 ? amc_find_by_id($conn, $activeContractId) : null;
 
-    if ($contractId <= 0) {
+    if ($activeContract !== null) {
+        $contract = $activeContract;
+    } elseif ($linkedContract !== null) {
+        $contract = $linkedContract;
+    } else {
         $contracts = amc_list_for_installed_base($conn, $installedBaseId, $fabNumber);
-        $contractId = (int) ($contracts[0]['id'] ?? 0);
+        $contract = $contracts[0] ?? null;
     }
 
-    $contract = $contractId > 0 ? amc_find_by_id($conn, $contractId) : null;
+    if ($visit && $contract && (int) ($visit['amc_contract_id'] ?? 0) !== (int) ($contract['id'] ?? 0)) {
+        $visit = null;
+    }
 
     return [
         'contract' => $contract,
