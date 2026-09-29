@@ -488,9 +488,9 @@ function amc_from_post(array $post): array
         'amc_type' => trim((string) ($post['amc_type'] ?? '')),
         'amc_type_remarks' => '',
         'mode_of_call' => '',
-        'amc_start_date' => trim((string) ($post['amc_start_date'] ?? '')),
-        'amc_end_date' => trim((string) ($post['amc_end_date'] ?? '')),
-        'visit_start_date' => trim((string) ($post['visit_start_date'] ?? '')),
+        'amc_start_date' => amc_date_for_storage($post['amc_start_date'] ?? ''),
+        'amc_end_date' => amc_date_for_storage($post['amc_end_date'] ?? ''),
+        'visit_start_date' => amc_date_for_storage($post['visit_start_date'] ?? ''),
         'no_of_visits' => trim((string) ($post['no_of_visits'] ?? '')),
         'amc_value' => trim((string) ($post['amc_value'] ?? '')),
     ];
@@ -761,9 +761,9 @@ function amc_contract_to_form_data(array $contract): array
         'amc_type' => trim((string) ($contract['amc_type'] ?? '')),
         'amc_value' => (string) $value,
         'no_of_visits' => (string) ((int) ($contract['no_of_visits'] ?? 0)),
-        'amc_start_date' => amc_normalize_date($contract['amc_start_date'] ?? ''),
-        'amc_end_date' => amc_normalize_date($contract['amc_end_date'] ?? ''),
-        'visit_start_date' => amc_normalize_date($contract['visit_start_date'] ?? ''),
+        'amc_start_date' => amc_date_for_storage($contract['amc_start_date'] ?? ''),
+        'amc_end_date' => amc_date_for_storage($contract['amc_end_date'] ?? ''),
+        'visit_start_date' => amc_date_for_storage($contract['visit_start_date'] ?? ''),
     ];
 }
 
@@ -969,9 +969,9 @@ function amc_update_from_post(PDO $conn, int $contractId, array $post): array
         $stmt->bindValue(':amc_type', $data['amc_type']);
         $stmt->bindValue(':amc_type_remarks', $data['amc_type_remarks'] !== '' ? $data['amc_type_remarks'] : null);
         $stmt->bindValue(':mode_of_call', $data['mode_of_call'] !== '' ? $data['mode_of_call'] : null);
-        $stmt->bindValue(':amc_start_date', $data['amc_start_date']);
-        $stmt->bindValue(':amc_end_date', $data['amc_end_date']);
-        $stmt->bindValue(':visit_start_date', $data['visit_start_date']);
+        $stmt->bindValue(':amc_start_date', amc_date_for_storage($data['amc_start_date']));
+        $stmt->bindValue(':amc_end_date', amc_date_for_storage($data['amc_end_date']));
+        $stmt->bindValue(':visit_start_date', amc_date_for_storage($data['visit_start_date']));
         $stmt->bindValue(':no_of_visits', (int) $data['no_of_visits'], PDO::PARAM_INT);
         $stmt->bindValue(':amc_value', (float) $data['amc_value']);
         $stmt->bindValue(':status', $status);
@@ -1106,9 +1106,9 @@ function amc_insert_record(PDO $conn, array $data, int $createdBy, string $usern
     $stmt->bindValue(':amc_type', $data['amc_type']);
     $stmt->bindValue(':amc_type_remarks', $data['amc_type_remarks'] !== '' ? $data['amc_type_remarks'] : null);
     $stmt->bindValue(':mode_of_call', $data['mode_of_call'] !== '' ? $data['mode_of_call'] : null);
-    $stmt->bindValue(':amc_start_date', $data['amc_start_date']);
-    $stmt->bindValue(':amc_end_date', $data['amc_end_date']);
-    $stmt->bindValue(':visit_start_date', $data['visit_start_date']);
+    $stmt->bindValue(':amc_start_date', amc_date_for_storage($data['amc_start_date']));
+    $stmt->bindValue(':amc_end_date', amc_date_for_storage($data['amc_end_date']));
+    $stmt->bindValue(':visit_start_date', amc_date_for_storage($data['visit_start_date']));
     $stmt->bindValue(':no_of_visits', (int) $data['no_of_visits'], PDO::PARAM_INT);
     $stmt->bindValue(':amc_value', (float) $data['amc_value']);
     $stmt->bindValue(':dealer_name', $dealerName !== '' ? $dealerName : null);
@@ -1586,6 +1586,21 @@ function amc_normalize_date(?string $value): string
     }
 
     return substr($value, 0, 10);
+}
+
+function amc_date_for_storage(?string $value): string
+{
+    $stored = installed_base_format_date_for_input($value);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $stored)) {
+        return '';
+    }
+
+    $date = DateTime::createFromFormat('!Y-m-d', $stored);
+    if (!$date instanceof DateTime || $date->format('Y-m-d') !== $stored) {
+        return '';
+    }
+
+    return $stored;
 }
 
 function amc_format_date(?string $value): string
