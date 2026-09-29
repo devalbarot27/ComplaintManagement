@@ -222,10 +222,22 @@ function initAmcFormToggle() {
         openBtn.addEventListener('click', showForm);
     }
     if (closeBtn) {
-        closeBtn.addEventListener('click', hideForm);
+        closeBtn.addEventListener('click', function () {
+            if (window.amcEditMode) {
+                window.location.href = 'amc.php';
+                return;
+            }
+            hideForm();
+        });
     }
     if (cancelBtn) {
-        cancelBtn.addEventListener('click', hideForm);
+        cancelBtn.addEventListener('click', function () {
+            if (window.amcEditMode) {
+                window.location.href = 'amc.php';
+                return;
+            }
+            hideForm();
+        });
     }
 }
 

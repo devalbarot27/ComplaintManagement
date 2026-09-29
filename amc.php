@@ -23,6 +23,7 @@ if (isset($_SESSION['error_message'])) {
 
 $amcPermissions = amc_action_permissions($obconn);
 $canAddAmc = $amcPermissions['add'];
+$canEditAmc = $amcPermissions['edit'];
 $canDeleteAmc = $amcPermissions['delete'];
 $canSeeAddedBy = amc_can_view_added_by($obconn);
 
@@ -33,9 +34,61 @@ $dealerName = current_assignee_name();
 $formData = [];
 $reopenAmcForm = false;
 $installedBaseSnapshot = null;
+$editingAmcId = 0;
+$editingContractNumber = '';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' && isset($_GET['edit'])) {
+    $requestedEditId = (int) base64_decode((string) $_GET['edit'], true);
+    if ($requestedEditId <= 0) {
+        $error_message = 'Invalid AMC contract.';
+    } elseif (!$canEditAmc) {
+        $error_message = 'Access denied. You do not have permission to edit AMC contracts.';
+    } else {
+        $editingContract = amc_find_by_id($obconn, $requestedEditId);
+        if (!$editingContract || !amc_user_can_access_record($obconn, $editingContract)) {
+            $error_message = 'AMC contract not found.';
+        } else {
+            $editingAmcId = $requestedEditId;
+            $editingContractNumber = trim((string) ($editingContract['contract_number'] ?? ''));
+            $formData = amc_contract_to_form_data($editingContract);
+            $installedBaseId = (int) ($editingContract['installed_base_id'] ?? 0);
+            $installedBaseSnapshot = $installedBaseId > 0
+                ? amc_installed_base_snapshot($obconn, $installedBaseId)
+                : null;
+            if ($installedBaseSnapshot === null) {
+                $installedBaseSnapshot = amc_snapshot_from_contract($editingContract);
+            }
+            $reopenAmcForm = true;
+        }
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_amc'])) {
-    if (!$canAddAmc) {
+    $postedAmcId = (int) ($_POST['amc_id'] ?? 0);
+    if ($postedAmcId > 0) {
+        if (!$canEditAmc) {
+            $error_message = 'Access denied. You do not have permission to edit AMC contracts.';
+            $formData = amc_from_post($_POST);
+            $reopenAmcForm = true;
+            $editingAmcId = $postedAmcId;
+        } else {
+            $result = amc_update_from_post($obconn, $postedAmcId, $_POST);
+            $formData = $result['data'] ?? [];
+            $installedBaseSnapshot = $result['snapshot'] ?? null;
+            $editingAmcId = $postedAmcId;
+            $existingForTitle = amc_find_by_id($obconn, $postedAmcId);
+            $editingContractNumber = trim((string) ($existingForTitle['contract_number'] ?? ''));
+
+            if (!$result['success']) {
+                $error_message = $result['message'];
+                $reopenAmcForm = true;
+            } else {
+                $_SESSION['success_message'] = $result['message'];
+                header('Location: amc.php');
+                exit;
+            }
+        }
+    } elseif (!$canAddAmc) {
         $error_message = 'Access denied. You do not have permission to add AMC contracts.';
     } else {
         $result = amc_create_from_post(
@@ -58,6 +111,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_amc'])) {
         }
     }
 }
+
+$isAmcEdit = $editingAmcId > 0;
+$showAmcForm = $canAddAmc || $isAmcEdit;
 
 $amcContracts = amc_list($obconn);
 ?>
@@ -149,11 +205,13 @@ $amcContracts = amc_list($obconn);
                     Register AMC contracts against an Installed Base machine. FAB number, model, warranty and customer details are filled from the selected record.
                 </div>
             </div>
-            <?php if ($canAddAmc): ?>
+            <?php if ($showAmcForm): ?>
             <div class="header-btn-group">
+                <?php if ($canAddAmc): ?>
                 <button class="new-order-btn btn-complaint-primary" id="openAmcForm" type="button" style="<?= $reopenAmcForm ? 'display:none;' : '' ?>">
                     <i class="bi bi-plus-lg"></i> New AMC Contract
                 </button>
+                <?php endif; ?>
                 <button class="close-form-btn cancel-btn<?= $reopenAmcForm ? ' show' : '' ?>" id="closeAmcForm" type="button">
                     <i class="bi bi-x-lg"></i> Cancel
                 </button>
@@ -161,7 +219,7 @@ $amcContracts = amc_list($obconn);
             <?php endif; ?>
         </div>
 
-        <?php if ($canAddAmc): ?>
+        <?php if ($showAmcForm): ?>
         <div class="complaint-form-card" id="amcFormCard" style="<?= $reopenAmcForm ? 'display:block;' : 'display:none;' ?>">
             <div class="complaint-form-header">
                 <div class="complaint-form-header__main">
@@ -169,9 +227,11 @@ $amcContracts = amc_list($obconn);
                         <i class="bi bi-file-earmark-text"></i>
                     </div>
                     <div>
-                        <h2 class="complaint-form-header__title">New AMC Registration</h2>
+                        <h2 class="complaint-form-header__title"><?= $isAmcEdit ? 'Edit AMC Contract' : 'New AMC Registration' ?></h2>
                         <p class="complaint-form-header__subtitle">
-                            Select an Installed Base machine, then enter AMC contract details.
+                            <?= $isAmcEdit
+                                ? 'Update the AMC type, value, dates and visit plan. The installed base machine stays linked to this contract.'
+                                : 'Select an Installed Base machine, then enter AMC contract details.' ?>
                         </p>
                     </div>
                 </div>
@@ -179,13 +239,19 @@ $amcContracts = amc_list($obconn);
 
             <form method="POST" id="amcForm" novalidate>
                 <div class="complaint-form-body">
+                    <?php if ($isAmcEdit): ?>
+                    <input type="hidden" name="amc_id" value="<?= (int) $editingAmcId ?>">
+                    <input type="hidden" name="installed_base_id" value="<?= (int) ($formData['installed_base_id'] ?? ($installedBaseSnapshot['installed_base_id'] ?? 0)) ?>">
+                    <?php endif; ?>
 
                     <section class="complaint-form-section">
                         <div class="complaint-form-section__head">
                             <span class="complaint-form-section__badge">1</span>
                             <div>
                                 <h3 class="complaint-form-section__title">Installed Base</h3>
-                                <p class="complaint-form-section__hint">Search and select a machine. FAB number, model and warranty status are filled automatically.</p>
+                                <p class="complaint-form-section__hint"><?= $isAmcEdit
+                                    ? 'This contract stays linked to the machine below.'
+                                    : 'Search and select a machine. FAB number, model and warranty status are filled automatically.' ?></p>
                             </div>
                         </div>
                         <div class="row g-3">
@@ -193,8 +259,9 @@ $amcContracts = amc_list($obconn);
                                 <label class="form-label" for="amcInstalledBaseSelect">
                                     Installed Base Search <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-control" name="installed_base_id" id="amcInstalledBaseSelect"
-                                    data-placeholder="Search by FAB number, customer or model" required>
+                                <select class="form-control" id="amcInstalledBaseSelect"
+                                    <?= $isAmcEdit ? 'disabled' : 'name="installed_base_id" required' ?>
+                                    data-placeholder="Search by FAB number, customer or model">
                                     <option value=""></option>
                                 </select>
                                 <div class="text-danger validation-msg" data-field="installed_base_id"></div>
@@ -313,6 +380,12 @@ $amcContracts = amc_list($obconn);
                             </div>
                         </div>
                         <div class="row g-3">
+                            <?php if ($isAmcEdit): ?>
+                            <div class="col-md-4 form-group">
+                                <label class="form-label">Contract Number</label>
+                                <input type="text" class="form-control address-auto-field" value="<?= htmlspecialchars($editingContractNumber) ?>" readonly>
+                            </div>
+                            <?php endif; ?>
                             <div class="col-md-4 form-group">
                                 <label class="form-label" for="amcType">
                                     <i class="bi bi-tags"></i> AMC Type <span class="text-danger">*</span>
@@ -364,7 +437,7 @@ $amcContracts = amc_list($obconn);
                 <div class="complaint-form-actions">
                     <button type="button" class="cancel-btn" id="cancelAmcForm">Cancel</button>
                     <button type="submit" name="submit_amc" class="submit-btn btn-complaint-primary">
-                        <i class="bi bi-send"></i> Register AMC
+                        <i class="bi bi-<?= $isAmcEdit ? 'check-lg' : 'send' ?>"></i> <?= $isAmcEdit ? 'Update AMC' : 'Register AMC' ?>
                     </button>
                 </div>
             </form>
@@ -478,6 +551,12 @@ $amcContracts = amc_list($obconn);
                                             class="btn btn-sm btn-outline-dark" title="View">
                                             <i class="bi bi-eye"></i>
                                         </a>
+                                        <?php if ($canEditAmc): ?>
+                                        <a href="amc.php?edit=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
+                                            class="btn btn-sm btn-outline-dark" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <?php endif; ?>
                                         <?php if ($canDeleteAmc): ?>
                                         <a href="delete_amc.php?id=<?= htmlspecialchars($encodedAmcId, ENT_QUOTES, 'UTF-8') ?>"
                                             class="btn btn-sm btn-outline-dark" title="Delete"
@@ -499,6 +578,7 @@ $amcContracts = amc_list($obconn);
 </div>
 
 <script>
+window.amcEditMode = <?= $isAmcEdit ? 'true' : 'false' ?>;
 window.amcPreselectedInstalledBase = <?= json_encode($installedBaseSnapshot ?: null, JSON_UNESCAPED_UNICODE) ?>;
 </script>
 <script src="js/amc.js"></script>

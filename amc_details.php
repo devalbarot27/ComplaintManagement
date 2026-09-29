@@ -122,9 +122,16 @@ $availableServiceLogs = $canEditAmc ? amc_service_logs_available_for_visit($obco
                 <h5 class="mb-2">AMC Contract <?= htmlspecialchars($amcContract['contract_number']) ?></h5>
                 <span class="badge <?= amc_status_badge_class(amc_display_status($amcContract)) ?>"><?= htmlspecialchars(amc_display_status($amcContract)) ?></span>
             </div>
-            <a href="amc.php" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Back to List
-            </a>
+            <div class="d-flex gap-2">
+                <?php if ($canEditAmc): ?>
+                <a href="amc.php?edit=<?= htmlspecialchars(rawurlencode(base64_encode((string) $id)), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-complaint-primary">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                <?php endif; ?>
+                <a href="amc.php" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to List
+                </a>
+            </div>
         </div>
 
         <div class="card mb-3">
