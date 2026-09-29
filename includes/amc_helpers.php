@@ -1841,11 +1841,6 @@ function amc_coverage_lookup(PDO $conn, array $installedBaseIds = [], array $fab
 
 function amc_coverage_resolve(array $lookup, int $installedBaseId = 0, string $fabNumber = ''): array
 {
-    echo '<pre>';
-print_r($lookup);
-echo '</pre>';
-
-
     if ($installedBaseId > 0 && isset($lookup['by_id'][$installedBaseId])) {
         return $lookup['by_id'][$installedBaseId];
     }
