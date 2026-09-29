@@ -5,21 +5,30 @@ require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/user_helpers.php';
 
 /**
- * VAYU Engineers (ELGi Engineer) and Business Head / Manager / System Admin
- * can filter AR statements by dealer name.
+ * VAYU Engineers and Management filter their associated dealers.
+ * System Admin filters every dealer.
  */
 function ar_statement_user_can_filter_dealers(?PDO $conn = null): bool
 {
-    return ar_statement_user_is_vayu_engineer($conn)
+    return ar_statement_user_sees_assigned_dealers($conn)
         || ar_statement_user_can_view_all_dealers();
 }
 
 /**
- * Business Head / Manager (Management) and System Admin see every dealer.
+ * System Admin can filter every dealer.
+ * Management users see only dealers assigned to them.
  */
 function ar_statement_user_can_view_all_dealers(): bool
 {
-    return is_management_user() || is_system_admin();
+    return is_system_admin();
+}
+
+/**
+ * VAYU Engineers and Management see dealers linked as their L1 or L2 approver.
+ */
+function ar_statement_user_sees_assigned_dealers(?PDO $conn = null): bool
+{
+    return is_management_user() || ar_statement_user_is_vayu_engineer($conn);
 }
 
 /**
@@ -303,7 +312,7 @@ function ar_statement_is_allowed_cuno(PDO $obconn, string $cuno): bool
         return true;
     }
 
-    if (ar_statement_user_is_vayu_engineer($obconn)) {
+    if (ar_statement_user_sees_assigned_dealers($obconn)) {
         foreach (ar_statement_assigned_dealer_codes($obconn) as $assigned) {
             if (strcasecmp($assigned, $cuno) === 0) {
                 return true;
@@ -321,6 +330,15 @@ function ar_statement_search_dealers(?PDO $dpconn, PDO $obconn, string $search, 
 {
     if (ar_statement_user_can_view_all_dealers()) {
         return ar_statement_search_all_dealers($dpconn, $obconn, $search, $limit);
+    }
+
+    if (is_management_user()) {
+        return ar_statement_dealers_for_codes(
+            $dpconn,
+            $obconn,
+            ar_statement_assigned_dealer_codes($obconn),
+            $search
+        );
     }
 
     if (ar_statement_user_is_vayu_engineer($obconn)) {
@@ -361,7 +379,7 @@ function ar_statement_resolve_cuno(PDO $obconn): string
         return $sessionCuno;
     }
 
-    if (ar_statement_user_is_vayu_engineer($obconn)) {
+    if (ar_statement_user_sees_assigned_dealers($obconn)) {
         $assigned = ar_statement_assigned_dealer_codes($obconn);
         if (count($assigned) === 1) {
             return $assigned[0];

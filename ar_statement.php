@@ -25,7 +25,7 @@ if ($canFilterDealers && !$canViewAllDealers) {
         $obconn,
         ar_statement_assigned_dealer_codes($obconn)
     );
-    if ($assignedDealerOptions === []) {
+    if ($assignedDealerOptions === [] && ar_statement_user_is_vayu_engineer($obconn)) {
         $assignedDealerOptions = ar_statement_search_all_dealers($dpconn, $obconn, '', 50);
     }
 }
