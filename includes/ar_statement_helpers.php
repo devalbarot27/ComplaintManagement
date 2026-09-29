@@ -5,7 +5,7 @@ require_once __DIR__ . '/current_username_helpers.php';
 require_once __DIR__ . '/user_helpers.php';
 
 /**
- * VAYU Engineers (ELGi Engineer) and Business Head / Manager / System Admin
+ * VAYU Engineers, Management, System Admin, and CCS Admin
  * can filter AR statements by dealer name.
  */
 function ar_statement_user_can_filter_dealers(?PDO $conn = null): bool
@@ -15,11 +15,11 @@ function ar_statement_user_can_filter_dealers(?PDO $conn = null): bool
 }
 
 /**
- * Business Head / Manager (Management) and System Admin see every dealer.
+ * Management, System Admin, and CCS Admin can filter every dealer.
  */
 function ar_statement_user_can_view_all_dealers(): bool
 {
-    return is_management_user() || is_system_admin();
+    return is_management_user() || is_system_admin() || is_ccs_admin_user();
 }
 
 /**
