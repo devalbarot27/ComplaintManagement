@@ -3635,7 +3635,11 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $productStmt = $obconn->prepare("SELECT tpldesc, excisable, warehouse, otcode, mc, vc, fc, cos,dealer_price FROM product_master_vayu WHERE UPPER(TRIM(tplcode)) = UPPER(TRIM(:tplcode)) AND dpst = :dpst");
     $productFallbackStmt = $obconn->prepare("SELECT tpldesc, excisable, warehouse, otcode, mc, vc, fc, cos,dealer_price FROM product_master_vayu WHERE UPPER(TRIM(tplcode)) = UPPER(TRIM(:tplcode)) ORDER BY dpst LIMIT 1");
 
-    $hsnStmt = $obconn->prepare("SELECT substr(replace(hsn,':',''),1,4) AS hsn FROM elgi_item_master WHERE UPPER(TRIM(item_code)) = UPPER(TRIM(:tplcode))");
+    $hsnStmt = $obconn->prepare("
+        SELECT substr(replace(CAST(hsn AS text), ':', ''), 1, 4) AS hsn
+        FROM elgi_item_master
+        WHERE UPPER(TRIM(CAST(item_code AS text))) = UPPER(TRIM(CAST(:tplcode AS text)))
+    ");
 
     $xml = "";
 
@@ -3783,7 +3787,12 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
 
         $taxColumn = ($country == 'IND' && $state == 'TN') ? 'sgst' : 'igst';
 
-        $taxStmt = $obconn->prepare("SELECT {$taxColumn} AS taxcode FROM gst_hsn WHERE replace(hsn,':','') = :hsn AND company = :company");
+        $taxStmt = $obconn->prepare("
+            SELECT {$taxColumn} AS taxcode
+            FROM gst_hsn
+            WHERE replace(CAST(hsn AS text), ':', '') = CAST(:hsn AS text)
+              AND CAST(company AS text) = CAST(:company AS text)
+        ");
 
         $taxStmt->execute([
             ':hsn'     => $hsn,
