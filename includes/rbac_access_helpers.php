@@ -8,6 +8,7 @@ function rbac_system_admin_only_pages(): array
 {
     return [
         'flush_module_tables.php',
+        'import_postcodes.php',
     ];
 }
 

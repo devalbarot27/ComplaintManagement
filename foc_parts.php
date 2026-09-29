@@ -776,7 +776,7 @@ $showFocForm = $isEditMode || $error_message !== '';
                                 );
                             ?>
                             <tr>
-                                <td>#<?= $claimId ?></td>
+                                <td data-order="<?= $claimId ?>">#<?= $claimId ?></td>
                                 <td>
                                     <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
                                         #<?= $complaintId ?>

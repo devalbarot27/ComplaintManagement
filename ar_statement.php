@@ -367,12 +367,12 @@ foreach ($ledgerRows as $row) {
                                 <td class="fw-semibold text-end" data-order="<?= (int) round($rowOutstanding) ?>">
                                     &#8377;<?= number_format(round($rowOutstanding)) ?>
                                 </td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less30']) ?>"><?= number_format(round((float) $row['less30'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less40']) ?>"><?= number_format(round((float) $row['less40'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less45']) ?>"><?= number_format(round((float) $row['less45'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less50']) ?>"><?= number_format(round((float) $row['less50'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less60']) ?>"><?= number_format(round((float) $row['less60'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less90']) ?>"><?= number_format(round((float) $row['less90'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less30']) ?>">&#8377;<?= number_format(round((float) $row['less30'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less40']) ?>">&#8377;<?= number_format(round((float) $row['less40'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less45']) ?>">&#8377;<?= number_format(round((float) $row['less45'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less50']) ?>">&#8377;<?= number_format(round((float) $row['less50'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less60']) ?>">&#8377;<?= number_format(round((float) $row['less60'])) ?></td>
+                                <td class="text-end" data-order="<?= (int) round((float) $row['less90']) ?>">&#8377;<?= number_format(round((float) $row['less90'])) ?></td>
                                 <td class="text-end" data-order="<?= (int) round((float) $row['more90']) ?>">&#8377;<?= number_format(round((float) $row['more90'])) ?></td>
                                 <td class="<?= $rowOutstanding > 0 ? 'debit-text' : '' ?>" data-order="<?= htmlspecialchars($dueDateTs ? date('Y-m-d', $dueDateTs) : '') ?>">
                                     <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : ' ') ?>

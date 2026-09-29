@@ -114,21 +114,24 @@ $(function () {
     });
 
     $('#downloadStatementBtn').on('click', function () {
+        const csvText = function (value) {
+            return String(value || '').replace(/\u20B9/g, '').replace(/\s+/g, ' ').trim();
+        };
         const csvEscape = function (value) {
-            return '"' + String(value || '').replace(/"/g, '""') + '"';
+            return '"' + csvText(value).replace(/"/g, '""') + '"';
         };
         const header = table.columns().header().toArray().map(function (th) {
-            return csvEscape($(th).text().replace(/\s+/g, ' ').trim());
+            return csvEscape($(th).text());
         });
         const body = table.rows({ search: 'applied' }).nodes().toArray().map(function (tr) {
             return [...tr.querySelectorAll('td')].map(function (td) {
-                return csvEscape(td.textContent.replace(/\s+/g, ' ').trim());
+                return csvEscape(td.textContent);
             }).join(',');
         });
         const footerRow = $table.find('tfoot tr').get(0);
         const footer = footerRow
             ? [...footerRow.querySelectorAll('th,td')].map(function (cell) {
-                return csvEscape(cell.textContent.replace(/\s+/g, ' ').trim());
+                return csvEscape(cell.textContent);
             }).join(',')
             : '';
         const csv = [header.join(',')].concat(body);
