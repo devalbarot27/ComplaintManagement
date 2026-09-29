@@ -149,7 +149,8 @@ $partsTable .= '</tbody></table></div>';
             $focAmcCoverage = amc_coverage_for_fab($obconn, $fabNumber);
             record_details_field('Under AMC', !empty($focAmcCoverage['under_amc']) ? 'Yes' : 'No', 'col-md-4');
             if (!empty($focAmcCoverage['under_amc'])) {
-                record_details_field('AMC End Date', (string) $focAmcCoverage['end_date_label'], 'col-md-4');
+                record_details_field('AMC Start Date', amc_format_date((string) ($focAmcCoverage['start_date'] ?? '')), 'col-md-4');
+                record_details_field('AMC End Date', amc_format_date((string) ($focAmcCoverage['end_date'] ?? '')), 'col-md-4');
             }
             record_details_section_end();
 
