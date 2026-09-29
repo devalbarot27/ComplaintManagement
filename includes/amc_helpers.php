@@ -1430,7 +1430,6 @@ function amc_coverage_none(): array
 {
     return [
         'under_amc' => false,
-        'start_date' => '',
         'end_date' => '',
         'end_date_label' => '-',
         'contract_id' => 0,
@@ -1446,12 +1445,10 @@ function amc_coverage_from_contract(array $row): array
         return amc_coverage_none();
     }
 
-    $start = amc_normalize_date($row['amc_start_date'] ?? '');
     $end = amc_normalize_date($row['amc_end_date'] ?? '');
 
     return [
         'under_amc' => true,
-        'start_date' => $start,
         'end_date' => $end,
         'end_date_label' => installed_base_format_date($end),
         'contract_id' => (int) ($row['id'] ?? 0),
@@ -1817,26 +1814,13 @@ function amc_attach_coverage_to_options(PDO $conn, array $options): array
     return $options;
 }
 
-function amc_coverage_meta_html(array $coverage, $commissioningDate = null, bool $showContractDates = false): string
+function amc_coverage_meta_html(array $coverage, $commissioningDate = null): string
 {
     $yes = !empty($coverage['under_amc']);
     $html = '<div class="amc-coverage-meta">';
     $html .= installed_base_warranty_meta_html($commissioningDate !== null ? (string) $commissioningDate : null);
     $html .= '<div>Under AMC: <strong>' . ($yes ? 'Yes' : 'No') . '</strong></div>';
-    if ($yes && $showContractDates) {
-        $startLabel = amc_format_date((string) ($coverage['start_date'] ?? ''));
-        $endLabel = amc_format_date((string) ($coverage['end_date'] ?? ''));
-        if ($startLabel !== '-') {
-            $html .= '<div>AMC Start Date: '
-                . htmlspecialchars($startLabel, ENT_QUOTES, 'UTF-8')
-                . '</div>';
-        }
-        if ($endLabel !== '-') {
-            $html .= '<div>AMC End Date: '
-                . htmlspecialchars($endLabel, ENT_QUOTES, 'UTF-8')
-                . '</div>';
-        }
-    } elseif ($yes) {
+    if ($yes) {
         $html .= '<div>AMC end date: '
             . htmlspecialchars((string) $coverage['end_date_label'], ENT_QUOTES, 'UTF-8')
             . '</div>';
@@ -1846,9 +1830,9 @@ function amc_coverage_meta_html(array $coverage, $commissioningDate = null, bool
     return $html;
 }
 
-function amc_with_coverage_html(string $primaryHtml, array $coverage, $commissioningDate = null, bool $showContractDates = false): string
+function amc_with_coverage_html(string $primaryHtml, array $coverage, $commissioningDate = null): string
 {
-    return $primaryHtml . amc_coverage_meta_html($coverage, $commissioningDate, $showContractDates);
+    return $primaryHtml . amc_coverage_meta_html($coverage, $commissioningDate);
 }
 
 function amc_list_for_installed_base(PDO $conn, int $installedBaseId, string $fabNumber = ''): array

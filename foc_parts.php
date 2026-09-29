@@ -781,7 +781,7 @@ $showFocForm = $isEditMode || $error_message !== '';
                                         #<?= $complaintId ?>
                                     </a>
                                 </td>
-                                <td><?= amc_with_coverage_html(installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab), $focCoverage, $focCommissioningDate, true) ?></td>
+                                <td><?= amc_with_coverage_html(installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab), $focCoverage, $focCommissioningDate) ?></td>
                                 <td><?= htmlspecialchars((string) ($row['customer_name'] ?? '-')) ?></td>
                                 <td><?= foc_parts_linked_cell_html($focItemsByClaim[$claimId] ?? []) ?></td>
                                 <td><?= nl2br(htmlspecialchars($row['part_names'] ?? '')) ?></td>
