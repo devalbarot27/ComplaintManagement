@@ -1,5 +1,5 @@
 <?php
- 
+
 session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
@@ -325,6 +325,7 @@ try {
     }
 
     if ($cqQualifies && $cqFailedParts !== []) {
+
         cq_save_referrals(
             $obconn,
             $complaint_id,
@@ -334,13 +335,14 @@ try {
             $cqTrackNumbers,
             $created_by
         );
+
     }
  
     $obconn->commit();
  
    // $_SESSION['success_message'] = 'Service update saved successfully.';
     $_SESSION['success_message'] = 'Service update is currently pending with HO (Head Office) for approval.';
-    
+
 } catch (PDOException $e) {
     if ($obconn->inTransaction()) {
         $obconn->rollBack();
@@ -351,6 +353,7 @@ try {
     error_log('Failed to save service update: ' . $e->getMessage());
     $_SESSION['error_message'] = 'Failed to save service update.' . $e->getMessage();
 }
+
 
 header('Location: dse_lse_complaint_list.php');
 exit;

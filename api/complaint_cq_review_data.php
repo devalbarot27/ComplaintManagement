@@ -67,4 +67,3 @@ api_json_echo([
     'qualifies' => $serviceTypeQualifies,
     'parts' => $parts,
 ]);
-

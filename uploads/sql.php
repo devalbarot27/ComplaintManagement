@@ -22,8 +22,8 @@ try {
     // 2. Get sample data
     $stmt = $obconn->prepare("
         SELECT *
-        FROM cq_referrals
-        LIMIT 1000
+        FROM complaints
+        LIMIT 100
     ");
 
     $stmt->execute();
@@ -32,14 +32,14 @@ try {
     // 3. Merge output
     echo "<pre>";
     print_r([
-       "structure" => $structure,
-        "data" => $data
+        "structure" => $structure,
+        //"data" => $data
     ]);
 
 } catch (PDOException $e) {
     echo "Error: " . $e->getMessage();
 }
-die();
+die('44');
 
 
 

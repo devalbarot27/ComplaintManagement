@@ -213,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['order_decision']) ||
                     $orderService = new orderClass($obconn, $dpconn);
                     $aoError = $orderService->generateAoNumberAfterApproval((string) $result['refno']);
                     if ($aoError !== null) {
-                        $aoMessage .= ' AO Number was not generated: ' . $aoError;
+                        $aoMessage .= ' AO Number was not generated: ';
                     } else {
                         $aoMessage .= ' AO Number generation has been requested from LN.';
                     }
