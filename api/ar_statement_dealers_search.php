@@ -4,7 +4,7 @@ require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/admin_access_helpers.php';
 rbac_require_api_access($obconn);
-require_once dirname(__DIR__) . '/includes/ar_statement_helpers.php';
+require_once dirname(__DIR__) . '/../includes/ar_statement_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
 

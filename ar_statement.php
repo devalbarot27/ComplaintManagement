@@ -19,25 +19,7 @@ $canViewAllDealers = ar_statement_user_can_view_all_dealers();
 $cuno = ar_statement_resolve_cuno($obconn);
 $selectedDealer = $cuno !== '' ? ar_statement_dealer_get($dpconn, $obconn, $cuno) : null;
 $assignedDealerOptions = [];
-if ($canViewAllDealers) {
-    $assignedDealerOptions = ar_statement_search_all_dealers($dpconn, $obconn, '', 50);
-    if ($selectedDealer !== null) {
-        $selectedListed = false;
-        foreach ($assignedDealerOptions as $dealerOption) {
-            if (strcasecmp((string) $dealerOption['id'], (string) $selectedDealer['code']) === 0) {
-                $selectedListed = true;
-                break;
-            }
-        }
-        if (!$selectedListed) {
-            array_unshift($assignedDealerOptions, [
-                'id' => $selectedDealer['code'],
-                'text' => $selectedDealer['text'],
-                'name' => $selectedDealer['name'],
-            ]);
-        }
-    }
-} elseif ($canFilterDealers) {
+if ($canFilterDealers && !$canViewAllDealers) {
     $assignedDealerOptions = ar_statement_dealers_for_codes(
         $dpconn,
         $obconn,
@@ -293,7 +275,12 @@ foreach ($ledgerRows as $row) {
                     <div class="booking-actions">
 
                         <?php if ($canFilterDealers):
-                            $dealerFilterOptions = $assignedDealerOptions;
+                            $dealerFilterOptions = $canViewAllDealers
+                                ? ($selectedDealer !== null ? [[
+                                    'id' => $selectedDealer['code'],
+                                    'text' => $selectedDealer['text'],
+                                ]] : [])
+                                : $assignedDealerOptions;
                             $dealerFilterOptionsJson = htmlspecialchars(
                                 json_encode(array_values($dealerFilterOptions), JSON_UNESCAPED_UNICODE),
                                 ENT_QUOTES,
