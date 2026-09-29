@@ -3366,6 +3366,139 @@ function foc_claim_erp_customer_code(PDO $conn, int $claimId, string $fallback =
 }
 
 /**
+ * Live column widths for plexecom_customer_units. Production still has
+ * varchar(9) columns that this database has widened, so the insert must
+ * follow the server's actual length.
+ *
+ * @return array<string, array{type: string, length: int}>
+ */
+function foc_claim_plexecom_column_meta(PDO $conn): array
+{
+    static $meta = null;
+    if (is_array($meta)) {
+        return $meta;
+    }
+
+    $meta = [];
+    try {
+        $stmt = $conn->query("
+            SELECT column_name, data_type, character_maximum_length
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = 'plexecom_customer_units'
+        ");
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $meta[(string) $row['column_name']] = [
+                'type' => (string) ($row['data_type'] ?? ''),
+                'length' => (int) ($row['character_maximum_length'] ?? 0),
+            ];
+        }
+    } catch (PDOException $e) {
+        $meta = [];
+    }
+
+    return $meta;
+}
+
+/**
+ * @return array<string, string>
+ */
+function foc_claim_ln_insert_columns(): array
+{
+    return [
+        ':uname' => 'usr_name',
+        ':emp_code' => 'emp_code',
+        ':cuno' => 'cuno',
+        ':cname' => 'cuname',
+        ':area' => 'areacode',
+        ':pono' => 'pono',
+        ':indcat' => 'indent_category',
+        ':indno' => 'indent_number',
+        ':trans' => 'transporter',
+        ':delterms' => 'delterms_code',
+        ':deldate' => 'delivery_date',
+        ':invaddr' => 'invaddr',
+        ':email' => 'email',
+        ':pincode' => 'pincode',
+        ':district' => 'district',
+        ':deladdr' => 'deladdr',
+        ':dpst' => 'dpst',
+        ':tplcode' => 'tplcode',
+        ':taxcode' => 'salestax_code',
+        ':sid' => 'sessionid',
+        ':paycode' => 'paycode',
+        ':insby' => 'insby',
+        ':edi_cuno' => 'edi_cuno',
+        ':status' => 'status',
+        ':aoseries' => 'aoseries',
+        ':otcode' => 'otcode',
+        ':warehouse' => 'warehouse',
+        ':edi_delivery_date' => 'edi_delivery_date',
+        ':edi_delivery_code' => 'edi_delivery_code',
+        ':tpldesc' => 'tpldesc',
+        ':shipto' => 'delivery_code',
+        ':cmp' => 'company',
+        ':adrcode' => 'adrcode',
+        ':refno' => 'refno',
+        ':hsn' => 'hsn',
+        ':state' => 'state',
+        ':country' => 'country',
+        ':edistatus' => 'edistatus',
+        ':edi_date' => 'edi_date',
+        ':order_source' => 'order_source',
+    ];
+}
+
+/**
+ * Shorten a bound LN value to the live column width. A 10-character
+ * d.m.Y date is rewritten to d.m.y when the column is shorter than 10.
+ *
+ * @param mixed $value
+ * @return mixed
+ */
+function foc_claim_fit_plexecom_value(PDO $conn, string $column, $value, int $claimId)
+{
+    if ($value === null || is_bool($value) || is_int($value) || is_float($value)) {
+        return $value;
+    }
+
+    $meta = foc_claim_plexecom_column_meta($conn)[$column] ?? null;
+    if (!is_array($meta)) {
+        return $value;
+    }
+
+    $text = (string) $value;
+    $type = (string) ($meta['type'] ?? '');
+    if ($type === 'date') {
+        $parsed = DateTime::createFromFormat('!d.m.Y', $text);
+        if ($parsed instanceof DateTime && $parsed->format('d.m.Y') === $text) {
+            return $parsed->format('Y-m-d');
+        }
+
+        return $value;
+    }
+
+    $max = (int) ($meta['length'] ?? 0);
+    if ($max <= 0 || !in_array($type, ['character varying', 'character'], true)) {
+        return $value;
+    }
+
+    if (preg_match('/^\d{2}\.\d{2}\.\d{4}$/', $text) === 1 && $max < 10) {
+        $text = substr($text, 0, 6) . substr($text, -2);
+    }
+
+    $length = function_exists('mb_strlen') ? mb_strlen($text) : strlen($text);
+    if ($length <= $max) {
+        return $text;
+    }
+
+    $fitted = function_exists('mb_substr') ? mb_substr($text, 0, $max) : substr($text, 0, $max);
+    error_log("FOC claim #{$claimId}: {$column} is {$length} characters and the column allows {$max}, so the stored value was shortened.");
+
+    return $fitted;
+}
+
+/**
  * Push an APPROVED FOC claim's line items (foc_claim_items) to ERP LN as a
  * zero-value Sales Order, mirroring orderClass::submitCartApi() but sourced
  * from the FOC claim instead of the paid-order cart (tbl_vayu_cartitems).
@@ -3576,7 +3709,11 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $productStmt = $obconn->prepare("SELECT tpldesc, excisable, warehouse, otcode, mc, vc, fc, cos,dealer_price FROM product_master_vayu WHERE UPPER(TRIM(tplcode)) = UPPER(TRIM(:tplcode)) AND dpst = :dpst");
     $productFallbackStmt = $obconn->prepare("SELECT tpldesc, excisable, warehouse, otcode, mc, vc, fc, cos,dealer_price FROM product_master_vayu WHERE UPPER(TRIM(tplcode)) = UPPER(TRIM(:tplcode)) ORDER BY dpst LIMIT 1");
 
-    $hsnStmt = $obconn->prepare("SELECT substr(replace(hsn,':',''),1,4) AS hsn FROM elgi_item_master WHERE UPPER(TRIM(item_code)) = UPPER(TRIM(:tplcode))");
+    $hsnStmt = $obconn->prepare("
+        SELECT substr(replace(CAST(hsn AS text), ':', ''), 1, 4) AS hsn
+        FROM elgi_item_master
+        WHERE UPPER(TRIM(CAST(item_code AS text))) = UPPER(TRIM(CAST(:tplcode AS text)))
+    ");
 
     $xml = "";
 
@@ -3779,7 +3916,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
 
         $insertStmt = $obconn->prepare("INSERT INTO plexecom_customer_units(usr_name,emp_code,cuno,cuname,areacode,pono,indent_category,indent_number,indent_date,order_time,transporter,delterms_code,delivery_date,invaddr,email, pincode,district,deladdr,dpst,tplcode,price,qty,salestax_code,sessionid,paycode,insby,edi_cuno,seqid,status,aoseries,otcode,warehouse,edi_delivery_date,edi_delivery_code,tpldesc,mc,vc,fc,cos,delivery_code,frtamount,company,adrcode,refno,hsn,state,country,edistatus,edi_date,order_source)VALUES(:uname,:emp_code,:cuno,:cname,:area,:pono,:indcat,:indno,current_date,CURRENT_TIME,:trans,:delterms,:deldate,:invaddr,:email,:pincode,:district,:deladdr,:dpst,:tplcode,:price,:qty,:taxcode,:sid,:paycode,:insby,:edi_cuno,:seqid,:status,:aoseries,:otcode,:warehouse,:edi_delivery_date,:edi_delivery_code,:tpldesc,:mcval,:vcval,:fcval,:cosval,:shipto,:frtamount,:cmp,:adrcode,:refno,:hsn,:state,:country,:edistatus,:edi_date,:order_source)");
 
-        $success = $insertStmt->execute([
+        $insertParams = [
             ':uname'             => $userId,
             ':emp_code'          => '102464',
             ':cuno'              => $cuno,
@@ -3828,7 +3965,13 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
             ':edistatus'         => 'Y',
             ':edi_date'          => date('d.m.Y'),
             ':order_source'      => 'foc',
-        ]);
+        ];
+        foreach (foc_claim_ln_insert_columns() as $param => $column) {
+            if (array_key_exists($param, $insertParams)) {
+                $insertParams[$param] = foc_claim_fit_plexecom_value($obconn, $column, $insertParams[$param], $claimId);
+            }
+        }
+        $success = $insertStmt->execute($insertParams);
 
         if (!$success) {
             error_log("FOC claim #{$claimId}: plexecom_customer_units insert FAILED for part {$tplcode} - " . json_encode($insertStmt->errorInfo()));
