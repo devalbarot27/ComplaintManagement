@@ -990,6 +990,36 @@ function order_approval_send_reminder_email(PDO $conn, int $userId, string $refn
     return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), order_approval_mail_headers());
 }
 
+function order_approval_notify_creator_rejected(
+    PDO $conn,
+    int $creatorUserId,
+    int $requestId,
+    string $refno,
+    string $level,
+    string $remarks
+): void {
+    $refno = trim($refno);
+    if ($creatorUserId <= 0 || $refno === '') {
+        return;
+    }
+
+    $levelLabel = $level === 'level_2' ? 'Level 2 Approval' : 'Level 1 Approval';
+    $message = 'Order ' . $refno . ' has been rejected at ' . $levelLabel . '.';
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $message .= ' Remarks: ' . $remarks;
+    }
+
+    notification_create(
+        $conn,
+        $creatorUserId,
+        'Order Rejected at ' . $levelLabel,
+        $message,
+        'order-approval',
+        $requestId
+    );
+}
+
 function order_approval_notify_assigned_approver(
     PDO $conn,
     int $requestId,
@@ -2003,6 +2033,7 @@ function order_approval_decide(
             } elseif ($currentLevel === 'level_2') {
                 order_approval_send_l2_decision_email_to_creator($conn, $creatorUserId, $refno, 'rejected', $trimmedRemarks);
             }
+            order_approval_notify_creator_rejected($conn, $creatorUserId, $requestId, $refno, $currentLevel, $trimmedRemarks);
         }
 
         return [

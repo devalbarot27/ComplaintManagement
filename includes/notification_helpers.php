@@ -342,6 +342,25 @@ function notification_is_service_update_pending(?string $module, ?string $title)
     return in_array($moduleKey, ['assigned-complaint', 'assigned-complaint-list', 'dealer_service'], true);
 }
 
+function notification_order_approval_refno(PDO $conn, int $requestId): string
+{
+    if ($requestId <= 0) {
+        return '';
+    }
+
+    $stmt = $conn->prepare('
+        SELECT COALESCE(NULLIF(TRIM(order_refno), \'\'), NULLIF(TRIM(item_code), \'\'))
+        FROM order_approval_requests
+        WHERE id = :id
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $requestId, PDO::PARAM_INT);
+    $stmt->execute();
+    $refno = $stmt->fetchColumn();
+
+    return $refno !== false ? trim((string) $refno) : '';
+}
+
 function notification_resolve_redirect_url(
     ?string $module,
     ?int $referenceId,
@@ -416,12 +435,28 @@ function notification_resolve_redirect_url(
         case 'order_approval':
         case 'cart-approval':
         case 'cart_approval':
+            if (str_contains($titleKey, 'rejected') && $conn instanceof PDO) {
+                $refno = notification_order_approval_refno($conn, $referenceId);
+                if ($refno !== '') {
+                    return 'recent_order_details.php?refno=' . rawurlencode($refno);
+                }
+            }
+            return 'approvals.php';
+
         case 'foc-parts':
         case 'foc_parts':
+            if (str_contains($titleKey, 'rejected')) {
+                return 'foc_claim_details.php?id=' . $encodedId;
+            }
+            return 'approvals.php';
+
         case 'service-claims':
         case 'service_claims':
         case 'service-claim':
         case 'service_claim':
+            if (str_contains($titleKey, 'rejected')) {
+                return 'service_claim_details.php?id=' . $encodedId;
+            }
             return 'approvals.php';
 
         default:

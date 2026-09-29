@@ -680,6 +680,36 @@ function service_claim_send_l2_decision_email_to_creator(
     return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
 }
 
+function warranty_claims_notify_creator_rejected(
+    PDO $conn,
+    int $creatorUserId,
+    string $moduleSlug,
+    string $entityLabel,
+    int $claimId,
+    string $level,
+    string $remarks
+): void {
+    if ($creatorUserId <= 0 || $claimId <= 0) {
+        return;
+    }
+
+    $levelLabel = $level === 'l2' ? 'Level 2 Approval' : 'Level 1 Approval';
+    $message = $entityLabel . ' #' . $claimId . ' has been rejected at ' . $levelLabel . '.';
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $message .= ' Remarks: ' . $remarks;
+    }
+
+    notification_create(
+        $conn,
+        $creatorUserId,
+        $entityLabel . ' Rejected at ' . $levelLabel,
+        $message,
+        $moduleSlug,
+        $claimId
+    );
+}
+
 function warranty_claims_notify_user(
     PDO $conn,
     ?int $userId,
@@ -2267,6 +2297,17 @@ function foc_claim_apply_decision(
         } elseif ($level === 'l2') {
             foc_parts_send_l2_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
         }
+        if ($decision === FOC_STAGE_REJECTED) {
+            warranty_claims_notify_creator_rejected(
+                $conn,
+                $creatorUserId,
+                'foc-parts',
+                'FOC Claim',
+                $claimId,
+                $level,
+                $remarks
+            );
+        }
     }
 
     return null;
@@ -2468,6 +2509,17 @@ function service_claim_apply_decision(
             service_claim_send_l1_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
         } elseif ($level === 'l2') {
             service_claim_send_l2_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
+        }
+        if ($decision === FOC_STAGE_REJECTED) {
+            warranty_claims_notify_creator_rejected(
+                $conn,
+                $creatorUserId,
+                'service-claims',
+                'Service Claim',
+                $claimId,
+                $level,
+                $remarks
+            );
         }
     }
 
