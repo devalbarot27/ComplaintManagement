@@ -680,43 +680,6 @@ function service_claim_send_l2_decision_email_to_creator(
     return (bool) @mail($recipient['email'], $subject, implode("\r\n", $lines), warranty_claims_mail_headers());
 }
 
-function warranty_claims_notify_creator_decision(
-    PDO $conn,
-    int $creatorUserId,
-    string $moduleSlug,
-    string $entityLabel,
-    int $claimId,
-    string $level,
-    string $decision,
-    string $remarks,
-    bool $sentForLevel2 = false
-): void {
-    if ($creatorUserId <= 0 || $claimId <= 0) {
-        return;
-    }
-
-    $decision = strtolower(trim($decision)) === 'rejected' ? 'rejected' : 'approved';
-    $levelLabel = $level === 'l2' ? 'Level 2 Approval' : 'Level 1 Approval';
-    $decisionTitle = $decision === 'rejected' ? 'Rejected' : 'Approved';
-    $message = $entityLabel . ' #' . $claimId . ' has been ' . $decision . ' at ' . $levelLabel . '.';
-    if ($decision === 'approved' && $sentForLevel2) {
-        $message = $entityLabel . ' #' . $claimId . ' has been approved at Level 1 Approval and sent for Level 2 Approval.';
-    }
-    $remarks = trim($remarks);
-    if ($remarks !== '') {
-        $message .= ' Remarks: ' . $remarks;
-    }
-
-    notification_create(
-        $conn,
-        $creatorUserId,
-        $entityLabel . ' ' . $decisionTitle . ' at ' . $levelLabel,
-        $message,
-        $moduleSlug,
-        $claimId
-    );
-}
-
 function warranty_claims_notify_user(
     PDO $conn,
     ?int $userId,
@@ -2304,17 +2267,6 @@ function foc_claim_apply_decision(
         } elseif ($level === 'l2') {
             foc_parts_send_l2_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
         }
-        warranty_claims_notify_creator_decision(
-            $conn,
-            $creatorUserId,
-            'foc-parts',
-            'FOC Claim',
-            $claimId,
-            $level,
-            $decision,
-            $remarks,
-            $level === 'l1' && $decision === FOC_STAGE_APPROVED
-        );
     }
 
     return null;
@@ -2517,17 +2469,6 @@ function service_claim_apply_decision(
         } elseif ($level === 'l2') {
             service_claim_send_l2_decision_email_to_creator($conn, $creatorUserId, $claimId, $decision, $remarks);
         }
-        warranty_claims_notify_creator_decision(
-            $conn,
-            $creatorUserId,
-            'service-claims',
-            'Service Claim',
-            $claimId,
-            $level,
-            $decision,
-            $remarks,
-            $level === 'l1' && $decision === FOC_STAGE_APPROVED
-        );
     }
 
     return null;
@@ -3489,8 +3430,8 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $indcat    = "Normal Order";
     $otcode    = (string) $defaults['otcode'];
     $aoseries  = "YUF";
-    $cmp       = (string) $defaults['company'];
-    $dpst      = (string) $defaults['dpst'];
+    $cmp       = '490';
+    $dpst      = 'Y0011';
     $warehouse = (string) $defaults['warehouse'];
     $state     = "TN";
 
@@ -3635,11 +3576,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
     $productStmt = $obconn->prepare("SELECT tpldesc, excisable, warehouse, otcode, mc, vc, fc, cos,dealer_price FROM product_master_vayu WHERE UPPER(TRIM(tplcode)) = UPPER(TRIM(:tplcode)) AND dpst = :dpst");
     $productFallbackStmt = $obconn->prepare("SELECT tpldesc, excisable, warehouse, otcode, mc, vc, fc, cos,dealer_price FROM product_master_vayu WHERE UPPER(TRIM(tplcode)) = UPPER(TRIM(:tplcode)) ORDER BY dpst LIMIT 1");
 
-    $hsnStmt = $obconn->prepare("
-        SELECT substr(replace(CAST(hsn AS text), ':', ''), 1, 4) AS hsn
-        FROM elgi_item_master
-        WHERE UPPER(TRIM(CAST(item_code AS text))) = UPPER(TRIM(CAST(:tplcode AS text)))
-    ");
+    $hsnStmt = $obconn->prepare("SELECT substr(replace(hsn,':',''),1,4) AS hsn FROM elgi_item_master WHERE UPPER(TRIM(item_code)) = UPPER(TRIM(:tplcode))");
 
     $xml = "";
 
@@ -3663,7 +3600,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
                             <LogicalID>lid://infor.ims.mscrm</LogicalID>
                             <ComponentID>crm</ComponentID> 
                             <ConfirmationCode>OnError</ConfirmationCode>
-                        </Sender><CreationDateTime>" . $datetime . "</CreationDateTime><BODID>infor-nid:infor.ln:401::" . $refno . ":?SalesOrder&amp;verb=Sync</BODID>
+                        </Sender><CreationDateTime>" . $datetime . "</CreationDateTime><BODID>infor-nid:infor.ln:490::" . $refno . ":?SalesOrder&amp;verb=Sync</BODID>
                     </ApplicationArea>
                     <DataArea>
                         <Process>
@@ -3732,7 +3669,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
                         <NameValue name='crm.AccountType' type='StringType'>C</NameValue>
                         </Property>
                         <Property>
-                        <NameValue name='crm.OrderCategory' type='StringType'>" . $indcat . "</NameValue>
+                        <NameValue name='crm.OrderCategory' type='StringType'>FOC</NameValue>
                         </Property>
                         <Property>
                         <NameValue name='crm.OrderType' type='StringType'>" . $indcat . "</NameValue>
@@ -3787,12 +3724,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
 
         $taxColumn = ($country == 'IND' && $state == 'TN') ? 'sgst' : 'igst';
 
-        $taxStmt = $obconn->prepare("
-            SELECT {$taxColumn} AS taxcode
-            FROM gst_hsn
-            WHERE replace(CAST(hsn AS text), ':', '') = CAST(:hsn AS text)
-              AND CAST(company AS text) = CAST(:company AS text)
-        ");
+        $taxStmt = $obconn->prepare("SELECT {$taxColumn} AS taxcode FROM gst_hsn WHERE replace(hsn,':','') = :hsn AND company = :company");
 
         $taxStmt->execute([
             ':hsn'     => $hsn,
@@ -3920,6 +3852,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
                 <characterSet>UTF-8</characterSet> 
                 </document>
                 </messageRequest>";
+
 
     $url = "https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_TST/IONSERVICES/api/ion/messaging/service/v2/message";
 

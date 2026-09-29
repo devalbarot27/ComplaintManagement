@@ -1,4 +1,12 @@
 <?php
+ // Report all PHP errors
+error_reporting(E_ALL);
+
+// Force PHP to display errors on the screen
+ini_set('display_errors', '1');
+
+// Force PHP to display startup errors (e.g., initialization issues)
+ini_set('display_startup_errors', '1');
 
 session_start();
 include 'pdo_obconn.php';

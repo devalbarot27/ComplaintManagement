@@ -22,7 +22,8 @@ try {
     // 2. Get sample data
     $stmt = $obconn->prepare("
         SELECT *
-        FROM complaints
+        FROM amc_contracts
+where deleted_at is null
         LIMIT 100
     ");
 
@@ -33,7 +34,7 @@ try {
     echo "<pre>";
     print_r([
         "structure" => $structure,
-        //"data" => $data
+        "data" => $data
     ]);
 
 } catch (PDOException $e) {

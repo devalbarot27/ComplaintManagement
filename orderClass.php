@@ -2325,7 +2325,6 @@ class orderClass
                 </document>
                 </messageRequest>";
 
-            
                 $url = "https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_TST/IONSERVICES/api/ion/messaging/service/v2/message";
 
                 $maxRetries = 3;

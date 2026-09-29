@@ -469,7 +469,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_postcodes'])) 
                         <section class="complaint-form-section">
                             <?php if (!$uploadLimitReady) { ?>
                             <div class="alert alert-warning">
-                                The server upload limit is below 20 MB. Set upload_max_filesize and post_max_size to at least 20M before importing a 14â€“15 MB file.
+                                The server upload limit is below 20 MB. Set upload_max_filesize and post_max_size to at least 20M before importing a 14–15 MB file.
                             </div>
                             <?php } ?>
                             <div class="row g-3">
