@@ -752,9 +752,8 @@ $showFocForm = $isEditMode || $error_message !== '';
                         </thead>
                         <tbody>
                             <?php
-                            $focAmcLookup = amc_coverage_lookup(
+                            $focAmcLookup = amc_coverage_lookup_by_fab(
                                 $obconn,
-                                [],
                                 array_map(static fn ($claimRow) => (string) ($claimRow['fab_number'] ?? ''), $claims)
                             );
                             $focCommissioningLookup = installed_base_commissioning_lookup(

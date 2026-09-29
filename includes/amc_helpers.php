@@ -1724,6 +1724,72 @@ function amc_coverage_for_machine(PDO $conn, int $installedBaseId = 0, string $f
     );
 }
 
+/**
+ * Active AMC coverage matched only on amc_contracts.fab_number.
+ *
+ * @param list<string> $fabNumbers
+ * @return array{by_id: array<int, array<string, mixed>>, by_fab: array<string, array<string, mixed>>}
+ */
+function amc_coverage_lookup_by_fab(PDO $conn, array $fabNumbers): array
+{
+    amc_ensure_schema($conn);
+
+    $fabs = [];
+    foreach ($fabNumbers as $fab) {
+        $fab = strtolower(trim((string) $fab));
+        if ($fab !== '') {
+            $fabs[$fab] = $fab;
+        }
+    }
+
+    if ($fabs === []) {
+        return ['by_id' => [], 'by_fab' => []];
+    }
+
+    $placeholders = [];
+    $params = [];
+    $index = 0;
+    foreach ($fabs as $fab) {
+        $key = ':fab' . $index++;
+        $placeholders[] = $key;
+        $params[$key] = $fab;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT *
+        FROM amc_contracts
+        WHERE deleted_at IS NULL
+          AND LOWER(TRIM(fab_number)) IN (' . implode(', ', $placeholders) . ')
+        ORDER BY amc_end_date DESC, id DESC
+    ');
+    foreach ($params as $key => $value) {
+        $stmt->bindValue($key, $value);
+    }
+    $stmt->execute();
+
+    $byFab = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (!amc_contract_is_active($row)) {
+            continue;
+        }
+        $fabKey = strtolower(trim((string) ($row['fab_number'] ?? '')));
+        if ($fabKey !== '' && !isset($byFab[$fabKey])) {
+            $byFab[$fabKey] = amc_coverage_from_contract($row);
+        }
+    }
+
+    return ['by_id' => [], 'by_fab' => $byFab];
+}
+
+function amc_coverage_for_fab(PDO $conn, string $fabNumber): array
+{
+    return amc_coverage_resolve(
+        amc_coverage_lookup_by_fab($conn, [$fabNumber]),
+        0,
+        $fabNumber
+    );
+}
+
 function amc_attach_coverage_to_options(PDO $conn, array $options): array
 {
     $ids = [];
