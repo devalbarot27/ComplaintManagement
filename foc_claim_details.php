@@ -146,6 +146,7 @@ $partsTable .= '</tbody></table></div>';
             foreach (installed_base_warranty_detail_fields($focCommissioningDate) as $warrantyField) {
                 record_details_field($warrantyField['label'], $warrantyField['value'], 'col-md-4');
             }
+            
             $focAmcCoverage = amc_coverage_for_fab($obconn, $fabNumber);
             record_details_field('Under AMC', !empty($focAmcCoverage['under_amc']) ? 'Yes' : 'No', 'col-md-4');
             if (!empty($focAmcCoverage['under_amc'])) {

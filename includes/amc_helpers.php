@@ -1684,7 +1684,8 @@ function amc_contract_is_active(array $row, ?string $today = null): bool
     $start = amc_normalize_date($row['amc_start_date'] ?? '');
     $end = amc_normalize_date($row['amc_end_date'] ?? '');
 
-    return $start !== '' && $end !== '' && $start <= $today && $end >= $today;
+    //return $start !== '' && $end !== '' && $start <= $today && $end >= $today;
+    return $start !== '' && $end !== '';
 }
 
 function amc_display_status(array $row): string
@@ -1840,6 +1841,11 @@ function amc_coverage_lookup(PDO $conn, array $installedBaseIds = [], array $fab
 
 function amc_coverage_resolve(array $lookup, int $installedBaseId = 0, string $fabNumber = ''): array
 {
+    echo '<pre>';
+print_r($lookup);
+echo '</pre>';
+
+
     if ($installedBaseId > 0 && isset($lookup['by_id'][$installedBaseId])) {
         return $lookup['by_id'][$installedBaseId];
     }
@@ -2042,6 +2048,7 @@ function amc_coverage_lookup_by_fab(PDO $conn, array $fabNumbers): array
 
     $byFab = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        
         if (!amc_contract_is_active($row)) {
             continue;
         }
