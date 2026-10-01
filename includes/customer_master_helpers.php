@@ -151,7 +151,7 @@ function customer_master_dealer_address_option(array $row, string $code): array
 }
 
 /**
- * Same lookup as Create Order Dealer Address (customer_address.adr_code).
+ * A dealer is valid only when that code is on Customer Sync.
  *
  * @return array{code: string, name: string, text: string}|null
  */
@@ -163,58 +163,23 @@ function customer_master_dealer_get(PDO $conn, string $cuno): ?array
     }
 
     $stmt = $conn->prepare('
-        SELECT adr_code, cuname, cuno
-        FROM customer_address
-        WHERE length(adr_code) = 9
-          AND TRIM(adr_code) = TRIM(:code)
+        SELECT
+            TRIM(cms.customer_code) AS cuno,
+            TRIM(cm.cuname) AS cuname
+        FROM customer_master_sync cms
+        LEFT JOIN customer_master cm ON TRIM(cm.cuno) = TRIM(cms.customer_code)
+        WHERE cms.deleted_at IS NULL
+          AND TRIM(cms.customer_code) = TRIM(:code)
         LIMIT 1
     ');
     $stmt->bindValue(':code', $cuno);
-    $stmt->execute();
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($row) {
-        $code = trim((string) ($row['adr_code'] ?? ''));
-        return $code !== '' ? customer_master_dealer_address_option($row, $code) : null;
-    }
-
-    // Existing Customer Master rows and locked dealer users store cuno, not adr_code.
-    $stmt = $conn->prepare('
-        SELECT adr_code, cuname, cuno
-        FROM customer_address
-        WHERE length(adr_code) = 9
-          AND TRIM(cuno) = TRIM(:code)
-        ORDER BY cuname
-        LIMIT 1
-    ');
-    $stmt->bindValue(':code', $cuno);
-    $stmt->execute();
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($row) {
-        return customer_master_dealer_address_option($row, $cuno);
-    }
-
-    // End-customer rows store customer_master.cuno. Those dealers are not in customer_address.
-    $stmt = $conn->prepare('
-        SELECT adr_code, cuname, cuno
-        FROM customer_master
-        WHERE TRIM(cuno) = TRIM(:code)
-           OR TRIM(adr_code) = TRIM(:adr_code)
-        LIMIT 1
-    ');
-    $stmt->bindValue(':code', $cuno);
-    $stmt->bindValue(':adr_code', $cuno);
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
         return null;
     }
 
-    $masterCuno = trim((string) ($row['cuno'] ?? ''));
-    $masterAdr = trim((string) ($row['adr_code'] ?? ''));
-    $code = $cuno;
-    if (strcasecmp($code, $masterCuno) !== 0 && strcasecmp($code, $masterAdr) !== 0) {
-        $code = $masterCuno !== '' ? $masterCuno : $masterAdr;
-    }
+    $code = trim((string) ($row['cuno'] ?? ''));
     if ($code === '') {
         return null;
     }
@@ -223,7 +188,7 @@ function customer_master_dealer_get(PDO $conn, string $cuno): ?array
 }
 
 /**
- * Dealer Name options. Same dealer codes as Create Order (customer_master.cuno).
+ * Dealer Name options from Customer Sync only.
  * A passed dealer code limits the list to that dealer. Logged-in dealer users only see their own dealer.
  *
  * @return array<int, array{id: string, text: string, name: string}>
@@ -239,23 +204,26 @@ function customer_master_dealer_search(PDO $conn, string $search, int $limit = 5
         $dealer = $lockedDealer['code'];
     }
 
-    $sql = 'SELECT TRIM(cuno) AS cuno, TRIM(cuname) AS cuname
-        FROM customer_master
-        WHERE TRIM(COALESCE(cuno, \'\')) <> \'\'';
+    $sql = 'SELECT
+            TRIM(cms.customer_code) AS cuno,
+            TRIM(cm.cuname) AS cuname
+        FROM customer_master_sync cms
+        LEFT JOIN customer_master cm ON TRIM(cm.cuno) = TRIM(cms.customer_code)
+        WHERE cms.deleted_at IS NULL
+          AND length(TRIM(cms.customer_code)) > 0';
     $params = [];
     if ($dealer !== '') {
-        $sql .= ' AND TRIM(cuno) = TRIM(:dealer)';
+        $sql .= ' AND TRIM(cms.customer_code) = TRIM(:dealer)';
         $params[':dealer'] = $dealer;
     }
     if ($search !== '') {
         $sql .= ' AND (
-                LOWER(cuname) LIKE LOWER(:search)
-                OR cuno LIKE :search
-                OR adr_code LIKE :search
+                LOWER(COALESCE(cm.cuname, \'\')) LIKE LOWER(:search)
+                OR cms.customer_code LIKE :search
              )';
         $params[':search'] = '%' . $search . '%';
     }
-    $sql .= ' ORDER BY cuname LIMIT ' . (int) $limit;
+    $sql .= ' ORDER BY cm.cuname LIMIT ' . (int) $limit;
 
     $stmt = $conn->prepare($sql);
     foreach ($params as $key => $value) {
