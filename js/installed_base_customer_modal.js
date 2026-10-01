@@ -59,6 +59,97 @@ function resetInstalledBaseAddCustomerForm() {
         submitButton.classList.remove('disabled_btn');
         submitButton.disabled = false;
     }
+
+    setInstalledBaseCustomerModalMode('add');
+}
+
+function setInstalledBaseCustomerModalMode(mode) {
+    const isUpdate = mode === 'update';
+    const title = document.getElementById('installedBaseAddCustomerModalTitle');
+    const subtitle = document.querySelector('#installedBaseAddCustomerModal .complaint-form-header__subtitle');
+    const submitButton = document.getElementById('installedBaseAddCustomerSubmitBtn');
+    const idInput = document.getElementById('installedBaseCustomerModalId');
+
+    if (title) {
+        title.textContent = isUpdate ? 'Update Customer Details' : 'Add Customer';
+    }
+    if (subtitle) {
+        subtitle.textContent = isUpdate
+            ? 'Edit the selected customer name, contact, and address details.'
+            : 'Enter customer name, contact, and address details.';
+    }
+    if (submitButton) {
+        submitButton.innerHTML = isUpdate
+            ? '<i class="bi bi-check-lg"></i> Update Customer'
+            : '<i class="bi bi-check-lg"></i> Save Customer';
+    }
+    if (!isUpdate && idInput) {
+        idInput.value = '';
+    }
+}
+
+function fillInstalledBaseCustomerModal(data) {
+    const form = document.getElementById('installedBaseAddCustomerForm');
+    if (!form || !data) {
+        return;
+    }
+
+    const setValue = function (name, value) {
+        const input = form.querySelector('[name="' + name + '"]');
+        if (input) {
+            input.value = value != null ? String(value) : '';
+        }
+    };
+
+    setValue('customer_name', data.customer_name);
+    setValue('email', data.email);
+    setValue('mobile', data.mobile);
+    setValue('street_1', data.street_1);
+    setValue('street_2', data.street_2);
+    setValue('gst_number', data.gst_number);
+    setValue('pan_number', data.pan_number);
+
+    if (typeof setPincodeSelect2 === 'function') {
+        setPincodeSelect2(form, 'installedBaseCustomerModalPincodeSelect', {
+            pincode: data.pincode || '',
+            city: data.city || '',
+            district: data.district || '',
+            state: data.state || '',
+            state_code: data.state_code || ''
+        });
+    }
+
+    const dealerContext = window.customerMasterDealerContext || null;
+    const dealerLocked = !!(dealerContext && dealerContext.locked);
+    if (!dealerLocked && typeof setCustomerMasterDealerSelect2 === 'function') {
+        setCustomerMasterDealerSelect2(
+            'installedBaseCustomerModalDealerSelect',
+            'installedBaseCustomerModalDealerName',
+            'installedBaseCustomerModalDealerCodeLocked',
+            data.dealer_code || '',
+            data.dealer_name || '',
+            data.dealer_name && data.dealer_code
+                ? (String(data.dealer_name) + ' - [' + String(data.dealer_code) + ']')
+                : '',
+            { locked: false }
+        );
+    }
+}
+
+function openInstalledBaseUpdateCustomerModal(data) {
+    const modal = getInstalledBaseAddCustomerModal();
+    if (!modal || !data || !data.id) {
+        return;
+    }
+
+    resetInstalledBaseAddCustomerForm();
+    const idInput = document.getElementById('installedBaseCustomerModalId');
+    if (idInput) {
+        idInput.value = String(data.id);
+    }
+    setInstalledBaseCustomerModalMode('update');
+    fillInstalledBaseCustomerModal(data);
+    modal.show();
 }
 
 function openInstalledBaseAddCustomerModal() {
@@ -368,9 +459,13 @@ function initInstalledBaseAddCustomerFormValidation() {
         }
 
         const formData = $(form).serialize();
+        const customerId = String($('#installedBaseCustomerModalId').val() || '').trim();
+        const saveUrl = customerId !== ''
+            ? 'api/customer_master_update.php'
+            : 'api/customer_master_create.php';
 
         $.ajax({
-            url: 'api/customer_master_create.php',
+            url: saveUrl,
             type: 'POST',
             dataType: 'json',
             data: formData

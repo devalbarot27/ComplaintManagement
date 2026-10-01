@@ -30,6 +30,7 @@ $customerModalRequireGst = !empty($customerModalRequireGst);
                 <?php echo $customerModalRequireGst ? 'data-require-gst="1"' : ''; ?>>
                 <div class="complaint-form-body p-4">
                     <div id="installedBaseAddCustomerAlert" class="alert alert-danger d-none mb-3" role="alert"></div>
+                    <input type="hidden" name="customer_id" id="installedBaseCustomerModalId" value="">
                     <?php if ($customerModalRequireGst) { ?>
                     <input type="hidden" name="require_gst" value="1">
                     <?php } ?>

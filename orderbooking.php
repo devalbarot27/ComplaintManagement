@@ -400,7 +400,7 @@ $freightPercentage = 4;
                     }
                     ?>
                     <div id="endCustomerAddressDiv">
-                        <div class="form-group<?php echo $canAddCustomerMaster ? ' order-end-customer-picker' : ''; ?>">
+                        <div class="form-group order-end-customer-picker">
                             <label for="orderBookingEndCustomerSelect">Select Customer</label>
                             <div class="order-end-customer-picker__row">
                                 <div class="order-end-customer-picker__field">
@@ -410,12 +410,18 @@ $freightPercentage = 4;
                                     </select>
                                     <div id="orderBookingEndCustomerGstMsg" class="order-end-customer-gst-msg" hidden></div>
                                 </div>
-                                <?php if ($canAddCustomerMaster) { ?>
-                                <button type="button" class="btn btn-outline-dark btn-sm"
-                                    id="addNewCustomerFromOrderBookingBtn" title="Add New Customer">
-                                    <i class="bi bi-plus-lg"></i> Add New Customer
-                                </button>
-                                <?php } ?>
+                                <div class="order-end-customer-picker__actions">
+                                    <button type="button" class="btn btn-outline-dark btn-sm d-none"
+                                        id="updateCustomerFromOrderBookingBtn" title="Update Customer Details">
+                                        <i class="bi bi-pencil-square mr-1"></i> Update Customer Details
+                                    </button>
+                                    <?php if ($canAddCustomerMaster) { ?>
+                                    <button type="button" class="btn btn-outline-dark btn-sm"
+                                        id="addNewCustomerFromOrderBookingBtn" title="Add New Customer">
+                                        <i class="bi bi-plus-lg"></i> Add New Customer
+                                    </button>
+                                    <?php } ?>
+                                </div>
                             </div>
                         </div>
 
@@ -628,12 +634,10 @@ $freightPercentage = 4;
         </div>
     </div>
 
-    <?php if ($canAddCustomerMaster) { ?>
     <?php
     $customerModalRequireGst = true;
     include 'includes/installed_base_customer_modal.php';
     ?>
-    <?php } ?>
 </body>
 
 </html>

@@ -14,6 +14,8 @@ function setOrderBookingEndCustomerSelect2(id, text) {
     } else {
         $customer.val(null).trigger('change');
     }
+
+    syncOrderBookingUpdateCustomerButton();
 }
 
 function resetOrderBookingEndCustomerSelect2() {
@@ -214,11 +216,13 @@ function initOrderBookingEndCustomerSelect2() {
         const data = (e.params && e.params.data) ? e.params.data : null;
         if (data && Object.prototype.hasOwnProperty.call(data, 'gst_number')) {
             fillOrderBookingEndCustomerFields(data);
+            syncOrderBookingUpdateCustomerButton();
             return;
         }
 
         const id = $customer.val();
         if (!id) {
+            syncOrderBookingUpdateCustomerButton();
             return;
         }
 
@@ -228,12 +232,49 @@ function initOrderBookingEndCustomerSelect2() {
                 if (row) {
                     fillOrderBookingEndCustomerFields(row);
                 }
+                syncOrderBookingUpdateCustomerButton();
             });
     });
 
     $customer.on('select2:clear.orderBookingEndCustomer', function () {
         clearOrderBookingEndCustomerFields();
+        syncOrderBookingUpdateCustomerButton();
     });
+}
+
+function syncOrderBookingUpdateCustomerButton() {
+    const btn = document.getElementById('updateCustomerFromOrderBookingBtn');
+    if (!btn) {
+        return;
+    }
+
+    const customerId = String($('#orderBookingEndCustomerSelect').val() || '').trim();
+    btn.classList.toggle('d-none', customerId === '');
+}
+
+function initOrderBookingUpdateCustomerButton() {
+    const btn = document.getElementById('updateCustomerFromOrderBookingBtn');
+    if (!btn) {
+        return;
+    }
+
+    btn.addEventListener('click', function () {
+        const customerId = String($('#orderBookingEndCustomerSelect').val() || '').trim();
+        if (customerId === '') {
+            return;
+        }
+
+        $.getJSON('api/customer_masters_search.php', { id: customerId })
+            .done(function (payload) {
+                const row = payload && payload.results && payload.results[0] ? payload.results[0] : null;
+                if (!row || typeof openInstalledBaseUpdateCustomerModal !== 'function') {
+                    return;
+                }
+                openInstalledBaseUpdateCustomerModal(row);
+            });
+    });
+
+    syncOrderBookingUpdateCustomerButton();
 }
 
 function initOrderBookingAddNewCustomerButton() {
@@ -251,6 +292,7 @@ function initOrderBookingAddNewCustomerButton() {
 
 function initOrderBookingEndCustomerCustomerUi() {
     initOrderBookingEndCustomerSelect2();
+    initOrderBookingUpdateCustomerButton();
     initOrderBookingAddNewCustomerButton();
     if (typeof initInstalledBaseAddCustomerModal === 'function') {
         initInstalledBaseAddCustomerModal();

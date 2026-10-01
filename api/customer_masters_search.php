@@ -60,6 +60,10 @@ if ($id > 0) {
             'city' => trim((string) ($row['city'] ?? '')),
             'district' => trim((string) ($row['district'] ?? '')),
             'state' => trim((string) ($row['state'] ?? '')),
+            'dealer_code' => trim((string) ($row['dealer_code'] ?? '')),
+            'dealer_name' => trim((string) ($row['dealer_name'] ?? '')),
+            'gst_number' => trim((string) ($row['gst_number'] ?? '')),
+            'pan_number' => trim((string) ($row['pan_number'] ?? '')),
         ]],
     ]);
     exit;

@@ -189,16 +189,42 @@ function customer_master_dealer_get(PDO $conn, string $cuno): ?array
     $stmt->bindValue(':code', $cuno);
     $stmt->execute();
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        return customer_master_dealer_address_option($row, $cuno);
+    }
+
+    // End-customer rows store customer_master.cuno. Those dealers are not in customer_address.
+    $stmt = $conn->prepare('
+        SELECT adr_code, cuname, cuno
+        FROM customer_master
+        WHERE TRIM(cuno) = TRIM(:code)
+           OR TRIM(adr_code) = TRIM(:adr_code)
+        LIMIT 1
+    ');
+    $stmt->bindValue(':code', $cuno);
+    $stmt->bindValue(':adr_code', $cuno);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
         return null;
     }
 
-    return customer_master_dealer_address_option($row, $cuno);
+    $masterCuno = trim((string) ($row['cuno'] ?? ''));
+    $masterAdr = trim((string) ($row['adr_code'] ?? ''));
+    $code = $cuno;
+    if (strcasecmp($code, $masterCuno) !== 0 && strcasecmp($code, $masterAdr) !== 0) {
+        $code = $masterCuno !== '' ? $masterCuno : $masterAdr;
+    }
+    if ($code === '') {
+        return null;
+    }
+
+    return customer_master_dealer_address_option($row, $code);
 }
 
 /**
- * Same search as Create Order Dealer Address (orderClass::customer_master).
- * Filtered by selected dealer cuno, else session customer_number_vayu.
+ * Dealer Name options. Same dealer codes as Create Order (customer_master.cuno).
+ * A passed dealer code limits the list to that dealer. Logged-in dealer users only see their own dealer.
  *
  * @return array<int, array{id: string, text: string, name: string}>
  */
@@ -208,20 +234,23 @@ function customer_master_dealer_search(PDO $conn, string $search, int $limit = 5
     $search = trim($search);
     $dealer = trim($dealer);
 
-    $sql = 'SELECT adr_code, cuname
-        FROM customer_address
-        WHERE length(adr_code) = 9';
+    $lockedDealer = customer_master_logged_in_dealer_context($conn);
+    if ($lockedDealer !== null) {
+        $dealer = $lockedDealer['code'];
+    }
+
+    $sql = 'SELECT TRIM(cuno) AS cuno, TRIM(cuname) AS cuname
+        FROM customer_master
+        WHERE TRIM(COALESCE(cuno, \'\')) <> \'\'';
     $params = [];
     if ($dealer !== '') {
-        $sql .= ' AND cuno = :dealer';
+        $sql .= ' AND TRIM(cuno) = TRIM(:dealer)';
         $params[':dealer'] = $dealer;
-    } else {
-        $sql .= ' AND cuno = :cuno';
-        $params[':cuno'] = trim((string) ($_SESSION['customer_number_vayu'] ?? ''));
     }
     if ($search !== '') {
         $sql .= ' AND (
                 LOWER(cuname) LIKE LOWER(:search)
+                OR cuno LIKE :search
                 OR adr_code LIKE :search
              )';
         $params[':search'] = '%' . $search . '%';
@@ -236,7 +265,7 @@ function customer_master_dealer_search(PDO $conn, string $search, int $limit = 5
 
     $results = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $code = trim((string) ($row['adr_code'] ?? ''));
+        $code = trim((string) ($row['cuno'] ?? ''));
         if ($code === '') {
             continue;
         }
