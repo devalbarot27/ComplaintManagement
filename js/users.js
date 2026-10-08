@@ -295,6 +295,29 @@ function initUsersFormValidation() {
 
   bindSpecialCharacterRestrictions();
 
+  function clearCustomerCodeValidation() {
+    const input = form.querySelector('[name="customer_code"]');
+    const msg = form.querySelector('.validation-msg[data-field="customer_code"]');
+    if (input) {
+      input.classList.remove("is-invalid");
+    }
+    if (msg) {
+      msg.textContent = "";
+    }
+    if (window.jQuery && input) {
+      window
+        .jQuery(input)
+        .next(".select2-container")
+        .find(".select2-selection")
+        .removeClass("is-invalid");
+    }
+  }
+
+  const roleSelect = form.querySelector('[name="role"]');
+  if (roleSelect) {
+    roleSelect.addEventListener("change", clearCustomerCodeValidation);
+  }
+
   function clearValidationState() {
     form.querySelectorAll(".validation-msg").forEach(function (msg) {
       msg.textContent = "";
