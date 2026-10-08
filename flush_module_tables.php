@@ -117,6 +117,14 @@ function flush_module_definitions(): array
                 ['key' => 'service_claims', 'label' => 'Service claims'],
             ],
         ],
+        'product_master' => [
+            'label' => 'Product Master',
+            'icon' => 'bi-box',
+            'note' => '',
+            'count_fields' => [
+                ['key' => 'product_master_vayu', 'label' => 'Products'],
+            ],
+        ],
     ];
 }
 
@@ -398,6 +406,16 @@ function flush_service_claims_module(PDO $conn): array
 /**
  * @return array<string, int>
  */
+function flush_product_master_module(PDO $conn): array
+{
+    return [
+        'product_master_vayu' => flush_delete_table($conn, 'product_master_vayu'),
+    ];
+}
+
+/**
+ * @return array<string, int>
+ */
 function flush_amc_module(PDO $conn): array
 {
     return [
@@ -496,7 +514,8 @@ function flush_all_modules(PDO $conn): array
         ],
         flush_amc_module($conn),
         flush_installed_base_records($conn),
-        flush_customer_master_module($conn)
+        flush_customer_master_module($conn),
+        flush_product_master_module($conn)
     );
 }
 
@@ -554,6 +573,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['flush_module'])) {
             } elseif ($target === 'service_claims') {
                 $deleted = flush_service_claims_module($obconn);
                 $label = $modules['service_claims']['label'];
+            } elseif ($target === 'product_master') {
+                $deleted = flush_product_master_module($obconn);
+                $label = $modules['product_master']['label'];
             } elseif ($target === 'order_creation') {
                 $deleted = flush_order_creation_module($obconn);
                 $label = $modules['order_creation']['label'];
@@ -599,6 +621,7 @@ $counts = [
     'order_approval_requests' => flush_table_count($obconn, 'order_approval_requests'),
     'order_approval_history' => flush_table_count($obconn, 'order_approval_history'),
     'tbl_vayu_orders_header' => flush_table_count($obconn, 'tbl_vayu_orders_header'),
+    'product_master_vayu' => flush_table_count($obconn, 'product_master_vayu'),
 ];
 
 $allTotal = 0;
