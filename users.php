@@ -28,14 +28,12 @@ $formRecord = [
     'level_2_approver_id' => 0,
 ];
 $createdBy = current_username();
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = user_from_post($_POST);
     $formRecord = user_form_record_from_post($data, $recordId);
     $isEdit = $recordId > 0;
-    $validationError = user_validate($data, $isEdit, $obconn);
-
+     $validationError = user_validate($data, $isEdit, $obconn);
     if ($validationError !== null) {
         $error_message = $validationError;
     } elseif (user_username_exists($obconn, $data['username'], $recordId)) {
@@ -44,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
         $error_message = 'Email address already exists';
     } elseif (user_mobile_exists($obconn, $data['mobile_number'], $recordId)) {
         $error_message = 'Mobile number already exists';
-    } elseif (user_customer_code_exists($obconn, $data['customer_code'], $recordId)) {
+    } elseif ($data['customer_code'] !== '' && user_customer_code_exists($obconn, $data['customer_code'], $recordId)) {
         $error_message = 'Customer Code already exists. Please choose a different Customer Code.';
     } else {
         try {

@@ -251,7 +251,8 @@ function foc_claim_pending_level(?array $claim): ?string
     if (($claim['l1_status'] ?? '') === FOC_STAGE_PENDING) {
         return 'l1';
     }
-    if (foc_claim_l1_allows_level2($claim)
+    if (
+        foc_claim_l1_allows_level2($claim)
         && ($claim['l2_status'] ?? '') === FOC_STAGE_PENDING
     ) {
         return 'l2';
@@ -1156,8 +1157,10 @@ function warranty_claims_ensure_schema(PDO $conn): void
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         ");
-    } elseif (!$columnExists($conn, 'foc_claim_items', 'source_reference_id')
-        && $columnExists($conn, 'foc_claim_items', 'spare_parts_consumption_item_id')) {
+    } elseif (
+        !$columnExists($conn, 'foc_claim_items', 'source_reference_id')
+        && $columnExists($conn, 'foc_claim_items', 'spare_parts_consumption_item_id')
+    ) {
         $conn->exec("ALTER TABLE foc_claim_items RENAME COLUMN spare_parts_consumption_item_id TO source_reference_id");
     }
 
@@ -2105,8 +2108,8 @@ function foc_approval_extra_html(PDO $conn, array $record): string
         }
         $logLink = $serviceLogId > 0
             ? '<a href="' . htmlspecialchars(foc_service_log_details_url($serviceLogId), ENT_QUOTES, 'UTF-8')
-                . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">#'
-                . $serviceLogId . '</a>'
+            . '" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">#'
+            . $serviceLogId . '</a>'
             : '-';
 
         $html .= '<div class="border rounded p-3 mb-2 bg-white">';
@@ -2187,7 +2190,8 @@ function foc_claim_apply_decision(
     string $remarks,
     string $byUsername
 ): ?string {
-    if (!in_array($level, ['l1', 'l2'], true)
+    if (
+        !in_array($level, ['l1', 'l2'], true)
         || !in_array($decision, [FOC_STAGE_APPROVED, FOC_STAGE_REJECTED], true)
         || $claimId <= 0
     ) {
@@ -2284,9 +2288,22 @@ function service_claim_create_reimbursement_after_approval(PDO $conn, int $claim
     }
 
     try {
-        $batchCode = trim((string) ($pending['batch_code'] ?? ''));
+        $day = date('d');
+        $month = date('m');
+        $year = date('y');
+
+        if ($day <= 15) {
+            $batch_date = '01';
+            $batch_end = '15';
+        } else {
+            $batch_date = '16';
+            $batch_end = date('t');
+        }
+
+        $batchCode = $batch_date . $batch_end . $month . $year;
+        // $batchCode = trim((string) ($pending['batch_code'] ?? ''));
         $dispute = strtoupper(trim((string) ($pending['dispute'] ?? '')));
-       
+
         if (strlen($batchCode) > 8) {
             error_log('Reimbursement claim #' . $claimId . ' has an invalid batch code longer than 8 characters.');
             return 'Batch Code cannot exceed 8 characters.';
@@ -2330,29 +2347,29 @@ function service_claim_create_reimbursement_after_approval(PDO $conn, int $claim
         $deletePending->bindValue(':id', $claimId, PDO::PARAM_INT);
         $deletePending->execute();
     } catch (PDOException $e) {
-          $failedQuery = sprintf(
-        "INSERT INTO ccs_reimbursement_claim
+        $failedQuery = sprintf(
+            "INSERT INTO ccs_reimbursement_claim
         (batch_code, cuno, area, claim_amount, claim_date, dispute,
          dispute_amt, dispute_remarks, invno, invdt)
         VALUES
         (%s, %s, %s, %s, CURRENT_DATE, %s, 0, %s, %s, %s)",
-        $conn->quote($pending['batch_code']),
-        $conn->quote($customerNumber),
-        $area !== false && $area !== null
-            ? $conn->quote($area)
-            : 'NULL',
-        $conn->quote($pending['claim_amount']),
-        $conn->quote($pending['dispute']),
-        $conn->quote($pending['dispute_remarks']),
-        $conn->quote($pending['invno']),
-        $conn->quote($pending['invdt'])
-    );
+            $conn->quote($pending['batch_code']),
+            $conn->quote($customerNumber),
+            $area !== false && $area !== null
+                ? $conn->quote($area)
+                : 'NULL',
+            $conn->quote($pending['claim_amount']),
+            $conn->quote($pending['dispute']),
+            $conn->quote($pending['dispute_remarks']),
+            $conn->quote($pending['invno']),
+            $conn->quote($pending['invdt'])
+        );
 
         error_log(
             'service_claim_create_reimbursement_after_approval failed for claim #'
-            . $claimId . ': ' . $e->getMessage()
+                . $claimId . ': ' . $e->getMessage()
         );
-        return 'Failed to create the reimbursement claim.'. ' | Query: ' . $failedQuery;;
+        return 'Failed to create the reimbursement claim.' . ' | Query: ' . $failedQuery;;
     }
 
     return null;
@@ -2370,7 +2387,8 @@ function service_claim_apply_decision(
     string $remarks,
     string $byUsername
 ): ?string {
-    if (!in_array($level, ['l1', 'l2'], true)
+    if (
+        !in_array($level, ['l1', 'l2'], true)
         || !in_array($decision, [FOC_STAGE_APPROVED, FOC_STAGE_REJECTED], true)
         || $claimId <= 0
     ) {
@@ -2503,7 +2521,8 @@ function service_claim_apply_l1_decision(
 function warranty_status_badge_class(?string $status): string
 {
     $status = trim((string) $status);
-    if ($status === WARRANTY_STATUS_UNDER
+    if (
+        $status === WARRANTY_STATUS_UNDER
         || $status === INSTALLED_BASE_WARRANTY_STANDARD
         || $status === INSTALLED_BASE_WARRANTY_UPTIME
     ) {
@@ -2822,7 +2841,8 @@ function service_claim_overall_status_label(array $row): string
     if (foc_claim_l1_allows_level2($row) && $l2 === FOC_STAGE_PENDING) {
         return 'Pending L2 Approval';
     }
-    if ($l2 === FOC_STAGE_APPROVED
+    if (
+        $l2 === FOC_STAGE_APPROVED
         || ($l1 === FOC_STAGE_NOT_REQUIRED && $l2 === FOC_STAGE_NOT_REQUIRED)
         || in_array($overall, ['Approved', 'Approved - Pending Invoice', 'Invoice Raised - Pending Settlement', 'Settled'], true)
     ) {
@@ -3298,7 +3318,8 @@ function foc_claim_ln_customer_master_defaults(PDO $obconn, string $customerCode
 
     $transporter = 'T01';
     require_once __DIR__ . '/order_cart_schema.php';
-    if (plexecom_public_table_exists($obconn, 'dealercode_and_transportercode')
+    if (
+        plexecom_public_table_exists($obconn, 'dealercode_and_transportercode')
         && plexecom_public_column_exists($obconn, 'dealercode_and_transportercode', 'trans_code')
         && plexecom_public_column_exists($obconn, 'dealercode_and_transportercode', 'cuno')
     ) {
@@ -3717,7 +3738,7 @@ function foc_claim_submit_ln_order(PDO $obconn, PDO $dpconn, int $claimId, strin
 
     $xml = "";
 
-                $xml .= "<?xml version='1.0' encoding='UTF-8'?>
+    $xml .= "<?xml version='1.0' encoding='UTF-8'?>
                 <messageRequest>
                     <documentName>Process.SalesOrder</documentName>
                     <fromLogicalId>lid://infor.ims.ho_mscrm</fromLogicalId> 

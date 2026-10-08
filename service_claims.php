@@ -867,6 +867,12 @@ $distanceWisePriceSlabs = distance_wise_price_slabs_for_js(distance_wise_price_g
                                         class="btn btn-sm btn-outline-dark" title="View">
                                         <i class="bi bi-eye"></i>
                                     </a>
+                                    <?php if ($overallStatus === 'Approved'): ?>
+                                    <a href="download_service_claim_pdf.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"
+                                        class="btn btn-sm btn-outline-dark" title="Download PDF" aria-label="Download service claim #<?= $claimId ?> as PDF">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    <?php endif; ?>
                                     <?php if ($canDeleteClaim): ?>
                                     <a href="delete_service_claim.php?id=<?= htmlspecialchars($encodedClaimId, ENT_QUOTES, 'UTF-8') ?>"
                                         class="btn btn-sm btn-outline-dark"

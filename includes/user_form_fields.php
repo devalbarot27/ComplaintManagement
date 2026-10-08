@@ -23,6 +23,7 @@ $formRecord = $formRecord ?? [
 $isEditForm = !empty($formRecord['id']);
 $selectedRole = (int) ($formRecord['role'] ?? 0);
 $selectedCustomerCode = trim((string) ($formRecord['customer_code'] ?? ''));
+$customerCodeRequired = $selectedRole !== 3;
 $selectedLevel1ApproverId = (int) ($formRecord['level_1_approver_id'] ?? 0);
 $selectedLevel2ApproverId = (int) ($formRecord['level_2_approver_id'] ?? 0);
 $selectedCustomerLabel = '';
@@ -40,23 +41,23 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
         <select class="form-control" name="role" id="userRoleSelect">
             <option value="">Select role</option>
             <?php foreach ($roleOptions as $roleId => $roleLabel) { ?>
-            <option value="<?php echo (int) $roleId; ?>"<?php echo $selectedRole === (int) $roleId ? ' selected' : ''; ?>>
-                <?php echo htmlspecialchars($roleLabel); ?>
-            </option>
+                <option value="<?php echo (int) $roleId; ?>" <?php echo $selectedRole === (int) $roleId ? ' selected' : ''; ?>>
+                    <?php echo htmlspecialchars($roleLabel); ?>
+                </option>
             <?php } ?>
         </select>
         <div class="text-danger validation-msg" data-field="role"></div>
     </div>
     <div class="col-md-6 form-group">
         <label class="form-label" for="userCustomerCodeSelect">
-            <i class="bi bi-building"></i> Customer Code <span class="text-danger">*</span>
+            <i class="bi bi-building"></i> Customer Code <span class="text-danger labelImp"><?php echo $customerCodeRequired ? '*' : ''; ?></span>
         </label>
         <select class="form-control" name="customer_code" id="userCustomerCodeSelect" style="width:100%;">
             <option value=""></option>
             <?php if ($selectedCustomerCode !== '') { ?>
-            <option value="<?php echo htmlspecialchars($selectedCustomerCode, ENT_QUOTES, 'UTF-8'); ?>" selected>
-                <?php echo htmlspecialchars($selectedCustomerLabel !== '' ? $selectedCustomerLabel : $selectedCustomerCode, ENT_QUOTES, 'UTF-8'); ?>
-            </option>
+                <option value="<?php echo htmlspecialchars($selectedCustomerCode, ENT_QUOTES, 'UTF-8'); ?>" selected>
+                    <?php echo htmlspecialchars($selectedCustomerLabel !== '' ? $selectedCustomerLabel : $selectedCustomerCode, ENT_QUOTES, 'UTF-8'); ?>
+                </option>
             <?php } ?>
         </select>
         <div class="text-danger validation-msg" data-field="customer_code"></div>
@@ -108,7 +109,7 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
     </div>
     <div class="col-md-6 form-group">
         <label class="form-label">
-            <i class="bi bi-key"></i> Password <span class="text-danger" id="userPasswordRequired"<?php echo $isEditForm ? ' style="display: none;"' : ''; ?>>*</span>
+            <i class="bi bi-key"></i> Password <span class="text-danger" id="userPasswordRequired" <?php echo $isEditForm ? ' style="display: none;"' : ''; ?>>*</span>
         </label>
         <div class="input-group">
             <input type="password" class="form-control" name="password" id="userPasswordInput"
@@ -125,17 +126,17 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
         </small>
         <div class="text-danger validation-msg" data-field="password"></div>
     </div>
-    <div class="col-12" id="userApprovalFieldsWrap"<?php echo $showApprovalFields ? '' : ' style="display: none;"'; ?>>
+    <div class="col-12" id="userApprovalFieldsWrap" <?php echo $showApprovalFields ? '' : ' style="display: none;"'; ?>>
         <div class="row g-3">
-            <div class="col-md-6 form-group" id="userLevel1ApproverFieldWrap"<?php echo $hideLevel1ApproverField ? ' style="display: none;"' : ''; ?>>
+            <div class="col-md-6 form-group" id="userLevel1ApproverFieldWrap" <?php echo $hideLevel1ApproverField ? ' style="display: none;"' : ''; ?>>
                 <label class="form-label" for="userLevel1ApproverSelect">Level 1 Approval <span class="text-danger">*</span></label>
                 <select class="form-control" name="level_1_approver_id" id="userLevel1ApproverSelect" style="width:100%;">
                     <option value="">Select Level 1 Approval</option>
                     <?php foreach ($approverOptions as $approver) { ?>
-                    <?php $optionId = (int) ($approver['id'] ?? 0); ?>
-                    <option value="<?php echo $optionId; ?>"<?php echo $selectedLevel1ApproverId === $optionId ? ' selected' : ''; ?>>
-                        <?php echo htmlspecialchars(user_sales_coordinator_option_label($approver)); ?>
-                    </option>
+                        <?php $optionId = (int) ($approver['id'] ?? 0); ?>
+                        <option value="<?php echo $optionId; ?>" <?php echo $selectedLevel1ApproverId === $optionId ? ' selected' : ''; ?>>
+                            <?php echo htmlspecialchars(user_sales_coordinator_option_label($approver)); ?>
+                        </option>
                     <?php } ?>
                 </select>
                 <div class="text-danger validation-msg" data-field="level_1_approver_id"></div>
@@ -145,10 +146,10 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
                 <select class="form-control" name="level_2_approver_id" id="userLevel2ApproverSelect" style="width:100%;">
                     <option value="">Select Level 2 Approval</option>
                     <?php foreach ($approverOptions as $approver) { ?>
-                    <?php $optionId = (int) ($approver['id'] ?? 0); ?>
-                    <option value="<?php echo $optionId; ?>"<?php echo $selectedLevel2ApproverId === $optionId ? ' selected' : ''; ?>>
-                        <?php echo htmlspecialchars(user_sales_coordinator_option_label($approver)); ?>
-                    </option>
+                        <?php $optionId = (int) ($approver['id'] ?? 0); ?>
+                        <option value="<?php echo $optionId; ?>" <?php echo $selectedLevel2ApproverId === $optionId ? ' selected' : ''; ?>>
+                            <?php echo htmlspecialchars(user_sales_coordinator_option_label($approver)); ?>
+                        </option>
                     <?php } ?>
                 </select>
                 <div class="text-danger validation-msg" data-field="level_2_approver_id"></div>
@@ -156,3 +157,13 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
         </div>
     </div>
 </div>
+<script>
+    $(function() {
+        const optionalCustomerCodeRole = 3;
+        $("#userRoleSelect").on('change', function() {
+            $(".labelImp").text(
+                Number($(this).val()) === optionalCustomerCodeRole ? "" : "*"
+            );
+        });
+    })
+</script>

@@ -1065,15 +1065,17 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
         }
     }
 
-    $customerCode = trim((string) ($data['customer_code'] ?? ''));
-    if ($customerCode === '') {
+    echo $customerCode = trim((string) ($data['customer_code'] ?? ''));
+    if ($customerCode === '' && (int) $data['role'] !== 3) {
         return 'Customer Code is required.';
     }
-    if (strlen($customerCode) > 9) {
-        return 'Customer Code cannot exceed 9 characters.';
-    }
-    if (user_customer_code_get($conn, $customerCode) === null) {
-        return 'Selected Customer Code is invalid.';
+    if ($customerCode !== '') {
+        if (strlen($customerCode) > 9) {
+            return 'Customer Code cannot exceed 9 characters.';
+        }
+        if (user_customer_code_get($conn, $customerCode) === null) {
+            return 'Selected Customer Code is invalid.';
+        }
     }
 
     return null;
