@@ -250,9 +250,6 @@ function initUsersFormValidation() {
       presence: { allowEmpty: false, message: "^Mobile Number is required" },
       userMobileNumber: true,
     },
-    customer_code: {
-      presence: { allowEmpty: false, message: "^Customer Code is required" },
-    },
     password: {
       presence: { allowEmpty: false, message: "^Password is required" },
       userPasswordStrength: true,
@@ -379,10 +376,10 @@ function initUsersFormValidation() {
       }
     }
 
-    // Customer Code mandatory only for Role = 3
+    // Customer Code is required only for Dealer User (role 1).
     const role = form.querySelector('[name="role"]').value;
 
-    if (role !== "3") {
+    if (role === "1") {
       constraints.customer_code = {
         presence: {
           allowEmpty: false,
@@ -595,6 +592,14 @@ function resetUserForm() {
   }
   form.reset();
   document.getElementById("userRecordId").value = "";
+  ["role", "username", "name", "email", "mobile_number", "password"].forEach(
+    function (fieldName) {
+      const input = form.querySelector('[name="' + fieldName + '"]');
+      if (input) {
+        input.value = "";
+      }
+    },
+  );
   ["userLevel1ApproverSelect", "userLevel2ApproverSelect"].forEach(
     function (id) {
       setUserSelectValue(document.getElementById(id), "");
@@ -602,6 +607,10 @@ function resetUserForm() {
   );
   toggleApprovalFields("");
   setUserCustomerCodeSelect2Value("", "");
+  const customerCodeMark = form.querySelector(".labelImp");
+  if (customerCodeMark) {
+    customerCodeMark.textContent = "";
+  }
   document.getElementById("userFormModeLabel").textContent = "Add User";
   document.getElementById("submitUserBtn").innerHTML =
     '<i class="bi bi-check-lg"></i> Save User';

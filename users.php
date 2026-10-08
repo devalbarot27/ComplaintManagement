@@ -52,10 +52,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
                 } else {
                     user_update($obconn, $recordId, $data);
                     $success_message = 'User updated successfully.';
+                    $formRecord = [
+                        'id' => 0,
+                        'role' => 0,
+                        'username' => '',
+                        'name' => '',
+                        'email' => '',
+                        'mobile_number' => '',
+                        'customer_code' => '',
+                        'level_1_approver_id' => 0,
+                        'level_2_approver_id' => 0,
+                    ];
                 }
             } else {
                 user_insert($obconn, $data, $createdBy);
                 $success_message = 'User saved successfully.';
+                $formRecord = [
+                    'id' => 0,
+                    'role' => 0,
+                    'username' => '',
+                    'name' => '',
+                    'email' => '',
+                    'mobile_number' => '',
+                    'customer_code' => '',
+                    'level_1_approver_id' => 0,
+                    'level_2_approver_id' => 0,
+                ];
             }
         } catch (PDOException $e) {
             $error_message = $isEdit ? 'Failed to update user.' : 'Failed to save user.';
@@ -214,6 +236,9 @@ $approverOptions = user_approver_options_for_form(
             resetUserForm();
             openUserFormPanel();
         });
+        <?php if ($error_message !== '') { ?>
+        openUserFormPanel();
+        <?php } ?>
         setTimeout(function () { $('.alert-success').fadeOut(); }, 3000);
     });
     </script>

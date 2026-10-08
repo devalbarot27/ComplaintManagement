@@ -1065,8 +1065,8 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
         }
     }
 
-    echo $customerCode = trim((string) ($data['customer_code'] ?? ''));
-    if ($customerCode === '' && (int) $data['role'] !== 3) {
+    $customerCode = trim((string) ($data['customer_code'] ?? ''));
+    if ($customerCode === '' && (int) $data['role'] === DEALER_USER_ROLE) {
         return 'Customer Code is required.';
     }
     if ($customerCode !== '') {

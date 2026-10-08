@@ -23,7 +23,7 @@ $formRecord = $formRecord ?? [
 $isEditForm = !empty($formRecord['id']);
 $selectedRole = (int) ($formRecord['role'] ?? 0);
 $selectedCustomerCode = trim((string) ($formRecord['customer_code'] ?? ''));
-$customerCodeRequired = $selectedRole !== 3;
+$customerCodeRequired = $selectedRole === DEALER_USER_ROLE;
 $selectedLevel1ApproverId = (int) ($formRecord['level_1_approver_id'] ?? 0);
 $selectedLevel2ApproverId = (int) ($formRecord['level_2_approver_id'] ?? 0);
 $selectedCustomerLabel = '';
@@ -159,10 +159,10 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
 </div>
 <script>
     $(function() {
-        const optionalCustomerCodeRole = 3;
+        const dealerUserRole = 1;
         $("#userRoleSelect").on('change', function() {
             $(".labelImp").text(
-                Number($(this).val()) === optionalCustomerCodeRole ? "" : "*"
+                Number($(this).val()) === dealerUserRole ? "*" : ""
             );
         });
     })

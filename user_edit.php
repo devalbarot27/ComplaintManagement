@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
         $error_message = 'Email address already exists';
     } elseif (user_mobile_exists($obconn, $data['mobile_number'], $recordId)) {
         $error_message = 'Mobile number already exists';
-    } elseif (user_customer_code_exists($obconn, $data['customer_code'], $recordId)) {
+    } elseif ($data['customer_code'] !== '' && user_customer_code_exists($obconn, $data['customer_code'], $recordId)) {
         $error_message = 'Customer Code already exists. Please choose a different Customer Code.';
     } else {
         try {
