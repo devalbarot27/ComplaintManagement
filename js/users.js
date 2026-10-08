@@ -533,7 +533,7 @@ function initUserCustomerCodeSelect2() {
 
   $select.select2({
     placeholder: "Search customer code",
-    allowClear: false,
+    allowClear: true,
     width: "100%",
     ajax: {
       url: "api/user_customer_search.php",
@@ -547,6 +547,20 @@ function initUserCustomerCodeSelect2() {
       },
       cache: true,
     },
+  });
+
+  $select.on("select2:clear", function () {
+    $select.removeClass("is-invalid");
+    $select
+      .next(".select2-container")
+      .find(".select2-selection")
+      .removeClass("is-invalid");
+    const msg = document.querySelector(
+      '#userForm .validation-msg[data-field="customer_code"]',
+    );
+    if (msg) {
+      msg.textContent = "";
+    }
   });
 }
 

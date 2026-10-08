@@ -15,6 +15,14 @@
             height: 36px !important;
         }
 
+        .select2-container--default .select2-selection--single .select2-selection__clear {
+            height: 26px;
+            margin-right: 18px;
+            font-size: 18px;
+            line-height: 26px;
+            color: #6c757d;
+        }
+
         .select2-container {
             width: 100% !important;
         }
