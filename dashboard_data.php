@@ -253,7 +253,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
 
             </button>
 */ ?>
-      <a href="https://c-doc.elgi.com/login.php" class="action-btnn add-item-btn" style="text-decoration: none;" title="Click here to see CDOC" target="_blank">
+      <a href="https://c-doc.vayupower.com/" class="action-btnn add-item-btn" style="text-decoration: none;" title="Click here to see CDOC" target="_blank">
                 <i class="bi bi-file-earmark-medical"></i>
                 CDOC
                 </a>

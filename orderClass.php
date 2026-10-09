@@ -7478,7 +7478,7 @@ class orderClass
                         <NameValue name='ln.CRMID' type='StringType'>" . $safeRef . "</NameValue>
                         </Property>
                         <Property>
-                        <NameValue name='crm.PriceOverride' type='StringType'>N</NameValue></Property>
+                        <NameValue name='crm.PriceOverride' type='StringType'>Y</NameValue></Property>
                         <Property>
                         <NameValue name='crm.AccountType' type='StringType'>C</NameValue>
                         </Property>
