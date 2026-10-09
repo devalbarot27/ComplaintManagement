@@ -31,8 +31,11 @@ $createdBy = current_username();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
     $data = user_from_post($_POST);
-    $formRecord = user_form_record_from_post($data, $recordId);
     $isEdit = $recordId > 0;
+    if ($isEdit) {
+        $data['password'] = '';
+    }
+    $formRecord = user_form_record_from_post($data, $recordId);
      $validationError = user_validate($data, $isEdit, $obconn);
     if ($validationError !== null) {
         $error_message = $validationError;
@@ -218,6 +221,62 @@ $approverOptions = user_approver_options_for_form(
                         <tbody></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="userChangePasswordModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content complaint-form-modal">
+                <form id="userChangePasswordForm" novalidate>
+                    <input type="hidden" name="user_id" id="userChangePasswordUserId" value="">
+                    <div class="complaint-form-header">
+                        <div class="complaint-form-header__main">
+                            <div class="complaint-form-header__icon"><i class="bi bi-key"></i></div>
+                            <div>
+                                <h2 class="complaint-form-header__title">Change Password</h2>
+                                <p class="complaint-form-header__subtitle" id="userChangePasswordSubtitle">Set a new password for this user.</p>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="complaint-form-body">
+                        <div class="alert alert-danger d-none" id="userChangePasswordAlert" role="alert"></div>
+                        <div class="row g-3">
+                            <div class="col-12 form-group">
+                                <label class="form-label" for="userChangePasswordInput">
+                                    Password <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="userChangePasswordInput" name="password" autocomplete="new-password">
+                                    <button class="btn btn-outline-secondary" type="button" data-toggle-field="userChangePasswordInput" tabindex="-1">
+                                        <i class="bi bi-eye-slash"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted d-block mt-1">Minimum 8 characters with digit, uppercase, lowercase, and special character.</small>
+                                <div class="text-danger validation-msg" data-field="password"></div>
+                            </div>
+                            <div class="col-12 form-group">
+                                <label class="form-label" for="userChangePasswordConfirmInput">
+                                    Confirm Password <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="userChangePasswordConfirmInput" name="confirm_password" autocomplete="new-password">
+                                    <button class="btn btn-outline-secondary" type="button" data-toggle-field="userChangePasswordConfirmInput" tabindex="-1">
+                                        <i class="bi bi-eye-slash"></i>
+                                    </button>
+                                </div>
+                                <div class="text-danger validation-msg" data-field="confirm_password"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="complaint-form-actions">
+                        <button type="button" class="cancel-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="submit-btn btn-complaint-primary" id="userChangePasswordSubmit">
+                            <i class="bi bi-check-lg"></i> Save Password
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

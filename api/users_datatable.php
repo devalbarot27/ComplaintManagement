@@ -123,7 +123,7 @@ foreach ($rows as $row) {
         'mobile_number' => htmlspecialchars((string) $row['mobile_number'], ENT_QUOTES, 'UTF-8'),
         'last_login_at' => user_format_datetime($row['last_login_at']),
         'created_at' => user_format_datetime($row['created_at']),
-        'actions' => user_entry_actions((int) $row['id']),
+        'actions' => user_entry_actions((int) $row['id'], (string) ($row['username'] ?? '')),
     ];
 }
 

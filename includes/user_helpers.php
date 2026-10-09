@@ -1209,9 +1209,10 @@ function user_display_value($value): string
     return trim((string) $value);
 }
 
-function user_entry_actions(int $id): string
+function user_entry_actions(int $id, string $username = ''): string
 {
     $encodedId = base64_encode((string) $id);
+    $safeUsername = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
 
     return '
         <div class="d-flex gap-1">
@@ -1223,6 +1224,12 @@ function user_entry_actions(int $id): string
                 class="btn btn-sm btn-outline-dark" title="Edit">
                 <i class="bi bi-pencil"></i>
             </a>
+            <button type="button" class="btn btn-sm btn-outline-dark change-user-password-btn"
+                data-id="' . (int) $id . '"
+                data-username="' . $safeUsername . '"
+                title="Change Password">
+                <i class="bi bi-key"></i>
+            </button>
             <a href="delete_user.php?id=' . htmlspecialchars($encodedId, ENT_QUOTES, 'UTF-8') . '"
                 class="btn btn-sm btn-outline-dark"
                 onclick="return confirm(\'Delete this user?\');" title="Delete">
@@ -1230,6 +1237,59 @@ function user_entry_actions(int $id): string
             </a>
         </div>
     ';
+}
+
+function user_admin_change_password(PDO $conn, int $id, string $password, string $confirmPassword): ?string
+{
+    $password = (string) $password;
+    $confirmPassword = (string) $confirmPassword;
+
+    if ($password === '' || $confirmPassword === '') {
+        return 'Password and Confirm Password are required.';
+    }
+
+    if ($password !== $confirmPassword) {
+        return 'Confirm Password must match Password.';
+    }
+
+    $passwordError = password_reset_rules_error($password);
+    if ($passwordError !== null) {
+        return $passwordError;
+    }
+
+    $existing = user_get_by_id($conn, $id);
+    if ($existing === null) {
+        return 'User not found.';
+    }
+
+    $username = trim((string) ($existing['username'] ?? ''));
+    $currentHash = (string) ($existing['password'] ?? '');
+    if ($username === '') {
+        return 'User not found.';
+    }
+
+    if (password_history_is_reused($conn, $username, $password, $currentHash)) {
+        return password_history_reuse_error();
+    }
+
+    try {
+        $conn->beginTransaction();
+        if (!password_reset_update_password($conn, $username, $password)) {
+            if ($conn->inTransaction()) {
+                $conn->rollBack();
+            }
+            return 'Failed to change password.';
+        }
+        password_history_record($conn, $username, $currentHash);
+        $conn->commit();
+    } catch (PDOException $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        return 'Failed to change password.';
+    }
+
+    return null;
 }
 
 function user_bind_sales_coordinator_id(PDOStatement $stmt, array $data): void

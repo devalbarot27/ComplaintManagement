@@ -29,6 +29,7 @@ $formRecord = user_form_record_from_row($record);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
     $data = user_from_post($_POST);
+    $data['password'] = '';
     $formRecord = user_form_record_from_post($data, $recordId);
     $validationError = user_validate($data, true, $obconn);
 

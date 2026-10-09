@@ -382,9 +382,16 @@ function initUsersFormValidation() {
     const recordId = document.getElementById("userRecordId");
     const isEdit = recordId && recordId.value !== "" && recordId.value !== "0";
     const passwordRequired = document.getElementById("userPasswordRequired");
+    const passwordInput = form.querySelector('[name="password"]');
+    const passwordField = document.getElementById("userPasswordField");
+    const passwordHidden =
+      !passwordInput ||
+      (passwordField && passwordField.style.display === "none");
     const submitButton = form.querySelector('[name="submit_user"]');
 
-    if (isEdit) {
+    if (passwordHidden) {
+      delete constraints.password;
+    } else if (isEdit) {
       constraints.password = { userPasswordStrength: true };
       if (passwordRequired) {
         passwordRequired.style.display = "none";
@@ -604,7 +611,14 @@ function fillUserForm(record) {
   form.querySelector('[name="email"]').value = record.email || "";
   form.querySelector('[name="mobile_number"]').value =
     record.mobile_number || "";
-  form.querySelector('[name="password"]').value = "";
+  const passwordInput = form.querySelector('[name="password"]');
+  const passwordField = document.getElementById("userPasswordField");
+  if (passwordInput) {
+    passwordInput.value = "";
+  }
+  if (passwordField) {
+    passwordField.style.display = record.id ? "none" : "";
+  }
   setUserCustomerCodeSelect2Value(
     record.customer_code || "",
     record.customer_code_text || record.customer_code || "",
@@ -660,6 +674,10 @@ function resetUserForm() {
   if (passwordRequired) {
     passwordRequired.style.display = "";
   }
+  const passwordField = document.getElementById("userPasswordField");
+  if (passwordField) {
+    passwordField.style.display = "";
+  }
   form.querySelectorAll(".is-invalid").forEach(function (el) {
     el.classList.remove("is-invalid");
   });
@@ -700,6 +718,155 @@ function closeUserFormPanel() {
   }
 
   resetUserForm();
+}
+
+function clearUserChangePasswordErrors(form) {
+  const alertBox = document.getElementById("userChangePasswordAlert");
+  if (alertBox) {
+    alertBox.textContent = "";
+    alertBox.classList.add("d-none");
+  }
+  form.querySelectorAll(".is-invalid").forEach(function (el) {
+    el.classList.remove("is-invalid");
+  });
+  form.querySelectorAll(".validation-msg").forEach(function (el) {
+    el.textContent = "";
+  });
+}
+
+function showUserChangePasswordError(form, field, message) {
+  const input = form.querySelector('[name="' + field + '"]');
+  const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
+  if (input) {
+    input.classList.add("is-invalid");
+  }
+  if (msg) {
+    msg.textContent = message;
+  }
+}
+
+function initUserChangePasswordModal() {
+  const modalEl = document.getElementById("userChangePasswordModal");
+  const form = document.getElementById("userChangePasswordForm");
+  if (!modalEl || !form || typeof bootstrap === "undefined") {
+    return;
+  }
+
+  const modal = new bootstrap.Modal(modalEl);
+
+  form.querySelectorAll("[data-toggle-field]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const input = document.getElementById(button.getAttribute("data-toggle-field"));
+      const icon = button.querySelector("i");
+      if (!input || !icon) {
+        return;
+      }
+      const isPassword = input.type === "password";
+      input.type = isPassword ? "text" : "password";
+      icon.classList.toggle("bi-eye", !isPassword);
+      icon.classList.toggle("bi-eye-slash", isPassword);
+    });
+  });
+
+  document.addEventListener("click", function (e) {
+    const button = e.target.closest(".change-user-password-btn");
+    if (!button) {
+      return;
+    }
+    form.reset();
+    clearUserChangePasswordErrors(form);
+    document.getElementById("userChangePasswordUserId").value =
+      button.getAttribute("data-id") || "";
+    const username = button.getAttribute("data-username") || "";
+    const subtitle = document.getElementById("userChangePasswordSubtitle");
+    if (subtitle) {
+      subtitle.textContent = username
+        ? "Set a new password for " + username + "."
+        : "Set a new password for this user.";
+    }
+    modal.show();
+  });
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    clearUserChangePasswordErrors(form);
+
+    const password = String(form.querySelector('[name="password"]').value || "");
+    const confirmPassword = String(
+      form.querySelector('[name="confirm_password"]').value || "",
+    );
+
+    if (password === "") {
+      showUserChangePasswordError(form, "password", "Password is required.");
+      return;
+    }
+    if (confirmPassword === "") {
+      showUserChangePasswordError(
+        form,
+        "confirm_password",
+        "Confirm Password is required.",
+      );
+      return;
+    }
+    if (password !== confirmPassword) {
+      showUserChangePasswordError(
+        form,
+        "confirm_password",
+        "Confirm Password must match Password.",
+      );
+      return;
+    }
+
+    const strengthError = userPasswordStrengthError(password);
+    if (strengthError) {
+      showUserChangePasswordError(form, "password", strengthError);
+      return;
+    }
+
+    const submitButton = document.getElementById("userChangePasswordSubmit");
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
+
+    $.ajax({
+      url: "api/user_change_password.php",
+      type: "POST",
+      dataType: "json",
+      data: {
+        user_id: document.getElementById("userChangePasswordUserId").value,
+        password: password,
+        confirm_password: confirmPassword,
+      },
+    })
+      .done(function (response) {
+        if (response && response.success) {
+          window.location.reload();
+          return;
+        }
+        const alertBox = document.getElementById("userChangePasswordAlert");
+        if (alertBox) {
+          alertBox.textContent =
+            (response && response.error) || "Failed to change password.";
+          alertBox.classList.remove("d-none");
+        }
+      })
+      .fail(function (xhr) {
+        const message =
+          xhr.responseJSON && xhr.responseJSON.error
+            ? xhr.responseJSON.error
+            : "Failed to change password.";
+        const alertBox = document.getElementById("userChangePasswordAlert");
+        if (alertBox) {
+          alertBox.textContent = message;
+          alertBox.classList.remove("d-none");
+        }
+      })
+      .always(function () {
+        if (submitButton) {
+          submitButton.disabled = false;
+        }
+      });
+  });
 }
 
 function bootUserEditPage() {
@@ -746,6 +913,8 @@ function bootUsersPage() {
       toggleApprovalFields(roleSelect.value);
     });
   }
+
+  initUserChangePasswordModal();
 
   document.addEventListener("click", function (e) {
     const editBtn = e.target.closest(".edit-user-btn");

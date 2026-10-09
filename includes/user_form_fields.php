@@ -107,9 +107,10 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
             value="<?php echo htmlspecialchars((string) ($formRecord['mobile_number'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
         <div class="text-danger validation-msg" data-field="mobile_number"></div>
     </div>
-    <div class="col-md-6 form-group">
+    <?php if (!$isEditForm) { ?>
+    <div class="col-md-6 form-group" id="userPasswordField">
         <label class="form-label">
-            <i class="bi bi-key"></i> Password <span class="text-danger" id="userPasswordRequired" <?php echo $isEditForm ? ' style="display: none;"' : ''; ?>>*</span>
+            <i class="bi bi-key"></i> Password <span class="text-danger" id="userPasswordRequired">*</span>
         </label>
         <div class="input-group">
             <input type="password" class="form-control" name="password" id="userPasswordInput"
@@ -120,12 +121,11 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
             </button>
         </div>
         <small class="text-muted d-block mt-1" id="userPasswordHint">
-            <?php echo $isEditForm
-                ? 'Leave blank to keep the current password.'
-                : 'Minimum 8 characters with digit, uppercase, lowercase, and special character.'; ?>
+            Minimum 8 characters with digit, uppercase, lowercase, and special character.
         </small>
         <div class="text-danger validation-msg" data-field="password"></div>
     </div>
+    <?php } ?>
     <div class="col-12" id="userApprovalFieldsWrap" <?php echo $showApprovalFields ? '' : ' style="display: none;"'; ?>>
         <div class="row g-3">
             <div class="col-md-6 form-group" id="userLevel1ApproverFieldWrap" <?php echo $hideLevel1ApproverField ? ' style="display: none;"' : ''; ?>>
