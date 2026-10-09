@@ -120,11 +120,20 @@ foreach ($rows as $row) {
         (string) ($row['fab_number'] ?? '')
     );
 
+    $serialNumber = trim((string) ($row['serial_number'] ?? ''));
+    $serialHtml = htmlspecialchars($serialNumber, ENT_QUOTES, 'UTF-8');
+    if ($serialNumber !== '' && $serviceLogId > 0 && !empty($serviceLogPermissions['view'])) {
+        $serialHref = 'service_log_details.php?id=' . rawurlencode(base64_encode((string) $serviceLogId));
+        $serialHtml = '<a href="' . htmlspecialchars($serialHref, ENT_QUOTES, 'UTF-8') . '" class="text-primary fw-semibold text-decoration-none">'
+            . $serialHtml
+            . '</a>';
+    }
+
     $data[] = [
         'id' => service_log_grid_id_cell_html($serviceLogId, $isDraft),
         'is_draft' => $isDraft ? 1 : 0,
         'order_id' => htmlspecialchars($row['order_id'], ENT_QUOTES, 'UTF-8'),
-        'serial_number' => htmlspecialchars((string) $row['serial_number'], ENT_QUOTES, 'UTF-8'),
+        'serial_number' => $serialHtml,
         'machine_model' => amc_with_coverage_html(
             htmlspecialchars((string) $row['machine_model'], ENT_QUOTES, 'UTF-8'),
             $coverage,

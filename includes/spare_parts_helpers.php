@@ -643,7 +643,7 @@ function spare_parts_format_currency($value): string
         return '-';
     }
 
-    return '?' . number_format((float) $value, 2);
+    return '&#8377; ' . number_format((float) $value, 2);
 }
 
 function spare_parts_format_quantity($value): string

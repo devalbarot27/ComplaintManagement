@@ -130,14 +130,21 @@ $amcExistsLookup = amc_existing_contract_lookup(
 foreach ($rows as $row) {
     $hasServiceLog = (int) ($row['service_log_count'] ?? 0) > 0;
     $installedBaseId = (int) $row['id'];
-    $fabNumber = (string) ($row['fab_number'] ?? '');
+    $fabNumber = trim((string) ($row['fab_number'] ?? ''));
     $coverage = amc_coverage_resolve($amcLookup, $installedBaseId, $fabNumber);
     $hasAmc = amc_has_existing_contract($amcExistsLookup, $installedBaseId, $fabNumber);
+    $fabHtml = htmlspecialchars($fabNumber, ENT_QUOTES, 'UTF-8');
+    if ($fabNumber !== '' && $installedBaseId > 0 && !empty($installedBasePermissions['view'])) {
+        $fabHref = 'installed_base_details.php?id=' . rawurlencode(base64_encode((string) $installedBaseId));
+        $fabHtml = '<a href="' . htmlspecialchars($fabHref, ENT_QUOTES, 'UTF-8') . '" class="text-primary fw-semibold text-decoration-none">'
+            . $fabHtml
+            . '</a>';
+    }
     $data[] = [
         'id' => '#' . $installedBaseId,
         'order_id' => htmlspecialchars((string) $row['order_id'], ENT_QUOTES, 'UTF-8'),
         'fab_number' => amc_with_coverage_html(
-            htmlspecialchars((string) ($row['fab_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
+            $fabHtml,
             $coverage,
             $row['commissioning_date'] ?? null
         ),

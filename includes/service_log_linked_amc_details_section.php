@@ -60,7 +60,7 @@ if ($amcContract && isset($obconn) && $obconn instanceof PDO) {
                 $contractNumber = '#' . (int) ($amcContract['id'] ?? 0);
             }
             if ($amcDetailsUrl !== '') {
-                $contractNumberHtml = '<a href="'
+                $contractNumberHtml = '<a class="text-primary fw-semibold text-decoration-none" href="'
                     . htmlspecialchars($amcDetailsUrl, ENT_QUOTES, 'UTF-8')
                     . '">'
                     . htmlspecialchars($contractNumber)

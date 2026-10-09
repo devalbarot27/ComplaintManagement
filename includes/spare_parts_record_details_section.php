@@ -100,7 +100,7 @@ $renderSparePartsDetailField = static function (
             <div class="row g-3">
                 <?php
                 if ($installedBaseLink !== '') {
-                    $installedBaseHtml = '<a href="installed_base_details.php?id='
+                    $installedBaseHtml = '<a class="text-primary fw-semibold text-decoration-none" href="installed_base_details.php?id='
                         . htmlspecialchars($installedBaseLink, ENT_QUOTES, 'UTF-8')
                         . '">'
                         . htmlspecialchars($installedBaseLabel)
@@ -145,7 +145,7 @@ $renderSparePartsDetailField = static function (
                 $renderSparePartsDetailField('Customer Name', spare_parts_display_value($sparePartsRecord['customer_name'] ?? null), 'col-md-3');
 
                 if ($serviceLogLink !== '') {
-                    $serviceLogHtml = '<a href="service_log_details.php?id='
+                    $serviceLogHtml = '<a class="text-primary fw-semibold text-decoration-none" href="service_log_details.php?id='
                         . htmlspecialchars($serviceLogLink, ENT_QUOTES, 'UTF-8')
                         . '">#'
                         . $serviceLogId
@@ -160,7 +160,7 @@ $renderSparePartsDetailField = static function (
         <?php } elseif ($serviceLogLink !== '') { ?>
         <div class="row g-3 mb-3">
             <?php
-            $serviceLogHtml = '<a href="service_log_details.php?id='
+            $serviceLogHtml = '<a class="text-primary fw-semibold text-decoration-none" href="service_log_details.php?id='
                 . htmlspecialchars($serviceLogLink, ENT_QUOTES, 'UTF-8')
                 . '">#'
                 . $serviceLogId

@@ -162,10 +162,20 @@ foreach ($rows as $row) {
         (string) ($row['fab_number'] ?? '')
     );
 
+    $sparePartsId = (int) $row['id'];
+    $serialNumber = trim((string) ($row['serial_number'] ?? ''));
+    $serialHtml = htmlspecialchars($serialNumber, ENT_QUOTES, 'UTF-8');
+    if ($serialNumber !== '' && $sparePartsId > 0 && !empty($sparePartsPermissions['view'])) {
+        $serialHref = 'spare_parts_consumption_details.php?id=' . rawurlencode(base64_encode((string) $sparePartsId));
+        $serialHtml = '<a href="' . htmlspecialchars($serialHref, ENT_QUOTES, 'UTF-8') . '" class="text-primary fw-semibold text-decoration-none">'
+            . $serialHtml
+            . '</a>';
+    }
+
     $data[] = [
-        'id' => '#' . (int) $row['id'],
+        'id' => '#' . $sparePartsId,
         'serial_number' => amc_with_coverage_html(
-            htmlspecialchars($row['serial_number'], ENT_QUOTES, 'UTF-8'),
+            $serialHtml,
             $coverage,
             $commissioningDate
         ),

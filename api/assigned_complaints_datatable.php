@@ -150,6 +150,7 @@ $commissioningLookup = installed_base_commissioning_lookup(
     [],
     array_map(static fn ($row) => (string) ($row['fab_number'] ?? ''), $rows)
 );
+$installedBaseIdByFab = [];
 
 foreach ($rows as $row) {
     $status = (int) $row['status'];
@@ -161,7 +162,7 @@ foreach ($rows as $row) {
         'id' => '#' . (int) $row['c_id'],
         'c_id' => '#' . (int) $row['id'],
         'fab_number' => amc_with_coverage_html(
-            htmlspecialchars((string) ($row['fab_number'] ?? ''), ENT_QUOTES, 'UTF-8'),
+            installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab),
             $coverage,
             $commissioningDate
         ),
