@@ -650,6 +650,18 @@ $freightPercentage = 4;
 <script src="js/order_booking_end_customer.js"></script>
 <script src="js/success_modal.js"></script>
 <script>
+    window.orderBookingAssignedDealerCodes = <?php
+        if (is_elgi_engineer_user()) {
+            require_once __DIR__ . '/includes/ar_statement_helpers.php';
+            echo json_encode(
+                array_values(ar_statement_assigned_dealer_codes($obconn)),
+                JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+            );
+        } else {
+            echo 'null';
+        }
+    ?>;
+
     const endCustomerFieldIds = [
         'endCustomerEmail',
         'endCustomerStreet1',
@@ -1201,8 +1213,19 @@ $freightPercentage = 4;
                     };
                 },
                 processResults: function(data) {
+                    var rows = Array.isArray(data) ? data : [];
+                    var allowed = window.orderBookingAssignedDealerCodes;
+                    if (Array.isArray(allowed)) {
+                        var lookup = {};
+                        allowed.forEach(function(code) {
+                            lookup[String(code || '').trim().toLowerCase()] = true;
+                        });
+                        rows = rows.filter(function(row) {
+                            return lookup[String((row && row.id) || '').trim().toLowerCase()];
+                        });
+                    }
                     return {
-                        results: data
+                        results: rows
                     };
                 },
                 cache: true

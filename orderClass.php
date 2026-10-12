@@ -5973,6 +5973,11 @@ class orderClass
 
         $dealer = trim($_POST['dealer'] ?? '');
 
+        if ($dealer !== '' && !$this->elgiEngineerMayUseDealer($dealer)) {
+            echo json_encode([], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            return;
+        }
+
         $sql = "SELECT adr_code, cuname
             FROM customer_address
             WHERE length(adr_code) = 9";
@@ -7745,13 +7750,63 @@ class orderClass
             : '';
     }
 
+    /**
+     * Dealer codes assigned to the logged-in ELGi Engineer (Level 1 / Level 2, plus their mapped customer code).
+     * Null means another user type, whose dealer list stays unfiltered.
+     *
+     * @return array<int, string>|null
+     */
+    private function elgiEngineerAssignedDealerCodes(): ?array
+    {
+        if (!is_elgi_engineer_user()) {
+            return null;
+        }
+
+        require_once __DIR__ . '/includes/ar_statement_helpers.php';
+
+        return ar_statement_assigned_dealer_codes($this->obconn);
+    }
+
+    private function elgiEngineerMayUseDealer(string $dealer): bool
+    {
+        $assignedCodes = $this->elgiEngineerAssignedDealerCodes();
+        if ($assignedCodes === null) {
+            return true;
+        }
+
+        $dealer = trim($dealer);
+        foreach ($assignedCodes as $code) {
+            if (strcasecmp(trim((string) $code), $dealer) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     function search_dealer()
     {
         $search = htmlspecialchars(trim($_POST['search'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $assignedCodes = $this->elgiEngineerAssignedDealerCodes();
+
+        if (is_array($assignedCodes) && $assignedCodes === []) {
+            return json_encode([], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        }
 
         $sql = "SELECT cuno, cuname
         FROM customer_master
         WHERE 1=1";
+
+        $assignedParams = [];
+        if (is_array($assignedCodes)) {
+            $placeholders = [];
+            foreach (array_values($assignedCodes) as $index => $code) {
+                $placeholder = ':assigned_dealer_' . $index;
+                $placeholders[] = $placeholder;
+                $assignedParams[$placeholder] = $code;
+            }
+            $sql .= ' AND TRIM(cuno) IN (' . implode(', ', $placeholders) . ')';
+        }
 
         if (!empty($search)) {
             $sql .= " AND (
@@ -7763,6 +7818,10 @@ class orderClass
         $sql .= " ORDER BY cuname LIMIT 50";
 
         $stmt = $this->dpconn->prepare($sql);
+
+        foreach ($assignedParams as $placeholder => $code) {
+            $stmt->bindValue($placeholder, $code, PDO::PARAM_STR);
+        }
 
         if (!empty($search)) {
             $searchLike = "%{$search}%";
