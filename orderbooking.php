@@ -650,11 +650,15 @@ $freightPercentage = 4;
 <script src="js/order_booking_end_customer.js"></script>
 <script src="js/success_modal.js"></script>
 <script>
-    window.orderBookingAssignedDealerCodes = <?php
+    window.orderBookingAssignedDealers = <?php
         if (is_elgi_engineer_user()) {
             require_once __DIR__ . '/includes/ar_statement_helpers.php';
             echo json_encode(
-                array_values(ar_statement_assigned_dealer_codes($obconn)),
+                ar_statement_dealers_for_codes(
+                    $dpconn ?? null,
+                    $obconn,
+                    ar_statement_assigned_dealer_codes($obconn)
+                ),
                 JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
             );
         } else {
@@ -1198,7 +1202,31 @@ $freightPercentage = 4;
     }
 
     function getDealerList() {
-        $('#dealerlist').select2({
+        var $dealerList = $('#dealerlist');
+        if (!$dealerList.length) {
+            return;
+        }
+
+        var assignedDealers = window.orderBookingAssignedDealers;
+        if (Array.isArray(assignedDealers)) {
+            $dealerList.empty().append(new Option('', '', false, false));
+            assignedDealers.forEach(function(dealer) {
+                var code = String((dealer && dealer.id) || '').trim();
+                if (!code) {
+                    return;
+                }
+                $dealerList.append(new Option(String(dealer.text || code), code, false, false));
+            });
+            $dealerList.select2({
+                placeholder: 'Search Dealer',
+                allowClear: true,
+                width: '100%',
+                minimumResultsForSearch: 0
+            });
+            return;
+        }
+
+        $dealerList.select2({
             placeholder: 'Search Dealer',
             allowClear: true,
             ajax: {
@@ -1213,19 +1241,8 @@ $freightPercentage = 4;
                     };
                 },
                 processResults: function(data) {
-                    var rows = Array.isArray(data) ? data : [];
-                    var allowed = window.orderBookingAssignedDealerCodes;
-                    if (Array.isArray(allowed)) {
-                        var lookup = {};
-                        allowed.forEach(function(code) {
-                            lookup[String(code || '').trim().toLowerCase()] = true;
-                        });
-                        rows = rows.filter(function(row) {
-                            return lookup[String((row && row.id) || '').trim().toLowerCase()];
-                        });
-                    }
                     return {
-                        results: rows
+                        results: data
                     };
                 },
                 cache: true

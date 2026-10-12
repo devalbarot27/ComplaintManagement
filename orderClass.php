@@ -7789,24 +7789,27 @@ class orderClass
         $search = htmlspecialchars(trim($_POST['search'] ?? ''), ENT_QUOTES, 'UTF-8');
         $assignedCodes = $this->elgiEngineerAssignedDealerCodes();
 
-        if (is_array($assignedCodes) && $assignedCodes === []) {
-            return json_encode([], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        if (is_array($assignedCodes)) {
+            $dealers = ar_statement_dealers_for_codes(
+                $this->dpconn,
+                $this->obconn,
+                $assignedCodes,
+                trim((string) ($_POST['search'] ?? ''))
+            );
+            $result = [];
+            foreach ($dealers as $dealer) {
+                $result[] = [
+                    'id' => $dealer['id'],
+                    'text' => $dealer['text'],
+                ];
+            }
+
+            return json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
 
         $sql = "SELECT cuno, cuname
         FROM customer_master
         WHERE 1=1";
-
-        $assignedParams = [];
-        if (is_array($assignedCodes)) {
-            $placeholders = [];
-            foreach (array_values($assignedCodes) as $index => $code) {
-                $placeholder = ':assigned_dealer_' . $index;
-                $placeholders[] = $placeholder;
-                $assignedParams[$placeholder] = $code;
-            }
-            $sql .= ' AND TRIM(cuno) IN (' . implode(', ', $placeholders) . ')';
-        }
 
         if (!empty($search)) {
             $sql .= " AND (
@@ -7818,10 +7821,6 @@ class orderClass
         $sql .= " ORDER BY cuname LIMIT 50";
 
         $stmt = $this->dpconn->prepare($sql);
-
-        foreach ($assignedParams as $placeholder => $code) {
-            $stmt->bindValue($placeholder, $code, PDO::PARAM_STR);
-        }
 
         if (!empty($search)) {
             $searchLike = "%{$search}%";
