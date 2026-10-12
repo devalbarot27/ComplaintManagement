@@ -5973,11 +5973,6 @@ class orderClass
 
         $dealer = trim($_POST['dealer'] ?? '');
 
-        if ($dealer !== '' && !$this->elgiEngineerMayUseDealer($dealer)) {
-            echo json_encode([], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-            return;
-        }
-
         $sql = "SELECT adr_code, cuname
             FROM customer_address
             WHERE length(adr_code) = 9";
@@ -7750,52 +7745,13 @@ class orderClass
             : '';
     }
 
-    /**
-     * Dealer codes assigned to the logged-in ELGi Engineer (Level 1 / Level 2, plus their mapped customer code).
-     * Null means another user type, whose dealer list stays unfiltered.
-     *
-     * @return array<int, string>|null
-     */
-    private function elgiEngineerAssignedDealerCodes(): ?array
-    {
-        if (!is_elgi_engineer_user()) {
-            return null;
-        }
-
-        require_once __DIR__ . '/includes/ar_statement_helpers.php';
-
-        return ar_statement_assigned_dealer_codes($this->obconn);
-    }
-
-    private function elgiEngineerMayUseDealer(string $dealer): bool
-    {
-        $assignedCodes = $this->elgiEngineerAssignedDealerCodes();
-        if ($assignedCodes === null) {
-            return true;
-        }
-
-        $dealer = trim($dealer);
-        foreach ($assignedCodes as $code) {
-            if (strcasecmp(trim((string) $code), $dealer) === 0) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     function search_dealer()
     {
-        $search = htmlspecialchars(trim($_POST['search'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $assignedCodes = $this->elgiEngineerAssignedDealerCodes();
+        $search = trim((string) ($_POST['search'] ?? ''));
 
-        if (is_array($assignedCodes)) {
-            $dealers = ar_statement_dealers_for_codes(
-                $this->dpconn,
-                $this->obconn,
-                $assignedCodes,
-                trim((string) ($_POST['search'] ?? ''))
-            );
+        if (is_elgi_engineer_user()) {
+            require_once __DIR__ . '/includes/customer_master_helpers.php';
+            $dealers = customer_master_dealer_search($this->obconn, $search, 50, '');
             $result = [];
             foreach ($dealers as $dealer) {
                 $result[] = [
@@ -7806,6 +7762,8 @@ class orderClass
 
             return json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         }
+
+        $search = htmlspecialchars($search, ENT_QUOTES, 'UTF-8');
 
         $sql = "SELECT cuno, cuname
         FROM customer_master
