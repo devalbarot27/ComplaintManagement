@@ -5973,23 +5973,47 @@ class orderClass
 
         $dealer = trim($_POST['dealer'] ?? '');
 
-        $sql = "SELECT adr_code, cuname
-            FROM customer_address
-            WHERE length(adr_code) = 9";
-        if ($dealer) {
-            $sql .= " AND cuno = :dealer";
+        if (is_elgi_engineer_user()) {
+            $sql = "SELECT adr_code, cuname
+                FROM customer_address
+                WHERE length(adr_code) = 9";
+            if ($dealer) {
+                $sql .= " AND cuno = :dealer";
+            } else {
+                $sql .= " AND cuno = :cuno";
+            }
+
+            if (!empty($search)) {
+                $sql .= " AND (
+                        LOWER(cuname) LIKE LOWER(:search)
+                        OR adr_code LIKE :search
+                     )";
+            }
+
+            $sql .= " ORDER BY cuname LIMIT 50";
         } else {
-            $sql .= " AND cuno = :cuno";
-        }
+            $sql = "SELECT
+                    TRIM(cms.customer_code) AS adr_code,
+                    TRIM(COALESCE(cm.cuname, '')) AS cuname
+                FROM customer_master_sync cms
+                LEFT JOIN customer_master cm ON TRIM(cm.cuno) = TRIM(cms.customer_code)
+                WHERE cms.deleted_at IS NULL
+                  AND length(TRIM(cms.customer_code)) > 0";
+            if ($dealer) {
+                $sql .= " AND TRIM(cms.customer_code) = TRIM(:dealer)";
+            } else {
+                $sql .= " AND TRIM(cms.customer_code) = TRIM(:cuno)";
+            }
 
-        if (!empty($search)) {
-            $sql .= " AND (
-                    LOWER(cuname) LIKE LOWER(:search)
-                    OR adr_code LIKE :search
-                 )";
-        }
+            if (!empty($search)) {
+                $sql .= " AND (
+                        LOWER(COALESCE(cm.cuname, '')) LIKE LOWER(:search)
+                        OR cms.customer_code LIKE :search
+                     )";
+            }
 
-        $sql .= " ORDER BY cuname LIMIT 50";
+            $sql .= " ORDER BY cm.cuname LIMIT 50";
+        }
 
         $stmt = $this->obconn->prepare($sql);
 
@@ -7747,23 +7771,7 @@ class orderClass
 
     function search_dealer()
     {
-        $search = trim((string) ($_POST['search'] ?? ''));
-
-        if (is_elgi_engineer_user()) {
-            require_once __DIR__ . '/includes/customer_master_helpers.php';
-            $dealers = customer_master_dealer_search($this->obconn, $search, 50, '');
-            $result = [];
-            foreach ($dealers as $dealer) {
-                $result[] = [
-                    'id' => $dealer['id'],
-                    'text' => $dealer['text'],
-                ];
-            }
-
-            return json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-        }
-
-        $search = htmlspecialchars($search, ENT_QUOTES, 'UTF-8');
+        $search = htmlspecialchars(trim($_POST['search'] ?? ''), ENT_QUOTES, 'UTF-8');
 
         $sql = "SELECT cuno, cuname
         FROM customer_master

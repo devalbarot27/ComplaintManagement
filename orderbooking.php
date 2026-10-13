@@ -1189,8 +1189,6 @@ $freightPercentage = 4;
         $('#dealerlist').select2({
             placeholder: 'Search Dealer',
             allowClear: true,
-            width: '100%',
-            minimumInputLength: 0,
             ajax: {
                 url: 'orderRequest.php',
                 type: 'POST',
@@ -1199,12 +1197,12 @@ $freightPercentage = 4;
                 data: function(params) {
                     return {
                         action: 'search_dealer',
-                        search: params.term || ''
+                        search: params.term
                     };
                 },
                 processResults: function(data) {
                     return {
-                        results: Array.isArray(data) ? data : []
+                        results: data
                     };
                 },
                 cache: true
