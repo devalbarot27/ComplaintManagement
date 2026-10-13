@@ -3199,14 +3199,15 @@ function warranty_claims_get_ln_bearer_token(): string
 {
     $ch = curl_init();
 // https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2 // OLD URL
+// https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_PRD/IONSERVICES/api/ion/messaging/service/v2/message // New URL
     curl_setopt_array($ch, [
-        CURLOPT_URL => 'https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_PRD/IONSERVICES/api/ion/messaging/service/v2/message',
+        CURLOPT_URL => 'https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2',
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => http_build_query([
             'token_name'    => getenv('API_TOKEN_NAME'),
             'grant_type'    => getenv('API_GRANT_TYPE'),
-            'redirect_uri'  => 'https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_PRD/IONSERVICES/api/ion/messaging/service/v2/message',
+            'redirect_uri'  => 'https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2',
             'client_id'     => getenv('API_CLIENT_ID'),
             'client_secret' => getenv('API_CLIENT_SECRET'),
             'username'      => getenv('API_USERNAME'),

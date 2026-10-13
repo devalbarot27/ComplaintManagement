@@ -15,7 +15,7 @@ class orderClass
     private $obconn;
     private $dpconn;
     private $customer_code;
-
+    private $userRole;
     public function __construct($obconn, $dpconn)
     {
 
@@ -23,6 +23,7 @@ class orderClass
         $this->dpconn = $dpconn;
         $this->userId = $_SESSION['usr_name'];
         $this->customer_code = @$_SESSION['customer_number_vayu'];
+        $this->userRole = @$_SESSION['role'];
         
 
         // PRICE TYPE: Added for CLP / Level 1 / Level 2 Approval Price
@@ -1806,11 +1807,11 @@ class orderClass
 
         $getEmail = $this->obconn->prepare("SELECT email FROM user_master WHERE username=:username limit 1");
 
-            $getEmail->bindParam(":username", $this->userId);
+        $getEmail->bindParam(":username", $this->userId);
 
-            $getEmail->execute();
+        $getEmail->execute();
 
-            $fetchEmail = $getEmail->fetch(PDO::FETCH_ASSOC);
+        $fetchEmail = $getEmail->fetch(PDO::FETCH_ASSOC);
 
         $userEmail = preg_replace('/^\s+|\s+$/u', '', $fetchEmail['email'] ?? '');
         $userEmail = ($userEmail !== '') ? $userEmail : null;
@@ -1948,7 +1949,7 @@ class orderClass
                     throw new Exception("Cart is empty.");
                 }
 
-             
+
 
                 $stmt = $this->obconn->prepare("SELECT max(substr(indent_number,7,9)) AS maxindno FROM 
                 plexecom_customer_units WHERE areacode = :area AND indent_date >= '01.04.2022'");
@@ -1996,7 +1997,7 @@ class orderClass
 
                 $invaddr = pg_escape_string($customer['custaddr']);
 
-        
+
                 $dpstStmt = $this->obconn->prepare("SELECT product_group FROM dpst_master WHERE dpst_code = :dpst");
 
                 $dpstStmt->execute([':dpst' => $dpst]);
@@ -2121,7 +2122,7 @@ class orderClass
                 </SalesOrderHeader>";
 
                 $line = 10;
-              
+
                 foreach ($cartItems as $item) {
 
                     $tplcode = $item['item_code'];
@@ -2304,7 +2305,7 @@ class orderClass
 
                     ]);
 
-                    
+
                     if (!$success) {
 
                         $this->obconn->rollBack();
@@ -2413,7 +2414,6 @@ class orderClass
                 } else {
                     return json_encode(["status" => ($data['message'] ?? 'Unknown error')], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
                 }
-                   
             } catch (Exception $e) {
 
                 if ($this->obconn->inTransaction()) {
@@ -2875,9 +2875,9 @@ class orderClass
             }
             error_log(
                 '[' . date('Y-m-d H:i:s') . '] ' .
-                "User: {$this->userId} | " .
-                'Error: ' . $e->getMessage() . ' | ' .
-                'Line: ' . $e->getLine()
+                    "User: {$this->userId} | " .
+                    'Error: ' . $e->getMessage() . ' | ' .
+                    'Line: ' . $e->getLine()
             );
 
             return json_encode([
@@ -5976,11 +5976,14 @@ class orderClass
         $sql = "SELECT adr_code, cuname
             FROM customer_address
             WHERE length(adr_code) = 9";
-        if ($dealer) {
-            $sql .= " AND cuno = :dealer";
-        } else {
-            $sql .= " AND cuno = :cuno";
-        }
+      
+            if ($dealer) {
+                $sql .= " AND cuno = :dealer";
+            } else {
+                $sql .= " AND cuno = :cuno";
+            }
+        
+
 
         if (!empty($search)) {
             $sql .= " AND (
@@ -6441,7 +6444,7 @@ class orderClass
 
             $headerStmt = $this->obconn->prepare($headerSql);
             $headerStmt->bindValue(':refno', $refno);
-           /*
+            /*
             if (!$seeAll) {
                 $headerStmt->bindValue(':cuno', $this->userId);
             }
@@ -6478,7 +6481,7 @@ class orderClass
 
             $linesStmt = $this->obconn->prepare($linesSql);
             $linesStmt->bindValue(':refno', $refno);
-/*
+            /*
             if (!$seeAll) {
                 $linesStmt->bindValue(':cuno', $this->customer_code);
             }
@@ -6500,16 +6503,16 @@ class orderClass
                     $hasLevel2Price = true;
                 }
 
-                if($row['price_type_new'] == 'clp'){
+                if ($row['price_type_new'] == 'clp') {
                     $price_type_new = 'CLP - Customer List Price';
-                }else if($row['price_type_new'] == 'dealer'){
+                } else if ($row['price_type_new'] == 'dealer') {
                     $price_type_new = 'Dealer Price';
-                }else if($row['price_type_new'] == 'level_1'){
+                } else if ($row['price_type_new'] == 'level_1') {
                     $price_type_new = 'Level 1 Approval Price';
-                }else if($row['price_type_new'] == 'level_2'){
+                } else if ($row['price_type_new'] == 'level_2') {
                     $price_type_new = 'Level 2 Approval Price';
-                }else{
-                    $price_type_new = '-'.$row['price_type_new'];
+                } else {
+                    $price_type_new = '-' . $row['price_type_new'];
                 }
                 $qty = (float) ($row['qty'] ?? 0);
                 $price = (float) ($row['price'] ?? 0);
@@ -6551,7 +6554,7 @@ class orderClass
             $cuno = trim((string) ($headerRow['cuno'] ?? $this->customer_code));
             $orderDateRaw = $headerRow['order_date'] ?? $headerRow['indent_date'] ?? null;
             $orderDate = !empty($orderDateRaw) ? date('d-m-Y', strtotime((string) $orderDateRaw)) : '-';
- 	  $orderTime = $headerRow['order_time'] ?? null;
+            $orderTime = $headerRow['order_time'] ?? null;
 
 
 
@@ -7130,70 +7133,70 @@ class orderClass
         }
     }
 
-        /**
+    /**
      * APPROVAL MODULE: Send approved order to LN so AO Number can be generated.
      * order_number stays empty until LN callback updates it.
      */
-        public function generateAoNumberAfterApproval(string $refno): ?string
-        {
-            $refno = trim($refno);
-            if ($refno === '') {
-                return 'Order reference is required.';
-            }
-    
-            $linesStmt = $this->obconn->prepare('
+    public function generateAoNumberAfterApproval(string $refno): ?string
+    {
+        $refno = trim($refno);
+        if ($refno === '') {
+            return 'Order reference is required.';
+        }
+
+        $linesStmt = $this->obconn->prepare('
                 SELECT *
                 FROM plexecom_customer_units
                 WHERE refno = :refno
                 ORDER BY oid ASC
             ');
-            $linesStmt->bindValue(':refno', $refno);
-            $linesStmt->execute();
-            $rows = $linesStmt->fetchAll(PDO::FETCH_ASSOC);
-            if ($rows === []) {
-                return 'Order not found.';
+        $linesStmt->bindValue(':refno', $refno);
+        $linesStmt->execute();
+        $rows = $linesStmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows === []) {
+            return 'Order not found.';
+        }
+
+        $header = $rows[0];
+        if (trim((string) ($header['order_number'] ?? '')) !== '') {
+            return 'AO Number has already been generated for this order.';
+        }
+
+        $aoBlock = order_approval_ao_block_reason($header);
+        if ($aoBlock !== null) {
+            return $aoBlock;
+        }
+
+        try {
+            $bearerToken = $this->getBearerTokenLN();
+            if ($bearerToken === '') {
+                return 'Unable to authenticate with LN API.';
             }
-    
-            $header = $rows[0];
-            if (trim((string) ($header['order_number'] ?? '')) !== '') {
-                return 'AO Number has already been generated for this order.';
+
+            $xml = $this->buildProcessSalesOrderXmlForRepush($rows);
+            if ($xml === '') {
+                return 'Unable to build sales order payload for LN.';
             }
-    
-            $aoBlock = order_approval_ao_block_reason($header);
-            if ($aoBlock !== null) {
-                return $aoBlock;
+
+            $ionResult = $this->sendIonSalesOrderMessage($xml, $bearerToken);
+            if (empty($ionResult['success'])) {
+                return (string) ($ionResult['message'] ?? 'LN request failed.');
             }
-    
-            try {
-                $bearerToken = $this->getBearerTokenLN();
-                if ($bearerToken === '') {
-                    return 'Unable to authenticate with LN API.';
-                }
-    
-                $xml = $this->buildProcessSalesOrderXmlForRepush($rows);
-                if ($xml === '') {
-                    return 'Unable to build sales order payload for LN.';
-                }
-    
-                $ionResult = $this->sendIonSalesOrderMessage($xml, $bearerToken);
-                if (empty($ionResult['success'])) {
-                    return (string) ($ionResult['message'] ?? 'LN request failed.');
-                }
-    
-                $upd = $this->obconn->prepare('
+
+            $upd = $this->obconn->prepare('
                     UPDATE plexecom_customer_units
                     SET ediprocessdt = CURRENT_TIMESTAMP
                     WHERE refno = :refno
                 ');
-                $upd->bindValue(':refno', $refno);
-                $upd->execute();
-    
-                return null;
-            } catch (Throwable $e) {
-                error_log('generateAoNumberAfterApproval: ' . $e->getMessage() . ' @ ' . $e->getLine());
-                return 'Unable to generate AO Number. Please use Re-Push later.';
-            }
+            $upd->bindValue(':refno', $refno);
+            $upd->execute();
+
+            return null;
+        } catch (Throwable $e) {
+            error_log('generateAoNumberAfterApproval: ' . $e->getMessage() . ' @ ' . $e->getLine());
+            return 'Unable to generate AO Number. Please use Re-Push later.';
         }
+    }
 
     /**
      * Re-push an existing pending order to Infor LN to regenerate AO number.
@@ -7232,7 +7235,8 @@ class orderClass
             $header = $rows[0];
             $orderCuno = trim((string) ($header['cuno'] ?? ''));
 
-            if (!$seeAll && $orderCuno !== '' && $orderCuno !== (string) $this->customer_code
+            if (
+                !$seeAll && $orderCuno !== '' && $orderCuno !== (string) $this->customer_code
                 && !user_submitter_is_associated_dealer(
                     $this->obconn,
                     (string) ($header['usr_name'] ?? ''),
@@ -7714,15 +7718,14 @@ class orderClass
 
         $ch = curl_init();
 
-        // https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2 // OLD URL
         curl_setopt_array($ch, [
-            CURLOPT_URL => 'https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_PRD/IONSERVICES/api/ion/messaging/service/v2/message',
+            CURLOPT_URL => 'https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query([
                 'token_name'    => getenv('API_TOKEN_NAME'),
                 'grant_type'    => getenv('API_GRANT_TYPE'),
-                'redirect_uri'  => 'https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_PRD/IONSERVICES/api/ion/messaging/service/v2/message',
+                'redirect_uri'  => 'https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2',
                 'client_id'     => getenv('API_CLIENT_ID'),
                 'client_secret' => getenv('API_CLIENT_SECRET'),
                 'username'      => getenv('API_USERNAME'),
@@ -7784,19 +7787,19 @@ class orderClass
         return json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 
-   public function getComplaintItems()
-{
-    try {
-        $complaintNo = trim(filter_input(INPUT_POST, 'complaintNo', FILTER_SANITIZE_SPECIAL_CHARS) ?? '');
-        if (empty($complaintNo)) {
-            return json_encode(['status' => false, 'message' => 'Complaint number is required']);
-        }
+    public function getComplaintItems()
+    {
+        try {
+            $complaintNo = trim(filter_input(INPUT_POST, 'complaintNo', FILTER_SANITIZE_SPECIAL_CHARS) ?? '');
+            if (empty($complaintNo)) {
+                return json_encode(['status' => false, 'message' => 'Complaint number is required']);
+            }
 
-        // "Complaint Number" as typed by the dealer may be the numeric complaints.id
-        // or the fab_number business reference - match whichever fits.
-        $where = ctype_digit($complaintNo) ? 'c.id = :complaintNo' : 'c.fab_number = :complaintNo';
-        
-        $sql = "SELECT c.id AS complaint_id, spr.id AS part_id, spr.machine_model_code, spr.machine_model, spr.quantity FROM complaints c
+            // "Complaint Number" as typed by the dealer may be the numeric complaints.id
+            // or the fab_number business reference - match whichever fits.
+            $where = ctype_digit($complaintNo) ? 'c.id = :complaintNo' : 'c.fab_number = :complaintNo';
+
+            $sql = "SELECT c.id AS complaint_id, spr.id AS part_id, spr.machine_model_code, spr.machine_model, spr.quantity FROM complaints c
                 INNER JOIN complaint_service_logs csl ON csl.complaint_id = c.id
                 INNER JOIN service_log_part_replacements spr ON spr.service_log_id = csl.service_log_id
                 WHERE $where
@@ -7804,119 +7807,119 @@ class orderClass
                   AND spr.deleted_at IS NULL
                 ORDER BY spr.created_at DESC";
 
-        $stmt = $this->obconn->prepare($sql);
-        $stmt->bindValue(':complaintNo', $complaintNo);
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt = $this->obconn->prepare($sql);
+            $stmt->bindValue(':complaintNo', $complaintNo);
+            $stmt->execute();
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        if (!$rows) {
-            return json_encode(['status' => false, 'message' => 'No items found for this complaint number']);
-        }
-
-        $items = [];
-        foreach ($rows as $row) {
-            $itemCode = $row['machine_model_code'];
-            $itemName = $row['machine_model'];
-            $price = 0;
-
-            // Look up the master description + cost for this part code, if it exists there.
-            $getMaster = $this->obconn->prepare("SELECT tpldesc, cos FROM product_master_vayu WHERE tplcode = :tplcode LIMIT 1");
-            $getMaster->bindValue(':tplcode', $itemCode);
-            $getMaster->execute();
-            $master = $getMaster->fetch(PDO::FETCH_ASSOC);
-
-            if ($master) {
-                if (!empty($master['tpldesc'])) {
-                    $itemName = $master['tpldesc'];
-                }
-                $price = $master['cos'] ?? 0;
+            if (!$rows) {
+                return json_encode(['status' => false, 'message' => 'No items found for this complaint number']);
             }
 
-            $items[] = [
-                'id' => $row['part_id'],
-                'item_code' => $itemCode,
-                'item_name' => $itemName,
-                'qty' => $row['quantity'],
-                'price' => $price
-            ];
-        }
+            $items = [];
+            foreach ($rows as $row) {
+                $itemCode = $row['machine_model_code'];
+                $itemName = $row['machine_model'];
+                $price = 0;
 
-        return json_encode([
-            'status' => true,
-            'complaint_id' => $rows[0]['complaint_id'],
-            'items' => $items
-        ]);
-    } catch (PDOException $e) {
-        error_log($e->getMessage());
-        return json_encode(['status' => false, 'message' => 'Unable to fetch complaint items']);
+                // Look up the master description + cost for this part code, if it exists there.
+                $getMaster = $this->obconn->prepare("SELECT tpldesc, cos FROM product_master_vayu WHERE tplcode = :tplcode LIMIT 1");
+                $getMaster->bindValue(':tplcode', $itemCode);
+                $getMaster->execute();
+                $master = $getMaster->fetch(PDO::FETCH_ASSOC);
+
+                if ($master) {
+                    if (!empty($master['tpldesc'])) {
+                        $itemName = $master['tpldesc'];
+                    }
+                    $price = $master['cos'] ?? 0;
+                }
+
+                $items[] = [
+                    'id' => $row['part_id'],
+                    'item_code' => $itemCode,
+                    'item_name' => $itemName,
+                    'qty' => $row['quantity'],
+                    'price' => $price
+                ];
+            }
+
+            return json_encode([
+                'status' => true,
+                'complaint_id' => $rows[0]['complaint_id'],
+                'items' => $items
+            ]);
+        } catch (PDOException $e) {
+            error_log($e->getMessage());
+            return json_encode(['status' => false, 'message' => 'Unable to fetch complaint items']);
+        }
     }
-}
 
     public function submitFocComplaintItems()
-{
-    try {
-        $items = json_decode(filter_input(INPUT_POST, 'items', FILTER_UNSAFE_RAW) ?? '[]', true);
+    {
+        try {
+            $items = json_decode(filter_input(INPUT_POST, 'items', FILTER_UNSAFE_RAW) ?? '[]', true);
 
-        if (empty($items) || !is_array($items)) {
-            return json_encode(['status' => false, 'message' => 'No items selected']);
-        }
-
-        $orderType = 3; // FOC
-        $price = 0;     // Free of charge
-
-        $this->obconn->beginTransaction();
-
-        foreach ($items as $item) {
-            $itemCode = filter_var($item['item_code'] ?? '', FILTER_SANITIZE_SPECIAL_CHARS);
-            $itemName = filter_var($item['item_name'] ?? '', FILTER_SANITIZE_SPECIAL_CHARS);
-            $qty = filter_var($item['qty'] ?? 0, FILTER_VALIDATE_FLOAT);
-
-            if (empty($itemCode) || $qty <= 0) {
-                continue;
+            if (empty($items) || !is_array($items)) {
+                return json_encode(['status' => false, 'message' => 'No items selected']);
             }
 
-            $getDpst = $this->obconn->prepare("SELECT dpst FROM product_master_vayu WHERE tplcode = :tplcode LIMIT 1");
-            $getDpst->bindValue(':tplcode', $itemCode);
-            $getDpst->execute();
-            $dpstRow = $getDpst->fetch(PDO::FETCH_ASSOC);
-            $dpst = $dpstRow['dpst'] ?? '-';
+            $orderType = 3; // FOC
+            $price = 0;     // Free of charge
 
-            $stmt = $this->obconn->prepare("SELECT qty FROM tbl_vayu_cartitems WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code AND order_type = :orderType");
-            $stmt->bindValue(':createdBy', $this->userId);
-            $stmt->bindValue(':item_code', $itemCode);
-            $stmt->bindValue(':orderType', $orderType);
-            $stmt->execute();
-            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+            $this->obconn->beginTransaction();
 
-            if (!$existing) {
-                $insert = $this->obconn->prepare("INSERT INTO tbl_vayu_cartitems(item_code,item_name,price,qty,total_amount,created_by,dpst,order_type) VALUES (:item_code,:item_name,:price,:qty,:total_amount,:created_by,:dpst,:order_type)");
-                $insert->bindValue(':item_code', $itemCode);
-                $insert->bindValue(':item_name', $itemName);
-                $insert->bindValue(':price', $price);
-                $insert->bindValue(':qty', $qty);
-                $insert->bindValue(':total_amount', 0);
-                $insert->bindValue(':created_by', $this->userId);
-                $insert->bindValue(':dpst', $dpst);
-                $insert->bindValue(':order_type', $orderType);
-                $insert->execute();
-            } else {
-                $updatedQty = $existing['qty'] + $qty;
-                $update = $this->obconn->prepare("UPDATE tbl_vayu_cartitems SET qty = :qty, total_amount = :totalAmount WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code AND order_type = :orderType");
-                $update->bindValue(':qty', $updatedQty);
-                $update->bindValue(':totalAmount', 0);
-                $update->bindValue(':createdBy', $this->userId);
-                $update->bindValue(':item_code', $itemCode);
-                $update->bindValue(':orderType', $orderType);
-                $update->execute();
+            foreach ($items as $item) {
+                $itemCode = filter_var($item['item_code'] ?? '', FILTER_SANITIZE_SPECIAL_CHARS);
+                $itemName = filter_var($item['item_name'] ?? '', FILTER_SANITIZE_SPECIAL_CHARS);
+                $qty = filter_var($item['qty'] ?? 0, FILTER_VALIDATE_FLOAT);
+
+                if (empty($itemCode) || $qty <= 0) {
+                    continue;
+                }
+
+                $getDpst = $this->obconn->prepare("SELECT dpst FROM product_master_vayu WHERE tplcode = :tplcode LIMIT 1");
+                $getDpst->bindValue(':tplcode', $itemCode);
+                $getDpst->execute();
+                $dpstRow = $getDpst->fetch(PDO::FETCH_ASSOC);
+                $dpst = $dpstRow['dpst'] ?? '-';
+
+                $stmt = $this->obconn->prepare("SELECT qty FROM tbl_vayu_cartitems WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code AND order_type = :orderType");
+                $stmt->bindValue(':createdBy', $this->userId);
+                $stmt->bindValue(':item_code', $itemCode);
+                $stmt->bindValue(':orderType', $orderType);
+                $stmt->execute();
+                $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if (!$existing) {
+                    $insert = $this->obconn->prepare("INSERT INTO tbl_vayu_cartitems(item_code,item_name,price,qty,total_amount,created_by,dpst,order_type) VALUES (:item_code,:item_name,:price,:qty,:total_amount,:created_by,:dpst,:order_type)");
+                    $insert->bindValue(':item_code', $itemCode);
+                    $insert->bindValue(':item_name', $itemName);
+                    $insert->bindValue(':price', $price);
+                    $insert->bindValue(':qty', $qty);
+                    $insert->bindValue(':total_amount', 0);
+                    $insert->bindValue(':created_by', $this->userId);
+                    $insert->bindValue(':dpst', $dpst);
+                    $insert->bindValue(':order_type', $orderType);
+                    $insert->execute();
+                } else {
+                    $updatedQty = $existing['qty'] + $qty;
+                    $update = $this->obconn->prepare("UPDATE tbl_vayu_cartitems SET qty = :qty, total_amount = :totalAmount WHERE created_by = :createdBy AND status = 0 AND item_code = :item_code AND order_type = :orderType");
+                    $update->bindValue(':qty', $updatedQty);
+                    $update->bindValue(':totalAmount', 0);
+                    $update->bindValue(':createdBy', $this->userId);
+                    $update->bindValue(':item_code', $itemCode);
+                    $update->bindValue(':orderType', $orderType);
+                    $update->execute();
+                }
             }
-        }
 
-        $this->obconn->commit();
-        return json_encode(['status' => true]);
-    } catch (PDOException $e) {
-        $this->obconn->rollBack();
-        error_log($e->getMessage());
-        return json_encode(['status' => false, 'message' => 'Unable to submit complaint items']);
+            $this->obconn->commit();
+            return json_encode(['status' => true]);
+        } catch (PDOException $e) {
+            $this->obconn->rollBack();
+            error_log($e->getMessage());
+            return json_encode(['status' => false, 'message' => 'Unable to submit complaint items']);
+        }
     }
-}
 }
