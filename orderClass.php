@@ -5973,47 +5973,23 @@ class orderClass
 
         $dealer = trim($_POST['dealer'] ?? '');
 
-        if (is_elgi_engineer_user()) {
-            $sql = "SELECT adr_code, cuname
-                FROM customer_address
-                WHERE length(adr_code) = 9";
-            if ($dealer) {
-                $sql .= " AND cuno = :dealer";
-            } else {
-                $sql .= " AND cuno = :cuno";
-            }
-
-            if (!empty($search)) {
-                $sql .= " AND (
-                        LOWER(cuname) LIKE LOWER(:search)
-                        OR adr_code LIKE :search
-                     )";
-            }
-
-            $sql .= " ORDER BY cuname LIMIT 50";
+        $sql = "SELECT adr_code, cuname
+            FROM customer_address
+            WHERE length(adr_code) = 9";
+        if ($dealer) {
+            $sql .= " AND cuno = :dealer";
         } else {
-            $sql = "SELECT
-                    TRIM(cms.customer_code) AS adr_code,
-                    TRIM(COALESCE(cm.cuname, '')) AS cuname
-                FROM customer_master_sync cms
-                LEFT JOIN customer_master cm ON TRIM(cm.cuno) = TRIM(cms.customer_code)
-                WHERE cms.deleted_at IS NULL
-                  AND length(TRIM(cms.customer_code)) > 0";
-            if ($dealer) {
-                $sql .= " AND TRIM(cms.customer_code) = TRIM(:dealer)";
-            } else {
-                $sql .= " AND TRIM(cms.customer_code) = TRIM(:cuno)";
-            }
-
-            if (!empty($search)) {
-                $sql .= " AND (
-                        LOWER(COALESCE(cm.cuname, '')) LIKE LOWER(:search)
-                        OR cms.customer_code LIKE :search
-                     )";
-            }
-
-            $sql .= " ORDER BY cm.cuname LIMIT 50";
+            $sql .= " AND cuno = :cuno";
         }
+
+        if (!empty($search)) {
+            $sql .= " AND (
+                    LOWER(cuname) LIKE LOWER(:search)
+                    OR adr_code LIKE :search
+                 )";
+        }
+
+        $sql .= " ORDER BY cuname LIMIT 50";
 
         $stmt = $this->obconn->prepare($sql);
 
@@ -7738,14 +7714,15 @@ class orderClass
 
         $ch = curl_init();
 
+        // https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2 // OLD URL
         curl_setopt_array($ch, [
-            CURLOPT_URL => 'https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2',
+            CURLOPT_URL => 'https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_PRD/IONSERVICES/api/ion/messaging/service/v2/message',
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query([
                 'token_name'    => getenv('API_TOKEN_NAME'),
                 'grant_type'    => getenv('API_GRANT_TYPE'),
-                'redirect_uri'  => 'https://mingle-sso.eu1.inforcloudsuite.com:443/ELGI_TST/as/token.oauth2',
+                'redirect_uri'  => 'https://mingle-ionapi.eu1.inforcloudsuite.com/ELGI_PRD/IONSERVICES/api/ion/messaging/service/v2/message',
                 'client_id'     => getenv('API_CLIENT_ID'),
                 'client_secret' => getenv('API_CLIENT_SECRET'),
                 'username'      => getenv('API_USERNAME'),
