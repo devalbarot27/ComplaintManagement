@@ -46,6 +46,64 @@ $customerHtml = customer_master_name_link_html(
 $deliveryIsDealer = (($header['delivery_address_type'] ?? '') === 'dealer');
 $deliveryAddressLabel = $deliveryIsDealer ? 'Dealer' : 'End Customer';
 $dealerDeliveryAddress = (string) ($header['dealer_delivery_address'] ?? $header['delivery_address'] ?? '-');
+$dealerCustomerLabel = '';
+if ($deliveryIsDealer) {
+    $dealerCustomerName = '';
+    $dealerCustomerCode = '';
+    $deliveryCode = trim((string) ($header['delivery_code'] ?? ''));
+    if ($deliveryCode !== '') {
+        foreach ([$dpconn ?? null, $obconn ?? null] as $dealerAddrConn) {
+            if (!$dealerAddrConn instanceof PDO) {
+                continue;
+            }
+            try {
+                $dealerAddrStmt = $dealerAddrConn->prepare(
+                    'SELECT cuno, cuname FROM customer_address WHERE TRIM(adr_code) = :code LIMIT 1'
+                );
+                $dealerAddrStmt->execute([':code' => $deliveryCode]);
+                $dealerAddrRow = $dealerAddrStmt->fetch(PDO::FETCH_ASSOC);
+            } catch (Throwable $e) {
+                $dealerAddrRow = false;
+            }
+            if ($dealerAddrRow) {
+                $dealerCustomerName = trim((string) ($dealerAddrRow['cuname'] ?? ''));
+                $dealerCustomerCode = trim((string) ($dealerAddrRow['cuno'] ?? ''));
+                break;
+            }
+        }
+    }
+    if ($dealerCustomerName === '') {
+        $dealerCustomerName = trim((string) ($header['cuname'] ?? ''));
+    }
+    if ($dealerCustomerCode === '') {
+        $dealerCustomerCode = trim((string) ($header['cuno'] ?? ''));
+    }
+    if ($dealerCustomerCode === '') {
+        $dealerCustomerId = (int) ($header['customer_id'] ?? 0);
+        if ($dealerCustomerId > 0) {
+            $dealerCustomerCode = (string) $dealerCustomerId;
+        }
+    }
+    if ($dealerCustomerName !== '' && $dealerCustomerCode !== '') {
+        $dealerCustomerLabel = $dealerCustomerName . ' [' . $dealerCustomerCode . ']';
+    } elseif ($dealerCustomerName !== '') {
+        $dealerCustomerLabel = $dealerCustomerName;
+    } else {
+        $dealerCustomerLabel = $dealerCustomerCode;
+    }
+
+    if (
+        $dealerCustomerName !== ''
+        && $dealerCustomerLabel !== ''
+        && strncmp($dealerDeliveryAddress, $dealerCustomerName, strlen($dealerCustomerName)) === 0
+    ) {
+        $dealerAddressRemainder = ltrim(substr($dealerDeliveryAddress, strlen($dealerCustomerName)), " \t,");
+        $dealerDeliveryAddress = $dealerAddressRemainder !== '' ? $dealerAddressRemainder : '';
+    }
+    if ($dealerCustomerLabel !== '' && trim($dealerDeliveryAddress) === '-') {
+        $dealerDeliveryAddress = '';
+    }
+}
 
 // Escape into locals, then drop tainted source arrays (scanner-friendly XSS pattern).
 $safe = [
@@ -69,6 +127,7 @@ $safe = [
     'invoice_address' => htmlspecialchars((string) ($header['invoice_address'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'delivery_address_label' => htmlspecialchars($deliveryAddressLabel, ENT_QUOTES, 'UTF-8'),
     'dealer_delivery_address' => htmlspecialchars($dealerDeliveryAddress, ENT_QUOTES, 'UTF-8'),
+    'dealer_customer_label' => htmlspecialchars($dealerCustomerLabel, ENT_QUOTES, 'UTF-8'),
     'end_customer_name' => htmlspecialchars((string) ($header['end_customer_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'end_customer_email' => htmlspecialchars((string) ($header['end_customer_email'] ?? ''), ENT_QUOTES, 'UTF-8'),
     'end_customer_street1' => htmlspecialchars((string) ($header['end_customer_street1'] ?? ''), ENT_QUOTES, 'UTF-8'),
@@ -126,7 +185,7 @@ foreach ($lines as $line) {
     ];
 }
 
-unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliveryAddress, $deliveryAddressLabel);
+unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliveryAddress, $dealerCustomerLabel, $deliveryAddressLabel);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -383,7 +442,14 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
                                     </div>
                                     <div class="oad-address-card__body">
                                         <?php if ($deliveryIsDealer) { ?>
-                                            <?php echo $safe['dealer_delivery_address']; ?>
+                                            <?php if ($safe['dealer_customer_label'] !== '') { ?>
+                                                <div><?php echo $safe['dealer_customer_label']; ?></div>
+                                            <?php } ?>
+                                            <?php if (trim($safe['dealer_delivery_address']) !== '') { ?>
+                                                <div><?php echo $safe['dealer_delivery_address']; ?></div>
+                                            <?php } elseif ($safe['dealer_customer_label'] === '') { ?>
+                                                <span class="text-muted">-</span>
+                                            <?php } ?>
                                         <?php } else { ?>
                                             <table class="table table-sm table-borderless mb-0" style="font-size: 0.92rem;">
                                                 <?php if ($hasEndName) { ?>
