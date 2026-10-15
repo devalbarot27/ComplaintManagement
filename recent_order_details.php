@@ -37,15 +37,48 @@ if ($customerLabel !== '' && $cuno !== '') {
 
 $canViewCustomerMaster = rbac_user_can($obconn, 'customer-master', 'view');
 $customerMasterId = order_approval_resolve_customer_master_id($obconn, $header);
+
+$deliveryIsDealer = (($header['delivery_address_type'] ?? '') === 'dealer');
+$deliveryAddressLabel = $deliveryIsDealer ? 'Dealer' : 'End Customer';
+$dealerDeliveryAddress = (string) ($header['dealer_delivery_address'] ?? $header['delivery_address'] ?? '-');
+
+if ($deliveryIsDealer) {
+    $dealerCode = $cuno;
+    $dealerName = '';
+    if ($dealerCode !== '') {
+        try {
+            $dealerStmt = $obconn->prepare('
+                SELECT TRIM(COALESCE(cuname, \'\'))
+                FROM customer_master
+                WHERE TRIM(cuno) = TRIM(:cuno)
+                LIMIT 1
+            ');
+            $dealerStmt->execute([':cuno' => $dealerCode]);
+            $dealerName = trim((string) $dealerStmt->fetchColumn());
+        } catch (Throwable $e) {
+            $dealerName = '';
+        }
+    }
+    if ($dealerName === '') {
+        $dealerName = trim((string) ($header['cuname'] ?? ''));
+    }
+    if ($dealerCode === '') {
+        $dealerCode = trim((string) ($header['delivery_code'] ?? ''));
+    }
+    if ($dealerName !== '' && $dealerCode !== '') {
+        $customerLabel = $dealerName . ' [' . $dealerCode . ']';
+    } elseif ($dealerName !== '') {
+        $customerLabel = $dealerName;
+    } elseif ($dealerCode !== '') {
+        $customerLabel = $dealerCode;
+    }
+}
+
 $customerHtml = customer_master_name_link_html(
     $customerLabel,
     $customerMasterId,
     $canViewCustomerMaster
 );
-
-$deliveryIsDealer = (($header['delivery_address_type'] ?? '') === 'dealer');
-$deliveryAddressLabel = $deliveryIsDealer ? 'Dealer' : 'End Customer';
-$dealerDeliveryAddress = (string) ($header['dealer_delivery_address'] ?? $header['delivery_address'] ?? '-');
 
 // Escape into locals, then drop tainted source arrays (scanner-friendly XSS pattern).
 $safe = [
@@ -56,6 +89,7 @@ $safe = [
     'order_status' => htmlspecialchars((string) ($header['order_status'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'order_number' => htmlspecialchars((string) ($header['order_number'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'customer' => $customerHtml,
+    'customer_section_label' => $deliveryIsDealer ? 'Dealer' : 'Customer',
     'po_number' => htmlspecialchars((string) ($header['po_number'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'category' => htmlspecialchars((string) ($header['category'] ?? '-'), ENT_QUOTES, 'UTF-8'),
     'order_type' => htmlspecialchars((string) ($header['order_type'] ?? 'Normal Order'), ENT_QUOTES, 'UTF-8'),
@@ -198,7 +232,7 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
                         <div class="oad-spotlight__item">
                             <div class="oad-spotlight__icon" aria-hidden="true"><i class="bi bi-person"></i></div>
                             <div>
-                                <span class="oad-spotlight__label">Customer</span>
+                                <span class="oad-spotlight__label"><?php echo $safe['customer_section_label']; ?></span>
                                 <div class="oad-spotlight__value"><?php echo $safe['customer']; ?></div>
                             </div>
                         </div>
@@ -235,7 +269,7 @@ unset($details, $header, $lines, $customerLabel, $cuno, $errorText, $dealerDeliv
 <div class="d-none"><?php echo $safe['order_time'];?></div>
                                 </div>
                                 <div class="oad-meta-card">
-                                    <span class="oad-meta-label">Customer</span>
+                                    <span class="oad-meta-label"><?php echo $safe['customer_section_label']; ?></span>
                                     <div class="oad-meta-value"><?php echo $safe['customer']; ?></div>
                                 </div>
                                 <div class="oad-meta-card">
