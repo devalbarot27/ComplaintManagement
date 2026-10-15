@@ -1,3 +1,18 @@
+function serviceLogAttachmentFieldError(form) {
+    const recordInput = form.querySelector('[name="record_id"]');
+    const recordId = recordInput ? parseInt(recordInput.value || '0', 10) : 0;
+    if (recordId > 0) {
+        return null;
+    }
+
+    const input = form.querySelector('[name="service_log_attachments[]"]');
+    if (input && input.files && input.files.length > 0) {
+        return null;
+    }
+
+    return 'Attachment is required';
+}
+
 function initServiceLogFormValidation() {
     const form = document.getElementById('serviceLogForm');
 
@@ -145,7 +160,7 @@ function initServiceLogFormValidation() {
                 return;
             }
 
-            const input = form.querySelector('[name="' + field + '"]');
+            const input = form.querySelector('[name="' + field + '"], [name="' + field + '[]"]');
             const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
 
             if (input) {
@@ -194,6 +209,10 @@ function initServiceLogFormValidation() {
             ? (window.slPartReplacementModule.validate(form) || {})
             : {};
         const errors = Object.assign({}, baseErrors, partErrors);
+        const attachmentMessage = serviceLogAttachmentFieldError(form);
+        if (attachmentMessage) {
+            errors.service_log_attachments = [attachmentMessage];
+        }
 
         showErrors(Object.keys(errors).length ? errors : null);
 

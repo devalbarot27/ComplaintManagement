@@ -272,21 +272,17 @@ $renderServiceLogDetailField = static function (
                     service_log_display_value($serviceLogRecord['part_replaced'] ?? null),
                     'col-md-4'
                 );
-                ?>
-                 <?php if ($partReplacedYes) { ?>
-          
-                <?php
-                $renderServiceLogDetailField(
-                    'Running Hours / Load Hours',
-                    service_log_display_value($serviceLogRecord['running_hours'] ?? null),
-                    'col-md-4'
-                );
+                if ($partReplacedYes) {
+                    $renderServiceLogDetailField(
+                        'Running Hours / Load Hours',
+                        service_log_display_value($serviceLogRecord['running_hours'] ?? null),
+                        'col-md-4'
+                    );
+                }
                 ?>
             </div>
-      
 
-           
-
+            <?php if ($partReplacedYes) { ?>
             <div class="mt-3">
                 <div class="mb-2">
                     <strong>Part Replaced Details</strong>
@@ -331,6 +327,34 @@ $renderServiceLogDetailField = static function (
                 </div>
             </div>
             <?php } ?>
+            <div class="row g-3 mt-1">
+                <div class="col-12">
+                    <strong>Attachment:</strong>
+                    <?php
+                    $serviceLogAttachments = isset($obconn) && $obconn instanceof PDO
+                        ? service_log_attachments_for_record($obconn, $serviceLogId)
+                        : [];
+                    if ($serviceLogAttachments === []) {
+                        echo service_log_display_value(null);
+                    } else {
+                        echo '<ul class="list-unstyled mb-0 mt-1">';
+                        foreach ($serviceLogAttachments as $attachment) {
+                            $attachmentId = (int) ($attachment['id'] ?? 0);
+                            $attachmentName = trim((string) ($attachment['original_name'] ?? ''));
+                            if ($attachmentName === '') {
+                                $attachmentName = 'Attachment';
+                            }
+                            echo '<li class="mb-1">';
+                            echo htmlspecialchars($attachmentName, ENT_QUOTES, 'UTF-8');
+                            echo ' <a class="btn btn-sm btn-outline-dark" href="' . htmlspecialchars(service_log_attachment_public_url($attachmentId), ENT_QUOTES, 'UTF-8') . '" target="_blank" rel="noopener">View</a>';
+                            echo ' <a class="btn btn-sm btn-outline-dark" href="' . htmlspecialchars(service_log_attachment_public_url($attachmentId, true), ENT_QUOTES, 'UTF-8') . '">Download</a>';
+                            echo '</li>';
+                        }
+                        echo '</ul>';
+                    }
+                    ?>
+                </div>
+            </div>
         </section>
 
         <section class="complaint-form-section mb-0">

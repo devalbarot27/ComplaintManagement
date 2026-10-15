@@ -700,6 +700,201 @@ function service_log_remaining_consumable_insert_columns(): string
     return implode(', ', service_log_remaining_consumable_column_names());
 }
 
+function service_log_attachment_allowed_extensions(): array
+{
+    return ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'];
+}
+
+function service_log_attachment_max_file_size(): int
+{
+    return 2 * 1024 * 1024;
+}
+
+function service_log_attachment_upload_dir(): string
+{
+    return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'service_log_attachments';
+}
+
+function service_log_ensure_attachment_schema(PDO $conn): void
+{
+    $conn->exec('
+        CREATE TABLE IF NOT EXISTS service_log_attachments (
+            id SERIAL PRIMARY KEY,
+            service_log_id INTEGER NOT NULL,
+            stored_name VARCHAR(255) NOT NULL,
+            original_name VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    ');
+    $conn->exec('
+        CREATE INDEX IF NOT EXISTS service_log_attachments_service_log_id_idx
+            ON service_log_attachments (service_log_id)
+    ');
+}
+
+function service_log_render_attachment_field(): void
+{
+    ?>
+    <div class="col-12 form-group">
+        <label class="form-label" for="serviceLogAttachments">
+            <i class="bi bi-paperclip"></i> Attachment <span class="text-danger">*</span>
+        </label>
+        <input type="file" class="form-control" id="serviceLogAttachments" name="service_log_attachments[]" multiple
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
+        <div class="form-text">PDF, JPG, PNG, DOC, DOCX. Maximum 2 MB per file.</div>
+        <div class="text-danger validation-msg" data-field="service_log_attachments"></div>
+    </div>
+    <?php
+}
+
+/**
+ * @return array<int, array{name: string, tmp_name: string, size: int, extension: string}>
+ */
+function service_log_normalize_attachment_uploads(?array $fileField): array
+{
+    if ($fileField === null || !isset($fileField['name'])) {
+        return [];
+    }
+
+    $names = is_array($fileField['name']) ? $fileField['name'] : [$fileField['name']];
+    $tmpNames = is_array($fileField['tmp_name'] ?? null) ? $fileField['tmp_name'] : [$fileField['tmp_name'] ?? ''];
+    $errors = is_array($fileField['error'] ?? null) ? $fileField['error'] : [$fileField['error'] ?? UPLOAD_ERR_NO_FILE];
+    $sizes = is_array($fileField['size'] ?? null) ? $fileField['size'] : [$fileField['size'] ?? 0];
+    $files = [];
+
+    foreach ($names as $index => $name) {
+        $error = (int) ($errors[$index] ?? UPLOAD_ERR_NO_FILE);
+        if ($error === UPLOAD_ERR_NO_FILE || trim((string) $name) === '') {
+            continue;
+        }
+        if ($error !== UPLOAD_ERR_OK) {
+            throw new RuntimeException('Unable to upload the attachment. Please try again.');
+        }
+
+        $extension = strtolower((string) pathinfo((string) $name, PATHINFO_EXTENSION));
+        $files[] = [
+            'name' => (string) $name,
+            'tmp_name' => (string) ($tmpNames[$index] ?? ''),
+            'size' => (int) ($sizes[$index] ?? 0),
+            'extension' => $extension,
+        ];
+    }
+
+    return $files;
+}
+
+function service_log_validate_attachment_uploads(?array $fileField, bool $required = false): ?string
+{
+    try {
+        $files = service_log_normalize_attachment_uploads($fileField);
+    } catch (RuntimeException $e) {
+        return $e->getMessage();
+    }
+
+    if ($files === [] && $required) {
+        return 'Attachment is required.';
+    }
+
+    if (count($files) > 10) {
+        return 'You can upload up to 10 attachments.';
+    }
+
+    foreach ($files as $file) {
+        if (!in_array($file['extension'], service_log_attachment_allowed_extensions(), true)) {
+            return 'Invalid attachment type for "' . $file['name'] . '". Allowed: PDF, JPG, PNG, DOC, DOCX.';
+        }
+        if ($file['size'] > service_log_attachment_max_file_size()) {
+            return 'Attachment "' . $file['name'] . '" must be 2 MB or smaller.';
+        }
+    }
+
+    return null;
+}
+
+function service_log_store_attachment_uploads(PDO $conn, int $serviceLogId, ?array $fileField = null): void
+{
+    if ($serviceLogId <= 0) {
+        return;
+    }
+
+    $fileField = $fileField ?? ($_FILES['service_log_attachments'] ?? null);
+    $error = service_log_validate_attachment_uploads($fileField);
+    if ($error !== null) {
+        throw new RuntimeException($error);
+    }
+
+    $files = service_log_normalize_attachment_uploads($fileField);
+    if ($files === []) {
+        return;
+    }
+
+    service_log_ensure_attachment_schema($conn);
+    $dir = service_log_attachment_upload_dir();
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        throw new RuntimeException('Unable to create the attachment folder.');
+    }
+
+    $storedPaths = [];
+    try {
+        $insert = $conn->prepare('
+            INSERT INTO service_log_attachments (service_log_id, stored_name, original_name)
+            VALUES (:service_log_id, :stored_name, :original_name)
+        ');
+
+        foreach ($files as $file) {
+            $storedName = uniqid('service_log_', true) . '.' . $file['extension'];
+            $target = $dir . DIRECTORY_SEPARATOR . $storedName;
+            if (!is_uploaded_file($file['tmp_name']) || !move_uploaded_file($file['tmp_name'], $target)) {
+                throw new RuntimeException('Unable to save the attachment.');
+            }
+            $storedPaths[] = $target;
+            $insert->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+            $insert->bindValue(':stored_name', $storedName);
+            $insert->bindValue(':original_name', basename($file['name']));
+            $insert->execute();
+        }
+    } catch (Throwable $e) {
+        foreach ($storedPaths as $path) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+        if ($e instanceof RuntimeException) {
+            throw $e;
+        }
+        throw new RuntimeException('Unable to save the attachment.');
+    }
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function service_log_attachments_for_record(PDO $conn, int $serviceLogId): array
+{
+    if ($serviceLogId <= 0) {
+        return [];
+    }
+
+    service_log_ensure_attachment_schema($conn);
+    $stmt = $conn->prepare('
+        SELECT id, stored_name, original_name, created_at
+        FROM service_log_attachments
+        WHERE service_log_id = :service_log_id
+        ORDER BY id ASC
+    ');
+    $stmt->bindValue(':service_log_id', $serviceLogId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+function service_log_attachment_public_url(int $attachmentId, bool $download = false): string
+{
+    $url = 'service_log_attachment.php?id=' . rawurlencode((string) $attachmentId);
+
+    return $download ? $url . '&download=1' : $url;
+}
+
 function service_log_remaining_consumable_insert_placeholders(): string
 {
     return implode(', ', array_map(
@@ -775,6 +970,11 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
         return ['success' => false, 'message' => $validationError];
     }
 
+    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null, true);
+    if ($attachmentError !== null) {
+        return ['success' => false, 'message' => $attachmentError];
+    }
+
     if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {
         return ['success' => false, 'message' => 'Fab Number does not match the selected installed base record.'];
     }
@@ -840,6 +1040,8 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
                 $createdBy
             );
         }
+
+        service_log_store_attachment_uploads($conn, $serviceLogId);
 
         $conn->commit();
 
@@ -947,6 +1149,12 @@ function service_log_update_record(PDO $conn, array $post, string $username): ar
         return ['success' => false, 'message' => $validationError];
     }
 
+    $attachmentRequired = service_log_attachments_for_record($conn, $recordId) === [];
+    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null, $attachmentRequired);
+    if ($attachmentError !== null) {
+        return ['success' => false, 'message' => $attachmentError];
+    }
+
     if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {
         return ['success' => false, 'message' => 'Fab Number does not match the selected installed base record.'];
     }
@@ -981,6 +1189,7 @@ function service_log_update_record(PDO $conn, array $post, string $username): ar
         $update->execute();
 
         service_log_sync_part_replacements($conn, $recordId, $data);
+        service_log_store_attachment_uploads($conn, $recordId);
 
         return [
             'success' => true,

@@ -282,6 +282,12 @@ function service_log_save_draft_record(
         return ['success' => false, 'message' => $validationError];
     }
 
+    $attachmentRequired = $recordId <= 0 || service_log_attachments_for_record($conn, $recordId) === [];
+    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null, $attachmentRequired);
+    if ($attachmentError !== null) {
+        return ['success' => false, 'message' => $attachmentError];
+    }
+
     if (trim((string) ($installedBase['fab_number'] ?? '')) !== $data['fab_number']) {
         return ['success' => false, 'message' => 'Fab Number does not match the selected installed base record.'];
     }
@@ -323,6 +329,7 @@ function service_log_save_draft_record(
             }
 
             service_log_draft_sync_part_replacements($conn, $recordId, $data);
+            service_log_store_attachment_uploads($conn, $recordId);
 
             return [
                 'success' => true,
@@ -359,6 +366,7 @@ function service_log_save_draft_record(
 
         $newServiceLogId = (int) $conn->lastInsertId();
         service_log_draft_sync_part_replacements($conn, $newServiceLogId, $data);
+        service_log_store_attachment_uploads($conn, $newServiceLogId);
 
         $conn->commit();
 

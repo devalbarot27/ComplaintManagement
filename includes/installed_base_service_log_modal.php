@@ -169,6 +169,9 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="row g-3 mt-1">
+                            <?php service_log_render_attachment_field(); ?>
+                        </div>
                     </section>
 
                     <section class="complaint-form-section">

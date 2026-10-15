@@ -30,6 +30,13 @@ function validateComplaintServiceLogDraftForm(form) {
     requireField('visit_date', 'Visit Date is required');
     requireField('action_taken', 'Action Taken is required');
 
+    if (typeof serviceLogAttachmentFieldError === 'function') {
+        const attachmentMessage = serviceLogAttachmentFieldError(form);
+        if (attachmentMessage) {
+            addError('service_log_attachments', attachmentMessage);
+        }
+    }
+
     const engineerName = form.querySelector('[name="engineer_name"]');
     if (engineerName) {
         const engineerNameValue = String(engineerName.value || '').trim();
@@ -60,7 +67,7 @@ function showComplaintServiceLogDraftErrors(form, errors) {
     }
 
     Object.keys(errors).forEach(function (field) {
-        const input = form.querySelector('[name="' + field + '"]');
+        const input = form.querySelector('[name="' + field + '"], [name="' + field + '[]"]');
         const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
 
         if (input) {
@@ -153,7 +160,9 @@ function initComplaintServiceLogDraftSave() {
         $.ajax({
             url: 'api/complaint_service_log_draft_save.php',
             type: 'POST',
-            data: $(form).serialize(),
+            data: new FormData(form),
+            processData: false,
+            contentType: false,
             dataType: 'json'
         })
             .done(function (response) {

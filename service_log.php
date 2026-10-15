@@ -80,6 +80,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
 
     service_log_apply_part_replacement_fields_for_save($data);
 
+    if ($error_message === '') {
+        $attachmentRequired = $recordId <= 0 || service_log_attachments_for_record($obconn, $recordId) === [];
+        $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null, $attachmentRequired);
+        if ($attachmentError !== null) {
+            $error_message = $attachmentError;
+        }
+    }
+
     $validationError = $error_message === '' ? service_log_validate($obconn, $data, $recordId) : null;
 
     if ($createdBy === null || $createdBy <= 0) {
@@ -145,6 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                     $update->bindValue(':id', $recordId, PDO::PARAM_INT);
                     $update->execute();
                     service_log_sync_part_replacements($obconn, $recordId, $data);
+                    service_log_store_attachment_uploads($obconn, $recordId);
                     service_log_maybe_redirect_to_installed_base_details($_POST, 'service_log_updated');
                     $success_message = 'Service log updated successfully.';
                 }
@@ -177,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                     && !empty($data['part_replacement_entries'])) {
                     service_log_insert_part_replacements($obconn, $newServiceLogId, $data['part_replacement_entries']);
                 }
+                service_log_store_attachment_uploads($obconn, $newServiceLogId);
                 $obconn->commit();
                 service_log_maybe_redirect_to_installed_base_details($_POST, 'service_log_updated');
                 $success_message = 'Service log saved successfully.';
@@ -278,7 +288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                     </div>
                 </div>
 
-                <form method="POST" id="serviceLogForm" novalidate>
+                <form method="POST" id="serviceLogForm" enctype="multipart/form-data" novalidate>
                     <input type="hidden" name="record_id" id="serviceLogId" value="">
                     <input type="hidden" name="return_installed_base_id" id="serviceLogReturnInstalledBaseId" value="">
                     <input type="hidden" name="part_replacement_multi" value="1">
@@ -435,6 +445,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
                                         <div class="text-danger validation-msg" data-field="remarks"></div>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="row g-3 mt-1">
+                                <?php service_log_render_attachment_field(); ?>
                             </div>
                         </section>
 
