@@ -10,6 +10,7 @@ require_once 'includes/spare_parts_helpers.php';
 require_once 'includes/after_market_access_helpers.php';
 require_once 'includes/customer_master_helpers.php';
 require_once 'includes/amc_helpers.php';
+require_once 'includes/complaint_assignment_helpers.php';
 
 $active_menu = 'installed_base';
 $success_message = '';
@@ -53,6 +54,16 @@ $partReplacedOptions = service_log_part_replaced_options($obconn);
 $createdBy = current_user_id($obconn);
 $userName = current_username();
 $defaultDealerName = current_assignee_name();
+$dealerAssignOptions = complaint_assign_options_for_current_creator($obconn);
+$dealerPreselect = $dealerAssignOptions['preselect'] ?? null;
+if ($dealerPreselect === null || $dealerPreselect === '') {
+    foreach ($dealerAssignOptions['assignees'] as $dealerAssignee) {
+        if (complaint_assignee_option_value($dealerAssignee) === $defaultDealerName) {
+            $dealerPreselect = $defaultDealerName;
+            break;
+        }
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base'])) {
     $recordId = (int) ($_POST['record_id'] ?? 0);
@@ -104,11 +115,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     }
 
     if ($error_message === '') {
-        // Only set default dealer name for brand-new inserts.
-        if (!$isUpdate) {
-            $data['dealer_name'] = $defaultDealerName;
-        }
-
         $validationError = installed_base_validate($obconn, $data);
 
         if ($validationError !== null) {
@@ -141,16 +147,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                             if (!$existingRow) {
                                 $error_message = 'Record not found or already deleted.';
                             } else {
+                                $existingDealerName = trim((string) ($existingRow['dealer_name'] ?? ''));
                                 // Keep existing dealer when form did not supply one.
                                 if (trim((string) ($data['dealer_name'] ?? '')) === '') {
-                                    $data['dealer_name'] = trim((string) ($existingRow['dealer_name'] ?? $defaultDealerName));
+                                    $data['dealer_name'] = $existingDealerName !== '' ? $existingDealerName : $defaultDealerName;
                                 }
 
-                                installed_base_update_record($obconn, $targetId, $data);
-                                header('Location: installed_base.php?ib_updated=1');
-                                exit;
+                                $dealerSelectionError = installed_base_validate_dealer_selection(
+                                    $obconn,
+                                    $data['dealer_name'],
+                                    $existingDealerName
+                                );
+                                if ($dealerSelectionError !== null) {
+                                    $error_message = $dealerSelectionError;
+                                } else {
+                                    installed_base_update_record($obconn, $targetId, $data);
+                                    header('Location: installed_base.php?ib_updated=1');
+                                    exit;
+                                }
                             }
                         } else {
+                            $dealerSelectionError = installed_base_validate_dealer_selection(
+                                $obconn,
+                                $data['dealer_name']
+                            );
+                            if ($dealerSelectionError !== null) {
+                                $error_message = $dealerSelectionError;
+                            } else {
                             installed_base_insert_record($obconn, $data, (int) $createdBy, $userName);
 
                             $returnComplaintId = (int) ($_POST['return_complaint_id'] ?? 0);
@@ -166,6 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
 
                             header('Location: installed_base.php?ib_saved=1');
                             exit;
+                            }
                         }
                     } catch (PDOException $e) {
                         $error_message = 'Failed to save installed base record.';
@@ -405,13 +429,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
                                     </div>
                                 </div>
                                 <div class="col-md-4 form-group">
-                                    <label class="form-label">
+                                    <label class="form-label" for="installedBaseDealerSelect">
                                         <i class="bi bi-shop"></i>
                                         Dealer Name <span class="text-danger">*</span>
                                     </label>
-                                    <input type="text" class="form-control" name="dealer_name" maxlength="200"
-                                        value="<?php echo htmlspecialchars($defaultDealerName, ENT_QUOTES, 'UTF-8'); ?>"
-                                        placeholder="Auto-filled from logged-in user">
+                                    <select class="form-control" name="dealer_name" id="installedBaseDealerSelect"
+                                        data-placeholder="Search dealer">
+                                        <?php echo complaint_render_assignee_options($dealerAssignOptions['assignees'], $dealerPreselect); ?>
+                                    </select>
                                     <div class="text-danger validation-msg" data-field="dealer_name"></div>
                                 </div>
                             </div>
@@ -560,6 +585,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_installed_base
     <?php include 'includes/installed_base_amc_modal.php'; ?>
     <?php } ?>
 
+    <script src="js/assign_to_select2.js"></script>
     <script src="js/static_select2.js"></script>
     <script src="js/pincode_select2.js"></script>
     <script src="js/customer_master_dealer_select2.js"></script>

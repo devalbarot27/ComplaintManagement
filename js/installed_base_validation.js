@@ -115,6 +115,11 @@ function initInstalledBaseFormValidation() {
                 $('#installedBaseCustomerSelect').next('.select2-container').find('.select2-selection').addClass('is-invalid');
             }
 
+            if (field === 'dealer_name') {
+                $('#installedBaseDealerSelect').addClass('is-invalid');
+                $('#installedBaseDealerSelect').next('.select2-container').find('.select2-selection').addClass('is-invalid');
+            }
+
             if (field === 'machine_model_code') {
                 $('#machineModelSelect').addClass('is-invalid');
             }
@@ -279,6 +284,9 @@ function initInstalledBaseFormValidation() {
             } else if (input.name === 'customer_id') {
                 $('#installedBaseCustomerSelect').toggleClass('is-invalid', !!fieldErrors);
                 $('#installedBaseCustomerSelect').next('.select2-container').find('.select2-selection').toggleClass('is-invalid', !!fieldErrors);
+            } else if (input.name === 'dealer_name') {
+                $('#installedBaseDealerSelect').toggleClass('is-invalid', !!fieldErrors);
+                $('#installedBaseDealerSelect').next('.select2-container').find('.select2-selection').toggleClass('is-invalid', !!fieldErrors);
             } else {
                 input.classList.toggle('is-invalid', !!fieldErrors);
             }

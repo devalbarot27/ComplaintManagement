@@ -19,7 +19,7 @@ function initAssignToSelect2(formId, selectId, options) {
         minimumResultsForSearch: 0,
         language: {
             noResults: function () {
-                return 'No assignee found';
+                return options.noResultsText || 'No assignee found';
             }
         }
     };

@@ -130,7 +130,7 @@ function applyInstalledBaseFormDraft(draft) {
         setInstalledBaseFabSelect2(draft.fab_number);
     }
 
-    setInstalledBaseDealerName(draft.dealer_name || getInstalledBaseDefaultDealerName());
+    setInstalledBaseDealerName(draft.dealer_name || getInstalledBaseDefaultDealerName(), true);
 
     ['invoice_date', 'commissioning_date', 'running_hours', 'remarks'].forEach(function (field) {
         const input = form.querySelector('[name="' + field + '"]');

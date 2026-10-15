@@ -257,6 +257,30 @@ function installed_base_from_post(array $post): array
     ];
 }
 
+function installed_base_validate_dealer_selection(PDO $conn, string $dealerName, ?string $existingDealerName = null): ?string
+{
+    require_once __DIR__ . '/complaint_assignment_helpers.php';
+
+    $dealerName = trim($dealerName);
+    if ($dealerName === '') {
+        return 'Dealer Name is required.';
+    }
+
+    $existingDealerName = trim((string) $existingDealerName);
+    if ($existingDealerName !== '' && $existingDealerName === $dealerName) {
+        return null;
+    }
+
+    $options = complaint_assign_options_for_current_creator($conn);
+    foreach ($options['assignees'] as $assignee) {
+        if (complaint_assignee_option_value($assignee) === $dealerName) {
+            return null;
+        }
+    }
+
+    return 'Selected Dealer Name is not allowed.';
+}
+
 function installed_base_validate(PDO $conn, array $data): ?string
 {
     installed_base_ensure_schema($conn);

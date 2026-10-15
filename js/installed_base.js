@@ -37,16 +37,26 @@ function getInstalledBaseDefaultDealerName() {
     return form ? (form.getAttribute('data-default-dealer-name') || '') : '';
 }
 
-function setInstalledBaseDealerName(value) {
-    const form = document.getElementById('installedBaseForm');
-    if (!form) {
+function setInstalledBaseDealerName(value, allowUnknown) {
+    const $select = $('#installedBaseDealerSelect');
+    if (!$select.length) {
         return;
     }
 
-    const input = form.querySelector('[name="dealer_name"]');
-    if (input) {
-        input.value = value || '';
+    const name = value || '';
+    const hasOption = name !== '' && $select.find('option').filter(function () {
+        return this.value === name;
+    }).length > 0;
+
+    if (name !== '' && !hasOption) {
+        if (!allowUnknown) {
+            $select.val(null).trigger('change');
+            return;
+        }
+        $select.append(new Option(name, name, false, false));
     }
+
+    $select.val(name !== '' ? name : null).trigger('change');
 }
 
 function fillInstalledBaseForm(record) {
@@ -86,7 +96,7 @@ function fillInstalledBaseForm(record) {
         }
     });
 
-    setInstalledBaseDealerName(record.dealer_name || getInstalledBaseDefaultDealerName());
+    setInstalledBaseDealerName(record.dealer_name || getInstalledBaseDefaultDealerName(), true);
 
     if (typeof setInstalledBaseCustomerSelect2 === 'function') {
         setInstalledBaseCustomerSelect2(record.customer_id || '', record.customer_label || record.customer_name || '');
@@ -182,6 +192,17 @@ function closeInstalledBaseFormPanel() {
     resetInstalledBaseForm();
 }
 
+function initInstalledBaseDealerSelect2() {
+    if (typeof initAssignToSelect2 !== 'function') {
+        return;
+    }
+
+    initAssignToSelect2('installedBaseForm', 'installedBaseDealerSelect', {
+        validationField: 'dealer_name',
+        noResultsText: 'No dealer found'
+    });
+}
+
 function initInstalledBaseStaticSelect2() {
     initStaticSelect2('installedBaseForm', 'industrySegmentSelect', {
         validationField: 'industry_segment',
@@ -201,6 +222,7 @@ function initInstalledBasePage() {
     initInstalledBaseOrderSelect2();
     initInstalledBaseMachineModelSelect2();
     initInstalledBaseCustomerSelect2();
+    initInstalledBaseDealerSelect2();
     initInstalledBaseStaticSelect2();
     initInstalledBaseFormValidation();
     initInstalledBaseAddNewCustomerButton();
