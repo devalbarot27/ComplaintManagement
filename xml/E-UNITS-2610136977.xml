@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SyncElgiSalesOrderAckXML
+    xmlns="http://schema.infor.com/InforOAGIS/2">
+    <ApplicationArea>
+        <Sender>
+            <LogicalID>lid://infor.ln.ho_ln_india_app_401_ecnew_sep2025</LogicalID>
+            <ComponentID>erp</ComponentID>
+            <ConfirmationCode>OnError</ConfirmationCode>
+        </Sender>
+        <CreationDateTime>2026-10-14T09:28:17Z</CreationDateTime>
+        <BODID>infor-nid:ELGI_PRD:401:D_Y0001:YUU000084:?SalesOrder&amp;verb=Sync</BODID>
+    </ApplicationArea>
+    <DataArea>
+        <Sync>
+            <TenantID>ELGI_PRD</TenantID>
+            <AccountingEntityID>401</AccountingEntityID>
+            <LocationID>D_Y0001</LocationID>
+            <ActionCriteria>
+                <ActionExpression actionCode="Add"/>
+            </ActionCriteria>
+        </Sync>
+        <ElgiSalesOrderAckXML>
+            <ordernumber>E/UNITS/2610136977</ordernumber>
+            <elgi_aonumber>YUU000084-401</elgi_aonumber>
+            <elgi_commitmentdate>2026-10-15T09:28:00Z</elgi_commitmentdate>
+            <elgi_revisedcommitmentdate>2026-10-15T09:28:00Z</elgi_revisedcommitmentdate>
+            <elgi_delivery>ADD139057</elgi_delivery>
+        </ElgiSalesOrderAckXML>
+    </DataArea>
+</SyncElgiSalesOrderAckXML>

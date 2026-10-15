@@ -2730,7 +2730,7 @@ class orderClass
 
                 $success = $insertStmt->execute([
                     ':uname' => $this->userId,
-                    ':emp_code' => '102464',
+                    ':emp_code' => $this->userId,
                     ':cuno' => $cuno,
                     ':cname' => ($addrType == '2') ? $cuname : '',
                     ':area' => $area,
@@ -2803,8 +2803,8 @@ class orderClass
                     throw new Exception('Unable to identify the requesting user for approval.');
                 }
                 $skipLevel1 = order_approval_requester_skips_level1($this->obconn, $requesterUserId);
-                if ($skipLevel1 && !$l2Required) {
-                    $needsApproval = false;
+                if ($skipLevel1) {
+                    $l2Required = true;
                 }
             }
             if ($needsApproval) {
