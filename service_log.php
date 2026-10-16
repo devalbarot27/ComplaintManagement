@@ -81,8 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_service_log'])
     service_log_apply_part_replacement_fields_for_save($data);
 
     if ($error_message === '') {
-        $attachmentRequired = $recordId <= 0 || service_log_attachments_for_record($obconn, $recordId) === [];
-        $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null, $attachmentRequired);
+        $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null);
         if ($attachmentError !== null) {
             $error_message = $attachmentError;
         }

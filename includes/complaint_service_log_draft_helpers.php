@@ -162,8 +162,7 @@ function complaint_service_log_save_draft_record(
         return ['success' => false, 'message' => $validationError];
     }
 
-    $attachmentRequired = $recordId <= 0 || service_log_attachments_for_record($conn, $recordId) === [];
-    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null, $attachmentRequired);
+    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null);
     if ($attachmentError !== null) {
         return ['success' => false, 'message' => $attachmentError];
     }

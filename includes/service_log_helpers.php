@@ -737,11 +737,11 @@ function service_log_render_attachment_field(): void
     ?>
     <div class="col-12 form-group">
         <label class="form-label" for="serviceLogAttachments">
-            <i class="bi bi-paperclip"></i> Attachment <span class="text-danger">*</span>
+            <i class="bi bi-paperclip"></i> Attachment
         </label>
         <input type="file" class="form-control" id="serviceLogAttachments" name="service_log_attachments[]" multiple
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
-        <div class="form-text">PDF, JPG, PNG, DOC, DOCX. Maximum 2 MB per file.</div>
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+        <div class="form-text">Optional. PDF, JPG, PNG, DOC, DOCX. Maximum 2 MB per file.</div>
         <div class="text-danger validation-msg" data-field="service_log_attachments"></div>
     </div>
     <?php
@@ -783,16 +783,12 @@ function service_log_normalize_attachment_uploads(?array $fileField): array
     return $files;
 }
 
-function service_log_validate_attachment_uploads(?array $fileField, bool $required = false): ?string
+function service_log_validate_attachment_uploads(?array $fileField): ?string
 {
     try {
         $files = service_log_normalize_attachment_uploads($fileField);
     } catch (RuntimeException $e) {
         return $e->getMessage();
-    }
-
-    if ($files === [] && $required) {
-        return 'Attachment is required.';
     }
 
     if (count($files) > 10) {
@@ -970,7 +966,7 @@ function service_log_create_record(PDO $conn, array $post, string $username, int
         return ['success' => false, 'message' => $validationError];
     }
 
-    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null, true);
+    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null);
     if ($attachmentError !== null) {
         return ['success' => false, 'message' => $attachmentError];
     }
@@ -1149,8 +1145,7 @@ function service_log_update_record(PDO $conn, array $post, string $username): ar
         return ['success' => false, 'message' => $validationError];
     }
 
-    $attachmentRequired = service_log_attachments_for_record($conn, $recordId) === [];
-    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null, $attachmentRequired);
+    $attachmentError = service_log_validate_attachment_uploads($_FILES['service_log_attachments'] ?? null);
     if ($attachmentError !== null) {
         return ['success' => false, 'message' => $attachmentError];
     }

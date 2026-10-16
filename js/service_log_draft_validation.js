@@ -32,13 +32,6 @@ function validateServiceLogDraftForm(form) {
     requireField('action_taken', 'Action Taken is required');
     requireField('part_replaced', 'Part Replaced is required');
 
-    if (typeof serviceLogAttachmentFieldError === 'function') {
-        const attachmentMessage = serviceLogAttachmentFieldError(form);
-        if (attachmentMessage) {
-            addError('service_log_attachments', attachmentMessage);
-        }
-    }
-
     const engineerName = form.querySelector('[name="engineer_name"]');
     if (engineerName) {
         const engineerNameValue = String(engineerName.value || '').trim();

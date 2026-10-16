@@ -1,18 +1,3 @@
-function serviceLogAttachmentFieldError(form) {
-    const recordInput = form.querySelector('[name="record_id"]');
-    const recordId = recordInput ? parseInt(recordInput.value || '0', 10) : 0;
-    if (recordId > 0) {
-        return null;
-    }
-
-    const input = form.querySelector('[name="service_log_attachments[]"]');
-    if (input && input.files && input.files.length > 0) {
-        return null;
-    }
-
-    return 'Attachment is required';
-}
-
 let ibServiceLogPartReplacementIndex = 0;
 let ibServiceLogFeedbackRating = null;
 
@@ -758,18 +743,6 @@ function initInstalledBaseServiceLogModal() {
         ibServiceLogClearErrors(form);
         const required = ['installed_base_id', 'fab_number', 'machine_model', 'serial_number', 'warranty_chargeable', 'complaint_date', 'issue_description', 'engineer_name', 'visit_date', 'action_taken', 'closure_date', 'part_replaced'];
         let hasError = false;
-        const attachmentMessage = serviceLogAttachmentFieldError(form);
-        if (attachmentMessage) {
-            hasError = true;
-            const attachmentInput = form.querySelector('[name="service_log_attachments[]"]');
-            if (attachmentInput) {
-                attachmentInput.classList.add('is-invalid');
-            }
-            const attachmentMsg = form.querySelector('.validation-msg[data-field="service_log_attachments"]');
-            if (attachmentMsg) {
-                attachmentMsg.textContent = attachmentMessage;
-            }
-        }
         required.forEach(function (field) {
             const input = form.querySelector('[name="' + field + '"]');
             if (input && !String(input.value || '').trim()) {

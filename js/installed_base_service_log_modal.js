@@ -1,18 +1,3 @@
-function serviceLogAttachmentFieldError(form) {
-    const recordInput = form.querySelector('[name="record_id"]');
-    const recordId = recordInput ? parseInt(recordInput.value || '0', 10) : 0;
-    if (recordId > 0) {
-        return null;
-    }
-
-    const input = form.querySelector('[name="service_log_attachments[]"]');
-    if (input && input.files && input.files.length > 0) {
-        return null;
-    }
-
-    return 'Attachment is required';
-}
-
 let ibServiceLogPartReplacementIndex = 0;
 let ibServiceLogFeedbackRating = null;
 
@@ -729,10 +714,6 @@ function initInstalledBaseServiceLogValidation() {
         const baseErrors = validate(form, constraints) || {};
         const partErrors = ibServiceLogValidatePartReplacementEntries(form) || {};
         const mergedErrors = Object.assign({}, baseErrors, partErrors);
-        const attachmentMessage = serviceLogAttachmentFieldError(form);
-        if (attachmentMessage) {
-            mergedErrors.service_log_attachments = [attachmentMessage];
-        }
 
         showErrors(Object.keys(mergedErrors).length ? mergedErrors : null);
 
