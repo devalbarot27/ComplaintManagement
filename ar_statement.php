@@ -19,14 +19,9 @@ $canViewAllDealers = ar_statement_user_can_view_all_dealers();
 $cuno = ar_statement_resolve_cuno($obconn);
 $requiresDealerSelection = $canFilterDealers && !$canViewAllDealers;
 $selectedDealer = $cuno !== '' ? ar_statement_dealer_get($dpconn, $obconn, $cuno) : null;
-$assignedDealerOptions = [];
-if ($canFilterDealers && !$canViewAllDealers) {
-    $assignedDealerOptions = ar_statement_dealers_for_codes(
-        $dpconn,
-        $obconn,
-        ar_statement_assigned_dealer_codes($obconn)
-    );
-}
+$dealerFilterOptions = $canFilterDealers
+    ? ar_statement_dealer_options_like_installed_base($obconn)
+    : [];
 
 $ledgerBaseConditions = [];
 $ledgerBaseParams = [];
@@ -508,23 +503,9 @@ $above90Count = (int)$above90Stmt->fetchColumn();
 
                     <div class="booking-actions">
 
-                        <?php if ($canFilterDealers):
-                            $dealerFilterOptions = $canViewAllDealers
-                                ? ($selectedDealer !== null ? [[
-                                    'id' => $selectedDealer['code'],
-                                    'text' => $selectedDealer['text'],
-                                ]] : [])
-                                : $assignedDealerOptions;
-                            $dealerFilterOptionsJson = htmlspecialchars(
-                                json_encode(array_values($dealerFilterOptions), JSON_UNESCAPED_UNICODE),
-                                ENT_QUOTES,
-                                'UTF-8'
-                            );
-                        ?>
+                        <?php if ($canFilterDealers): ?>
                             <select class="filter-select ar-dealer-filter" id="arDealerFilter"
-                                data-placeholder="Dealer Name"
-                                data-ajax="1"
-                                data-options="<?= $dealerFilterOptionsJson ?>"
+                                data-placeholder="Search dealer"
                                 aria-label="Dealer Name">
                                 <option value=""></option>
                                 <?php foreach ($dealerFilterOptions as $dealerOption): ?>

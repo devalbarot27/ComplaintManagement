@@ -17,65 +17,18 @@ $(function () {
         };
 
         if (typeof $.fn.select2 !== 'undefined') {
-            let localResults = [];
-            try {
-                localResults = JSON.parse($dealerFilter.attr('data-options') || '[]');
-            } catch (e) {
-                localResults = [];
-            }
-            if (!Array.isArray(localResults)) {
-                localResults = [];
-            }
-
-            const select2Options = {
+            $dealerFilter.select2({
                 width: '260px',
-                placeholder: $dealerFilter.data('placeholder') || 'Dealer Name',
+                placeholder: $dealerFilter.data('placeholder') || 'Search dealer',
                 allowClear: true,
-                minimumInputLength: 0,
                 minimumResultsForSearch: 0,
                 dropdownParent: $dealerFilter.parent(),
-                ajax: {
-                    url: 'api/ar_statement_dealers_search.php',
-                    dataType: 'json',
-                    delay: 250,
-                    data: function (params) {
-                        return { q: params.term || '' };
-                    },
-                    processResults: function (data, params) {
-                        const results = (data && Array.isArray(data.results)) ? data.results : [];
-                        if (results.length) {
-                            return { results: results };
-                        }
-                        const term = String((params && params.term) || '').toLowerCase();
-                        const filtered = localResults.filter(function (item) {
-                            if (!term) {
-                                return true;
-                            }
-                            return String(item.text || '').toLowerCase().indexOf(term) !== -1
-                                || String(item.id || '').toLowerCase().indexOf(term) !== -1;
-                        });
-                        return { results: filtered };
-                    },
-                    transport: function (params, success, failure) {
-                        const request = $.ajax(params);
-                        request.then(success).fail(function () {
-                            success({ results: localResults });
-                        });
-                        return request;
-                    },
-                    cache: true
-                },
                 language: {
                     noResults: function () {
                         return 'No dealer found';
-                    },
-                    searching: function () {
-                        return 'Searching...';
                     }
                 }
-            };
-
-            $dealerFilter.select2(select2Options);
+            });
         }
 
         $dealerFilter.on('change', function () {

@@ -304,19 +304,13 @@ function ar_statement_map_dealer_results(array $rows): array
 function ar_statement_is_allowed_cuno(PDO $obconn, string $cuno): bool
 {
     $cuno = trim($cuno);
-    if ($cuno === '') {
+    if ($cuno === '' || !ar_statement_user_can_filter_dealers($obconn)) {
         return false;
     }
 
-    if (ar_statement_user_can_view_all_dealers()) {
-        return true;
-    }
-
-    if (ar_statement_user_sees_assigned_dealers($obconn)) {
-        foreach (ar_statement_assigned_dealer_codes($obconn) as $assigned) {
-            if (strcasecmp($assigned, $cuno) === 0) {
-                return true;
-            }
+    foreach (ar_statement_dealer_options_like_installed_base($obconn) as $option) {
+        if (strcasecmp((string) $option['id'], $cuno) === 0) {
+            return true;
         }
     }
 
@@ -326,31 +320,90 @@ function ar_statement_is_allowed_cuno(PDO $obconn, string $cuno): bool
 /**
  * @return array<int, array{id: string, text: string, name: string}>
  */
+/**
+ * Same dealer list as Installed Base Capture Dealer Name:
+ * a dealer user sees only themselves; every other role sees active dealer users.
+ *
+ * @return array<int, array{id: string, text: string, name: string}>
+ */
+function ar_statement_dealer_options_like_installed_base(PDO $obconn, string $search = ''): array
+{
+    require_once __DIR__ . '/complaint_assignment_helpers.php';
+
+    $search = trim($search);
+    $assignees = complaint_assign_options_for_current_creator($obconn)['assignees'] ?? [];
+    $results = [];
+    $seen = [];
+
+    foreach ($assignees as $assignee) {
+        $userId = (int) ($assignee['id'] ?? 0);
+        $code = ar_statement_user_dealer_code($obconn, $userId);
+        if ($code === '' || isset($seen[strtolower($code)])) {
+            continue;
+        }
+
+        $name = complaint_assignee_option_value($assignee);
+        $text = $name !== '' ? $name : $code;
+        if ($search !== '') {
+            $haystack = strtolower($text . ' ' . $code);
+            if (strpos($haystack, strtolower($search)) === false) {
+                continue;
+            }
+        }
+
+        $seen[strtolower($code)] = true;
+        $results[] = [
+            'id' => $code,
+            'text' => $text,
+            'name' => $text,
+        ];
+    }
+
+    usort($results, static function (array $left, array $right): int {
+        return strcasecmp($left['text'], $right['text']);
+    });
+
+    return $results;
+}
+
+function ar_statement_user_dealer_code(PDO $conn, int $userId): string
+{
+    if ($userId <= 0) {
+        return '';
+    }
+
+    $stmt = $conn->prepare('
+        SELECT
+            TRIM(COALESCE(customer_code, \'\')) AS customer_code,
+            TRIM(COALESCE(customer_number, \'\')) AS customer_number
+        FROM user_master
+        WHERE id = :id
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $userId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+    foreach (['customer_code', 'customer_number'] as $column) {
+        $code = trim((string) ($row[$column] ?? ''));
+        if ($code !== '') {
+            return $code;
+        }
+    }
+
+    return '';
+}
+
 function ar_statement_search_dealers(?PDO $dpconn, PDO $obconn, string $search, int $limit = 50): array
 {
-    if (ar_statement_user_can_view_all_dealers()) {
-        return ar_statement_search_all_dealers($dpconn, $obconn, $search, $limit);
+    unset($dpconn, $limit);
+
+    if (!ar_statement_user_can_filter_dealers($obconn)) {
+        return [];
     }
 
-    if (is_management_user()) {
-        return ar_statement_dealers_for_codes(
-            $dpconn,
-            $obconn,
-            ar_statement_assigned_dealer_codes($obconn),
-            $search
-        );
-    }
-
-    if (ar_statement_user_is_vayu_engineer($obconn)) {
-        return ar_statement_dealers_for_codes(
-            $dpconn,
-            $obconn,
-            ar_statement_assigned_dealer_codes($obconn),
-            $search
-        );
-    }
-
-    return [];
+    return ar_statement_dealer_options_like_installed_base($obconn, $search);
 }
 
 function ar_statement_resolve_cuno(PDO $obconn): string
@@ -382,7 +435,7 @@ function ar_statement_resolve_cuno(PDO $obconn): string
 
     if (ar_statement_user_sees_assigned_dealers($obconn)) {
         $assigned = ar_statement_assigned_dealer_codes($obconn);
-        if (count($assigned) === 1) {
+        if (count($assigned) === 1 && ar_statement_is_allowed_cuno($obconn, $assigned[0])) {
             return $assigned[0];
         }
     }
