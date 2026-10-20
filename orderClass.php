@@ -5395,7 +5395,13 @@ class orderClass
                     . '" class="btn btn-sm btn-outline-dark mt-2" title="View">'
                     . '<i class="fa fa-eye"></i></a>';
 
-                if ($this->canShowRecentOrderRepush($orderNumber, $orderStatusLabel, $orderDateRaw, $orderTimeRaw)) {
+                if ($this->canShowRecentOrderRepush(
+                    $orderNumber,
+                    $orderStatusLabel,
+                    $orderDateRaw,
+                    $orderTimeRaw,
+                    (string) ($row['approval_status'] ?? '')
+                )) {
                     $cooldownUntil = $this->resolveRecentOrderRepushCooldownUntil($row['ediprocessdt'] ?? null);
                     $disabledAttr = $cooldownUntil !== null ? ' disabled' : '';
                     $untilAttr = $cooldownUntil !== null
@@ -5745,14 +5751,20 @@ class orderClass
     }
 
     /**
-     * Re-Push is shown only when: Pending, no AO number, and placed > 30 minutes ago.
+     * Re-Push is shown only when Approval Status is Approved, the order is Pending,
+     * it has no AO number, and it was placed more than 30 minutes ago.
      */
     private function canShowRecentOrderRepush(
         string $orderNumber,
         string $statusLabel,
         $orderDateRaw,
-        $orderTimeRaw
+        $orderTimeRaw,
+        string $approvalStatus = ''
     ): bool {
+        if (strcasecmp(trim($approvalStatus), 'approved') !== 0) {
+            return false;
+        }
+
         if (trim($orderNumber) !== '') {
             return false;
         }
@@ -7263,6 +7275,13 @@ class orderClass
                 return json_encode([
                     'status' => 'error',
                     'message' => 'Re-Push is only allowed for Pending orders.',
+                ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            }
+
+            if (strcasecmp(trim((string) ($header['approval_status'] ?? '')), 'approved') !== 0) {
+                return json_encode([
+                    'status' => 'error',
+                    'message' => 'Re-Push is available only after the Approval Status is Approved.',
                 ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             }
 
