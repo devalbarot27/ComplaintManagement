@@ -3,8 +3,17 @@ $(function () {
     if ($dealerFilter.length) {
         const applyDealerFilter = function (cuno) {
             const url = new URL(window.location.href);
-            url.searchParams.set('dealer', cuno);
-            window.location.href = url.pathname + url.search + url.hash;
+            const dealerCode = String(cuno || '').trim();
+            if (dealerCode) {
+                url.searchParams.set('dealer', dealerCode);
+            } else {
+                url.searchParams.delete('dealer');
+            }
+            ['download', 'status', 'search', 'order_column', 'order_dir', 'start', 'length']
+                .forEach(function (parameter) {
+                    url.searchParams.delete(parameter);
+                });
+            window.location.assign(url.pathname + url.search + url.hash);
         };
 
         if (typeof $.fn.select2 !== 'undefined') {
@@ -67,14 +76,11 @@ $(function () {
             };
 
             $dealerFilter.select2(select2Options);
-            $dealerFilter.on('select2:select select2:clear', function () {
-                applyDealerFilter(String($(this).val() || '').trim());
-            });
-        } else {
-            $dealerFilter.on('change', function () {
-                applyDealerFilter(String($(this).val() || '').trim());
-            });
         }
+
+        $dealerFilter.on('change', function () {
+            applyDealerFilter($(this).val());
+        });
     }
 
     const $table = $('#ledgerTable');
@@ -82,69 +88,63 @@ $(function () {
         return;
     }
 
-    $.fn.dataTable.ext.search.push(function (settings, _data, dataIndex) {
-        if (settings.nTable.id !== 'ledgerTable') {
-            return true;
-        }
-
-        const selected = String($('#ledgerStatusFilter').val() || '');
-        if (selected === '') {
-            return true;
-        }
-
-        const rowNode = settings.aoData[dataIndex] ? settings.aoData[dataIndex].nTr : null;
-        return String($(rowNode).attr('data-status') || '') === selected;
-    });
-
     const table = $table.DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: {
+            url: window.location.pathname + window.location.search,
+            type: 'POST',
+            data: function (request) {
+                request.ledger_datatable = 1;
+                request.status = String($('#ledgerStatusFilter').val() || '');
+            }
+        },
+        columns: [
+            { data: 'dpst', render: $.fn.dataTable.render.text() },
+            { data: 'docdt', render: $.fn.dataTable.render.text() },
+            { data: 'invoiceNo', render: $.fn.dataTable.render.text() },
+            { data: 'currency', render: $.fn.dataTable.render.text() },
+            { data: 'invamt', className: 'debit-text text-end', render: renderRupees },
+            { data: 'recvamt', className: 'credit-text text-end', render: renderRupees },
+            { data: 'amtout', className: 'fw-semibold text-end', render: renderRupees },
+            { data: 'less30', className: 'text-end', render: renderRupees },
+            { data: 'less40', className: 'text-end', render: renderRupees },
+            { data: 'less45', className: 'text-end', render: renderRupees },
+            { data: 'less50', className: 'text-end', render: renderRupees },
+            { data: 'less60', className: 'text-end', render: renderRupees },
+            { data: 'less90', className: 'text-end', render: renderRupees },
+            { data: 'more90', className: 'text-end', render: renderRupees },
+            { data: 'duedate', render: $.fn.dataTable.render.text() }
+        ],
         order: [[1, 'desc']],
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         scrollX: true,
         autoWidth: false,
         language: {
+            processing: 'Loading AR records...',
             emptyTable: 'No AR records found.',
             zeroRecords: 'No matching AR records found.'
         }
     });
-    table.columns.adjust();
 
     $('#ledgerStatusFilter').on('change', function () {
-        table.draw();
+        table.ajax.reload();
     });
 
     $('#downloadStatementBtn').on('click', function () {
-        const csvText = function (value) {
-            return String(value || '').replace(/\u20B9/g, '').replace(/\s+/g, ' ').trim();
-        };
-        const csvEscape = function (value) {
-            return '"' + csvText(value).replace(/"/g, '""') + '"';
-        };
-        const header = table.columns().header().toArray().map(function (th) {
-            return csvEscape($(th).text());
-        });
-        const body = table.rows({ search: 'applied' }).nodes().toArray().map(function (tr) {
-            return [...tr.querySelectorAll('td')].map(function (td) {
-                return csvEscape(td.textContent);
-            }).join(',');
-        });
-        const footerRow = $table.find('tfoot tr').get(0);
-        const footer = footerRow
-            ? [...footerRow.querySelectorAll('th,td')].map(function (cell) {
-                return csvEscape(cell.textContent);
-            }).join(',')
-            : '';
-        const csv = [header.join(',')].concat(body);
-        if (footer) {
-            csv.push(footer);
-        }
-
-        const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        const selectedDealer = String($('#arDealerFilter').val() || '').trim().replace(/[^\w.-]+/g, '_');
-        link.download = selectedDealer ? ('AR_Statement_' + selectedDealer + '.csv') : 'AR_Statement.csv';
-        link.click();
-        URL.revokeObjectURL(link.href);
+        const url = new URL(window.location.href);
+        const order = table.order()[0] || [1, 'desc'];
+        url.searchParams.set('download', 'csv');
+        url.searchParams.set('status', String($('#ledgerStatusFilter').val() || ''));
+        url.searchParams.set('search', table.search());
+        url.searchParams.set('order_column', String(order[0]));
+        url.searchParams.set('order_dir', String(order[1]));
+        window.location.href = url.toString();
     });
+
+    function renderRupees(value, type) {
+        if (type !== 'display') return value;
+        return '&#8377;' + Math.round(Number(value) || 0).toLocaleString('en-IN');
+    }
 });

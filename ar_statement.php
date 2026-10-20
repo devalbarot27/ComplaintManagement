@@ -7,16 +7,17 @@ require_once 'includes/current_username_helpers.php';
 require_once 'includes/ar_statement_helpers.php';
 
 $canViewArStatement = rbac_can_access_menu($obconn, 'ar_statement.php');
- if (!$canViewArStatement) {
+if (!$canViewArStatement) {
     header('Location: access_denied.php');
     exit;
- }  
+}
 
 $active_menu = 'ar_statement';
 
 $canFilterDealers = ar_statement_user_can_filter_dealers($obconn);
 $canViewAllDealers = ar_statement_user_can_view_all_dealers();
 $cuno = ar_statement_resolve_cuno($obconn);
+$requiresDealerSelection = $canFilterDealers && !$canViewAllDealers;
 $selectedDealer = $cuno !== '' ? ar_statement_dealer_get($dpconn, $obconn, $cuno) : null;
 $assignedDealerOptions = [];
 if ($canFilterDealers && !$canViewAllDealers) {
@@ -25,20 +26,230 @@ if ($canFilterDealers && !$canViewAllDealers) {
         $obconn,
         ar_statement_assigned_dealer_codes($obconn)
     );
-    if ($assignedDealerOptions === [] && ar_statement_user_is_vayu_engineer($obconn)) {
-        $assignedDealerOptions = ar_statement_search_all_dealers($dpconn, $obconn, '', 50);
+}
+
+$ledgerBaseConditions = [];
+$ledgerBaseParams = [];
+if ($cuno !== '') {
+    $ledgerBaseConditions[] = 'TRIM(cuno) = TRIM(:cuno)';
+    $ledgerBaseParams[':cuno'] = $cuno;
+} elseif ($requiresDealerSelection) {
+    $ledgerBaseConditions[] = '1 = 0';
+}
+$ledgerBaseWhere = $ledgerBaseConditions ? ' WHERE ' . implode(' AND ', $ledgerBaseConditions) : '';
+$ledgerDataRequest = isset($_POST['ledger_datatable']);
+$ledgerDownloadRequest = ($_GET['download'] ?? '') === 'csv';
+
+if ($ledgerDataRequest || $ledgerDownloadRequest) {
+    $draw = max(0, (int)($_POST['draw'] ?? 0));
+    $filteredConditions = $ledgerBaseConditions;
+    $filteredParams = $ledgerBaseParams;
+    $statusFilter = (string)($_POST['status'] ?? $_GET['status'] ?? '');
+    if ($statusFilter === 'outstanding') {
+        $filteredConditions[] = 'COALESCE(amtout, 0) > 0';
+    } elseif ($statusFilter === 'settled') {
+        $filteredConditions[] = 'COALESCE(amtout, 0) <= 0';
     }
+
+    $searchValue = trim((string)($_POST['search']['value'] ?? $_GET['search'] ?? ''));
+    if ($searchValue !== '') {
+        $searchColumns = [
+            "COALESCE(CAST(dpst AS TEXT), '')",
+            "COALESCE(CAST(docdt AS TEXT), '')",
+            "COALESCE(CAST(invpre AS TEXT), '') || '-' || COALESCE(CAST(invno AS TEXT), '')",
+            "COALESCE(CAST(currency AS TEXT), '')",
+            "COALESCE(CAST(invamt AS TEXT), '')",
+            "COALESCE(CAST(recvamt AS TEXT), '')",
+            "COALESCE(CAST(amtout AS TEXT), '')",
+            "COALESCE(CAST(less30 AS TEXT), '')",
+            "COALESCE(CAST(less40 AS TEXT), '')",
+            "COALESCE(CAST(less45 AS TEXT), '')",
+            "COALESCE(CAST(less50 AS TEXT), '')",
+            "COALESCE(CAST(less60 AS TEXT), '')",
+            "COALESCE(CAST(less90 AS TEXT), '')",
+            "COALESCE(CAST(more90 AS TEXT), '')",
+            "COALESCE(CAST(duedate AS TEXT), '')",
+        ];
+        $searchConditions = [];
+        foreach ($searchColumns as $index => $column) {
+            $parameter = ':ledgerSearch' . $index;
+            $searchConditions[] = $column . ' ILIKE ' . $parameter;
+            $filteredParams[$parameter] = '%' . $searchValue . '%';
+        }
+        $filteredConditions[] = '(' . implode(' OR ', $searchConditions) . ')';
+    }
+    $filteredWhere = $filteredConditions ? ' WHERE ' . implode(' AND ', $filteredConditions) : '';
+
+    $orderColumns = [
+        0 => 'dpst',
+        1 => 'docdt',
+        2 => 'invno',
+        3 => 'currency',
+        4 => 'invamt',
+        5 => 'recvamt',
+        6 => 'amtout',
+        7 => 'less30',
+        8 => 'less40',
+        9 => 'less45',
+        10 => 'less50',
+        11 => 'less60',
+        12 => 'less90',
+        13 => 'more90',
+        14 => 'duedate',
+    ];
+    $orderIndex = (int)($_POST['order'][0]['column'] ?? $_GET['order_column'] ?? 1);
+    $orderColumn = $orderColumns[$orderIndex] ?? 'docdt';
+    $orderDirection = strtoupper((string)($_POST['order'][0]['dir'] ?? $_GET['order_dir'] ?? 'DESC')) === 'ASC'
+        ? 'ASC'
+        : 'DESC';
+
+    try {
+        $totalStmt = $dpconn->prepare('SELECT COUNT(*) FROM arst_new' . $ledgerBaseWhere);
+        $totalStmt->execute($ledgerBaseParams);
+        $recordsTotal = (int)$totalStmt->fetchColumn();
+
+        $filteredCountStmt = $dpconn->prepare('SELECT COUNT(*) FROM arst_new' . $filteredWhere);
+        $filteredCountStmt->execute($filteredParams);
+        $recordsFiltered = (int)$filteredCountStmt->fetchColumn();
+
+        $rowsSql = '
+            SELECT dpst, docdt, invpre, invno, currency, invamt, recvamt, amtout,
+                   less30, less40, less45, less50, less60, less90, more90, duedate
+            FROM arst_new' . $filteredWhere . '
+            ORDER BY ' . $orderColumn . ' ' . $orderDirection . ', invpre, invno';
+
+        if ($ledgerDataRequest) {
+            $pageStart = max(0, (int)($_POST['start'] ?? 0));
+            $pageLength = min(100, max(1, (int)($_POST['length'] ?? 10)));
+            $rowsSql .= ' LIMIT :ledgerLimit OFFSET :ledgerOffset';
+        }
+
+        $rowsStmt = $dpconn->prepare($rowsSql);
+        foreach ($filteredParams as $parameter => $value) {
+            $rowsStmt->bindValue($parameter, $value, PDO::PARAM_STR);
+        }
+        if ($ledgerDataRequest) {
+            $rowsStmt->bindValue(':ledgerLimit', $pageLength, PDO::PARAM_INT);
+            $rowsStmt->bindValue(':ledgerOffset', $pageStart, PDO::PARAM_INT);
+        }
+        $rowsStmt->execute();
+
+        if ($ledgerDownloadRequest) {
+            $csvTotalsStmt = $dpconn->prepare('
+                SELECT COALESCE(SUM(invamt), 0) AS invamt,
+                       COALESCE(SUM(recvamt), 0) AS recvamt,
+                       COALESCE(SUM(amtout), 0) AS amtout,
+                       COALESCE(SUM(less30), 0) AS less30,
+                       COALESCE(SUM(less40), 0) AS less40,
+                       COALESCE(SUM(less45), 0) AS less45,
+                       COALESCE(SUM(less50), 0) AS less50,
+                       COALESCE(SUM(less60), 0) AS less60,
+                       COALESCE(SUM(less90), 0) AS less90,
+                       COALESCE(SUM(more90), 0) AS more90
+                FROM arst_new' . $filteredWhere
+            );
+            $csvTotalsStmt->execute($filteredParams);
+            $csvTotals = $csvTotalsStmt->fetch(PDO::FETCH_ASSOC);
+
+            $safeDealer = preg_replace('/[^A-Za-z0-9._-]/', '_', $cuno);
+            header('Content-Type: text/csv; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="AR_Statement' . ($safeDealer !== '' ? '_' . $safeDealer : '') . '.csv"');
+            $csv = fopen('php://output', 'w');
+            fputcsv($csv, [
+                'DPST', 'Document Date', 'Invoice No', 'Currency', 'Invoice Amt',
+                'Received Amt', 'Outstanding Amt', 'Less than 30 days', '31-40 days',
+                '41-45 days', '46-50 days', '51-60 days', '61-90 days', 'Above 90 days', 'Due Date',
+            ]);
+            while ($row = $rowsStmt->fetch(PDO::FETCH_ASSOC)) {
+                fputcsv($csv, [
+                    $row['dpst'], $row['docdt'], trim((string)$row['invpre']) . '-' . trim((string)$row['invno']),
+                    trim((string)$row['currency']) !== '' ? $row['currency'] : 'INR',
+                    round((float)$row['invamt']), round((float)$row['recvamt']), round((float)$row['amtout']),
+                    round((float)$row['less30']), round((float)$row['less40']), round((float)$row['less45']),
+                    round((float)$row['less50']), round((float)$row['less60']), round((float)$row['less90']),
+                    round((float)$row['more90']), $row['duedate'],
+                ]);
+            }
+            fputcsv($csv, [
+                'Total Amount', '', '', '', round((float)$csvTotals['invamt']), round((float)$csvTotals['recvamt']),
+                round((float)$csvTotals['amtout']), round((float)$csvTotals['less30']), round((float)$csvTotals['less40']),
+                round((float)$csvTotals['less45']), round((float)$csvTotals['less50']), round((float)$csvTotals['less60']),
+                round((float)$csvTotals['less90']), round((float)$csvTotals['more90']), '',
+            ]);
+            fclose($csv);
+            exit;
+        }
+
+        $formatDate = static function ($value): string {
+            $timestamp = $value !== null && trim((string)$value) !== '' ? strtotime((string)$value) : false;
+            return $timestamp ? date('d M Y', $timestamp) : '';
+        };
+        $formatAmount = static function ($value): float {
+            return round((float)$value);
+        };
+        $data = [];
+        while ($row = $rowsStmt->fetch(PDO::FETCH_ASSOC)) {
+            $data[] = [
+                'dpst' => (string)$row['dpst'],
+                'docdt' => $formatDate($row['docdt']),
+                'invoiceNo' => trim((string)$row['invpre']) . '-' . trim((string)$row['invno']),
+                'currency' => trim((string)$row['currency']) !== '' ? (string)$row['currency'] : 'INR',
+                'invamt' => $formatAmount($row['invamt']),
+                'recvamt' => $formatAmount($row['recvamt']),
+                'amtout' => $formatAmount($row['amtout']),
+                'less30' => $formatAmount($row['less30']),
+                'less40' => $formatAmount($row['less40']),
+                'less45' => $formatAmount($row['less45']),
+                'less50' => $formatAmount($row['less50']),
+                'less60' => $formatAmount($row['less60']),
+                'less90' => $formatAmount($row['less90']),
+                'more90' => $formatAmount($row['more90']),
+                'duedate' => $formatDate($row['duedate']),
+            ];
+        }
+
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode([
+            'draw' => $draw,
+            'recordsTotal' => $recordsTotal,
+            'recordsFiltered' => $recordsFiltered,
+            'data' => $data,
+        ], JSON_INVALID_UTF8_SUBSTITUTE);
+    } catch (Throwable $error) {
+        error_log('[Vayu Power] AR DataTables request failed: ' . $error->getMessage());
+        http_response_code(500);
+        if ($ledgerDownloadRequest) {
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo 'Unable to generate the AR statement.';
+        } else {
+            header('Content-Type: application/json; charset=UTF-8');
+            echo json_encode([
+                'draw' => $draw,
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Unable to load the AR ledger.',
+            ]);
+        }
+    }
+    exit;
 }
 
 $summary = [
-    'invamt' => 0.0, 'recvamt' => 0.0, 'amtout' => 0.0,
-    'less30' => 0.0, 'less40' => 0.0, 'less45' => 0.0,
-    'less50' => 0.0, 'less60' => 0.0, 'less90' => 0.0, 'more90' => 0.0,
+    'invamt' => 0.0,
+    'recvamt' => 0.0,
+    'amtout' => 0.0,
+    'less30' => 0.0,
+    'less40' => 0.0,
+    'less45' => 0.0,
+    'less50' => 0.0,
+    'less60' => 0.0,
+    'less90' => 0.0,
+    'more90' => 0.0,
 ];
-$ledgerRows = [];
 $asOfDate = '';
 
-if ($cuno !== '') {
+if ($cuno !== '' || $requiresDealerSelection) {
     $summaryStmt = $dpconn->prepare('
         SELECT
             COALESCE(SUM(invamt), 0) AS invamt,
@@ -66,16 +277,32 @@ if ($cuno !== '') {
         $asOfDate = (string) ($summaryRow['max_docdt'] ?? '');
     }
 
-    $rowsStmt = $dpconn->prepare('
-        SELECT dpst, docdt, invpre, invno, currency, invamt, recvamt, amtout,
-               less30, less40, less45, less50, less60, less90, more90, duedate
+} else {
+    $summaryStmt = $dpconn->prepare('
+        SELECT
+            COALESCE(SUM(invamt), 0) AS invamt,
+            COALESCE(SUM(recvamt), 0) AS recvamt,
+            COALESCE(SUM(amtout), 0) AS amtout,
+            COALESCE(SUM(less30), 0) AS less30,
+            COALESCE(SUM(less40), 0) AS less40,
+            COALESCE(SUM(less45), 0) AS less45,
+            COALESCE(SUM(less50), 0) AS less50,
+            COALESCE(SUM(less60), 0) AS less60,
+            COALESCE(SUM(less90), 0) AS less90,
+            COALESCE(SUM(more90), 0) AS more90,
+            MAX(docdt) AS max_docdt
         FROM arst_new
-        WHERE TRIM(cuno) = TRIM(:cuno)
-        ORDER BY docdt DESC
     ');
-    $rowsStmt->bindValue(':cuno', $cuno);
-    $rowsStmt->execute();
-    $ledgerRows = $rowsStmt->fetchAll(PDO::FETCH_ASSOC);
+    $summaryStmt->execute();
+    $summaryRow = $summaryStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($summaryRow) {
+        foreach ($summary as $key => $default) {
+            $summary[$key] = (float) $summaryRow[$key];
+        }
+        $asOfDate = (string) ($summaryRow['max_docdt'] ?? '');
+    }
+
 }
 
 $invoicedTotal    = $summary['invamt'];
@@ -83,12 +310,19 @@ $receivedTotal    = $summary['recvamt'];
 $outstandingTotal = $summary['amtout'];
 $above90Total     = $summary['more90'];
 
-$above90Count = 0;
-foreach ($ledgerRows as $row) {
-    if ((float) $row['more90'] > 0) {
-        $above90Count++;
-    }
+$above90Where = $cuno !== ''
+    ? ' WHERE TRIM(cuno) = TRIM(:cuno)'
+    : ($requiresDealerSelection ? ' WHERE 1 = 0' : '');
+$above90Stmt = $dpconn->prepare(
+    'SELECT COUNT(*) FROM arst_new' . $above90Where
+    . ($above90Where !== '' ? ' AND ' : ' WHERE ')
+    . 'COALESCE(more90, 0) > 0'
+);
+if ($cuno !== '') {
+    $above90Stmt->bindValue(':cuno', $cuno);
 }
+$above90Stmt->execute();
+$above90Count = (int)$above90Stmt->fetchColumn();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -109,14 +343,14 @@ foreach ($ledgerRows as $row) {
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
     <link href="css/datatable_custom.css" rel="stylesheet" />
     <?php if ($canFilterDealers): ?>
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
-    <link href="css/select2_change.css" rel="stylesheet" />
+        <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+        <link href="css/select2_change.css" rel="stylesheet" />
     <?php endif; ?>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
     <?php if ($canFilterDealers): ?>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <?php endif; ?>
 
 </head>
@@ -262,13 +496,13 @@ foreach ($ledgerRows as $row) {
                     <div class="booking-title">
                         Account Ledger
                         <?php if ($selectedDealer !== null): ?>
-                        <div class="booking-subtitle">
-                            <?= htmlspecialchars((string) $selectedDealer['text']) ?>
-                        </div>
+                            <div class="booking-subtitle">
+                                <?= htmlspecialchars((string) $selectedDealer['text']) ?>
+                            </div>
                         <?php elseif ($canFilterDealers): ?>
-                        <div class="booking-subtitle">
-                            Select a dealer to view the AR statement
-                        </div>
+                            <div class="booking-subtitle">
+                                Select a dealer to view the AR statement
+                            </div>
                         <?php endif; ?>
                     </div>
 
@@ -287,19 +521,19 @@ foreach ($ledgerRows as $row) {
                                 'UTF-8'
                             );
                         ?>
-                        <select class="filter-select ar-dealer-filter" id="arDealerFilter"
-                            data-placeholder="Dealer Name"
-                            data-ajax="1"
-                            data-options="<?= $dealerFilterOptionsJson ?>"
-                            aria-label="Dealer Name">
-                            <option value=""></option>
-                            <?php foreach ($dealerFilterOptions as $dealerOption): ?>
-                            <option value="<?= htmlspecialchars((string) $dealerOption['id']) ?>"
-                                <?= $cuno === $dealerOption['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars((string) $dealerOption['text']) ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
+                            <select class="filter-select ar-dealer-filter" id="arDealerFilter"
+                                data-placeholder="Dealer Name"
+                                data-ajax="1"
+                                data-options="<?= $dealerFilterOptionsJson ?>"
+                                aria-label="Dealer Name">
+                                <option value=""></option>
+                                <?php foreach ($dealerFilterOptions as $dealerOption): ?>
+                                    <option value="<?= htmlspecialchars((string) $dealerOption['id']) ?>"
+                                        <?= $cuno === $dealerOption['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars((string) $dealerOption['text']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         <?php endif; ?>
 
                         <select class="filter-select" id="ledgerStatusFilter">
@@ -343,45 +577,7 @@ foreach ($ledgerRows as $row) {
                             </tr>
                         </thead>
 
-                        <tbody>
-<?php foreach ($ledgerRows as $row):
-    $rowOutstanding = (float) $row['amtout'];
-    $docDateRaw = trim((string) ($row['docdt'] ?? ''));
-    $dueDateRaw = trim((string) ($row['duedate'] ?? ''));
-    $docDateTs = $docDateRaw !== '' ? strtotime($docDateRaw) : false;
-    $dueDateTs = $dueDateRaw !== '' ? strtotime($dueDateRaw) : false;
-?>
-                            <tr data-status="<?= $rowOutstanding > 0 ? 'outstanding' : 'settled' ?>">
-                                <td class="fw-semibold"><?= htmlspecialchars((string) $row['dpst']) ?></td>
-                                <td data-order="<?= htmlspecialchars($docDateTs ? date('Y-m-d', $docDateTs) : '') ?>">
-                                    <?= htmlspecialchars($docDateTs ? date('d M Y', $docDateTs) : '') ?>
-                                </td>
-                                <td><?= htmlspecialchars(trim((string) $row['invpre']) . '-' . trim((string) $row['invno'])) ?></td>
-                                <td><?= htmlspecialchars(trim((string) $row['currency']) !== '' ? $row['currency'] : 'INR') ?></td>
-                                <td class="debit-text text-end" data-order="<?= (int) round((float) $row['invamt']) ?>">
-                                    &#8377;<?= number_format(round((float) $row['invamt'])) ?>
-                                </td>
-                                <td class="credit-text text-end" data-order="<?= (int) round((float) $row['recvamt']) ?>">
-                                    &#8377;<?= number_format(round((float) $row['recvamt'])) ?>
-                                </td>
-                                <td class="fw-semibold text-end" data-order="<?= (int) round($rowOutstanding) ?>">
-                                    &#8377;<?= number_format(round($rowOutstanding)) ?>
-                                </td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less30']) ?>">&#8377;<?= number_format(round((float) $row['less30'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less40']) ?>">&#8377;<?= number_format(round((float) $row['less40'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less45']) ?>">&#8377;<?= number_format(round((float) $row['less45'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less50']) ?>">&#8377;<?= number_format(round((float) $row['less50'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less60']) ?>">&#8377;<?= number_format(round((float) $row['less60'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['less90']) ?>">&#8377;<?= number_format(round((float) $row['less90'])) ?></td>
-                                <td class="text-end" data-order="<?= (int) round((float) $row['more90']) ?>">&#8377;<?= number_format(round((float) $row['more90'])) ?></td>
-                                <td class="<?= $rowOutstanding > 0 ? 'debit-text' : '' ?>" data-order="<?= htmlspecialchars($dueDateTs ? date('Y-m-d', $dueDateTs) : '') ?>">
-                                    <?= htmlspecialchars($dueDateTs ? date('d M Y', $dueDateTs) : ' ') ?>
-                                </td>
-                            </tr>
-<?php endforeach; ?>
-                        </tbody>
-
-<?php if (!empty($ledgerRows)): ?>
+                        <tbody></tbody>
                         <tfoot>
                             <tr class="fw-bold">
                                 <td>Total Amount</td>
@@ -401,7 +597,6 @@ foreach ($ledgerRows as $row) {
                                 <td></td>
                             </tr>
                         </tfoot>
-<?php endif; ?>
 
                     </table>
 

@@ -803,8 +803,6 @@ $freightPercentage = 4;
         $('#customer_master').select2({
             placeholder: 'Search Customer',
             allowClear: true,
-            width: '100%',
-            minimumInputLength: 0,
             ajax: {
                 url: 'orderRequest.php',
                 type: 'POST',
@@ -813,21 +811,17 @@ $freightPercentage = 4;
                 data: function(params) {
                     return {
                         action: 'customer_master',
-                        dealer: $("#dealerlist").val() || '',
-                        search: params.term || ''
+                        dealer: $("#dealerlist").val(),
+                        search: params.term
                     };
                 },
                 processResults: function(data) {
                     return {
-                        results: Array.isArray(data) ? data : []
+                        results: data
                     };
                 },
-                cache: false
+                cache: true
             }
-        });
-
-        $('#dealerlist').on('change', function() {
-            $('#customer_master').val(null).trigger('change');
         });
 
         initPincodeSelect2('orderBookingForm', 'orderBookingPincodeSelect');

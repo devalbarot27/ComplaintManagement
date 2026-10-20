@@ -5969,74 +5969,57 @@ class orderClass
 
     public function customer_master()
     {
-        $search = trim((string) ($_POST['search'] ?? ''));
-        $dealer = trim((string) ($_POST['dealer'] ?? ''));
-        $cuno = $dealer !== '' ? $dealer : trim((string) $this->customer_code);
+        $search = trim($_POST['search'] ?? '');
 
-        $seen = [];
-        $result = [];
-        foreach (['customer_master', 'customer_address'] as $table) {
-            foreach ($this->fetchDealerAddressRows($table, $cuno, $search) as $row) {
-                $code = trim((string) ($row['adr_code'] ?? ''));
-                if ($code === '' || isset($seen[$code])) {
-                    continue;
-                }
-                $seen[$code] = true;
-                $name = trim((string) ($row['cuname'] ?? ''));
-                $result[] = [
-                    'id' => $code,
-                    'text' => $name !== '' ? $name . ' - [' . $code . ']' : $code,
-                ];
+        $dealer = trim($_POST['dealer'] ?? '');
+
+        $sql = "SELECT adr_code, cuname
+            FROM customer_address
+            WHERE length(adr_code) = 9";
+      
+            if ($dealer) {
+                $sql .= " AND cuno = :dealer";
+            } else {
+                $sql .= " AND cuno = :cuno";
             }
-        }
+        
 
-        usort($result, static function (array $left, array $right): int {
-            return strcasecmp($left['text'], $right['text']);
-        });
-        $result = array_slice($result, 0, 50);
 
-        echo json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-    }
-
-    /**
-     * Dealer Address options. Dealer master holds the dealer address; customer_address adds any extra ship-to rows.
-     *
-     * @return array<int, array{adr_code: string, cuname: string}>
-     */
-    private function fetchDealerAddressRows(string $table, string $cuno, string $search): array
-    {
-        if (!in_array($table, ['customer_master', 'customer_address'], true)) {
-            return [];
-        }
-
-        $sql = "SELECT TRIM(adr_code) AS adr_code, TRIM(COALESCE(cuname, '')) AS cuname
-            FROM {$table}
-            WHERE length(TRIM(COALESCE(adr_code, ''))) = 9";
-        if ($cuno !== '') {
-            $sql .= ' AND TRIM(cuno) = TRIM(:cuno)';
-        }
-        if ($search !== '') {
-            $sql .= ' AND (
+        if (!empty($search)) {
+            $sql .= " AND (
                     LOWER(cuname) LIKE LOWER(:search)
                     OR adr_code LIKE :search
-                )';
+                 )";
         }
-        $sql .= ' ORDER BY cuname LIMIT 50';
 
-        try {
-            $stmt = $this->obconn->prepare($sql);
-            if ($cuno !== '') {
-                $stmt->bindValue(':cuno', $cuno, PDO::PARAM_STR);
-            }
-            if ($search !== '') {
-                $stmt->bindValue(':search', '%' . $search . '%', PDO::PARAM_STR);
-            }
-            $stmt->execute();
+        $sql .= " ORDER BY cuname LIMIT 50";
 
-            return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        } catch (Throwable $e) {
-            return [];
+        $stmt = $this->obconn->prepare($sql);
+
+
+        if ($dealer) {
+            $stmt->bindParam(':dealer', $dealer, PDO::PARAM_STR);
+        } else {
+            $stmt->bindParam(':cuno', $this->customer_code, PDO::PARAM_STR);
         }
+
+        if (!empty($search)) {
+            $searchLike = "%{$search}%";
+            $stmt->bindParam(':search', $searchLike, PDO::PARAM_STR);
+        }
+
+        $stmt->execute();
+
+        $result = [];
+
+        while ($row = $stmt->fetch(PDO::FETCH_OBJ)) {
+            $result[] = [
+                'id'   => $row->adr_code,
+                'text' => $row->cuname . ' - [' . $row->adr_code . ']'
+            ];
+        }
+
+        echo json_encode($result, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 
     public function getAcknowledgeLine()

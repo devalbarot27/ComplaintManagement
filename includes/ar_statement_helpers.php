@@ -180,7 +180,7 @@ function ar_statement_dealer_get(?PDO $dpconn, PDO $obconn, string $cuno): ?arra
         LIMIT 1
     ';
 
-    foreach ([$dpconn, $obconn] as $conn) {
+    foreach ([$obconn, $obconn] as $conn) {
         if (!$conn instanceof PDO) {
             continue;
         }
@@ -342,17 +342,12 @@ function ar_statement_search_dealers(?PDO $dpconn, PDO $obconn, string $search, 
     }
 
     if (ar_statement_user_is_vayu_engineer($obconn)) {
-        $results = ar_statement_dealers_for_codes(
+        return ar_statement_dealers_for_codes(
             $dpconn,
             $obconn,
             ar_statement_assigned_dealer_codes($obconn),
             $search
         );
-        if ($results !== []) {
-            return $results;
-        }
-
-        return ar_statement_search_all_dealers($dpconn, $obconn, $search, $limit);
     }
 
     return [];
@@ -360,7 +355,13 @@ function ar_statement_search_dealers(?PDO $dpconn, PDO $obconn, string $search, 
 
 function ar_statement_resolve_cuno(PDO $obconn): string
 {
-    $sessionCuno = trim((string) ($_SESSION['customer_number_vayu'] ?? ''));
+    
+    $sessionCuno = trim((string) (
+        $_SESSION['customer_number_vayu']
+        ?? $_SESSION['cuno']
+        ?? $_GET['dealer']
+        ?? ''
+    ));
 
     if (!ar_statement_user_can_filter_dealers($obconn)) {
         return $sessionCuno;
