@@ -1580,7 +1580,7 @@ function order_approval_products_summary(array $lines): array
             . '<td class="text-center">' . (int) ($index + 1) . '</td>'
             . '<td>' . htmlspecialchars($code !== '' ? $code : 'Item', ENT_QUOTES, 'UTF-8') . '</td>'
             . '<td>' . htmlspecialchars($name !== '' ? $name : '-', ENT_QUOTES, 'UTF-8') . '</td>'
-            . '<td class="text-end">&#8377;' . htmlspecialchars($qty, ENT_QUOTES, 'UTF-8') . '</td>'
+            . '<td class="text-end">' . htmlspecialchars($qty, ENT_QUOTES, 'UTF-8') . '</td>'
             . '<td class="text-end" style="color: #F44611;">&#8377;' . htmlspecialchars($price, ENT_QUOTES, 'UTF-8') . '</td>'
             . '<td class="text-end">&#8377;' . htmlspecialchars($dealerPrice, ENT_QUOTES, 'UTF-8') . '</td>'
             . '<td class="text-end">&#8377;' . htmlspecialchars($clp, ENT_QUOTES, 'UTF-8') . '</td>'
