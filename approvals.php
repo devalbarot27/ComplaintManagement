@@ -552,6 +552,43 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
             line-height: 1.45;
         }
 
+        .approval-products-wrap {
+            overflow-x: auto;
+        }
+
+        .approval-products-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-weight: 500;
+        }
+
+        .approval-products-table th,
+        .approval-products-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+            vertical-align: top;
+            font-size: 13px;
+            font-weight: 500;
+            color: #0f172a;
+            white-space: nowrap;
+        }
+
+        .approval-products-table thead th {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .approval-products-table td:nth-child(2) {
+            white-space: normal;
+            min-width: 160px;
+        }
+
+        .approval-products-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
         .complaint-form-modal .form-group .form-label {
             margin-bottom: 4px;
         }

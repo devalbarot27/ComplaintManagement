@@ -1541,7 +1541,7 @@ function order_approval_products_summary(array $lines): array
 {
     $parts = [];
     $htmlParts = [];
-    $detailHtmlParts = [];
+    $detailRows = [];
     $hasL2 = false;
     foreach ($lines as $line) {
         $code = trim((string) ($line['tplcode'] ?? ''));
@@ -1567,21 +1567,23 @@ function order_approval_products_summary(array $lines): array
             $label .= ' @ ' . $price;
         }
         $parts[] = $label;
-        $htmlParts[] = htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
-
-        $detailHtml = '<div class="mb-2">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8');
-        if ($dealerPrice !== '-') {
-            $detailHtml .= '<div class="mt-1"><strong>Dealer Price:</strong> '
-                . htmlspecialchars($dealerPrice, ENT_QUOTES, 'UTF-8')
-                . '</div>';
+        $htmlLabel = htmlspecialchars($code !== '' ? $code : 'Item', ENT_QUOTES, 'UTF-8');
+        if ($name !== '') {
+            $htmlLabel .= ' - ' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
         }
-        if ($clp !== '-') {
-            $detailHtml .= '<div class="mt-1"><strong>CLP - Customer List Price:</strong> '
-                . htmlspecialchars($clp, ENT_QUOTES, 'UTF-8')
-                . '</div>';
+        $htmlLabel .= ' x ' . htmlspecialchars($qty, ENT_QUOTES, 'UTF-8');
+        if ($price !== '-') {
+            $htmlLabel .= ' @ &#8377;' . htmlspecialchars($price, ENT_QUOTES, 'UTF-8');
         }
-        $detailHtml .= '</div>';
-        $detailHtmlParts[] = $detailHtml;
+        $htmlParts[] = $htmlLabel;
+        $detailRows[] = '<tr>'
+            . '<td>' . htmlspecialchars($code !== '' ? $code : 'Item', ENT_QUOTES, 'UTF-8') . '</td>'
+            . '<td>' . htmlspecialchars($name !== '' ? $name : '-', ENT_QUOTES, 'UTF-8') . '</td>'
+            . '<td class="text-end">&#8377;' . htmlspecialchars($qty, ENT_QUOTES, 'UTF-8') . '</td>'
+            . '<td class="text-end" style="color: #F44611;">&#8377;' . htmlspecialchars($price, ENT_QUOTES, 'UTF-8') . '</td>'
+            . '<td class="text-end">&#8377;' . htmlspecialchars($dealerPrice, ENT_QUOTES, 'UTF-8') . '</td>'
+            . '<td class="text-end">&#8377;' . htmlspecialchars($clp, ENT_QUOTES, 'UTF-8') . '</td>'
+            . '</tr>';
     }
 
     $warranty = '';
@@ -1589,10 +1591,25 @@ function order_approval_products_summary(array $lines): array
         $warranty = 'Level 2 Approval Price';
     }
 
+    $detailsHtml = '';
+    if ($detailRows !== []) {
+        $detailsHtml = '<div class="approval-products-wrap"><table class="approval-products-table">'
+            . '<thead><tr>'
+            . '<th>Product</th>'
+            . '<th>Description</th>'
+            . '<th class="text-end">Qty</th>'
+            . '<th class="text-end">Price</th>'
+            . '<th class="text-end">Dealer Price</th>'
+            . '<th class="text-end">CLP - Customer List Price</th>'
+            . '</tr></thead><tbody>'
+            . implode('', $detailRows)
+            . '</tbody></table></div>';
+    }
+
     return [
         'text' => implode('; ', $parts),
         'html' => implode('<br>', $htmlParts),
-        'details_html' => implode('', $detailHtmlParts),
+        'details_html' => $detailsHtml,
         'warranty' => $warranty,
     ];
 }
