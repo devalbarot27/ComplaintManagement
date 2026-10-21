@@ -580,7 +580,13 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
             color: #64748b;
         }
 
-        .approval-products-table td:nth-child(2) {
+        .approval-products-table th:first-child,
+        .approval-products-table td:first-child {
+            width: 1%;
+            text-align: center;
+        }
+
+        .approval-products-table td:nth-child(3) {
             white-space: normal;
             min-width: 160px;
         }

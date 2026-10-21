@@ -1543,7 +1543,7 @@ function order_approval_products_summary(array $lines): array
     $htmlParts = [];
     $detailRows = [];
     $hasL2 = false;
-    foreach ($lines as $line) {
+    foreach ($lines as $index => $line) {
         $code = trim((string) ($line['tplcode'] ?? ''));
         $name = trim((string) ($line['tpldesc'] ?? ''));
         $qty = order_approval_format_money($line['qty'] ?? null);
@@ -1577,6 +1577,7 @@ function order_approval_products_summary(array $lines): array
         }
         $htmlParts[] = $htmlLabel;
         $detailRows[] = '<tr>'
+            . '<td class="text-center">' . (int) ($index + 1) . '</td>'
             . '<td>' . htmlspecialchars($code !== '' ? $code : 'Item', ENT_QUOTES, 'UTF-8') . '</td>'
             . '<td>' . htmlspecialchars($name !== '' ? $name : '-', ENT_QUOTES, 'UTF-8') . '</td>'
             . '<td class="text-end">&#8377;' . htmlspecialchars($qty, ENT_QUOTES, 'UTF-8') . '</td>'
@@ -1595,6 +1596,7 @@ function order_approval_products_summary(array $lines): array
     if ($detailRows !== []) {
         $detailsHtml = '<div class="approval-products-wrap"><table class="approval-products-table">'
             . '<thead><tr>'
+            . '<th class="text-center">S.No</th>'
             . '<th>Product</th>'
             . '<th>Description</th>'
             . '<th class="text-end">Qty</th>'
