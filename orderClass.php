@@ -5220,6 +5220,35 @@ class orderClass
 
             $orderTypeSql = plexecom_order_type_sql($this->obconn, 'a');
 
+            // Same customer text as Recent Order details: end-customer name, otherwise dealer name.
+            $customerNameSql = "
+                CASE
+                    WHEN TRIM(COALESCE(a.email, '')) <> '' OR TRIM(COALESCE(a.delivery_code, '')) = '' THEN
+                        CASE
+                            WHEN COALESCE(NULLIF(TRIM(a.cuname), ''), NULLIF(TRIM(end_customer.customer_name), '')) <> ''
+                                 AND TRIM(COALESCE(a.cuno, '')) <> ''
+                                THEN COALESCE(NULLIF(TRIM(a.cuname), ''), NULLIF(TRIM(end_customer.customer_name), ''))
+                                     || ' [' || TRIM(a.cuno) || ']'
+                            WHEN COALESCE(NULLIF(TRIM(a.cuname), ''), NULLIF(TRIM(end_customer.customer_name), '')) <> ''
+                                THEN COALESCE(NULLIF(TRIM(a.cuname), ''), NULLIF(TRIM(end_customer.customer_name), ''))
+                            WHEN TRIM(COALESCE(a.cuno, '')) <> ''
+                                THEN TRIM(a.cuno)
+                            ELSE '-'
+                        END
+                    ELSE
+                        CASE
+                            WHEN COALESCE(NULLIF(TRIM(dealer.cuname), ''), NULLIF(TRIM(a.cuname), '')) <> ''
+                                 AND COALESCE(NULLIF(TRIM(a.cuno), ''), NULLIF(TRIM(a.delivery_code), '')) <> ''
+                                THEN COALESCE(NULLIF(TRIM(dealer.cuname), ''), NULLIF(TRIM(a.cuname), ''))
+                                     || ' [' || COALESCE(NULLIF(TRIM(a.cuno), ''), NULLIF(TRIM(a.delivery_code), '')) || ']'
+                            WHEN COALESCE(NULLIF(TRIM(dealer.cuname), ''), NULLIF(TRIM(a.cuname), '')) <> ''
+                                THEN COALESCE(NULLIF(TRIM(dealer.cuname), ''), NULLIF(TRIM(a.cuname), ''))
+                            WHEN COALESCE(NULLIF(TRIM(a.cuno), ''), NULLIF(TRIM(a.delivery_code), '')) <> ''
+                                THEN COALESCE(NULLIF(TRIM(a.cuno), ''), NULLIF(TRIM(a.delivery_code), ''))
+                            ELSE '-'
+                        END
+                END";
+
             if (!empty($search)) {
                 $where = "AND (
                     a.refno ILIKE :search
@@ -5228,6 +5257,7 @@ class orderClass
                     OR a.tpldesc ILIKE :search
                     OR COALESCE(d.order_category, '') ILIKE :search
                     OR ({$orderTypeSql}) ILIKE :search
+                    OR ({$customerNameSql}) ILIKE :search
                 ";
                 if ($showAddedBy) {
                     $where .= "
@@ -5277,6 +5307,20 @@ class orderClass
                     ON a.paycode = e.pay_code::varchar
                 LEFT JOIN transporter_master AS f
                     ON a.transporter = f.trans_code
+                LEFT JOIN LATERAL (
+                    SELECT TRIM(COALESCE(cm.cuname, '')) AS cuname
+                    FROM customer_master cm
+                    WHERE TRIM(cm.cuno) = TRIM(a.cuno)
+                    LIMIT 1
+                ) dealer ON TRUE
+                LEFT JOIN LATERAL (
+                    SELECT TRIM(COALESCE(cm.customer_name, '')) AS customer_name
+                    FROM customer_masters cm
+                    WHERE a.customer_id IS NOT NULL
+                      AND cm.id = a.customer_id
+                      AND cm.deleted_at IS NULL
+                    LIMIT 1
+                ) end_customer ON TRUE
                 {$addedByJoin}
                 WHERE {$userWhere}
                 {$where}
@@ -5320,6 +5364,7 @@ class orderClass
 
             $orderSqlMap = [
                 'ref_no' => 'recent_orders.refno',
+                'customer_name' => 'recent_orders.customer_name',
                 'order_no' => 'recent_orders.order_number',
                 'category' => 'recent_orders.order_category',
                 'order_type' => 'recent_orders.order_type',
@@ -5355,7 +5400,8 @@ class orderClass
                         d.order_category,
                         {$orderTypeSql} AS order_type,
                         e.pay_desc,
-                        f.trans_name AS transporter
+                        f.trans_name AS transporter,
+                        {$customerNameSql} AS customer_name
                         {$addedBySelect}
                     {$joinSql}
                     ORDER BY a.refno DESC, a.indent_date DESC
@@ -5413,8 +5459,10 @@ class orderClass
                         . '<i class="fa fa-refresh"></i></button>';
                 }
 
+                $customerName = trim((string) ($row['customer_name'] ?? ''));
                 $rowData = [
                     'ref_no'           => htmlspecialchars($refno !== '' ? $refno : '-', ENT_QUOTES, 'UTF-8'),
+                    'customer_name'    => htmlspecialchars($customerName !== '' ? $customerName : '-', ENT_QUOTES, 'UTF-8'),
                     'order_no'         => htmlspecialchars($row['order_number'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'category'         => htmlspecialchars($row['order_category'] ?? '-', ENT_QUOTES, 'UTF-8'),
                     'order_category'   => htmlspecialchars($row['order_category'] ?? '-', ENT_QUOTES, 'UTF-8'),
