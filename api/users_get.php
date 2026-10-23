@@ -35,6 +35,7 @@ $safeCustomerLabel = $safeCustomerCode !== ''
     : '';
 $safeLevel1ApproverId = isset($row['level_1_approver_id']) ? (int) $row['level_1_approver_id'] : 0;
 $safeLevel2ApproverId = isset($row['level_2_approver_id']) ? (int) $row['level_2_approver_id'] : 0;
+$safeComplaintApprovalUserId = isset($row['complaint_approval_user_id']) ? (int) $row['complaint_approval_user_id'] : 0;
 unset($row);
 
 api_json_echo([
@@ -49,4 +50,5 @@ api_json_echo([
     'customer_code_text' => $safeCustomerLabel,
     'level_1_approver_id' => $safeLevel1ApproverId,
     'level_2_approver_id' => $safeLevel2ApproverId,
+    'complaint_approval_user_id' => $safeComplaintApprovalUserId,
 ]);

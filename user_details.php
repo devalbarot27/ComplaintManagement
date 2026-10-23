@@ -90,12 +90,21 @@ $encodedId = base64_encode((string) $record['id']);
             record_details_field(
                 'Customer Code',
                 user_customer_code_label($obconn, trim((string) ($record['customer_code'] ?? '')))
-            );
+            );           
             if ($showApprovalOptions) {
                 if (!user_role_auto_assigns_level1_to_self((int) ($record['role'] ?? 0))) {
                     record_details_field('Level 1 Approval', $level1ApproverLabel);
                 }
                 record_details_field('Level 2 Approval', $level2ApproverLabel);
+            }
+            if ((int) ($record['role'] ?? 0) === DEALER_USER_ROLE) {
+                record_details_field(
+                    'Complaint Approval User',
+                    user_approver_display_name(
+                        $obconn,
+                        isset($record['complaint_approval_user_id']) ? (int) $record['complaint_approval_user_id'] : null
+                    )
+                );
             }
             record_details_field(
                 'Created By',

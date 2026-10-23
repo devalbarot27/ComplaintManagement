@@ -26,6 +26,7 @@ $formRecord = [
     'customer_code' => '',
     'level_1_approver_id' => 0,
     'level_2_approver_id' => 0,
+    'complaint_approval_user_id' => 0,
 ];
 $createdBy = current_username();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
@@ -65,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
                         'customer_code' => '',
                         'level_1_approver_id' => 0,
                         'level_2_approver_id' => 0,
+                        'complaint_approval_user_id' => 0,
                     ];
                 }
             } else {
@@ -80,6 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_user'])) {
                     'customer_code' => '',
                     'level_1_approver_id' => 0,
                     'level_2_approver_id' => 0,
+                    'complaint_approval_user_id' => 0,
                 ];
             }
         } catch (PDOException $e) {
@@ -92,6 +95,10 @@ $approverOptions = user_approver_options_for_form(
     $obconn,
     (int) ($formRecord['level_1_approver_id'] ?? 0),
     (int) ($formRecord['level_2_approver_id'] ?? 0)
+);
+$complaintApprovalUserOptions = user_elgi_engineer_options_for_form(
+    $obconn,
+    (int) ($formRecord['complaint_approval_user_id'] ?? 0)
 );
 ?>
 <!DOCTYPE html>

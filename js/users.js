@@ -41,11 +41,42 @@ function setUserSelectValue(select, value) {
   select.value = nextValue;
 }
 
+function toggleComplaintApprovalUserField(roleId, selectedId) {
+  const wrap = document.getElementById("userComplaintApprovalUserFieldWrap");
+  const select = document.getElementById("userComplaintApprovalUserSelect");
+  if (!wrap || !select) {
+    return;
+  }
+
+  const isDealerUser = parseInt(roleId, 10) === 1;
+  wrap.style.display = isDealerUser ? "" : "none";
+  if (!isDealerUser) {
+    setUserSelectValue(select, "");
+    select.classList.remove("is-invalid");
+    const msg = document.querySelector(
+      '.validation-msg[data-field="complaint_approval_user_id"]',
+    );
+    if (msg) {
+      msg.textContent = "";
+    }
+    return;
+  }
+
+  if (selectedId !== undefined && selectedId !== null && String(selectedId) !== "") {
+    setUserSelectValue(select, selectedId);
+  }
+}
+
 function toggleApprovalFields(roleId, selectedIds) {
   const wrap = document.getElementById("userApprovalFieldsWrap");
   const level1Wrap = document.getElementById("userLevel1ApproverFieldWrap");
   const level1 = document.getElementById("userLevel1ApproverSelect");
   const level2 = document.getElementById("userLevel2ApproverSelect");
+  toggleComplaintApprovalUserField(
+    roleId,
+    selectedIds ? selectedIds.complaint_approval_user_id : undefined,
+  );
+
   if (!wrap || !level1 || !level2) {
     return;
   }
@@ -416,8 +447,15 @@ function initUsersFormValidation() {
           message: "^Customer Code is required",
         },
       };
+      constraints.complaint_approval_user_id = {
+        presence: {
+          allowEmpty: false,
+          message: "^Complaint Approval User is required",
+        },
+      };
     } else {
       delete constraints.customer_code;
+      delete constraints.complaint_approval_user_id;
     }
 
     if (isSubmitting) {
@@ -511,7 +549,7 @@ function initUsersDatatable() {
 }
 
 function initUserFormSelect2() {
-  ["#userLevel1ApproverSelect", "#userLevel2ApproverSelect"].forEach(
+  ["#userLevel1ApproverSelect", "#userLevel2ApproverSelect", "#userComplaintApprovalUserSelect"].forEach(
     function (selector) {
       const $select = $(selector);
       if (
@@ -605,6 +643,7 @@ function fillUserForm(record) {
   toggleApprovalFields(record.role, {
     level_1_approver_id: record.level_1_approver_id || "",
     level_2_approver_id: record.level_2_approver_id || "",
+    complaint_approval_user_id: record.complaint_approval_user_id || "",
   });
   form.querySelector('[name="username"]').value = record.username || "";
   form.querySelector('[name="name"]').value = record.name || "";
@@ -651,7 +690,7 @@ function resetUserForm() {
       }
     },
   );
-  ["userLevel1ApproverSelect", "userLevel2ApproverSelect"].forEach(
+  ["userLevel1ApproverSelect", "userLevel2ApproverSelect", "userComplaintApprovalUserSelect"].forEach(
     function (id) {
       setUserSelectValue(document.getElementById(id), "");
     },
@@ -883,6 +922,8 @@ function bootUserEditPage() {
         document.getElementById("userLevel1ApproverSelect")?.value || "",
       level_2_approver_id:
         document.getElementById("userLevel2ApproverSelect")?.value || "",
+      complaint_approval_user_id:
+        document.getElementById("userComplaintApprovalUserSelect")?.value || "",
     });
   }
 

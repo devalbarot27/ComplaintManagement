@@ -8,6 +8,10 @@ if (!isset($approverOptions) || !is_array($approverOptions)) {
     $approverOptions = [];
 }
 
+if (!isset($complaintApprovalUserOptions) || !is_array($complaintApprovalUserOptions)) {
+    $complaintApprovalUserOptions = [];
+}
+
 $formRecord = $formRecord ?? [
     'id' => 0,
     'role' => 0,
@@ -18,6 +22,7 @@ $formRecord = $formRecord ?? [
     'customer_code' => '',
     'level_1_approver_id' => 0,
     'level_2_approver_id' => 0,
+    'complaint_approval_user_id' => 0,
 ];
 
 $isEditForm = !empty($formRecord['id']);
@@ -26,6 +31,8 @@ $selectedCustomerCode = trim((string) ($formRecord['customer_code'] ?? ''));
 $customerCodeRequired = $selectedRole === DEALER_USER_ROLE;
 $selectedLevel1ApproverId = (int) ($formRecord['level_1_approver_id'] ?? 0);
 $selectedLevel2ApproverId = (int) ($formRecord['level_2_approver_id'] ?? 0);
+$selectedComplaintApprovalUserId = (int) ($formRecord['complaint_approval_user_id'] ?? 0);
+$showComplaintApprovalUser = $selectedRole === DEALER_USER_ROLE;
 $selectedCustomerLabel = '';
 if ($selectedCustomerCode !== '' && isset($obconn) && $obconn instanceof PDO) {
     $selectedCustomerLabel = user_customer_code_label($obconn, $selectedCustomerCode);
@@ -155,6 +162,21 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
                 <div class="text-danger validation-msg" data-field="level_2_approver_id"></div>
             </div>
         </div>
+    </div>
+    <div class="col-md-6 form-group" id="userComplaintApprovalUserFieldWrap" <?php echo $showComplaintApprovalUser ? '' : ' style="display: none;"'; ?>>
+        <label class="form-label" for="userComplaintApprovalUserSelect">
+            <i class="bi bi-person-check"></i> Complaint Approval User <span class="text-danger">*</span>
+        </label>
+        <select class="form-control" name="complaint_approval_user_id" id="userComplaintApprovalUserSelect" style="width:100%;">
+            <option value="">Select Complaint Approval User</option>
+            <?php foreach ($complaintApprovalUserOptions as $engineer) { ?>
+                <?php $optionId = (int) ($engineer['id'] ?? 0); ?>
+                <option value="<?php echo $optionId; ?>" <?php echo $selectedComplaintApprovalUserId === $optionId ? ' selected' : ''; ?>>
+                    <?php echo htmlspecialchars(user_sales_coordinator_option_label($engineer)); ?>
+                </option>
+            <?php } ?>
+        </select>
+        <div class="text-danger validation-msg" data-field="complaint_approval_user_id"></div>
     </div>
 </div>
 <script>

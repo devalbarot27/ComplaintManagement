@@ -34,6 +34,10 @@ function user_ensure_schema(PDO $conn): void
         ALTER TABLE user_master
         ADD COLUMN IF NOT EXISTS level_2_approver_id INTEGER NULL
     ');
+    $conn->exec('
+        ALTER TABLE user_master
+        ADD COLUMN IF NOT EXISTS complaint_approval_user_id INTEGER NULL
+    ');
 
     $ensured = true;
 }
@@ -562,6 +566,91 @@ function user_approver_options_for_form(
     return $options;
 }
 
+/**
+ * Active ELGi Engineer users who can approve complaints for a Dealer User.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function user_elgi_engineer_options(PDO $conn): array
+{
+    $stmt = $conn->prepare('
+        SELECT um.id, um.username, um.name
+        FROM user_master um
+        WHERE um.deleted_at IS NULL
+          AND um.role = :role
+        ORDER BY um.name ASC, um.username ASC
+    ');
+    $stmt->bindValue(':role', ELGI_ENGINEER_USER_ROLE, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function user_elgi_engineer_options_for_form(PDO $conn, ?int $selectedUserId = null): array
+{
+    $options = user_elgi_engineer_options($conn);
+    if ($selectedUserId === null || $selectedUserId <= 0) {
+        return $options;
+    }
+
+    foreach ($options as $option) {
+        if ((int) ($option['id'] ?? 0) === $selectedUserId) {
+            return $options;
+        }
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id, username, name
+        FROM user_master
+        WHERE id = :id
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $selectedUserId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) {
+        array_unshift($options, $row);
+    }
+
+    return $options;
+}
+
+function user_is_valid_elgi_engineer(PDO $conn, int $userId): bool
+{
+    if ($userId <= 0) {
+        return false;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id
+        FROM user_master
+        WHERE id = :id
+          AND deleted_at IS NULL
+          AND role = :role
+        LIMIT 1
+    ');
+    $stmt->bindValue(':id', $userId, PDO::PARAM_INT);
+    $stmt->bindValue(':role', ELGI_ENGINEER_USER_ROLE, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return (bool) $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function user_normalized_complaint_approval_user_id(array $data): ?int
+{
+    if ((int) ($data['role'] ?? 0) !== DEALER_USER_ROLE) {
+        return null;
+    }
+
+    $userId = (int) ($data['complaint_approval_user_id'] ?? 0);
+
+    return $userId > 0 ? $userId : null;
+}
+
 function user_is_valid_approver(PDO $conn, int $approverId): bool
 {
     if ($approverId <= 0) {
@@ -657,6 +746,7 @@ function user_form_record_from_row(array $row): array
         'customer_code' => trim((string) ($row['customer_code'] ?? '')),
         'level_1_approver_id' => isset($row['level_1_approver_id']) ? (int) $row['level_1_approver_id'] : 0,
         'level_2_approver_id' => isset($row['level_2_approver_id']) ? (int) $row['level_2_approver_id'] : 0,
+        'complaint_approval_user_id' => isset($row['complaint_approval_user_id']) ? (int) $row['complaint_approval_user_id'] : 0,
     ];
 }
 
@@ -676,6 +766,7 @@ function user_form_record_from_post(array $data, int $id): array
         'customer_code' => trim((string) ($data['customer_code'] ?? '')),
         'level_1_approver_id' => (int) ($data['level_1_approver_id'] ?? 0),
         'level_2_approver_id' => (int) ($data['level_2_approver_id'] ?? 0),
+        'complaint_approval_user_id' => (int) ($data['complaint_approval_user_id'] ?? 0),
     ];
 }
 
@@ -951,9 +1042,13 @@ function user_from_post(array $post): array
         'customer_code' => trim((string) ($post['customer_code'] ?? '')),
         'level_1_approver_id' => trim((string) ($post['level_1_approver_id'] ?? '')),
         'level_2_approver_id' => trim((string) ($post['level_2_approver_id'] ?? '')),
+        'complaint_approval_user_id' => trim((string) ($post['complaint_approval_user_id'] ?? '')),
     ];
 
-    return array_merge($data, user_normalized_approver_ids($data));
+    $data = array_merge($data, user_normalized_approver_ids($data));
+    $data['complaint_approval_user_id'] = user_normalized_complaint_approval_user_id($data);
+
+    return $data;
 }
 
 /**
@@ -1062,6 +1157,16 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
             if (!user_is_valid_approver($conn, $level1ApproverId)) {
                 return 'Selected Level 1 Approval user is invalid.';
             }
+        }
+    }
+
+    if ((int) $data['role'] === DEALER_USER_ROLE) {
+        $complaintApprovalUserId = (int) ($data['complaint_approval_user_id'] ?? 0);
+        if ($complaintApprovalUserId <= 0) {
+            return 'Complaint Approval User is required.';
+        }
+        if (!user_is_valid_elgi_engineer($conn, $complaintApprovalUserId)) {
+            return 'Selected Complaint Approval User is invalid.';
         }
     }
 
@@ -1302,6 +1407,16 @@ function user_bind_sales_coordinator_id(PDOStatement $stmt, array $data): void
     }
 }
 
+function user_bind_complaint_approval_user_id(PDOStatement $stmt, array $data): void
+{
+    $userId = user_normalized_complaint_approval_user_id($data);
+    if ($userId === null) {
+        $stmt->bindValue(':complaint_approval_user_id', null, PDO::PARAM_NULL);
+    } else {
+        $stmt->bindValue(':complaint_approval_user_id', $userId, PDO::PARAM_INT);
+    }
+}
+
 function user_bind_customer_code(PDOStatement $stmt, array $data): void
 {
     $customerCode = trim((string) ($data['customer_code'] ?? ''));
@@ -1336,10 +1451,12 @@ function user_insert(PDO $conn, array $data, string $createdBy): void
     $stmt = $conn->prepare('
         INSERT INTO user_master (
             role, username, name, email, password, mobile_number, sales_coordinator_id, customer_code,
-            level_1_approval, level_2_approval, level_1_approver_id, level_2_approver_id, created_by, created_at
+            level_1_approval, level_2_approval, level_1_approver_id, level_2_approver_id,
+            complaint_approval_user_id, created_by, created_at
         ) VALUES (
             :role, :username, :name, :email, :password, :mobile_number, :sales_coordinator_id, :customer_code,
-            :level_1_approval, :level_2_approval, :level_1_approver_id, :level_2_approver_id, :created_by, CURRENT_TIMESTAMP
+            :level_1_approval, :level_2_approval, :level_1_approver_id, :level_2_approver_id,
+            :complaint_approval_user_id, :created_by, CURRENT_TIMESTAMP
         )
         RETURNING id
     ');
@@ -1352,6 +1469,7 @@ function user_insert(PDO $conn, array $data, string $createdBy): void
     $stmt->bindValue(':sales_coordinator_id', null, PDO::PARAM_NULL);
     user_bind_customer_code($stmt, $data);
     user_bind_approver_ids($stmt, $data);
+    user_bind_complaint_approval_user_id($stmt, $data);
     $stmt->bindValue(':created_by', $createdBy);
     $stmt->execute();
     $newId = (int) $stmt->fetchColumn();
@@ -1396,6 +1514,7 @@ function user_update(PDO $conn, int $id, array $data): void
                 level_2_approval = :level_2_approval,
                 level_1_approver_id = :level_1_approver_id,
                 level_2_approver_id = :level_2_approver_id,
+                complaint_approval_user_id = :complaint_approval_user_id,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
               AND deleted_at IS NULL
@@ -1414,6 +1533,7 @@ function user_update(PDO $conn, int $id, array $data): void
                 level_2_approval = :level_2_approval,
                 level_1_approver_id = :level_1_approver_id,
                 level_2_approver_id = :level_2_approver_id,
+                complaint_approval_user_id = :complaint_approval_user_id,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
               AND deleted_at IS NULL
@@ -1427,6 +1547,7 @@ function user_update(PDO $conn, int $id, array $data): void
     $stmt->bindValue(':mobile_number', $data['mobile_number']);
     user_bind_customer_code($stmt, $data);
     user_bind_approver_ids($stmt, $data, $id);
+    user_bind_complaint_approval_user_id($stmt, $data);
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     $stmt->execute();
 

@@ -60,6 +60,10 @@ $approverOptions = user_approver_options_for_form(
     (int) ($formRecord['level_1_approver_id'] ?? 0),
     (int) ($formRecord['level_2_approver_id'] ?? 0)
 );
+$complaintApprovalUserOptions = user_elgi_engineer_options_for_form(
+    $obconn,
+    (int) ($formRecord['complaint_approval_user_id'] ?? 0)
+);
 
 $displayName = user_display_value($formRecord['name']);
 $pageTitle = $displayName !== '-' ? $displayName : user_display_value($formRecord['username']);
