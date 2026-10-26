@@ -447,12 +447,6 @@ function initUsersFormValidation() {
           message: "^Customer Code is required",
         },
       };
-      constraints.complaint_approval_user_id = {
-        presence: {
-          allowEmpty: false,
-          message: "^Complaint Approval User is required",
-        },
-      };
     } else {
       delete constraints.customer_code;
       delete constraints.complaint_approval_user_id;

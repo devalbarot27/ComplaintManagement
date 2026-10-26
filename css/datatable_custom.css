@@ -1,4 +1,4 @@
-/* validate.js ñ new complaint form */
+/* validate.js ù new complaint form */
 .order-form-card .validation-msg {
     font-size: 13px;
     margin-top: 6px;
@@ -153,7 +153,7 @@ table.dataTable.table.booking-table tbody td:last-child {
     color: #1565d8 !important;
 }
  
-/* Action column ñ inline icon buttons */
+/* Action column ù inline icon buttons */
 .complaint-action-cell {
     display: inline-flex;
     align-items: center;

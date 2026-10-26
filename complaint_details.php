@@ -1,8 +1,10 @@
 <?php
 session_start();
 include 'pdo_obconn.php';
+require_once 'includes/complaint_closure_approval_helpers.php';
+complaint_closure_approval_ensure_rbac($obconn);
 require_once 'includes/rbac_page_guard.php';
-include 'includes/complaint_activity_helpers.php';
+require_once 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_status.php';
 include 'includes/service_report_helpers.php';
 include 'includes/complaint_address_helpers.php';
@@ -12,6 +14,7 @@ require_once 'includes/complaint_service_log_helpers.php';
 require_once 'includes/warranty_claims_helpers.php';
 require_once 'includes/cq_helpers.php';
 require_once 'includes/complaint_service_update_save_helpers.php';
+require_once 'includes/complaint_closure_approval_helpers.php';
 
 $id = (int)base64_decode($_GET['id'] ?? '', true);
  
@@ -73,6 +76,10 @@ if ($from === 'list') {
     $active_menu = 'complaint_list';
     $back_url = 'dse_lse_complaint_list.php';
     $back_label = 'Back to Assigned List';
+} elseif ($from === 'approval') {
+    $active_menu = 'complaint_approvals';
+    $back_url = 'complaint_closure_approval.php';
+    $back_label = 'Back to Complaint Approvals';
 } else {
     /*
     if (!complaint_user_can_access_entry_complaint($obconn, $id)) {
@@ -191,6 +198,7 @@ $timelineActivities = complaint_fetch_activity_timeline($obconn, (int) $complain
 $statusUiClass = [
     COMPLAINT_STATUS_OPEN => 'complaint-details-status--open',
     COMPLAINT_STATUS_IN_PROGRESS => 'complaint-details-status--progress',
+    COMPLAINT_STATUS_PENDING => 'complaint-details-status--pending',
     COMPLAINT_STATUS_PENDING_HO => 'complaint-details-status--pending',
     COMPLAINT_STATUS_REOPEN => 'complaint-details-status--reopen',
     COMPLAINT_STATUS_RESOLVED => 'complaint-details-status--resolved',
@@ -233,6 +241,18 @@ $machineCommissioningDate = installed_base_commissioning_date_for_machine(
         <?php include 'sidebar.php'; ?>
  
         <div class="content">
+            <?php if (!empty($_SESSION['success_message'])) { ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <?php echo htmlspecialchars((string) $_SESSION['success_message'], ENT_QUOTES, 'UTF-8'); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php unset($_SESSION['success_message']); } ?>
+            <?php if (!empty($_SESSION['error_message'])) { ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php echo htmlspecialchars((string) $_SESSION['error_message'], ENT_QUOTES, 'UTF-8'); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php unset($_SESSION['error_message']); } ?>
 
             <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
                 <div>
@@ -509,6 +529,8 @@ $machineCommissioningDate = installed_base_commissioning_date_for_machine(
                 </div>
             </div>
             <?php } ?>
+
+            <?php include 'includes/complaint_closure_approval_section.php'; ?>
 
             <div class="card border-1 shadow-sm mb-3 complaint-details-history-card">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">

@@ -128,9 +128,18 @@ function dt_parse_closure_row_flags(array $row): array
 
     $needsReassign = $isClosureNo && !$hasReassignAfterClosureNo;
 
+    $closureApprovalStatus = strtolower(trim((string) ($row['closure_approval_status'] ?? '')));
+    $vayuApprovalRequired = !array_key_exists('vayu_approval_required', $row)
+        || $row['vayu_approval_required'] === true
+        || $row['vayu_approval_required'] === 't'
+        || $row['vayu_approval_required'] === '1'
+        || $row['vayu_approval_required'] === 1;
+    $approvalSatisfied = $closureApprovalStatus === 'approved'
+        || (!$vayuApprovalRequired && $closureApprovalStatus !== 'pending');
     $canClose = $status === COMPLAINT_STATUS_PENDING_HO
         && $hasServiceUpdate
         && !$isClosureYes
+        && $approvalSatisfied
         && (
             $latestClosure === null
             || ($isClosureNo && $hasServiceAfterClosureNo)
@@ -291,6 +300,10 @@ function complaint_entry_actions(
         $html .= '<button type="button" class="btn-complaint-action closure-btn" '
             . 'data-id="' . $id . '" title="Complaint Closure" data-bs-toggle="modal" data-bs-target="#closureModal">'
             . '<i class="bi bi-check2-square"></i></button>';
+    } elseif ($permissions['closure'] && trim((string) ($permissions['closure_waiting'] ?? '')) !== '') {
+        $html .= '<button type="button" class="btn-complaint-action" disabled title="'
+            . htmlspecialchars((string) $permissions['closure_waiting'], ENT_QUOTES, 'UTF-8')
+            . '"><i class="bi bi-check2-square"></i></button>';
     }
 
     if ($permissions['view']) {

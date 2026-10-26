@@ -165,7 +165,7 @@ $hideLevel1ApproverField = user_role_auto_assigns_level1_to_self($selectedRole);
     </div>
     <div class="col-md-6 form-group" id="userComplaintApprovalUserFieldWrap" <?php echo $showComplaintApprovalUser ? '' : ' style="display: none;"'; ?>>
         <label class="form-label" for="userComplaintApprovalUserSelect">
-            <i class="bi bi-person-check"></i> Complaint Approval User <span class="text-danger">*</span>
+            <i class="bi bi-person-check"></i> Complaint Approval User
         </label>
         <select class="form-control" name="complaint_approval_user_id" id="userComplaintApprovalUserSelect" style="width:100%;">
             <option value="">Select Complaint Approval User</option>

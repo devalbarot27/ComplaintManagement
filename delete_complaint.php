@@ -3,7 +3,7 @@
 session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
-include 'includes/complaint_activity_helpers.php';
+require_once 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_status.php';
  
 $id = (int)base64_decode($_GET['id'] ?? '', true);

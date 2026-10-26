@@ -3,7 +3,7 @@ session_start();
 include 'pdo_obconn.php';
 require_once 'includes/admin_access_helpers.php';
 admin_ensure_session_role($obconn);
-include 'includes/complaint_activity_helpers.php';
+require_once 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/complaint_datatable_helpers.php';
@@ -106,6 +106,16 @@ try {
         $_SESSION['error_message'] = 'Service update is required before complaint closure.';
         header('Location: ' . $redirect);
         exit;
+    }
+
+    if ($call_closure === 'Yes') {
+        require_once 'includes/complaint_closure_approval_helpers.php';
+        $approvalBlock = complaint_closure_approval_close_block_message($obconn, $complaint_id);
+        if ($approvalBlock !== null) {
+            $_SESSION['error_message'] = $approvalBlock;
+            header('Location: ' . $redirect);
+            exit;
+        }
     }
  
     $closed_by = current_user_id($obconn);

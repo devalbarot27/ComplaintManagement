@@ -1,7 +1,7 @@
 <?php
 session_start();
 include 'pdo_obconn.php';
-include 'includes/complaint_activity_helpers.php';
+require_once 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/complaint_datatable_helpers.php';

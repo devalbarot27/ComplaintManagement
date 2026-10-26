@@ -11,12 +11,14 @@ const COMPLAINT_STATUS_IN_PROGRESS = 2;
 const COMPLAINT_STATUS_PENDING_HO = 3;
 const COMPLAINT_STATUS_REOPEN = 4;
 const COMPLAINT_STATUS_RESOLVED = 5;
+const COMPLAINT_STATUS_PENDING = 6;
 
 function complaint_status_map(): array
 {
     return [
         COMPLAINT_STATUS_OPEN => 'Open',
         COMPLAINT_STATUS_IN_PROGRESS => 'In Progress',
+        COMPLAINT_STATUS_PENDING => 'Pending',
         COMPLAINT_STATUS_PENDING_HO => 'Pending With HO',
         COMPLAINT_STATUS_REOPEN => 'Re-Open',
         COMPLAINT_STATUS_RESOLVED => 'Resolved',
@@ -33,6 +35,7 @@ function complaint_status_badge_class(int $status): string
     $classes = [
         COMPLAINT_STATUS_OPEN => 'border border-dark',
         COMPLAINT_STATUS_IN_PROGRESS => 'border border-dark',
+        COMPLAINT_STATUS_PENDING => 'border border-dark',
         COMPLAINT_STATUS_PENDING_HO => 'border border-dark',
         COMPLAINT_STATUS_REOPEN => 'border border-dark',
         COMPLAINT_STATUS_RESOLVED => 'border border-dark',
@@ -99,6 +102,23 @@ function complaint_entry_list_scope(PDO $conn): array
         $params = array_merge($params, user_associated_dealer_scope_params($conn, 'ce'));
     }
 
+    if ($userId !== null && $userId > 0 && is_elgi_engineer_user()) {
+        require_once __DIR__ . '/complaint_closure_approval_helpers.php';
+        complaint_closure_approval_ensure_schema($conn);
+        $whereParts[] = 'EXISTS (
+                    SELECT 1
+                    FROM complaint_closure_approvals cca
+                    WHERE cca.complaint_id = complaints.id
+                      AND cca.approver_user_id = :closure_approver_user_id
+                      AND cca.id = (
+                          SELECT MAX(cca2.id)
+                          FROM complaint_closure_approvals cca2
+                          WHERE cca2.complaint_id = complaints.id
+                      )
+                )';
+        $params[':closure_approver_user_id'] = $userId;
+    }
+
     return [
         'where' => 'complaints.deleted_at IS NULL AND (
                 ' . implode("\n                OR ", $whereParts) . '
@@ -112,6 +132,7 @@ function complaint_status_counts(PDO $conn, bool $assignedOnly = false, string $
     $counts = [
         'open' => 0,
         'in_progress' => 0,
+        'pending' => 0,
         'pending_ho' => 0,
         'reopen' => 0,
         'resolved' => 0,
@@ -158,6 +179,9 @@ function complaint_status_counts(PDO $conn, bool $assignedOnly = false, string $
             case COMPLAINT_STATUS_IN_PROGRESS:
                 $counts['in_progress'] = (int) $row['total'];
                 break;
+            case COMPLAINT_STATUS_PENDING:
+                $counts['pending'] = (int) $row['total'];
+                break;
             case COMPLAINT_STATUS_PENDING_HO:
                 $counts['pending_ho'] = (int) $row['total'];
                 break;
@@ -184,6 +208,8 @@ function dt_match_status_ids(string $searchValue): array
     $matched = [];
     $isReopenSearch = (bool) preg_match('/\bre[\s-]?open\b|\breopen\b/', $search);
     $isBareOpenSearch = (bool) preg_match('/\bopen\b/', $search) && !$isReopenSearch;
+    $isPendingHoSearch = (bool) preg_match('/\bpending[\s-]?with[\s-]?ho\b|\bho\b/', $search);
+    $isBarePendingSearch = (bool) preg_match('/\bpending\b/', $search) && !$isPendingHoSearch;
 
     foreach (complaint_status_map() as $id => $label) {
         $labelLower = strtolower($label);
@@ -193,6 +219,12 @@ function dt_match_status_ids(string $searchValue): array
             continue;
         }
         if ((int) $id === COMPLAINT_STATUS_REOPEN && $isBareOpenSearch) {
+            continue;
+        }
+        if ((int) $id === COMPLAINT_STATUS_PENDING_HO && $isBarePendingSearch) {
+            continue;
+        }
+        if ((int) $id === COMPLAINT_STATUS_PENDING && $isPendingHoSearch) {
             continue;
         }
 
@@ -213,8 +245,12 @@ function dt_match_status_ids(string $searchValue): array
         $matched[] = COMPLAINT_STATUS_IN_PROGRESS;
     }
 
-    if (preg_match('/\b(pending[\s-]?with[\s-]?ho|pending|ho)\b/', $search)) {
+    if ($isPendingHoSearch) {
         $matched[] = COMPLAINT_STATUS_PENDING_HO;
+    }
+
+    if ($isBarePendingSearch) {
+        $matched[] = COMPLAINT_STATUS_PENDING;
     }
 
     if ($isReopenSearch) {

@@ -19,6 +19,8 @@
         $pageName = "Complaint Entry";
     } else if ($currentPage == "dse_lse_complaint_list.php") {
         $pageName = "Assigned Complaint List";
+    } else if ($currentPage == "complaint_closure_approval.php") {
+        $pageName = "Complaint Approvals";
     } else if ($currentPage == "installed_base.php") {
         $pageName = "Installed Base Capture";
     } else if ($currentPage == "installed_base_details.php") {
@@ -319,7 +321,10 @@
           <?php
             $canComplaintEntry = rbac_can_access_menu($obconn, 'new_complaint.php');
             $canAssignedComplaintList = rbac_can_access_menu($obconn, 'dse_lse_complaint_list.php');
-            $showSupport = $canComplaintEntry || $canAssignedComplaintList;
+            require_once __DIR__ . '/includes/complaint_closure_approval_helpers.php';
+            complaint_closure_approval_ensure_rbac($obconn);
+            $canComplaintApprovals = rbac_can_access_menu($obconn, 'complaint_closure_approval.php');
+            $showSupport = $canComplaintEntry || $canAssignedComplaintList || $canComplaintApprovals;
             $canFocParts = rbac_can_access_menu($obconn, 'foc_parts.php');
             $canServiceClaims = rbac_can_access_menu($obconn, 'service_claims.php');
             $canshowApprovals = rbac_can_access_menu($obconn, 'approvals.php');
@@ -365,7 +370,7 @@
               </div>
           <?php } ?>
 
-          <?php if ($canComplaintEntry || $canAssignedComplaintList) { ?>
+          <?php if ($showSupport) { ?>
               <div class="menu-section">
                   <div class="menu-heading">SUPPORT</div>
 
@@ -382,6 +387,14 @@
                           class="menu-item <?= ($currentPage == 'dse_lse_complaint_list.php' || ($currentPage == 'complaint_details.php' && @$_GET['from'] == 'list')) ? 'active' : '' ?>">
                           <i class="bi bi-microsoft-teams"></i>
                           Assigned Complaint List
+                      </a>
+                  <?php } ?>
+
+                  <?php if ($canComplaintApprovals) { ?>
+                      <a href="complaint_closure_approval.php"
+                          class="menu-item <?= ($currentPage == 'complaint_closure_approval.php' || ($currentPage == 'complaint_details.php' && @$_GET['from'] == 'approval')) ? 'active' : '' ?>">
+                          <i class="bi bi-person-check"></i>
+                          Complaint Approvals
                       </a>
                   <?php } ?>
               </div>

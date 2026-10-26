@@ -11,7 +11,7 @@ ini_set('display_startup_errors', '1');
 session_start();
 include 'pdo_obconn.php';
 require_once 'includes/rbac_page_guard.php';
-include 'includes/complaint_activity_helpers.php';
+require_once 'includes/complaint_activity_helpers.php';
 require_once 'includes/current_username_helpers.php';
 require_once 'includes/complaint_assignment_helpers.php';
 require_once 'includes/complaint_datatable_helpers.php';
@@ -19,6 +19,7 @@ include 'includes/service_report_helpers.php';
 require_once 'includes/complaint_service_log_helpers.php'; // 10-07-26
 require_once 'includes/cq_helpers.php';
 require_once 'includes/complaint_service_update_save_helpers.php';
+require_once 'includes/complaint_closure_approval_helpers.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     rbac_access_denied_redirect();
@@ -277,14 +278,19 @@ try {
             updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
     ');
-    $update->bindValue(':status', COMPLAINT_STATUS_PENDING_HO, PDO::PARAM_INT);
+    $requiresVayuApproval = complaint_closure_approval_requires_vayu_engineer($obconn, $complaint_id);
+    $update->bindValue(
+        ':status',
+        $requiresVayuApproval ? COMPLAINT_STATUS_PENDING : COMPLAINT_STATUS_PENDING_HO,
+        PDO::PARAM_INT
+    );
     $update->bindValue(':id', $complaint_id, PDO::PARAM_INT);
     $update->execute();
 
     $activityDescription = 'Service update recorded for customer visit on '
         . date('d M Y', strtotime($customer_visit_date))
         . '. Action taken: ' . $complaint_action_taken
-        . '. Status changed to Pending With HO.';
+        . '. Status changed to ' . ($requiresVayuApproval ? 'Pending.' : 'Pending With HO.');
  
     if ($part_replaced !== '') {
         $activityDescription .= '. Part replaced: ' . $part_replaced;
@@ -346,10 +352,35 @@ try {
 
     }
  
+    if ($requiresVayuApproval) {
+        $closureApproval = complaint_closure_approval_begin_request($obconn, $complaint_id);
+    } else {
+        $closureApproval = complaint_closure_approval_send_to_ccs($obconn, $complaint_id);
+    }
+
     $obconn->commit();
- 
-   // $_SESSION['success_message'] = 'Service update saved successfully.';
-    $_SESSION['success_message'] = 'Service update is currently pending with HO (Head Office) for approval.';
+
+    try {
+        if ($requiresVayuApproval) {
+            complaint_closure_approval_notify_request($obconn, $closureApproval, $complaint_id);
+        } else {
+            complaint_closure_approval_notify_ccs($obconn, $closureApproval, $complaint_id);
+        }
+    } catch (Throwable $notifyError) {
+        error_log('Closure approval notification failed: ' . $notifyError->getMessage());
+    }
+
+    if ($requiresVayuApproval) {
+        $_SESSION['success_message'] = 'Service update saved. Complaint status is Pending until the Vayu Engineer approves it. '
+            . ($closureApproval['message'] !== ''
+                ? $closureApproval['message']
+                : 'Approval is required before the status can change to Pending With HO.');
+    } else {
+        $_SESSION['success_message'] = 'Service update saved. Complaint status is Pending With HO. '
+            . ($closureApproval['message'] !== ''
+                ? $closureApproval['message']
+                : 'The complaint was sent to CCS Admin.');
+    }
 
 } catch (PDOException $e) {
     if ($obconn->inTransaction()) {

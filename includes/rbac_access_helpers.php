@@ -84,6 +84,7 @@ function rbac_page_access_rules(): array
         'spare_parts_consumption_details.php' => ['module' => 'spare-parts-consumption', 'permission' => 'view'],
         'delete_spare_parts_consumption.php' => ['module' => 'spare-parts-consumption', 'permission' => 'delete'],
         'new_complaint.php' => ['module' => 'complaint-entry', 'permission' => 'view'],
+        'complaint_closure_approval.php' => ['module' => 'complaint-approvals', 'permission' => 'view'],
         'delete_complaint.php' => ['module' => 'complaint-entry', 'permission' => 'delete'],
         'dse_lse_complaint_list.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
         'service_update_complaint.php' => ['module' => 'assigned-complaint-list', 'permission' => 'service-update'],
@@ -130,6 +131,7 @@ function rbac_api_access_rules(): array
         'service_log_spare_parts_prefill.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
         'installed_base_spare_parts_prefill.php' => ['module' => 'spare-parts-consumption', 'permission' => 'add'],
         'complaints_datatable.php' => ['module' => 'complaint-entry', 'permission' => 'view'],
+        'complaint_closure_approvals_datatable.php' => ['module' => 'complaint-approvals', 'permission' => 'view'],
         'complaint_fab_prefill.php' => ['module' => 'complaint-entry', 'permission' => 'add'],
         'assigned_complaints_datatable.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
         'complaint_service_log_summary.php' => ['module' => 'assigned-complaint-list', 'permission' => 'service-update'],
@@ -168,6 +170,7 @@ function rbac_sidebar_modules(): array
         'service_log.php' => ['module' => 'service-log-capture', 'permission' => 'view'],
         'spare_parts_consumption.php' => ['module' => 'spare-parts-consumption', 'permission' => 'view'],
         'new_complaint.php' => ['module' => 'complaint-entry', 'permission' => 'view'],
+        'complaint_closure_approval.php' => ['module' => 'complaint-approvals', 'permission' => 'view'],
         'dse_lse_complaint_list.php' => ['module' => 'assigned-complaint-list', 'permission' => 'view'],
         'foc_parts.php' => ['module' => 'foc-parts', 'permission' => 'view'],
         'service_claims.php' => ['module' => 'service-claims', 'permission' => 'view'],
@@ -384,6 +387,9 @@ function rbac_resolve_page_rule(string $page): ?array
         if ($from === 'list') {
             return ['module' => 'assigned-complaint-list', 'permission' => 'view'];
         }
+        if ($from === 'approval') {
+            return ['module' => 'complaint-approvals', 'permission' => 'view'];
+        }
 
         return ['module' => 'complaint-entry', 'permission' => 'view'];
     }
@@ -409,6 +415,11 @@ function rbac_access_denied_redirect(): void
 function rbac_require_page_access(PDO $conn): void
 {
     $page = basename($_SERVER['PHP_SELF']);
+
+    // Approve, reject, send, and resend keep their own actor checks.
+    if ($page === 'complaint_closure_approval.php' && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
+        return;
+    }
 
     if (in_array($page, rbac_system_admin_only_pages(), true)) {
         if (!is_system_admin()) {

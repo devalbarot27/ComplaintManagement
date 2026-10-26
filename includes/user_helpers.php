@@ -1162,10 +1162,7 @@ function user_validate(array $data, bool $isEdit, PDO $conn): ?string
 
     if ((int) $data['role'] === DEALER_USER_ROLE) {
         $complaintApprovalUserId = (int) ($data['complaint_approval_user_id'] ?? 0);
-        if ($complaintApprovalUserId <= 0) {
-            return 'Complaint Approval User is required.';
-        }
-        if (!user_is_valid_elgi_engineer($conn, $complaintApprovalUserId)) {
+        if ($complaintApprovalUserId > 0 && !user_is_valid_elgi_engineer($conn, $complaintApprovalUserId)) {
             return 'Selected Complaint Approval User is invalid.';
         }
     }

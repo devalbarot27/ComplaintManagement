@@ -8,8 +8,10 @@ require_once dirname(__DIR__) . '/includes/complaint_address_helpers.php';
 require_once dirname(__DIR__) . '/includes/complaint_category_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/amc_helpers.php';
+require_once dirname(__DIR__) . '/includes/complaint_closure_approval_helpers.php';
 
 complaint_ensure_schema($obconn);
+complaint_closure_approval_ensure_schema($obconn);
 
 $showAddedBy = complaint_can_view_added_by_column($obconn);
 
@@ -183,6 +185,24 @@ $dataQuery = "
             ORDER BY cc.created_at DESC, cc.id DESC
             LIMIT 1
         ) AS latest_closure,
+        (
+            SELECT cca.status
+            FROM complaint_closure_approvals cca
+            WHERE cca.complaint_id = c.id
+            ORDER BY cca.id DESC
+            LIMIT 1
+        ) AS closure_approval_status,
+        EXISTS (
+            SELECT 1
+            FROM user_master creator
+            INNER JOIN user_master engineer
+                ON engineer.id = creator.complaint_approval_user_id
+               AND engineer.deleted_at IS NULL
+               AND engineer.role = " . (int) ELGI_ENGINEER_USER_ROLE . "
+            WHERE creator.id = c.added_by
+              AND creator.deleted_at IS NULL
+              AND creator.role = " . (int) DEALER_USER_ROLE . "
+        ) AS vayu_approval_required,
         EXISTS (
             SELECT 1
             FROM complaint_assignments ca2
@@ -245,6 +265,28 @@ $installedBaseIdByFab = [];
 foreach ($rows as $row) {
     $status = (int) $row['status'];
     $flags = dt_parse_closure_row_flags($row);
+    $approvalStatus = strtolower(trim((string) ($row['closure_approval_status'] ?? '')));
+    $closureWaiting = '';
+    if (
+        !$flags['can_close']
+        && $status === COMPLAINT_STATUS_PENDING_HO
+        && !empty($flags['has_service_update'])
+    ) {
+        $vayuApprovalRequired = !empty($row['vayu_approval_required'])
+            && ($row['vayu_approval_required'] === true
+                || $row['vayu_approval_required'] === 't'
+                || $row['vayu_approval_required'] === '1'
+                || $row['vayu_approval_required'] === 1);
+        $closureWaiting = $approvalStatus === 'pending'
+            ? 'Waiting for Vayu Engineer approval'
+            : ($approvalStatus === 'rejected' && $vayuApprovalRequired
+                ? 'Closure approval was rejected'
+                : ($vayuApprovalRequired
+                    ? 'Vayu Engineer approval is required before closure'
+                    : ''));
+    }
+    $rowPermissions = $complaintEntryPermissions;
+    $rowPermissions['closure_waiting'] = $closureWaiting;
     $coverage = amc_coverage_resolve($amcLookup, 0, (string) ($row['fab_number'] ?? ''));
     $commissioningDate = installed_base_commissioning_resolve($commissioningLookup, 0, (string) ($row['fab_number'] ?? ''));
 
@@ -266,7 +308,7 @@ foreach ($rows as $row) {
             $status,
             $flags['needs_reassign'],
             $flags['can_close'],
-            $complaintEntryPermissions
+            $rowPermissions
         ),
     ];
 

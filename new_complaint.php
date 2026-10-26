@@ -3,7 +3,7 @@ session_start();
  
 include('pdo_obconn.php');
 require_once 'includes/rbac_page_guard.php';
-include 'includes/complaint_activity_helpers.php';
+require_once 'includes/complaint_activity_helpers.php';
 require_once 'includes/complaint_assignment_mail_helpers.php';
 include('includes/complaint_address_helpers.php');
 include('includes/complaint_category_helpers.php');

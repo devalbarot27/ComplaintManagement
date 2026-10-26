@@ -64,6 +64,11 @@ function complaint_activity_type_meta(string $activityType): array
             'icon' => 'bi-check2-square',
             'modifier' => 'complaint-timeline-item--closure',
         ],
+        'Closure Approval' => [
+            'label' => 'Closure Approval',
+            'icon' => 'bi-person-check-fill',
+            'modifier' => 'complaint-timeline-item--status',
+        ],
         'Status Change' => [
             'label' => 'Status Changed',
             'icon' => 'bi-arrow-repeat',

@@ -10,6 +10,7 @@ if (!isset($statusCounts)) {
 
 $openCount = (int) ($statusCounts['open'] ?? 0);
 $inProgressCount = (int) ($statusCounts['in_progress'] ?? 0);
+$pendingCount = (int) ($statusCounts['pending'] ?? 0);
 $pendingHoCount = (int) ($statusCounts['pending_ho'] ?? 0);
 $reopenCount = (int) ($statusCounts['reopen'] ?? 0);
 $resolvedCount = (int) ($statusCounts['resolved'] ?? 0);
@@ -37,6 +38,17 @@ $resolvedCount = (int) ($statusCounts['resolved'] ?? 0);
         </div>
         <div class="complaint-status-icon complaint-status-icon--progress">
             <i class="bi bi-clock"></i>
+        </div>
+    </div>
+
+    <div class="complaint-status-card">
+        <div class="complaint-status-body">
+            <div class="complaint-status-label">Pending</div>
+            <div class="complaint-status-value"><?php echo $pendingCount; ?></div>
+            <div class="complaint-status-hint">Awaiting Vayu approval</div>
+        </div>
+        <div class="complaint-status-icon complaint-status-icon--pending-ho">
+            <i class="bi bi-hourglass"></i>
         </div>
     </div>
 
