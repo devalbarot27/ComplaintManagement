@@ -542,7 +542,8 @@ function complaint_closure_approval_ensure_rbac(PDO $conn): void
         return;
     }
 
-    require_once __DIR__ . '/rbac_module_seed_helpers.php';
+    require_once __DIR__ . '/module_helpers.php';
+    require_once __DIR__ . '/permission_helpers.php';
 
     $stmt = $conn->prepare('
         SELECT id
@@ -553,21 +554,57 @@ function complaint_closure_approval_ensure_rbac(PDO $conn): void
     ');
     $stmt->bindValue(':module_slug', 'complaint-approvals');
     $stmt->execute();
-    $existingId = (int) $stmt->fetchColumn();
+    $moduleId = (int) $stmt->fetchColumn();
+    $created = $moduleId <= 0;
 
-    rbac_ensure_module_with_defaults(
-        $conn,
-        'Complaint Approvals',
-        'complaint-approvals',
-        'Review complaint closure approval requests',
-        88
-    );
+    if ($moduleId <= 0) {
+        $moduleId = module_insert($conn, [
+            'module_name' => 'Complaint Approvals',
+            'module_slug' => 'complaint-approvals',
+            'description' => 'Review complaint closure approval requests',
+            'ordering' => 88,
+            'status' => 'active',
+        ], 'system');
+    }
 
-    if ($existingId <= 0) {
+    if ($moduleId > 0 && !permission_slug_exists($conn, $moduleId, 'view')) {
+        permission_insert($conn, [
+            'module_id' => $moduleId,
+            'permission_name' => 'View',
+            'permission_slug' => 'view',
+            'description' => 'View records',
+            'status' => 'active',
+        ], 'system');
+    }
+
+    complaint_closure_approval_remove_extra_permissions($conn, $moduleId);
+
+    if ($created) {
         complaint_closure_approval_grant_default_view($conn);
     }
 
     $done = true;
+}
+
+function complaint_closure_approval_remove_extra_permissions(PDO $conn, int $moduleId): void
+{
+    if ($moduleId <= 0) {
+        return;
+    }
+
+    $stmt = $conn->prepare("
+        SELECT id
+        FROM permissions
+        WHERE module_id = :module_id
+          AND LOWER(TRIM(permission_slug)) IN ('add', 'edit', 'delete')
+          AND deleted_at IS NULL
+    ");
+    $stmt->bindValue(':module_id', $moduleId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $permissionId) {
+        permission_soft_delete($conn, (int) $permissionId);
+    }
 }
 
 function complaint_closure_approval_grant_default_view(PDO $conn): void
