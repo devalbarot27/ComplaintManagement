@@ -128,6 +128,14 @@
         $pageName = "Distance & Price Config";
     } else if ($currentPage == 'distance_wise_price_details.php') {
         $pageName = "Distance Wise Price Details";
+    } else if ($currentPage == 'outlook_emails.php') {
+        $pageName = "Outlook Email Management";
+    } else if ($currentPage == 'outlook_email_details.php') {
+        $pageName = "Outlook Email Details";
+    } else if ($currentPage == 'help_support.php') {
+        $pageName = "Help & Support";
+    } else if ($currentPage == 'help_support_details.php') {
+        $pageName = "Help & Support Details";
     }
 
 
@@ -324,10 +332,14 @@
             require_once __DIR__ . '/includes/complaint_closure_approval_helpers.php';
             complaint_closure_approval_ensure_rbac($obconn);
             $canComplaintApprovals = rbac_can_access_menu($obconn, 'complaint_closure_approval.php');
-            $showSupport = $canComplaintEntry || $canAssignedComplaintList || $canComplaintApprovals;
+            $canHelpSupport = rbac_can_access_menu($obconn, 'help_support.php');
+            $showSupport = $canComplaintEntry || $canAssignedComplaintList || $canComplaintApprovals || $canHelpSupport;
+
             $canFocParts = rbac_can_access_menu($obconn, 'foc_parts.php');
             $canServiceClaims = rbac_can_access_menu($obconn, 'service_claims.php');
             $canshowApprovals = rbac_can_access_menu($obconn, 'approvals.php');
+            require_once __DIR__ . '/includes/help_support_helpers.php';
+            help_support_ensure_rbac($obconn);
             if (!$canshowApprovals) {
                 require_once __DIR__ . '/includes/order_approval_helpers.php';
                 $canshowApprovals = order_approval_can_access($obconn);
@@ -367,6 +379,7 @@
                           Approvals
                       </a>
                   <?php } ?>
+                  
               </div>
           <?php } ?>
 
@@ -396,6 +409,13 @@
                           <i class="bi bi-person-check"></i>
                           Complaint Approvals
                       </a>
+                  <?php } ?>
+                  <?php if ($canHelpSupport) { ?>
+                  <a href="help_support.php"
+                      class="menu-item <?= in_array($currentPage, ['help_support.php', 'help_support_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-question-circle"></i>
+                      Help &amp; Support
+                  </a>
                   <?php } ?>
               </div>
           <?php } ?>
@@ -531,6 +551,12 @@
                       class="menu-item <?= in_array($currentPage, ['distance_wise_prices.php', 'distance_wise_price_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-signpost-split"></i>
                       Distance &amp; Price Config
+                  </a>
+
+                  <a href="outlook_emails.php"
+                      class="menu-item <?= in_array($currentPage, ['outlook_emails.php', 'outlook_email_details.php'], true) ? 'active' : '' ?>">
+                      <i class="bi bi-envelope"></i>
+                      Outlook Email
                   </a>
                   <?php } ?>
 

@@ -53,6 +53,9 @@ function rbac_admin_pages(): array
         'distance_wise_prices.php',
         'distance_wise_price_details.php',
         'delete_distance_wise_price.php',
+        'outlook_emails.php',
+        'outlook_email_details.php',
+        'delete_outlook_email.php',
         'amc.php',
         'amc_details.php',
         'delete_amc.php',
@@ -105,6 +108,9 @@ function rbac_page_access_rules(): array
         'contact_details.php' => ['module' => 'contact', 'permission' => 'view'],
         'delete_contact.php' => ['module' => 'contact', 'permission' => 'delete'],
         'ar_statement.php' => ['module' => 'ar-statement', 'permission' => 'view'],
+        'help_support.php' => ['module' => 'help-support', 'permission' => 'view'],
+        'help_support_details.php' => ['module' => 'help-support', 'permission' => 'view'],
+        'delete_help_support.php' => ['module' => 'help-support', 'permission' => 'delete'],
         'access_denied.php' => null,
         'notifications.php' => null,
     ];
@@ -153,6 +159,8 @@ function rbac_api_access_rules(): array
         'contact_get.php' => ['module' => 'contact', 'permission' => 'view'],
         'ar_statement.php' => ['module' => 'ar-statement', 'permission' => 'view'],
         'ar_statement_dealers_search.php' => ['module' => 'ar-statement', 'permission' => 'view'],
+        'help_support_datatable.php' => ['module' => 'help-support', 'permission' => 'view'],
+        'help_support_get.php' => ['module' => 'help-support', 'permission' => 'edit'],
     ];
 }
 
@@ -182,6 +190,7 @@ function rbac_sidebar_modules(): array
         'customer_master.php' => ['module' => 'customer-master', 'permission' => 'view'],
         'contact.php' => ['module' => 'contact', 'permission' => 'view'],
         'ar_statement.php' => ['module' => 'ar-statement', 'permission' => 'view'],
+        'help_support.php' => ['module' => 'help-support', 'permission' => 'view'],
     ];
 }
 
