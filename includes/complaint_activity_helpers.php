@@ -192,7 +192,7 @@ function complaint_fetch_activity_timeline(PDO $conn, int $complaintId, array $c
             'activity_type' => 'Created',
             'activity_description' => 'Complaint registered for Fab Number '
                 . ($complaint['fab_number'] ?? '')
-                . ' � '
+                . '   '
                 . ($complaint['customer_name'] ?? ''),
             'user_id' => $complaint['added_by'] ?? 1,
             'username' => $complaint['username'] ?? '',

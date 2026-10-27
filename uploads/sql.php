@@ -2,6 +2,7 @@
 include '../pdo_obconn.php';
 
 
+
 try {
     // 1. Get table structure
     $stmt = $obconn->prepare("
@@ -12,7 +13,7 @@ try {
             is_nullable,
             column_default
         FROM information_schema.columns
-        WHERE table_name = 'amc_contracts'
+        WHERE table_name = 'permissions'
         ORDER BY ordinal_position
     ");
     
@@ -22,7 +23,7 @@ try {
     // 2. Get sample data
     $stmt = $obconn->prepare("
         SELECT *
-        FROM amc_contracts
+        FROM permissions
 where deleted_at is null
         LIMIT 100
     ");
