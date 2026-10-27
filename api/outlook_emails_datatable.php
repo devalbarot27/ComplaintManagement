@@ -41,7 +41,7 @@ $recordsFiltered = (int) $countFilteredStmt->fetch(PDO::FETCH_ASSOC)['total'];
 $orderSqlMap = [
     'id' => 'o.id',
     'user_name' => 'um.name',
-    'username' => 'um.username',
+    'username' => 'um.name',
     'outlook_email' => 'o.outlook_email',
     'created_at' => 'o.created_at',
 ];
@@ -76,7 +76,7 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $data[] = [
         'id' => '#' . (int) $row['id'],
         'user_name' => htmlspecialchars($userName !== '' ? $userName : ($username !== '' ? $username : '-'), ENT_QUOTES, 'UTF-8'),
-        'username' => htmlspecialchars($username !== '' ? $username : '-', ENT_QUOTES, 'UTF-8'),
+        'username' => htmlspecialchars($userName !== '' ? $userName : '-', ENT_QUOTES, 'UTF-8'),
         'outlook_email' => htmlspecialchars((string) ($row['outlook_email'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'created_at' => rbac_format_datetime($row['created_at']),
         'actions' => outlook_email_entry_actions((int) $row['id']),

@@ -64,12 +64,12 @@ if ($userLabel === '') {
 
             record_details_section_start(1, 'Email Details', 'User and Outlook email address');
             record_details_field('User', $userLabel, 'col-md-4');
-            record_details_field('Username', rbac_display_value($record['username'] ?? ''), 'col-md-4');
+            record_details_field('Username', rbac_display_value($record['user_name'] ?? ''), 'col-md-4');
             record_details_field('Outlook Email', rbac_display_value($record['outlook_email'] ?? ''), 'col-md-4');
             record_details_section_end();
 
             record_details_section_start(2, 'Audit Trail', 'Creation and update history', true);
-            record_details_field('Created By', rbac_display_value($record['created_by'] ?? ''), 'col-md-6');
+            record_details_field('Created By', rbac_display_value($record['created_by_name'] ?? ''), 'col-md-6');
             record_details_field('Created At', rbac_format_datetime($record['created_at'] ?? null), 'col-md-6');
             record_details_section_end();
 

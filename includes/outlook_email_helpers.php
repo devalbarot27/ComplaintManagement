@@ -50,10 +50,6 @@ function outlook_email_user_label(array $user): string
     $name = trim((string) ($user['name'] ?? ''));
     $username = trim((string) ($user['username'] ?? ''));
 
-    if ($name !== '' && $username !== '') {
-        return $name . ' (' . $username . ')';
-    }
-
     if ($name !== '') {
         return $name;
     }
@@ -183,9 +179,13 @@ function outlook_email_get_by_id(PDO $conn, int $id): ?array
             o.created_at,
             o.updated_at,
             um.name AS user_name,
-            um.username
+            um.username,
+            creator.name AS created_by_name
         FROM outlook_emails o
         LEFT JOIN user_master um ON um.id = o.user_id
+        LEFT JOIN user_master creator
+            ON LOWER(TRIM(creator.username)) = LOWER(TRIM(o.created_by))
+           AND creator.deleted_at IS NULL
         WHERE o.id = :id
           AND o.deleted_at IS NULL
         LIMIT 1
