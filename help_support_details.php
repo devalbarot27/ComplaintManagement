@@ -61,6 +61,14 @@ if (!$record) {
             record_details_field('Category', help_support_category_label((string) ($record['category'] ?? '')), 'col-md-4');
             record_details_field('Title', rbac_display_value($record['title'] ?? ''), 'col-md-5');
             record_details_field('Qty', (string) (int) ($record['qty'] ?? 0), 'col-md-3');
+            record_details_field('Status', help_support_status_label((string) ($record['approval_status'] ?? 'pending')), 'col-md-4');
+            $approvalRemarks = trim((string) ($record['approval_remarks'] ?? ''));
+            if ($approvalRemarks !== '') {
+                $remarksLabel = (string) ($record['approval_status'] ?? '') === 'approved'
+                    ? 'Approval Remarks'
+                    : 'Reject Remarks';
+                record_details_field($remarksLabel, $approvalRemarks, 'col-12', true);
+            }
             if (help_support_can_view_all()) {
                 record_details_field('Added By', help_support_added_by_label($record), 'col-md-4');
             }

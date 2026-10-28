@@ -10,9 +10,11 @@ require_once 'includes/user_helpers.php';
 require_once 'includes/order_approval_helpers.php';
 require_once 'includes/amc_helpers.php';
 require_once 'includes/customer_master_helpers.php';
+require_once 'includes/help_support_helpers.php';
 
 warranty_claims_ensure_schema($obconn);
 order_approval_ensure_schema($obconn);
+help_support_ensure_schema($obconn);
 
 $approvalFlags = user_current_approval_flags($obconn);
 $canApproveL1Foc = $approvalFlags['l1'];
@@ -20,9 +22,10 @@ $canApproveL2Foc = $approvalFlags['l2'];
 $canApproveService = $approvalFlags['l1'] || $approvalFlags['l2'] || foc_claim_see_all_approvals($obconn);
 $canApproval          = rbac_user_can($obconn, 'approvals', 'view');
 $canOrderApproval     = order_approval_can_access($obconn);
+$canHelpSupportApproval = help_support_approval_can_access($obconn);
 $canViewCustomerMaster = rbac_user_can($obconn, 'customer-master', 'view');
 
-if (!$canApproval && !$canOrderApproval) {
+if (!$canApproval && !$canOrderApproval && !$canHelpSupportApproval) {
     header('Location: access_denied.php');
     exit;
 }
@@ -229,6 +232,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['order_decision']) ||
                 $_SESSION['success_message'] = $successMessage;
             }
         }
+    }
+    header('Location: approvals.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['help_support_decision'])) {
+    $inquiryId = (int) ($_POST['claim_id'] ?? 0);
+    $decision = trim((string) ($_POST['help_support_decision'] ?? ''));
+    $remarks = trim((string) ($_POST['approval_remarks'] ?? ''));
+    $result = help_support_apply_l2_decision(
+        $obconn,
+        $inquiryId,
+        $decision,
+        $remarks,
+        (int) current_user_id($obconn),
+        $userName
+    );
+    if (empty($result['ok'])) {
+        $_SESSION['error_message'] = (string) ($result['error'] ?? 'Unable to save this decision.');
+    } else {
+        $decisionLabel = strtolower($decision) === 'rejected' ? 'rejected' : 'approved';
+        $message = 'Help & Support inquiry #' . $inquiryId . ' has been ' . $decisionLabel . '.';
+        $emailNote = trim((string) ($result['email_note'] ?? ''));
+        if ($emailNote !== '') {
+            $message .= ' ' . $emailNote;
+        }
+        $_SESSION['success_message'] = $message;
     }
     header('Location: approvals.php');
     exit;
@@ -473,6 +503,14 @@ try {
     // Table may not exist yet; silently continue
 }
 
+try {
+    foreach (help_support_pending_approval_items($obconn, $currentUserId) as $helpItem) {
+        $approvalItems[] = $helpItem;
+    }
+} catch (PDOException $e) {
+    // Table may not exist yet; silently continue
+}
+
 usort($approvalItems, static function (array $a, array $b): int {
     return strtotime($b['created_at']) <=> strtotime($a['created_at']);
 });
@@ -494,7 +532,7 @@ $approvalFabs = array_map(static fn ($item) => (string) ($item['fab_number'] ?? 
 $approvalAmcLookup = amc_coverage_lookup($obconn, [], $approvalFabs);
 $approvalCommissioningLookup = installed_base_commissioning_lookup($obconn, [], $approvalFabs);
 foreach ($approvalItems as &$item) {
-    if (($item['claim_type'] ?? '') === 'cart') {
+    if (($item['claim_type'] ?? '') === 'cart' || ($item['claim_type'] ?? '') === 'help_support') {
         continue;
     }
     $fabNumber = (string) ($item['fab_number'] ?? '');
@@ -642,7 +680,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
             <div class="page-header">
                 <div>
                     <div class="page-subtitle">
-                        Pending Lock-in Engineer and Business Head approvals for FOC Parts, Service Claims, and Order Approvals (Level 1 / Level 2).
+                        Pending Lock-in Engineer and Business Head approvals for FOC Parts, Service Claims, Order Approvals, and Help &amp; Support.
                     </div>
                 </div>
             </div>
@@ -655,7 +693,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                         </div>
                         <div>
                             <h2 class="complaint-form-header__title">Pending Approvals</h2>
-                            <p class="complaint-form-header__subtitle">FOC Parts, Service Claims, and orders waiting for Level 1 or Level 2 approval. AO Number is generated only after required order approvals are completed.</p>
+                            <p class="complaint-form-header__subtitle">FOC Parts, Service Claims, orders, and Help &amp; Support inquiries waiting for approval.</p>
                         </div>
                     </div>
                 </div>
@@ -690,9 +728,12 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                     $requestedOnLabel = $submittedOnTs ? date('d M Y h:i A', $submittedOnTs) : '-';
                                     $submittedOnSort = $submittedOnTs ? date('Y-m-d H:i:s', $submittedOnTs) : '';
                                     $isCart = ($row['claim_type'] ?? '') === 'cart';
-                                    $typeLabel = $row['claim_type'] === 'foc'
-                                        ? 'FOC Parts'
-                                        : ($isCart ? 'Order Approval' : 'Service Claim');
+                                    $isHelp = ($row['claim_type'] ?? '') === 'help_support';
+                                    $typeLabel = $isHelp
+                                        ? 'Help & Support'
+                                        : ($row['claim_type'] === 'foc'
+                                            ? 'FOC Parts'
+                                            : ($isCart ? 'Order Approval' : 'Service Claim'));
                                     $customerHtml = customer_master_name_link_html(
                                         (string) ($row['customer_name'] ?? ''),
                                         (int) ($row['customer_id'] ?? 0),
@@ -705,7 +746,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                             <span class="status-badge border border-dark"><?= htmlspecialchars($typeLabel) ?></span>
                                         </td>
                                         <td>
-                                            <?php if ($isCart): ?>
+                                            <?php if ($isCart || $isHelp): ?>
                                                 -
                                             <?php else: ?>
                                             <a href="complaint_details.php?id=<?= htmlspecialchars($encodedComplaintId, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener" class="text-primary fw-semibold text-decoration-none">
@@ -714,7 +755,9 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <?php if ($isCart): ?>
+                                            <?php if ($isHelp): ?>
+                                                -
+                                            <?php elseif ($isCart): ?>
                                             <?php
                                             $orderRef = trim((string) ($row['item_code'] ?? $row['fab_number'] ?? $row['ref_no'] ?? ''));
                                             ?>
@@ -725,7 +768,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                                 <?= $row['fab_html'] ?? installed_base_fab_link_html($obconn, (string) ($row['fab_number'] ?? ''), $installedBaseIdByFab) ?>
                                             <?php endif; ?>
                                         </td>
-                                        <td><?= $customerHtml ?></td>
+                                        <td><?= $isHelp ? '-' : $customerHtml ?></td>
                                         <td>
                                             <?php if (!empty($row['details_html'])): ?>
                                                 <?= $row['details_html'] ?>
@@ -734,7 +777,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <?php if ($isCart): ?>
+                                            <?php if ($isCart || $isHelp): ?>
                                                 -
                                             <?php else: ?>
                                             <span class="status-badge border border-dark">
@@ -753,6 +796,11 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                                         <td>
                                             <button type="button" class="btn btn-sm btn-outline-dark btn-view-claim" title="View"
                                                 data-type="<?= htmlspecialchars($row['claim_type']) ?>"
+                                                data-hs-category="<?= htmlspecialchars((string) ($row['category_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-hs-title="<?= htmlspecialchars((string) ($row['hs_title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-hs-description="<?= htmlspecialchars((string) ($row['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-hs-qty="<?= htmlspecialchars((string) ($row['qty'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                                data-hs-resource="<?= htmlspecialchars((string) ($row['resource_html'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                                                 data-claim-id="<?= $claimId ?>"
                                                 data-complaint-id="<?= $complaintId ?>"
                                                 data-fab-number="<?= htmlspecialchars((string) ($row['fab_number'] ?? '')) ?>"
@@ -847,6 +895,36 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                             <div>
                                 <h3 class="complaint-form-section__title" id="viewDetailsSectionTitle">Claim Details</h3>
                                 <p class="complaint-form-section__hint" id="viewDetailsSectionHint">Call ticket, customer and current review status.</p>
+                            </div>
+                        </div>
+                        <div class="row g-3 d-none" id="viewHelpSupportFields">
+                            <div class="col-md-4 form-group">
+                                <label class="form-label">Category</label>
+                                <div class="approval-detail-value" id="viewHelpCategory"></div>
+                            </div>
+                            <div class="col-md-5 form-group">
+                                <label class="form-label">Title</label>
+                                <div class="approval-detail-value" id="viewHelpTitle"></div>
+                            </div>
+                            <div class="col-md-3 form-group">
+                                <label class="form-label">Qty</label>
+                                <div class="approval-detail-value" id="viewHelpQty"></div>
+                            </div>
+                            <div class="col-12 form-group">
+                                <label class="form-label">Description</label>
+                                <div class="approval-detail-value" id="viewHelpDescription" style="white-space: pre-wrap;"></div>
+                            </div>
+                            <div class="col-12 form-group">
+                                <label class="form-label">Attachment / URL</label>
+                                <div class="approval-detail-value" id="viewHelpResource"></div>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Submitted By</label>
+                                <div class="approval-detail-value" id="viewHelpSubmittedBy"></div>
+                            </div>
+                            <div class="col-md-6 form-group">
+                                <label class="form-label">Submitted On</label>
+                                <div class="approval-detail-value" id="viewHelpSubmittedOn"></div>
                             </div>
                         </div>
                         <div class="row g-3" id="viewClaimFocFields">
@@ -1225,6 +1303,7 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     const actionType = d.actionType || 'approve';
                     const isFoc = d.type === 'foc';
                     const isCart = d.type === 'cart';
+                    const isHelp = d.type === 'help_support';
                     const submittedOn = d.submittedOn ? new Date(d.submittedOn.replace(' ', 'T')) : null;
                     const submittedOnLabel = d.requestedOnLabel || (submittedOn && !isNaN(submittedOn.getTime()) ?
                         submittedOn.toLocaleString('en-GB', {
@@ -1239,11 +1318,26 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
 
                     const focFields = document.getElementById('viewClaimFocFields');
                     const cartFields = document.getElementById('viewCartFields');
-                    setHidden(focFields, isCart);
+                    const helpFields = document.getElementById('viewHelpSupportFields');
+                    setHidden(focFields, isCart || isHelp);
                     setHidden(cartFields, !isCart);
+                    setHidden(helpFields, !isHelp);
                     resetFocExtra(false);
 
-                    if (isCart) {
+                    if (isHelp) {
+                        document.getElementById('viewClaimTitle').textContent = 'Help & Support #' + d.claimId;
+                        document.getElementById('viewClaimSubtitle').textContent = 'Review this inquiry and approve or reject it.';
+                        document.getElementById('viewClaimIcon').className = 'bi bi-question-circle';
+                        document.getElementById('viewDetailsSectionTitle').textContent = 'Inquiry Details';
+                        document.getElementById('viewDetailsSectionHint').textContent = 'Category, description, and the attached resource.';
+                        document.getElementById('viewHelpCategory').textContent = d.hsCategory || '-';
+                        document.getElementById('viewHelpTitle').textContent = d.hsTitle || '-';
+                        document.getElementById('viewHelpQty').textContent = d.hsQty || '-';
+                        document.getElementById('viewHelpDescription').textContent = d.hsDescription || '-';
+                        document.getElementById('viewHelpResource').innerHTML = d.hsResource || '-';
+                        document.getElementById('viewHelpSubmittedBy').textContent = d.submittedBy || '-';
+                        document.getElementById('viewHelpSubmittedOn').textContent = d.requestedOnLabel || submittedOnLabel;
+                    } else if (isCart) {
                         document.getElementById('viewClaimTitle').textContent = 'Order Approval';
                         document.getElementById('viewClaimSubtitle').textContent = 'Review the full order and take Level 1 or Level 2 action.';
                         document.getElementById('viewClaimIcon').className = 'bi bi-clipboard-check';
@@ -1417,7 +1511,9 @@ if (!empty($_SESSION['approval_success_modal']) && is_array($_SESSION['approval_
                     }
 
                     const decisionHint = document.getElementById('viewClaimDecisionHint');
-                    if (isCart) {
+                    if (isHelp) {
+                        decisionHint.textContent = 'Approve or reject this Help & Support inquiry. Remarks are required to reject.';
+                    } else if (isCart) {
                         decisionHint.textContent = 'Approve or reject this entire order. Remarks are required to reject.';
                     } else if (actionType === 'ccs_service') {
                         decisionHint.textContent = 'Mark whether this visit is eligible for a warranty claim.';

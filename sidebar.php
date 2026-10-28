@@ -344,6 +344,9 @@
                 require_once __DIR__ . '/includes/order_approval_helpers.php';
                 $canshowApprovals = order_approval_can_access($obconn);
             }
+            if (!$canshowApprovals) {
+                $canshowApprovals = help_support_approval_can_access($obconn);
+            }
             $canWarrantyClaims = rbac_can_access_menu($obconn, 'warranty_claims.php');
             $showWarrantyManagement = $canFocParts || $canServiceClaims || $canshowApprovals || $canWarrantyClaims;
             ?>

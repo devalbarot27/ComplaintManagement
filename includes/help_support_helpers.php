@@ -101,7 +101,43 @@ function help_support_ensure_schema(PDO $conn): void
         )
     ");
 
+    help_support_add_column($conn, 'approval_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
+    help_support_add_column($conn, 'l2_approver_id', 'INTEGER NULL');
+    help_support_add_column($conn, 'approval_remarks', 'TEXT NULL');
+    help_support_add_column($conn, 'approved_by', 'VARCHAR(150) NULL');
+    help_support_add_column($conn, 'approved_at', 'TIMESTAMP NULL');
+
     $ensured = true;
+}
+
+function help_support_add_column(PDO $conn, string $column, string $definition): void
+{
+    $stmt = $conn->prepare("
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'help_support'
+          AND column_name = :column
+        LIMIT 1
+    ");
+    $stmt->bindValue(':column', $column);
+    $stmt->execute();
+    if ($stmt->fetchColumn()) {
+        return;
+    }
+
+    $conn->exec('ALTER TABLE help_support ADD COLUMN ' . $column . ' ' . $definition);
+}
+
+function help_support_status_label(string $status): string
+{
+    $labels = [
+        'pending' => 'Pending',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+    ];
+
+    return $labels[$status] ?? 'Pending';
 }
 
 function help_support_from_post(array $post): array
@@ -275,6 +311,11 @@ function help_support_get_by_id(PDO $conn, int $id): ?array
             h.created_by,
             h.created_at,
             h.updated_at,
+            h.approval_status,
+            h.l2_approver_id,
+            h.approval_remarks,
+            h.approved_by,
+            h.approved_at,
             um.name AS added_by_name
         FROM help_support h
         LEFT JOIN user_master um
@@ -324,6 +365,21 @@ function help_support_search_filter(string $searchValue): array
         $paramKey = ':search_category_' . $index;
         $parts[] = 'h.category = ' . $paramKey;
         $params[$paramKey] = $slug;
+    }
+
+    $statusLabels = [
+        'pending' => 'Pending',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+    ];
+    $statusIndex = 0;
+    foreach ($statusLabels as $slug => $label) {
+        if ($needle !== '' && (strpos(strtolower($label), $needle) !== false || strpos($slug, $needle) !== false)) {
+            $paramKey = ':search_status_' . $statusIndex;
+            $parts[] = 'h.approval_status = ' . $paramKey;
+            $params[$paramKey] = $slug;
+            $statusIndex++;
+        }
     }
 
     if (help_support_can_view_all()) {
@@ -528,18 +584,38 @@ function help_support_require_page_access(PDO $conn): void
     rbac_access_denied_redirect();
 }
 
-function help_support_insert(PDO $conn, array $data, string $createdBy): void
+function help_support_insert(PDO $conn, array $data, string $createdBy): int
 {
+    $approverId = help_support_l2_approver_id_for_username($conn, $createdBy);
     $stmt = $conn->prepare('
         INSERT INTO help_support (
-            category, title, description, qty, attachment_path, attachment_name, resource_url, created_by, created_at
+            category, title, description, qty, attachment_path, attachment_name, resource_url,
+            created_by, l2_approver_id, approval_status, created_at
         ) VALUES (
-            :category, :title, :description, :qty, :attachment_path, :attachment_name, :resource_url, :created_by, CURRENT_TIMESTAMP
+            :category, :title, :description, :qty, :attachment_path, :attachment_name, :resource_url,
+            :created_by, :l2_approver_id, \'pending\', CURRENT_TIMESTAMP
         )
+        RETURNING id
     ');
     help_support_bind_record($stmt, $data);
     $stmt->bindValue(':created_by', $createdBy);
+    if ($approverId !== null) {
+        $stmt->bindValue(':l2_approver_id', $approverId, PDO::PARAM_INT);
+    } else {
+        $stmt->bindValue(':l2_approver_id', null, PDO::PARAM_NULL);
+    }
     $stmt->execute();
+    $id = (int) $stmt->fetchColumn();
+
+    if ($id > 0 && $approverId !== null) {
+        try {
+            help_support_notify_l2_approver($conn, $id, $approverId, (string) ($data['title'] ?? ''));
+        } catch (Throwable $e) {
+            error_log('help_support_insert notification: ' . $e->getMessage());
+        }
+    }
+
+    return $id;
 }
 
 function help_support_update(PDO $conn, int $id, array $data): void
@@ -599,4 +675,328 @@ function help_support_soft_delete(PDO $conn, int $id): void
     $stmt->bindValue(':id', $id, PDO::PARAM_INT);
     help_support_bind_scope($stmt, $scope);
     $stmt->execute();
+}
+
+function help_support_creator_user(PDO $conn, string $username): ?array
+{
+    $username = trim($username);
+    if ($username === '') {
+        return null;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id, username, name, email
+        FROM user_master
+        WHERE LOWER(TRIM(username)) = LOWER(TRIM(:username))
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $stmt->bindValue(':username', $username);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+function help_support_l2_approver_id_for_username(PDO $conn, string $username): ?int
+{
+    require_once __DIR__ . '/user_helpers.php';
+
+    $creator = help_support_creator_user($conn, $username);
+    if ($creator === null) {
+        return null;
+    }
+
+    return user_assigned_approver_id($conn, (int) $creator['id'], 'level_2');
+}
+
+function help_support_notify_l2_approver(PDO $conn, int $inquiryId, int $approverId, string $title): void
+{
+    require_once __DIR__ . '/notification_helpers.php';
+
+    $title = trim($title);
+    notification_create(
+        $conn,
+        $approverId,
+        'Help & Support Level 2 Approval',
+        'Help & Support inquiry "' . ($title !== '' ? $title : ('#' . $inquiryId)) . '" is waiting for your Level 2 approval.',
+        'help-support',
+        $inquiryId
+    );
+}
+
+function help_support_approval_can_access(PDO $conn): bool
+{
+    $userId = current_user_id($conn);
+    if ($userId === null || $userId <= 0) {
+        return false;
+    }
+
+    help_support_ensure_schema($conn);
+    $stmt = $conn->prepare("
+        SELECT 1
+        FROM help_support
+        WHERE deleted_at IS NULL
+          AND approval_status = 'pending'
+          AND l2_approver_id = :approver_id
+        LIMIT 1
+    ");
+    $stmt->bindValue(':approver_id', $userId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function help_support_pending_approval_items(PDO $conn, ?int $approverId): array
+{
+    if ($approverId === null || $approverId <= 0) {
+        return [];
+    }
+
+    help_support_ensure_schema($conn);
+    $stmt = $conn->prepare("
+        SELECT
+            h.id,
+            h.category,
+            h.title,
+            h.description,
+            h.qty,
+            h.attachment_path,
+            h.attachment_name,
+            h.resource_url,
+            h.created_at,
+            COALESCE(NULLIF(TRIM(um.name), ''), '-') AS added_by_name
+        FROM help_support h
+        LEFT JOIN user_master um
+            ON LOWER(TRIM(um.username)) = LOWER(TRIM(h.created_by))
+           AND um.deleted_at IS NULL
+        WHERE h.deleted_at IS NULL
+          AND h.approval_status = 'pending'
+          AND h.l2_approver_id = :approver_id
+        ORDER BY h.created_at DESC
+    ");
+    $stmt->bindValue(':approver_id', $approverId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $items = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $items[] = [
+            'id' => (int) $row['id'],
+            'claim_type' => 'help_support',
+            'complaint_id' => 0,
+            'fab_number' => '',
+            'customer_name' => '',
+            'customer_id' => 0,
+            'details' => (string) ($row['title'] ?? ''),
+            'warranty_label' => '-',
+            'foc_value' => (string) (int) ($row['qty'] ?? 0),
+            'stage_label' => 'Pending',
+            'overall_status' => 'Pending',
+            'created_by' => (string) ($row['added_by_name'] ?? '-'),
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'level' => 'level_2',
+            'action_url' => 'approvals.php',
+            'decision_field' => 'help_support_decision',
+            'remarks_field' => 'approval_remarks',
+            'action_type' => 'approve',
+            'can_decide' => true,
+            'category_label' => help_support_category_label((string) ($row['category'] ?? '')),
+            'hs_title' => (string) ($row['title'] ?? ''),
+            'description' => (string) ($row['description'] ?? ''),
+            'qty' => (string) (int) ($row['qty'] ?? 0),
+            'resource_html' => help_support_resource_html($row),
+        ];
+    }
+
+    return $items;
+}
+
+/**
+ * @return array{ok: bool, error: string, email_sent: bool, email_note: string}
+ */
+function help_support_apply_l2_decision(
+    PDO $conn,
+    int $id,
+    string $decision,
+    string $remarks,
+    int $actorUserId,
+    string $actorName
+): array {
+    $failed = [
+        'ok' => false,
+        'error' => 'This inquiry is not waiting for your approval.',
+        'email_sent' => false,
+        'email_note' => '',
+    ];
+    $normalized = strtolower(trim($decision));
+    if ($normalized === 'approved') {
+        $status = 'approved';
+    } elseif ($normalized === 'rejected') {
+        $status = 'rejected';
+    } else {
+        $failed['error'] = 'Choose Approve or Reject.';
+        return $failed;
+    }
+    if ($id <= 0 || $actorUserId <= 0) {
+        return $failed;
+    }
+    $remarks = trim($remarks);
+    if ($status === 'rejected' && $remarks === '') {
+        $failed['error'] = 'A comment is required to reject.';
+        return $failed;
+    }
+
+    help_support_ensure_schema($conn);
+    $stmt = $conn->prepare("
+        SELECT id, title, category, created_by, l2_approver_id, approval_status
+        FROM help_support
+        WHERE id = :id
+          AND deleted_at IS NULL
+        LIMIT 1
+    ");
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row || (string) ($row['approval_status'] ?? '') !== 'pending') {
+        return $failed;
+    }
+    if ((int) ($row['l2_approver_id'] ?? 0) !== $actorUserId) {
+        return $failed;
+    }
+
+    $update = $conn->prepare("
+        UPDATE help_support
+        SET approval_status = :status,
+            approval_remarks = :remarks,
+            approved_by = :approved_by,
+            approved_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+          AND deleted_at IS NULL
+          AND approval_status = 'pending'
+          AND l2_approver_id = :approver_id
+    ");
+    $update->bindValue(':status', $status);
+    $update->bindValue(':remarks', $remarks !== '' ? $remarks : null, $remarks !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
+    $actorName = trim($actorName);
+    $update->bindValue(':approved_by', $actorName !== '' ? $actorName : null, $actorName !== '' ? PDO::PARAM_STR : PDO::PARAM_NULL);
+    $update->bindValue(':id', $id, PDO::PARAM_INT);
+    $update->bindValue(':approver_id', $actorUserId, PDO::PARAM_INT);
+    $update->execute();
+    if ($update->rowCount() < 1) {
+        return $failed;
+    }
+
+    help_support_notify_creator_decision($conn, $row, $status, $remarks);
+    $email = help_support_send_decision_email($conn, $row, $status, $remarks, $actorUserId);
+
+    return [
+        'ok' => true,
+        'error' => '',
+        'email_sent' => $email['sent'],
+        'email_note' => $email['note'],
+    ];
+}
+
+function help_support_notify_creator_decision(PDO $conn, array $row, string $status, string $remarks): void
+{
+    require_once __DIR__ . '/notification_helpers.php';
+
+    $creator = help_support_creator_user($conn, (string) ($row['created_by'] ?? ''));
+    if ($creator === null) {
+        return;
+    }
+
+    $titleText = trim((string) ($row['title'] ?? ''));
+    $label = $titleText !== '' ? $titleText : ('#' . (int) ($row['id'] ?? 0));
+    $approved = $status === 'approved';
+    $message = 'Your Help & Support inquiry "' . $label . '" has been ' . ($approved ? 'approved' : 'rejected') . '.';
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $message .= ' Remarks: ' . $remarks;
+    }
+
+    notification_create(
+        $conn,
+        (int) $creator['id'],
+        $approved ? 'Help & Support Approved' : 'Help & Support Rejected',
+        $message,
+        'help-support',
+        (int) ($row['id'] ?? 0)
+    );
+}
+
+/**
+ * @return array{sent: bool, note: string}
+ */
+function help_support_send_decision_email(
+    PDO $conn,
+    array $row,
+    string $status,
+    string $remarks,
+    int $approverUserId
+): array {
+    require_once __DIR__ . '/outlook_email_helpers.php';
+
+    $creator = help_support_creator_user($conn, (string) ($row['created_by'] ?? ''));
+    if ($creator === null) {
+        return ['sent' => false, 'note' => 'The inquiry creator does not have an email address.'];
+    }
+    $toEmail = trim((string) ($creator['email'] ?? ''));
+    if ($toEmail === '' || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+        return ['sent' => false, 'note' => 'The inquiry creator does not have an email address.'];
+    }
+
+    $fromEmail = outlook_email_address_for_user($conn, $approverUserId);
+    if ($fromEmail === '' || !filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
+        return ['sent' => false, 'note' => 'No Outlook email address is configured for your user.'];
+    }
+
+    $approverStmt = $conn->prepare('
+        SELECT name
+        FROM user_master
+        WHERE id = :id
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $approverStmt->bindValue(':id', $approverUserId, PDO::PARAM_INT);
+    $approverStmt->execute();
+    $fromName = trim((string) $approverStmt->fetchColumn());
+    if ($fromName === '') {
+        $fromName = 'Help & Support';
+    }
+
+    $approved = $status === 'approved';
+    $inquiryTitle = trim((string) ($row['title'] ?? ''));
+    $creatorName = trim((string) ($creator['name'] ?? ''));
+    $lines = [
+        'Hello ' . ($creatorName !== '' ? $creatorName : 'there') . ',',
+        '',
+        'Your Help & Support inquiry has been ' . ($approved ? 'approved' : 'rejected') . '.',
+        '',
+        'Title: ' . ($inquiryTitle !== '' ? $inquiryTitle : '-'),
+        'Category: ' . help_support_category_label((string) ($row['category'] ?? '')),
+    ];
+    $remarks = trim($remarks);
+    if ($remarks !== '') {
+        $lines[] = 'Remarks: ' . $remarks;
+    }
+    $lines[] = '';
+    $lines[] = 'This message was sent from the Outlook email address configured for the approver.';
+
+    $fromEmail = str_replace(["\r", "\n"], '', $fromEmail);
+    $fromName = str_replace(["\r", "\n"], '', $fromName);
+    $headers = 'From: ' . $fromName . ' <' . $fromEmail . ">\r\n"
+        . 'Reply-To: ' . $fromEmail . "\r\n"
+        . 'Content-Type: text/plain; charset=UTF-8';
+    $subject = $approved ? 'Help & Support inquiry approved' : 'Help & Support inquiry rejected';
+    $sent = (bool) @mail($toEmail, $subject, implode("\r\n", $lines), $headers);
+
+    return [
+        'sent' => $sent,
+        'note' => $sent ? '' : 'The decision email could not be sent.',
+    ];
 }

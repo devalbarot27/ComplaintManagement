@@ -88,7 +88,8 @@ function helpSupportDatatableColumns() {
         { data: 'id' },
         { data: 'category' },
         { data: 'title' },
-        { data: 'qty' }
+        { data: 'qty' },
+        { data: 'status' }
     ];
     if (window.helpSupportShowAddedBy) {
         columns.push({ data: 'added_by' });

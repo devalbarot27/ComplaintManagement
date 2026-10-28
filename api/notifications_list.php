@@ -4,16 +4,24 @@ require_once dirname(__DIR__) . '/pdo_obconn.php';
 require_once dirname(__DIR__) . '/includes/rbac_access_helpers.php';
 require_once dirname(__DIR__) . '/includes/current_username_helpers.php';
 require_once dirname(__DIR__) . '/includes/notification_helpers.php';
-require_once dirname(__DIR__) . '/includes/api_json_helpers.php';
 
 header('Content-Type: application/json; charset=utf-8');
+
+function notification_list_json_echo(array $payload): void
+{
+    $json = json_encode(
+        $payload,
+        JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+    );
+    echo is_string($json) ? $json : '{}';
+}
 
 rbac_require_api_access($obconn);
 
 $userId = current_user_id($obconn);
 if ($userId === null || $userId <= 0) {
     http_response_code(401);
-    api_json_echo(['error' => 'Unauthorized.']);
+    notification_list_json_echo(['error' => 'Unauthorized.']);
     exit;
 }
 
@@ -36,4 +44,4 @@ $response = [
     'has_more' => ($offset + count($items)) < $total,
 ];
 unset($items);
-api_json_echo($response);
+notification_list_json_echo($response);

@@ -14,7 +14,7 @@ $helpSupportPermissions = help_support_action_permissions($obconn);
 $canViewAll = help_support_can_view_all();
 $scope = help_support_visibility_sql('h');
 
-$allowedOrderColumns = ['id', 'category', 'title', 'qty'];
+$allowedOrderColumns = ['id', 'category', 'title', 'qty', 'status'];
 if ($canViewAll) {
     $allowedOrderColumns[] = 'added_by';
 }
@@ -55,6 +55,7 @@ $orderSqlMap = [
     'category' => 'h.category',
     'title' => 'h.title',
     'qty' => 'h.qty',
+    'status' => 'h.approval_status',
     'added_by' => "COALESCE(NULLIF(TRIM(um.name), ''), h.created_by)",
     'created_at' => 'h.created_at',
 ];
@@ -66,6 +67,7 @@ $dataQuery = "
         h.category,
         h.title,
         h.qty,
+        h.approval_status,
         h.attachment_path,
         h.attachment_name,
         h.resource_url,
@@ -94,6 +96,9 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'category' => htmlspecialchars(help_support_category_label((string) ($row['category'] ?? '')), ENT_QUOTES, 'UTF-8'),
         'title' => htmlspecialchars((string) ($row['title'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'qty' => (int) ($row['qty'] ?? 0),
+        'status' => '<span class="status-badge border border-dark">'
+            . htmlspecialchars(help_support_status_label((string) ($row['approval_status'] ?? 'pending')), ENT_QUOTES, 'UTF-8')
+            . '</span>',
         'added_by' => htmlspecialchars(help_support_added_by_label($row), ENT_QUOTES, 'UTF-8'),
         'created_at' => rbac_format_datetime($row['created_at']),
         'resource' => help_support_resource_html($row),

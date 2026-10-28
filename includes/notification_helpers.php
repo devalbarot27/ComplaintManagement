@@ -462,6 +462,13 @@ function notification_resolve_redirect_url(
             }
             return 'approvals.php';
 
+        case 'help-support':
+        case 'help_support':
+            if (str_contains($titleKey, 'approved') || str_contains($titleKey, 'rejected')) {
+                return 'help_support_details.php?id=' . $encodedId;
+            }
+            return 'approvals.php';
+
         default:
             return null;
     }

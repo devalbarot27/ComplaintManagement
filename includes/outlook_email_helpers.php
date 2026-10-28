@@ -270,6 +270,26 @@ function outlook_email_update(PDO $conn, int $id, array $data): void
     $stmt->execute();
 }
 
+function outlook_email_address_for_user(PDO $conn, int $userId): string
+{
+    if ($userId <= 0) {
+        return '';
+    }
+
+    outlook_email_ensure_schema($conn);
+    $stmt = $conn->prepare('
+        SELECT outlook_email
+        FROM outlook_emails
+        WHERE user_id = :user_id
+          AND deleted_at IS NULL
+        LIMIT 1
+    ');
+    $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+    $stmt->execute();
+
+    return trim((string) $stmt->fetchColumn());
+}
+
 function outlook_email_soft_delete(PDO $conn, int $id): void
 {
     $stmt = $conn->prepare('

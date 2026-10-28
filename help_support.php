@@ -89,8 +89,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_help_support']
                     }
                     $success_message = 'Help & Support item updated successfully.';
                 } else {
-                    help_support_insert($obconn, $record, $createdBy);
-                    $success_message = 'Help & Support item saved successfully.';
+                    $newId = help_support_insert($obconn, $record, $createdBy);
+                    $saved = $newId > 0 ? help_support_get_by_id($obconn, $newId) : null;
+                    if ($saved !== null && (int) ($saved['l2_approver_id'] ?? 0) > 0) {
+                        $success_message = 'Help & Support item saved and sent to the Level 2 approver.';
+                    } else {
+                        $success_message = 'Help & Support item saved. No Level 2 approver is assigned on your user, so it was not sent for approval.';
+                    }
                 }
             } catch (Throwable $e) {
                 if ($stored !== null) {
@@ -269,6 +274,7 @@ $categoryOptions = help_support_category_options();
                                 <th width="14%">Category</th>
                                 <th width="20%">Title</th>
                                 <th width="8%">Qty</th>
+                                <th width="10%">Approval Status</th>
                                 <?php if (help_support_can_view_all()) { ?>
                                 <th width="16%">Added By</th>
                                 <?php } ?>
