@@ -124,7 +124,6 @@ function initOutlookEmailsDatatable() {
         columns: [
             { data: 'id' },
             { data: 'user_name' },
-            { data: 'username' },
             { data: 'outlook_email' },
             { data: 'created_at' },
             { data: 'actions', orderable: false, searchable: false }

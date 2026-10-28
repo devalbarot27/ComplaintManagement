@@ -9,7 +9,7 @@ require_once dirname(__DIR__) . '/includes/outlook_email_helpers.php';
 admin_api_require_system_admin($obconn);
 outlook_email_ensure_schema($obconn);
 
-$allowedOrderColumns = ['id', 'user_name', 'username', 'outlook_email', 'created_at'];
+$allowedOrderColumns = ['id', 'user_name', 'outlook_email', 'created_at'];
 $req = dt_parse_request($allowedOrderColumns, 'user_name');
 
 $baseFrom = '
@@ -41,7 +41,6 @@ $recordsFiltered = (int) $countFilteredStmt->fetch(PDO::FETCH_ASSOC)['total'];
 $orderSqlMap = [
     'id' => 'o.id',
     'user_name' => 'um.name',
-    'username' => 'um.name',
     'outlook_email' => 'o.outlook_email',
     'created_at' => 'o.created_at',
 ];
@@ -52,8 +51,7 @@ $dataQuery = "
         o.id,
         o.outlook_email,
         o.created_at,
-        um.name AS user_name,
-        um.username
+        um.name AS user_name
     {$baseFrom}
     WHERE {$filterWhere}
     ORDER BY {$orderSql} {$req['orderDir']}, o.id ASC
@@ -72,11 +70,9 @@ $data = [];
 
 foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
     $userName = trim((string) ($row['user_name'] ?? ''));
-    $username = trim((string) ($row['username'] ?? ''));
     $data[] = [
         'id' => '#' . (int) $row['id'],
-        'user_name' => htmlspecialchars($userName !== '' ? $userName : ($username !== '' ? $username : '-'), ENT_QUOTES, 'UTF-8'),
-        'username' => htmlspecialchars($userName !== '' ? $userName : '-', ENT_QUOTES, 'UTF-8'),
+        'user_name' => htmlspecialchars($userName !== '' ? $userName : '-', ENT_QUOTES, 'UTF-8'),
         'outlook_email' => htmlspecialchars((string) ($row['outlook_email'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'created_at' => rbac_format_datetime($row['created_at']),
         'actions' => outlook_email_entry_actions((int) $row['id']),

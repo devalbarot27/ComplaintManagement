@@ -168,10 +168,9 @@ $userOptions = outlook_email_user_options($obconn);
                     <table class="table table-hover booking-table w-100" id="outlookEmailsTable">
                         <thead>
                             <tr>
-                                <th width="5%">ID</th>
-                                <th width="22%">User</th>
-                                <th width="15%">Username</th>
-                                <th width="28%">Outlook Email</th>
+                                <th width="8%">ID</th>
+                                <th width="28%">User</th>
+                                <th width="34%">Outlook Email</th>
                                 <th width="15%">Created At</th>
                                 <th width="10%">Action</th>
                             </tr>
