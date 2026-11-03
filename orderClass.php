@@ -5193,6 +5193,108 @@ class orderClass
         return $refMap;
     }
 
+    /**
+     * Label shown in the Recent Orders Approval Status column.
+     */
+    private function recentOrderApprovalStatusSearchSql(string $column): string
+    {
+        return "CASE
+            WHEN LOWER(TRIM(COALESCE({$column}, ''))) IN ('', 'not_required') THEN '-'
+            WHEN LOWER(TRIM({$column})) = 'pending' THEN 'Pending'
+            WHEN LOWER(TRIM({$column})) = 'pending_l1' THEN 'Pending Level 1'
+            WHEN LOWER(TRIM({$column})) = 'pending_l2' THEN 'Pending Level 2'
+            WHEN LOWER(TRIM({$column})) = 'approved' THEN 'Approved'
+            WHEN LOWER(TRIM({$column})) = 'rejected' THEN 'Rejected'
+            WHEN LOWER(TRIM({$column})) = 'cancelled' THEN 'Cancelled'
+            WHEN LOWER(TRIM({$column})) = 'submitted' THEN 'Submitted'
+            ELSE 'Pending'
+        END";
+    }
+
+    /**
+     * Order Status labels whose displayed text contains the search text.
+     *
+     * @return list<string>
+     */
+    private function recentOrderStatusLabelsMatchingSearch(string $search): array
+    {
+        $needle = strtolower(trim($search));
+        if ($needle === '') {
+            return [];
+        }
+
+        $matched = [];
+        foreach (['Pending', 'Despatched', 'AO'] as $label) {
+            if (str_contains(strtolower($label), $needle)) {
+                $matched[] = $label;
+            }
+        }
+
+        return $matched;
+    }
+
+    /**
+     * Despatch lives in the dealer portal database, same check as the grid badge.
+     *
+     * @return array{cunos: string, ordnos: string}
+     */
+    private function recentOrderDespatchPairLiterals(): array
+    {
+        $stmt = $this->dpconn->query("
+            SELECT DISTINCT TRIM(cuno) AS cuno, TRIM(ordno) AS ordno
+            FROM despatch
+            WHERE cmp != 600
+              AND TRIM(COALESCE(ordno, '')) <> ''
+              AND TRIM(COALESCE(cuno, '')) <> ''
+        ");
+        $cunos = [];
+        $ordnos = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $cunos[] = (string) $row['cuno'];
+            $ordnos[] = (string) $row['ordno'];
+        }
+
+        return [
+            'cunos' => $this->recentOrderPgTextArray($cunos),
+            'ordnos' => $this->recentOrderPgTextArray($ordnos),
+        ];
+    }
+
+    private function recentOrderPgTextArray(array $values): string
+    {
+        if ($values === []) {
+            return '{}';
+        }
+
+        $parts = [];
+        foreach ($values as $value) {
+            $parts[] = '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], (string) $value) . '"';
+        }
+
+        return '{' . implode(',', $parts) . '}';
+    }
+
+    private function recentOrderIsDespatchedSql(): string
+    {
+        return "EXISTS (
+            SELECT 1
+            FROM unnest(CAST(:despatch_cunos AS text[]), CAST(:despatch_ordnos AS text[])) AS despatched(cuno, ordno)
+            WHERE TRIM(despatched.cuno) = TRIM(a.cuno)
+              AND TRIM(despatched.ordno) = TRIM(a.order_number)
+        )";
+    }
+
+    private function recentOrderIsAcknowledgedSql(): string
+    {
+        return "EXISTS (
+            SELECT 1
+            FROM plexecom_customer_units AS ack
+            WHERE TRIM(ack.cuno) = TRIM(a.cuno)
+              AND TRIM(COALESCE(ack.order_number, '')) = TRIM(a.order_number)
+              AND ack.company != 600
+        )";
+    }
+
     public function getRecentOrders()
     {
         try {
@@ -5250,6 +5352,7 @@ class orderClass
                 END";
 
             if (!empty($search)) {
+                $approvalStatusSql = $this->recentOrderApprovalStatusSearchSql('a.approval_status');
                 $where = "AND (
                     a.refno ILIKE :search
                     OR COALESCE(a.pono, '') ILIKE :search
@@ -5258,6 +5361,10 @@ class orderClass
                     OR COALESCE(d.order_category, '') ILIKE :search
                     OR ({$orderTypeSql}) ILIKE :search
                     OR ({$customerNameSql}) ILIKE :search
+                    OR COALESCE(a.order_number, '-') ILIKE :search
+                    OR COALESCE(NULLIF(TRIM(e.pay_desc), ''), '100% Advance') ILIKE :search
+                    OR COALESCE(f.trans_name, '-') ILIKE :search
+                    OR ({$approvalStatusSql}) ILIKE :search
                 ";
                 if ($showAddedBy) {
                     $where .= "
@@ -5267,6 +5374,36 @@ class orderClass
                     OR COALESCE(a.emp_code::text, '') ILIKE :search
                     ";
                 }
+
+                $statusLabels = $this->recentOrderStatusLabelsMatchingSearch($search);
+                if ($statusLabels !== []) {
+                    $despatchPairs = $this->recentOrderDespatchPairLiterals();
+                    $params[':despatch_cunos'] = $despatchPairs['cunos'];
+                    $params[':despatch_ordnos'] = $despatchPairs['ordnos'];
+                    $isDespatched = $this->recentOrderIsDespatchedSql();
+                    $isAcknowledged = $this->recentOrderIsAcknowledgedSql();
+                    $hasOrderIdentity = "TRIM(COALESCE(a.order_number, '')) <> '' AND TRIM(COALESCE(a.cuno, '')) <> ''";
+                    if (in_array('Despatched', $statusLabels, true)) {
+                        $where .= "
+                    OR ({$hasOrderIdentity} AND {$isDespatched})
+                        ";
+                    }
+                    if (in_array('AO', $statusLabels, true)) {
+                        $where .= "
+                    OR ({$hasOrderIdentity} AND {$isAcknowledged} AND NOT {$isDespatched})
+                        ";
+                    }
+                    if (in_array('Pending', $statusLabels, true)) {
+                        $where .= "
+                    OR (
+                        TRIM(COALESCE(a.order_number, '')) = ''
+                        OR TRIM(COALESCE(a.cuno, '')) = ''
+                        OR ({$hasOrderIdentity} AND NOT {$isAcknowledged} AND NOT {$isDespatched})
+                    )
+                        ";
+                    }
+                }
+
                 $where .= ")";
                 $params[':search'] = "%{$search}%";
             }
