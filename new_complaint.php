@@ -18,6 +18,13 @@ $success_message = '';
 $error_message = '';
 $userName = current_username();
 $createAssignOptions = complaint_assign_options_for_current_creator($obconn);
+if (is_elgi_engineer_user()) {
+    $createAssignOptions = [
+        'assignees' => complaint_fetch_elgi_and_dealer_assignees($obconn),
+        'preselect' => null,
+        'restrict_to_creator' => false,
+    ];
+}
 $complaintAssignees = $createAssignOptions['assignees'];
 $complaintAssigneeOptionsHtml = complaint_render_assignee_options(
     $complaintAssignees,
@@ -77,7 +84,14 @@ if(isset($_POST['submit_complaint']))
         $error_message = 'Selected Dealer User is not allowed for this complaint.';
     } elseif (
         $assign_complaint !== ''
+        && is_elgi_engineer_user()
+        && ($assigneeError = complaint_validate_elgi_or_dealer_assignee($obconn, $assign_complaint)) !== null
+    ) {
+        $error_message = $assigneeError;
+    } elseif (
+        $assign_complaint !== ''
         && !is_dealer_user()
+        && !is_elgi_engineer_user()
         && ($assigneeError = complaint_validate_elgi_engineer_assignee($obconn, $assign_complaint)) !== null
     ) {
         $error_message = $assigneeError;

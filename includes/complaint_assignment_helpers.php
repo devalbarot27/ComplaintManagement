@@ -33,6 +33,77 @@ function complaint_fetch_elgi_engineer_assignees(PDO $conn): array
 }
 
 /**
+ * Active users for the given roles. Active means not deleted.
+ *
+ * @param array<int, int> $roleIds
+ * @return array<int, array<string, mixed>>
+ */
+function complaint_fetch_assignees_by_roles(PDO $conn, array $roleIds): array
+{
+    $roleIds = array_values(array_unique(array_map('intval', $roleIds)));
+    $roleIds = array_values(array_filter($roleIds, static function (int $roleId): bool {
+        return $roleId > 0;
+    }));
+    if ($roleIds === []) {
+        return [];
+    }
+
+    $placeholders = [];
+    foreach ($roleIds as $index => $roleId) {
+        $placeholders[] = ':role_' . $index;
+    }
+
+    $stmt = $conn->prepare('
+        SELECT id, username, name, email, mobile_number, role
+        FROM user_master
+        WHERE role IN (' . implode(', ', $placeholders) . ')
+          AND deleted_at IS NULL
+        ORDER BY name ASC, username ASC
+    ');
+    foreach ($roleIds as $index => $roleId) {
+        $stmt->bindValue(':role_' . $index, $roleId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Assign To choices when the complaint is added by an ELGi Engineer:
+ * every active ELGi Engineer and every active Dealer User.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function complaint_fetch_elgi_and_dealer_assignees(PDO $conn): array
+{
+    $assignees = array_merge(
+        complaint_fetch_elgi_engineer_assignees($conn),
+        complaint_fetch_assignees_by_roles($conn, [complaint_elgi_engineer_role_id()])
+    );
+
+    $unique = [];
+    foreach ($assignees as $user) {
+        $id = (int) ($user['id'] ?? 0);
+        if ($id <= 0 || isset($unique[$id])) {
+            continue;
+        }
+        $unique[$id] = $user;
+    }
+
+    $assignees = array_values($unique);
+    usort($assignees, static function (array $left, array $right): int {
+        $nameCompare = strcasecmp(trim((string) ($left['name'] ?? '')), trim((string) ($right['name'] ?? '')));
+        if ($nameCompare !== 0) {
+            return $nameCompare;
+        }
+
+        return strcasecmp(trim((string) ($left['username'] ?? '')), trim((string) ($right['username'] ?? '')));
+    });
+
+    return $assignees;
+}
+
+/**
  * Resolve the user who created the complaint (added_by, then username fallback).
  */
 function complaint_fetch_creator_user(PDO $conn, int $complaintId): ?array
@@ -98,8 +169,9 @@ function complaint_fetch_creator_user(PDO $conn, int $complaintId): ?array
 }
 
 /**
- * Dealer User dropdown options for Assign Complaint:
+ * Assign To options for an existing complaint:
  * - Creator is Dealer User => only that creator
+ * - Creator is ELGi Engineer => all active ELGi Engineers and Dealer Users
  * - Any other creator role => all active dealer users
  *
  * @return array{assignees: array<int, array>, preselect: ?string, restrict_to_creator: bool}
@@ -107,8 +179,8 @@ function complaint_fetch_creator_user(PDO $conn, int $complaintId): ?array
 function complaint_assign_options_for_complaint(PDO $conn, int $complaintId): array
 {
     $creator = complaint_fetch_creator_user($conn, $complaintId);
-    $creatorIsDealer = $creator !== null
-        && (int) ($creator['role'] ?? 0) === complaint_dealer_user_role_id();
+    $creatorRole = $creator !== null ? (int) ($creator['role'] ?? 0) : 0;
+    $creatorIsDealer = $creatorRole === complaint_dealer_user_role_id();
 
     if ($creatorIsDealer) {
         $preselect = complaint_assignee_option_value($creator);
@@ -117,6 +189,14 @@ function complaint_assign_options_for_complaint(PDO $conn, int $complaintId): ar
             'assignees' => [$creator],
             'preselect' => $preselect !== '' ? $preselect : null,
             'restrict_to_creator' => true,
+        ];
+    }
+
+    if ($creatorRole === complaint_elgi_engineer_role_id()) {
+        return [
+            'assignees' => complaint_fetch_elgi_and_dealer_assignees($conn),
+            'preselect' => null,
+            'restrict_to_creator' => false,
         ];
     }
 
@@ -199,10 +279,27 @@ function complaint_is_valid_assignee_for_complaint(PDO $conn, int $complaintId, 
 function complaint_validate_assignee_for_complaint(PDO $conn, int $complaintId, string $assignTo): ?string
 {
     if (!complaint_is_valid_assignee_for_complaint($conn, $complaintId, $assignTo)) {
+        $creator = complaint_fetch_creator_user($conn, $complaintId);
+        if ($creator !== null && (int) ($creator['role'] ?? 0) === complaint_elgi_engineer_role_id()) {
+            return 'Selected assignee must be an active ELGi Engineer or Dealer User.';
+        }
+
         return 'Selected Dealer User is not allowed for this complaint.';
     }
 
     return null;
+}
+
+function complaint_validate_elgi_or_dealer_assignee(PDO $conn, string $assignTo): ?string
+{
+    $assignTo = trim($assignTo);
+    foreach (complaint_fetch_elgi_and_dealer_assignees($conn) as $user) {
+        if (complaint_assignee_option_value($user) === $assignTo) {
+            return null;
+        }
+    }
+
+    return 'Selected assignee must be an active ELGi Engineer or Dealer User.';
 }
 
 function complaint_assignee_option_value(array $user): string
@@ -271,6 +368,12 @@ function complaint_fetch_assignee_by_name(PDO $conn, string $assignTo): ?array
     }
 
     foreach (complaint_fetch_elgi_engineer_assignees($conn) as $user) {
+        if (complaint_assignee_option_value($user) === $assignTo) {
+            return $user;
+        }
+    }
+
+    foreach (complaint_fetch_assignees_by_roles($conn, [complaint_elgi_engineer_role_id()]) as $user) {
         if (complaint_assignee_option_value($user) === $assignTo) {
             return $user;
         }
