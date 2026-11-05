@@ -29,10 +29,7 @@ if ($row === null) {
 
 api_json_echo([
     'id' => (int) ($row['id'] ?? 0),
-    'user_id' => (int) ($row['user_id'] ?? 0),
-    'user_label' => outlook_email_user_label([
-        'name' => $row['user_name'] ?? '',
-        'username' => $row['username'] ?? '',
-    ]),
+    'category' => (string) ($row['category'] ?? ''),
+    'emails' => array_values($row['emails'] ?? []),
     'outlook_email' => (string) ($row['outlook_email'] ?? ''),
 ]);

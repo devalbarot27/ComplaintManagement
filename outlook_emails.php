@@ -28,24 +28,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_outlook_email'
         try {
             if ($isEdit) {
                 outlook_email_update($obconn, $recordId, $data);
-                $success_message = 'Outlook email updated successfully.';
+                $success_message = 'Brochure email configuration updated successfully.';
             } else {
                 outlook_email_insert($obconn, $data, $createdBy);
-                $success_message = 'Outlook email saved successfully.';
+                $success_message = 'Brochure email configuration saved successfully.';
             }
         } catch (PDOException $e) {
             if ((string) $e->getCode() === '23505') {
-                $error_message = 'This user or Outlook email address is already saved.';
+                $error_message = 'One of these email addresses is already saved.';
             } else {
                 $error_message = $isEdit
-                    ? 'Failed to update Outlook email.'
-                    : 'Failed to save Outlook email.';
+                    ? 'Failed to update brochure email configuration.'
+                    : 'Failed to save brochure email configuration.';
             }
         }
     }
 }
 
-$userOptions = outlook_email_user_options($obconn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -53,7 +52,7 @@ $userOptions = outlook_email_user_options($obconn);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Outlook Email Management</title>
+    <title>Brochure Email Configuration</title>
     <?php include 'header_css.php'; ?>
     <link href="css/new_complaint.css" rel="stylesheet" />
     <link href="css/complaint_buttons.css" rel="stylesheet" />
@@ -62,14 +61,109 @@ $userOptions = outlook_email_user_options($obconn);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
     <link href="css/datatable_custom.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <link href="css/select2_change.css" rel="stylesheet" />
+    <style>
+        .brochure-email-field__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .brochure-email-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .brochure-email-control {
+            display: flex;
+            align-items: center;
+            min-height: 44px;
+            background: #fff;
+            border: 1px solid #dbe2ea;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .brochure-email-control:focus-within {
+            border-color: #F44611;
+            box-shadow: 0 0 0 3px rgba(244, 70, 17, 0.12);
+        }
+
+        .brochure-email-control:has(.is-invalid) {
+            border-color: #dc3545;
+            box-shadow: none;
+        }
+
+        .brochure-email-control__icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            color: #6b7280;
+            flex: 0 0 42px;
+        }
+
+        .brochure-email-control .brochure-email-input {
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            min-height: 42px;
+            padding-left: 0;
+        }
+
+        .brochure-email-control .brochure-email-input:focus {
+            box-shadow: none;
+        }
+
+        .brochure-email-remove {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border: 0;
+            border-left: 1px solid #dbe2ea;
+            background: #f8fafc;
+            color: #374151;
+            flex: 0 0 42px;
+        }
+
+        .brochure-email-remove:hover:not(:disabled) {
+            background: #fff1f2;
+            color: #b91c1c;
+        }
+
+        .brochure-email-remove:disabled {
+            color: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .brochure-email-add {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 34px;
+            padding: 0 14px;
+            border: 1px solid #F44611;
+            border-radius: 8px;
+            background: #fff;
+            color: #F44611;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .brochure-email-add:hover {
+            background: #F44611;
+            color: #fff;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/validate.js/0.13.1/validate.min.js"></script>
 </head>
 
 <body>
@@ -104,11 +198,11 @@ $userOptions = outlook_email_user_options($obconn);
 
             <div class="page-header">
                 <div>
-                    <div class="page-subtitle">Assign an Outlook email address to a user.</div>
+                    <div class="page-subtitle">Configure brochure email addresses by category.</div>
                 </div>
                 <div class="header-btn-group">
                     <button class="new-order-btn btn-complaint-primary" id="openOutlookEmailForm" type="button">
-                        <i class="bi bi-plus-lg"></i> Add Outlook Email
+                        <i class="bi bi-plus-lg"></i> Add Brochure Email
                     </button>
                     <button class="close-form-btn cancel-btn" id="closeOutlookEmailForm" type="button">
                         <i class="bi bi-x-lg"></i> Cancel
@@ -121,8 +215,8 @@ $userOptions = outlook_email_user_options($obconn);
                     <div class="complaint-form-header__main">
                         <div class="complaint-form-header__icon"><i class="bi bi-envelope"></i></div>
                         <div>
-                            <h2 class="complaint-form-header__title" id="outlookEmailFormModeLabel">Add Outlook Email</h2>
-                            <p class="complaint-form-header__subtitle">Select a user and enter their Outlook email address. Each user can have one address.</p>
+                            <h2 class="complaint-form-header__title" id="outlookEmailFormModeLabel">Add Brochure Email</h2>
+                            <p class="complaint-form-header__subtitle">Choose a category and add one or more email addresses.</p>
                         </div>
                     </div>
                 </div>
@@ -133,20 +227,31 @@ $userOptions = outlook_email_user_options($obconn);
                     <div class="complaint-form-body">
                         <section class="complaint-form-section">
                             <div class="row g-3">
-                                <div class="col-md form-group">
-                                    <label class="form-label" for="outlookEmailUserId">User <span class="text-danger">*</span></label>
-                                    <select class="form-control" name="user_id" id="outlookEmailUserId" style="width:100%;">
-                                        <option value="">Select user</option>
-                                        <?php foreach ($userOptions as $user) { ?>
-                                        <option value="<?php echo (int) $user['id']; ?>"><?php echo htmlspecialchars(outlook_email_user_label($user)); ?></option>
-                                        <?php } ?>
-                                    </select>
-                                    <div class="text-danger validation-msg" data-field="user_id"></div>
+                                <div class="col-md-6 form-group">
+                                    <label class="form-label" for="brochureEmailCategory">Category <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="category" id="brochureEmailCategory" maxlength="100" placeholder="Enter category">
+                                    <div class="text-danger validation-msg" data-field="category"></div>
                                 </div>
-                                <div class="col-md form-group">
-                                    <label class="form-label" for="outlookEmailAddress">Outlook Email <span class="text-danger">*</span></label>
-                                    <input type="email" class="form-control" name="outlook_email" id="outlookEmailAddress" maxlength="255" placeholder="name@company.com">
-                                    <div class="text-danger validation-msg" data-field="outlook_email"></div>
+                                <div class="col-12 form-group brochure-email-field">
+                                    <div class="brochure-email-field__head">
+                                        <label class="form-label mb-0">Email <span class="text-danger">*</span></label>
+                                        <button type="button" class="brochure-email-add" id="addBrochureEmailBtn">
+                                            <i class="bi bi-plus-lg"></i> Add More
+                                        </button>
+                                    </div>
+                                    <div id="brochureEmailList" class="brochure-email-list">
+                                        <div class="brochure-email-row">
+                                            <div class="brochure-email-control">
+                                                <span class="brochure-email-control__icon" aria-hidden="true"><i class="bi bi-envelope"></i></span>
+                                                <input type="email" class="form-control brochure-email-input" name="emails[]" maxlength="255" placeholder="name@company.com">
+                                                <button type="button" class="brochure-email-remove" title="Remove" disabled>
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                            <div class="text-danger validation-msg" data-field="emails_0"></div>
+                                        </div>
+                                    </div>
+                                    <div class="text-danger validation-msg" data-field="emails"></div>
                                 </div>
                             </div>
                         </section>
@@ -154,7 +259,7 @@ $userOptions = outlook_email_user_options($obconn);
                     <div class="complaint-form-actions">
                         <button type="button" class="cancel-btn" id="cancelOutlookEmailForm">Cancel</button>
                         <button class="submit-btn btn-complaint-primary" type="submit" id="submitOutlookEmailBtn">
-                            <i class="bi bi-check-lg"></i> Save Outlook Email
+                            <i class="bi bi-check-lg"></i> Save
                         </button>
                     </div>
                 </form>
@@ -162,15 +267,15 @@ $userOptions = outlook_email_user_options($obconn);
 
             <div class="booking-card">
                 <div class="booking-header">
-                    <div class="booking-title">Outlook Email List</div>
+                    <div class="booking-title">Brochure Email List</div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover booking-table w-100" id="outlookEmailsTable">
                         <thead>
                             <tr>
                                 <th width="8%">ID</th>
-                                <th width="28%">User</th>
-                                <th width="34%">Outlook Email</th>
+                                <th width="24%">Category</th>
+                                <th width="38%">Email</th>
                                 <th width="15%">Created At</th>
                                 <th width="10%">Action</th>
                             </tr>

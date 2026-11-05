@@ -51,7 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_help_support']
         } elseif ($uploadError !== null) {
             $error_message = $uploadError;
         } else {
-            $validationError = help_support_validate($data, $hasNewFile, $hasExistingFile);
+            require_once __DIR__ . '/includes/outlook_email_helpers.php';
+            $data['category'] = outlook_email_canonical_category($obconn, $data['category']);
+            $validationError = help_support_validate($obconn, $data, $hasNewFile, $hasExistingFile);
             if ($validationError !== null) {
                 $error_message = $validationError;
             }
@@ -96,6 +98,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_help_support']
                     } else {
                         $success_message = 'Help & Support item saved. No Level 2 approver is assigned on your user, so it was not sent for approval.';
                     }
+                    if ($newId > 0) {
+                        $emailNotice = help_support_send_submission_email($obconn, $newId);
+                        if (($emailNotice['note'] ?? '') !== '') {
+                            $success_message .= ' ' . $emailNotice['note'];
+                        }
+                    }
                 }
             } catch (Throwable $e) {
                 if ($stored !== null) {
@@ -109,7 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_help_support']
     }
 }
 
-$categoryOptions = help_support_category_options();
+require_once __DIR__ . '/includes/outlook_email_helpers.php';
+$categoryOptions = outlook_email_configured_categories($obconn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -206,6 +215,9 @@ $categoryOptions = help_support_category_options();
                                         <option value="<?php echo htmlspecialchars($value); ?>"><?php echo htmlspecialchars($label); ?></option>
                                         <?php } ?>
                                     </select>
+                                    <?php if ($categoryOptions === []) { ?>
+                                    <div class="text-danger small mt-1">No brochure email categories are configured.</div>
+                                    <?php } ?>
                                     <div class="text-danger validation-msg" data-field="category"></div>
                                 </div>
                                 <div class="col-md-5 form-group">

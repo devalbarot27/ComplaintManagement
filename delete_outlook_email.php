@@ -25,9 +25,9 @@ try {
     }
 
     outlook_email_soft_delete($obconn, $id);
-    $_SESSION['success_message'] = 'Outlook email deleted successfully.';
+    $_SESSION['success_message'] = 'Brochure email configuration deleted successfully.';
 } catch (PDOException $e) {
-    $_SESSION['error_message'] = 'Failed to delete Outlook email.';
+    $_SESSION['error_message'] = 'Failed to delete brochure email configuration.';
 }
 
 header('Location: outlook_emails.php');

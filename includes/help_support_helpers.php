@@ -16,9 +16,18 @@ function help_support_category_options(): array
 
 function help_support_category_label(string $category): string
 {
-    $options = help_support_category_options();
+    $category = trim($category);
+    if ($category === '') {
+        return '-';
+    }
 
-    return $options[$category] ?? '-';
+    $options = help_support_category_options();
+    if (isset($options[$category])) {
+        return $options[$category];
+    }
+    $legacy = $options[strtolower($category)] ?? '';
+
+    return $legacy !== '' ? $legacy : $category;
 }
 
 function help_support_can_view_all(): bool
@@ -106,6 +115,7 @@ function help_support_ensure_schema(PDO $conn): void
     help_support_add_column($conn, 'approval_remarks', 'TEXT NULL');
     help_support_add_column($conn, 'approved_by', 'VARCHAR(150) NULL');
     help_support_add_column($conn, 'approved_at', 'TIMESTAMP NULL');
+    $conn->exec('ALTER TABLE help_support ALTER COLUMN category TYPE VARCHAR(100)');
 
     $ensured = true;
 }
@@ -143,7 +153,7 @@ function help_support_status_label(string $status): string
 function help_support_from_post(array $post): array
 {
     return [
-        'category' => strtolower(trim((string) ($post['category'] ?? ''))),
+        'category' => trim((string) ($post['category'] ?? '')),
         'title' => trim((string) ($post['title'] ?? '')),
         'description' => trim((string) ($post['description'] ?? '')),
         'qty' => trim((string) ($post['qty'] ?? '')),
@@ -205,10 +215,12 @@ function help_support_has_upload(?array $file): bool
         && is_uploaded_file((string) ($file['tmp_name'] ?? ''));
 }
 
-function help_support_validate(array $data, bool $hasFile, bool $hasExistingFile): ?string
+function help_support_validate(PDO $conn, array $data, bool $hasFile, bool $hasExistingFile): ?string
 {
-    if (!array_key_exists($data['category'], help_support_category_options())) {
-        return 'Category is required.';
+    require_once __DIR__ . '/outlook_email_helpers.php';
+
+    if (outlook_email_canonical_category($conn, (string) ($data['category'] ?? '')) === '') {
+        return 'Select a category with a valid brochure email address.';
     }
     if ($data['title'] === '') {
         return 'Title is required.';
@@ -344,6 +356,7 @@ function help_support_search_filter(string $searchValue): array
         'h.resource_url ILIKE :search_url',
         'CAST(h.id AS TEXT) ILIKE :search_id',
         'CAST(h.qty AS TEXT) ILIKE :search_qty',
+        'h.category ILIKE :search_category_text',
     ];
     $params = [
         ':search_title' => $like,
@@ -352,6 +365,7 @@ function help_support_search_filter(string $searchValue): array
         ':search_url' => $like,
         ':search_id' => $like,
         ':search_qty' => $like,
+        ':search_category_text' => $like,
     ];
 
     $categoryMatches = [];
@@ -927,6 +941,88 @@ function help_support_notify_creator_decision(PDO $conn, array $row, string $sta
         'help-support',
         (int) ($row['id'] ?? 0)
     );
+}
+
+/**
+ * Notify every valid brochure email address configured for the inquiry category.
+ *
+ * @return array{sent: int, failed: int, note: string}
+ */
+function help_support_send_submission_email(PDO $conn, int $inquiryId): array
+{
+    require_once __DIR__ . '/outlook_email_helpers.php';
+
+    $row = help_support_get_by_id($conn, $inquiryId);
+    if ($row === null) {
+        return [
+            'sent' => 0,
+            'failed' => 0,
+            'note' => 'The notification email could not be sent.',
+        ];
+    }
+
+    $category = trim((string) ($row['category'] ?? ''));
+    $recipients = outlook_email_addresses_for_category($conn, $category);
+    if ($recipients === []) {
+        return [
+            'sent' => 0,
+            'failed' => 0,
+            'note' => 'No valid email address is configured for this category.',
+        ];
+    }
+
+    $creator = help_support_creator_user($conn, (string) ($row['created_by'] ?? ''));
+    $creatorName = trim((string) ($creator['name'] ?? ''));
+    if ($creatorName === '') {
+        $creatorName = trim((string) ($row['created_by'] ?? ''));
+    }
+    $attachment = trim((string) ($row['attachment_name'] ?? ''));
+    $url = trim((string) ($row['resource_url'] ?? ''));
+    $lines = [
+        'A Help & Support inquiry has been submitted.',
+        '',
+        'Category: ' . help_support_category_label($category),
+        'Title: ' . (trim((string) ($row['title'] ?? '')) !== '' ? trim((string) $row['title']) : '-'),
+        'Description: ' . (trim((string) ($row['description'] ?? '')) !== '' ? trim((string) $row['description']) : '-'),
+        'Qty: ' . (string) ($row['qty'] ?? '-'),
+        'Submitted by: ' . ($creatorName !== '' ? $creatorName : '-'),
+    ];
+    if ($attachment !== '') {
+        $lines[] = 'Attachment: ' . $attachment;
+    }
+    if ($url !== '') {
+        $lines[] = 'URL: ' . $url;
+    }
+
+    $fromEmail = str_replace(["\r", "\n"], '', $recipients[0]);
+    $headers = 'From: Help & Support <' . $fromEmail . ">\r\n"
+        . 'Reply-To: ' . $fromEmail . "\r\n"
+        . 'Content-Type: text/plain; charset=UTF-8';
+    $body = implode("\r\n", $lines);
+    $sent = 0;
+    $failed = 0;
+    foreach ($recipients as $recipient) {
+        $toEmail = str_replace(["\r", "\n"], '', $recipient);
+        if (@mail($toEmail, 'Help & Support inquiry submitted', $body, $headers)) {
+            $sent++;
+        } else {
+            $failed++;
+        }
+    }
+
+    if ($sent === count($recipients)) {
+        $note = 'Notification sent to the configured email addresses.';
+    } elseif ($sent > 0) {
+        $note = 'Some configured email addresses could not be notified.';
+    } else {
+        $note = 'The notification email could not be sent.';
+    }
+
+    return [
+        'sent' => $sent,
+        'failed' => $failed,
+        'note' => $note,
+    ];
 }
 
 /**

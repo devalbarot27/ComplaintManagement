@@ -1,39 +1,68 @@
-function initOutlookEmailUserSelect() {
-    const $select = $('#outlookEmailUserId');
-    if (!$select.length || typeof $.fn.select2 !== 'function') {
-        return;
-    }
-    if ($select.hasClass('select2-hidden-accessible')) {
-        $select.select2('destroy');
-    }
-    $select.select2({
-        width: '100%',
-        placeholder: 'Select user',
-        dropdownParent: $('#outlookEmailFormCard')
+function brochureEmailRows() {
+    return Array.from(document.querySelectorAll('#brochureEmailList .brochure-email-row'));
+}
+
+function refreshBrochureEmailRows() {
+    const rows = brochureEmailRows();
+    rows.forEach(function (row, index) {
+        const message = row.querySelector('.validation-msg');
+        if (message) {
+            message.setAttribute('data-field', 'emails_' + index);
+        }
+        const removeBtn = row.querySelector('.brochure-email-remove');
+        if (removeBtn) {
+            removeBtn.disabled = rows.length === 1;
+        }
     });
+}
+
+function addBrochureEmailRow(value) {
+    const list = document.getElementById('brochureEmailList');
+    const first = list ? list.querySelector('.brochure-email-row') : null;
+    if (!list || !first) {
+        return null;
+    }
+    const row = first.cloneNode(true);
+    const input = row.querySelector('.brochure-email-input');
+    if (input) {
+        input.value = value || '';
+        input.classList.remove('is-invalid');
+    }
+    const message = row.querySelector('.validation-msg');
+    if (message) {
+        message.textContent = '';
+    }
+    list.appendChild(row);
+    refreshBrochureEmailRows();
+    return row;
+}
+
+function resetBrochureEmailRows() {
+    const rows = brochureEmailRows();
+    rows.forEach(function (row, index) {
+        if (index === 0) {
+            const input = row.querySelector('.brochure-email-input');
+            if (input) {
+                input.value = '';
+            }
+            return;
+        }
+        row.remove();
+    });
+    refreshBrochureEmailRows();
 }
 
 function initOutlookEmailFormValidation() {
     const form = document.getElementById('outlookEmailForm');
-    if (!form || typeof validate === 'undefined') {
+    if (!form) {
         return;
     }
-
-    const constraints = {
-        user_id: {
-            presence: { allowEmpty: false, message: '^User is required' }
-        },
-        outlook_email: {
-            presence: { allowEmpty: false, message: '^Outlook email is required' },
-            email: { message: '^Enter a valid Outlook email address' }
-        }
-    };
 
     function clearValidationState() {
         form.querySelectorAll('.validation-msg').forEach(function (msg) {
             msg.textContent = '';
         });
-        form.querySelectorAll('.form-control, .select2-selection').forEach(function (input) {
+        form.querySelectorAll('.form-control').forEach(function (input) {
             input.classList.remove('is-invalid');
         });
     }
@@ -44,36 +73,59 @@ function initOutlookEmailFormValidation() {
             return;
         }
         Object.keys(errors).forEach(function (field) {
-            const input = form.querySelector('[name="' + field + '"]');
-            const msg = form.querySelector('.validation-msg[data-field="' + field + '"]');
-            if (input) {
-                input.classList.add('is-invalid');
-                if (input.id === 'outlookEmailUserId') {
-                    const selection = form.querySelector('.select2-selection');
-                    if (selection) {
-                        selection.classList.add('is-invalid');
-                    }
+            const message = form.querySelector('.validation-msg[data-field="' + field + '"]');
+            if (message && errors[field]) {
+                message.textContent = errors[field][0];
+            }
+            if (field.indexOf('emails_') === 0) {
+                const index = parseInt(field.replace('emails_', ''), 10);
+                const row = brochureEmailRows()[index];
+                const input = row ? row.querySelector('.brochure-email-input') : null;
+                if (input) {
+                    input.classList.add('is-invalid');
+                }
+            } else {
+                const input = form.querySelector('[name="' + field + '"]');
+                if (input) {
+                    input.classList.add('is-invalid');
                 }
             }
-            if (msg && errors[field]) {
-                msg.textContent = errors[field][0];
-            }
         });
+    }
+
+    function clientErrors() {
+        const errors = {};
+        const category = form.querySelector('[name="category"]').value.trim();
+        if (category === '') {
+            errors.category = ['Category is required.'];
+        } else if (!/^[A-Za-z0-9][A-Za-z0-9 .,&'\/()-]{0,99}$/.test(category)) {
+            errors.category = ['Enter a valid category.'];
+        }
+
+        const seen = {};
+        brochureEmailRows().forEach(function (row, index) {
+            const email = row.querySelector('.brochure-email-input').value.trim();
+            const field = 'emails_' + index;
+            if (email === '') {
+                errors[field] = ['Email is required.'];
+                return;
+            }
+            if (email.length > 255 || !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
+                errors[field] = ['Enter a valid email address.'];
+                return;
+            }
+            const key = email.toLowerCase();
+            if (seen[key]) {
+                errors[field] = ['This email address is already entered.'];
+                return;
+            }
+            seen[key] = true;
+        });
+
+        return Object.keys(errors).length ? errors : null;
     }
 
     let isSubmitting = false;
-
-    function checkOutlookEmailUnique(recordId) {
-        return $.ajax({
-            url: 'api/outlook_emails_check_unique.php',
-            type: 'POST',
-            dataType: 'json',
-            data: {
-                record_id: recordId || 0,
-                outlook_email: form.querySelector('[name="outlook_email"]').value.trim()
-            }
-        });
-    }
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -81,28 +133,53 @@ function initOutlookEmailFormValidation() {
             return;
         }
 
-        const errors = validate(form, constraints);
-        showErrors(errors || null);
+        const errors = clientErrors();
+        showErrors(errors);
         if (errors) {
             return;
         }
 
         const recordId = parseInt(document.getElementById('outlookEmailRecordId').value, 10) || 0;
-        checkOutlookEmailUnique(recordId)
-            .done(function (response) {
-                if (response && response.errors && Object.keys(response.errors).length > 0) {
-                    showErrors(response.errors);
-                    return;
-                }
-                isSubmitting = true;
-                form.submit();
-            })
-            .fail(function () {
-                showErrors({
-                    outlook_email: ['Unable to verify this Outlook email address.']
-                });
+        $.ajax({
+            url: 'api/outlook_emails_check_unique.php',
+            type: 'POST',
+            dataType: 'json',
+            data: $(form).serialize() + '&record_id=' + encodeURIComponent(String(recordId))
+        }).done(function (response) {
+            if (response && response.errors && Object.keys(response.errors).length > 0) {
+                showErrors(response.errors);
+                return;
+            }
+            isSubmitting = true;
+            form.submit();
+        }).fail(function () {
+            showErrors({
+                emails: ['Unable to verify these email addresses.']
             });
+        });
     });
+
+    document.getElementById('addBrochureEmailBtn').addEventListener('click', function () {
+        const row = addBrochureEmailRow('');
+        const input = row ? row.querySelector('.brochure-email-input') : null;
+        if (input) {
+            input.focus();
+        }
+    });
+
+    document.getElementById('brochureEmailList').addEventListener('click', function (e) {
+        const removeBtn = e.target.closest('.brochure-email-remove');
+        if (!removeBtn || removeBtn.disabled) {
+            return;
+        }
+        const row = removeBtn.closest('.brochure-email-row');
+        if (row && brochureEmailRows().length > 1) {
+            row.remove();
+            refreshBrochureEmailRows();
+        }
+    });
+
+    refreshBrochureEmailRows();
 }
 
 function initOutlookEmailsDatatable() {
@@ -123,32 +200,16 @@ function initOutlookEmailsDatatable() {
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         columns: [
             { data: 'id' },
-            { data: 'user_name' },
+            { data: 'category' },
             { data: 'outlook_email' },
             { data: 'created_at' },
             { data: 'actions', orderable: false, searchable: false }
         ],
         language: {
-            emptyTable: 'No Outlook email addresses found.',
-            zeroRecords: 'No matching Outlook email addresses found.'
+            emptyTable: 'No brochure email configurations found.',
+            zeroRecords: 'No matching brochure email configurations found.'
         }
     });
-}
-
-function ensureOutlookEmailUserOption(record) {
-    const select = document.getElementById('outlookEmailUserId');
-    if (!select || !record || !record.user_id) {
-        return;
-    }
-    const value = String(record.user_id);
-    const existing = select.querySelector('option[value="' + value + '"]');
-    if (existing) {
-        return;
-    }
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = record.user_label || ('User #' + value);
-    select.appendChild(option);
 }
 
 function fillOutlookEmailForm(record) {
@@ -159,15 +220,24 @@ function fillOutlookEmailForm(record) {
 
     document.getElementById('outlookEmailRecordId').value = record.id || '';
     document.getElementById('outlookEmailFormModeLabel').textContent = record.id
-        ? 'Edit Outlook Email'
-        : 'Add Outlook Email';
+        ? 'Edit Brochure Email'
+        : 'Add Brochure Email';
     document.getElementById('submitOutlookEmailBtn').innerHTML = record.id
-        ? '<i class="bi bi-check-lg"></i> Update Outlook Email'
-        : '<i class="bi bi-check-lg"></i> Save Outlook Email';
+        ? '<i class="bi bi-check-lg"></i> Update'
+        : '<i class="bi bi-check-lg"></i> Save';
 
-    ensureOutlookEmailUserOption(record);
-    $('#outlookEmailUserId').val(record.user_id ? String(record.user_id) : '').trigger('change');
-    form.querySelector('[name="outlook_email"]').value = record.outlook_email || '';
+    form.querySelector('[name="category"]').value = record.category || '';
+    resetBrochureEmailRows();
+    const emails = Array.isArray(record.emails) && record.emails.length ? record.emails : [''];
+    const first = brochureEmailRows()[0];
+    const firstInput = first ? first.querySelector('.brochure-email-input') : null;
+    if (firstInput) {
+        firstInput.value = emails[0] || '';
+    }
+    emails.slice(1).forEach(function (email) {
+        addBrochureEmailRow(email);
+    });
+    refreshBrochureEmailRows();
 }
 
 function resetOutlookEmailForm() {
@@ -177,9 +247,9 @@ function resetOutlookEmailForm() {
     }
     form.reset();
     document.getElementById('outlookEmailRecordId').value = '';
-    document.getElementById('outlookEmailFormModeLabel').textContent = 'Add Outlook Email';
-    document.getElementById('submitOutlookEmailBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save Outlook Email';
-    $('#outlookEmailUserId').val('').trigger('change');
+    document.getElementById('outlookEmailFormModeLabel').textContent = 'Add Brochure Email';
+    document.getElementById('submitOutlookEmailBtn').innerHTML = '<i class="bi bi-check-lg"></i> Save';
+    resetBrochureEmailRows();
     form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
     });
@@ -192,7 +262,6 @@ function openOutlookEmailFormPanel() {
     document.getElementById('outlookEmailFormCard').classList.add('show');
     document.getElementById('openOutlookEmailForm').style.display = 'none';
     document.getElementById('closeOutlookEmailForm').classList.add('show');
-    initOutlookEmailUserSelect();
 }
 
 function closeOutlookEmailFormPanel() {

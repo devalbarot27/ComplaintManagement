@@ -129,9 +129,9 @@
     } else if ($currentPage == 'distance_wise_price_details.php') {
         $pageName = "Distance Wise Price Details";
     } else if ($currentPage == 'outlook_emails.php') {
-        $pageName = "Outlook Email Management";
+        $pageName = "Brochure Email Config";
     } else if ($currentPage == 'outlook_email_details.php') {
-        $pageName = "Outlook Email Details";
+        $pageName = "Brochure Email Details";
     } else if ($currentPage == 'help_support.php') {
         $pageName = "Help & Support";
     } else if ($currentPage == 'help_support_details.php') {
@@ -559,7 +559,7 @@
                   <a href="outlook_emails.php"
                       class="menu-item <?= in_array($currentPage, ['outlook_emails.php', 'outlook_email_details.php'], true) ? 'active' : '' ?>">
                       <i class="bi bi-envelope"></i>
-                      Outlook Email
+                      Brochure Email Config
                   </a>
                   <?php } ?>
 

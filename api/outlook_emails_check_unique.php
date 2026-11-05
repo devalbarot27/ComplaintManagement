@@ -16,21 +16,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     echo json_encode([
         'valid' => false,
         'errors' => [
-            'outlook_email' => ['Method not allowed. Use POST.'],
+            'emails' => ['Method not allowed. Use POST.'],
         ],
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 $recordId = (int) ($_POST['record_id'] ?? 0);
-$email = trim((string) ($_POST['outlook_email'] ?? ''));
-$errors = [];
-
-if ($email !== '' && outlook_email_address_taken($obconn, $email, $recordId)) {
-    $errors['outlook_email'] = ['This Outlook email address is already assigned.'];
-}
+$errors = outlook_email_configuration_errors($obconn, outlook_email_from_post($_POST), $recordId);
 
 echo json_encode([
-    'valid' => empty($errors),
+    'valid' => $errors === [],
     'errors' => $errors,
 ], JSON_UNESCAPED_UNICODE);

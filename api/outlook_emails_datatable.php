@@ -9,29 +9,36 @@ require_once dirname(__DIR__) . '/includes/outlook_email_helpers.php';
 admin_api_require_system_admin($obconn);
 outlook_email_ensure_schema($obconn);
 
-$allowedOrderColumns = ['id', 'user_name', 'outlook_email', 'created_at'];
-$req = dt_parse_request($allowedOrderColumns, 'user_name');
+$allowedOrderColumns = ['id', 'category', 'outlook_email', 'created_at'];
+$req = dt_parse_request($allowedOrderColumns, 'category');
 
-$baseFrom = '
-    FROM outlook_emails o
-    LEFT JOIN user_master um ON um.id = o.user_id
+$groupedFrom = '
+    FROM (
+        SELECT
+            o.group_id AS id,
+            MAX(o.category) AS category,
+            STRING_AGG(o.outlook_email, \', \' ORDER BY o.id) AS emails,
+            MIN(o.created_at) AS created_at
+        FROM outlook_emails o
+        WHERE o.deleted_at IS NULL
+          AND o.user_id IS NULL
+          AND o.group_id IS NOT NULL
+        GROUP BY o.group_id
+    ) configs
 ';
-$baseWhere = 'o.deleted_at IS NULL';
-$filterParams = [];
 
-$recordsTotalStmt = $obconn->prepare("SELECT COUNT(*) AS total {$baseFrom} WHERE {$baseWhere}");
-$recordsTotalStmt->execute();
+$recordsTotalStmt = $obconn->query('SELECT COUNT(*) AS total ' . $groupedFrom);
 $recordsTotal = (int) $recordsTotalStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-$filterWhere = $baseWhere;
-
+$filterWhere = '1=1';
+$filterParams = [];
 if ($req['searchValue'] !== '') {
     $searchFilter = outlook_email_search_filter($req['searchValue']);
     $filterWhere .= ' AND ' . $searchFilter['sql'];
     $filterParams = $searchFilter['params'];
 }
 
-$countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total {$baseFrom} WHERE {$filterWhere}");
+$countFilteredStmt = $obconn->prepare("SELECT COUNT(*) AS total {$groupedFrom} WHERE {$filterWhere}");
 foreach ($filterParams as $key => $value) {
     $countFilteredStmt->bindValue($key, $value);
 }
@@ -39,26 +46,20 @@ $countFilteredStmt->execute();
 $recordsFiltered = (int) $countFilteredStmt->fetch(PDO::FETCH_ASSOC)['total'];
 
 $orderSqlMap = [
-    'id' => 'o.id',
-    'user_name' => 'um.name',
-    'outlook_email' => 'o.outlook_email',
-    'created_at' => 'o.created_at',
+    'id' => 'configs.id',
+    'category' => 'configs.category',
+    'outlook_email' => 'configs.emails',
+    'created_at' => 'configs.created_at',
 ];
-$orderSql = $orderSqlMap[$req['orderColumn']] ?? 'um.name';
+$orderSql = $orderSqlMap[$req['orderColumn']] ?? 'configs.category';
 
-$dataQuery = "
-    SELECT
-        o.id,
-        o.outlook_email,
-        o.created_at,
-        um.name AS user_name
-    {$baseFrom}
+$dataStmt = $obconn->prepare("
+    SELECT configs.id, configs.category, configs.emails, configs.created_at
+    {$groupedFrom}
     WHERE {$filterWhere}
-    ORDER BY {$orderSql} {$req['orderDir']}, o.id ASC
+    ORDER BY {$orderSql} {$req['orderDir']}, configs.id ASC
     LIMIT :limit OFFSET :offset
-";
-
-$dataStmt = $obconn->prepare($dataQuery);
+");
 foreach ($filterParams as $key => $value) {
     $dataStmt->bindValue($key, $value);
 }
@@ -67,13 +68,11 @@ $dataStmt->bindValue(':offset', $req['start'], PDO::PARAM_INT);
 $dataStmt->execute();
 
 $data = [];
-
 foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-    $userName = trim((string) ($row['user_name'] ?? ''));
     $data[] = [
         'id' => '#' . (int) $row['id'],
-        'user_name' => htmlspecialchars($userName !== '' ? $userName : '-', ENT_QUOTES, 'UTF-8'),
-        'outlook_email' => htmlspecialchars((string) ($row['outlook_email'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'category' => htmlspecialchars((string) ($row['category'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'outlook_email' => htmlspecialchars((string) ($row['emails'] ?? ''), ENT_QUOTES, 'UTF-8'),
         'created_at' => rbac_format_datetime($row['created_at']),
         'actions' => outlook_email_entry_actions((int) $row['id']),
     ];

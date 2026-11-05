@@ -19,10 +19,10 @@ if ($id <= 0) {
 $record = outlook_email_get_by_id($obconn, $id);
 
 if (!$record) {
-    die('Outlook email not found.');
+    die('Brochure email configuration not found.');
 }
 
-$userLabel = trim((string) ($record['user_name'] ?? ''));
+$emailList = implode("\n", $record['emails'] ?? []);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -30,7 +30,7 @@ $userLabel = trim((string) ($record['user_name'] ?? ''));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Outlook Email Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
+    <title>Brochure Email Details #<?php echo htmlspecialchars((string) (int) $record['id'], ENT_QUOTES, 'UTF-8'); ?></title>
     <?php include 'header_css.php'; ?>
     <link href="css/orderbook_style.css" rel="stylesheet" />
     <link href="css/complaint_form.css" rel="stylesheet" />
@@ -47,8 +47,8 @@ $userLabel = trim((string) ($record['user_name'] ?? ''));
         <div class="content">
             <?php
             record_details_page_header(
-                'Outlook Email',
-                (string) ($record['outlook_email'] ?? ''),
+                'Brochure Email Configuration',
+                (string) ($record['category'] ?? ''),
                 'outlook_emails.php',
                 'Back to List',
                 'bi-envelope',
@@ -59,9 +59,9 @@ $userLabel = trim((string) ($record['user_name'] ?? ''));
 
             record_details_card_start();
 
-            record_details_section_start(1, 'Email Details', 'User and Outlook email address');
-            record_details_field('User', $userLabel !== '' ? $userLabel : '-', 'col-md-6');
-            record_details_field('Outlook Email', rbac_display_value($record['outlook_email'] ?? ''), 'col-md-6');
+            record_details_section_start(1, 'Email Details', 'Category and email addresses');
+            record_details_field('Category', rbac_display_value($record['category'] ?? ''), 'col-md-6');
+            record_details_field('Email', $emailList, 'col-md-6', true);
             record_details_section_end();
 
             record_details_section_start(2, 'Audit Trail', 'Creation and update history', true);
