@@ -10,7 +10,7 @@ admin_api_require_system_admin($obconn);
 outlook_email_ensure_schema($obconn);
 
 $allowedOrderColumns = ['id', 'category', 'outlook_email', 'created_at'];
-$req = dt_parse_request($allowedOrderColumns, 'category');
+$req = dt_parse_request($allowedOrderColumns, 'created_at');
 
 $groupedFrom = '
     FROM (
@@ -57,7 +57,7 @@ $dataStmt = $obconn->prepare("
     SELECT configs.id, configs.category, configs.emails, configs.created_at
     {$groupedFrom}
     WHERE {$filterWhere}
-    ORDER BY {$orderSql} {$req['orderDir']}, configs.id ASC
+    ORDER BY {$orderSql} {$req['orderDir']}, configs.id DESC
     LIMIT :limit OFFSET :offset
 ");
 foreach ($filterParams as $key => $value) {

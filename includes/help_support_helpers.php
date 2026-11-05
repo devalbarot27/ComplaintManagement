@@ -428,10 +428,11 @@ function help_support_resource_html(array $row): string
     return $parts === [] ? '-' : implode('<br>', $parts);
 }
 
-function help_support_entry_actions(int $id, array $permissions = []): string
+function help_support_entry_actions(int $id, array $permissions = [], string $approvalStatus = 'pending'): string
 {
     $permissions = help_support_normalize_action_permissions($permissions);
     $encodedId = base64_encode((string) $id);
+    $canEditRecord = !in_array($approvalStatus, ['approved', 'rejected'], true);
     $html = '<div class="d-flex gap-1">';
 
     if ($permissions['view']) {
@@ -442,7 +443,7 @@ function help_support_entry_actions(int $id, array $permissions = []): string
             </a>';
     }
 
-    if ($permissions['edit']) {
+    if ($permissions['edit'] && $canEditRecord) {
         $html .= '
             <button type="button" class="btn btn-sm btn-outline-dark edit-help-support-btn"
                 data-id="' . $id . '" title="Edit">
@@ -647,6 +648,7 @@ function help_support_update(PDO $conn, int $id, array $data): void
             updated_at = CURRENT_TIMESTAMP
         WHERE id = :id
           AND deleted_at IS NULL
+          AND approval_status = \'pending\'
           ' . $scope['sql'] . '
     ');
     help_support_bind_record($stmt, $data);

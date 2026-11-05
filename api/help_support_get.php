@@ -27,6 +27,13 @@ if ($row === null) {
     exit;
 }
 
+$approvalStatus = (string) ($row['approval_status'] ?? 'pending');
+if ($approvalStatus === 'approved' || $approvalStatus === 'rejected') {
+    http_response_code(403);
+    echo json_encode(['error' => 'Approved or rejected Help & Support items cannot be edited.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 echo json_encode([
     'id' => (int) ($row['id'] ?? 0),
     'category' => (string) ($row['category'] ?? ''),

@@ -19,7 +19,7 @@ if ($canViewAll) {
     $allowedOrderColumns[] = 'added_by';
 }
 $allowedOrderColumns[] = 'created_at';
-$req = dt_parse_request($allowedOrderColumns, 'title');
+$req = dt_parse_request($allowedOrderColumns, 'created_at');
 
 $baseFrom = '
     FROM help_support h
@@ -59,7 +59,7 @@ $orderSqlMap = [
     'added_by' => "COALESCE(NULLIF(TRIM(um.name), ''), h.created_by)",
     'created_at' => 'h.created_at',
 ];
-$orderSql = $orderSqlMap[$req['orderColumn']] ?? 'h.title';
+$orderSql = $orderSqlMap[$req['orderColumn']] ?? 'h.created_at';
 
 $dataQuery = "
     SELECT
@@ -76,7 +76,7 @@ $dataQuery = "
         um.name AS added_by_name
     {$baseFrom}
     WHERE {$filterWhere}
-    ORDER BY {$orderSql} {$req['orderDir']}, h.id ASC
+    ORDER BY {$orderSql} {$req['orderDir']}, h.id DESC
     LIMIT :limit OFFSET :offset
 ";
 
@@ -102,7 +102,11 @@ foreach ($dataStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         'added_by' => htmlspecialchars(help_support_added_by_label($row), ENT_QUOTES, 'UTF-8'),
         'created_at' => rbac_format_datetime($row['created_at']),
         'resource' => help_support_resource_html($row),
-        'actions' => help_support_entry_actions((int) $row['id'], $helpSupportPermissions),
+        'actions' => help_support_entry_actions(
+            (int) $row['id'],
+            $helpSupportPermissions,
+            (string) ($row['approval_status'] ?? 'pending')
+        ),
     ];
 }
 

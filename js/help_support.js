@@ -108,6 +108,11 @@ function initHelpSupportDatatable() {
         return null;
     }
 
+    const columns = helpSupportDatatableColumns();
+    const createdAtIndex = columns.findIndex(function (column) {
+        return column.data === 'created_at';
+    });
+
     return $table.DataTable({
         processing: true,
         serverSide: true,
@@ -115,10 +120,10 @@ function initHelpSupportDatatable() {
             url: 'api/help_support_datatable.php',
             type: 'POST'
         },
-        order: [[2, 'asc']],
+        columns: columns,
+        order: [[createdAtIndex >= 0 ? createdAtIndex : 0, 'desc']],
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
-        columns: helpSupportDatatableColumns(),
         language: {
             emptyTable: 'No Help & Support items found.',
             zeroRecords: 'No matching Help & Support items found.'

@@ -61,7 +61,12 @@ if (!$record) {
             record_details_field('Category', help_support_category_label((string) ($record['category'] ?? '')), 'col-md-4');
             record_details_field('Title', rbac_display_value($record['title'] ?? ''), 'col-md-5');
             record_details_field('Qty', (string) (int) ($record['qty'] ?? 0), 'col-md-3');
-            record_details_field('Status', help_support_status_label((string) ($record['approval_status'] ?? 'pending')), 'col-md-4');
+            $approvalStatus = (string) ($record['approval_status'] ?? 'pending');
+            record_details_field('Status', help_support_status_label($approvalStatus), 'col-md-4');
+            if ($approvalStatus === 'approved' || $approvalStatus === 'rejected') {
+                $decisionAtLabel = $approvalStatus === 'approved' ? 'Approval At' : 'Rejected At';
+                record_details_field($decisionAtLabel, rbac_format_datetime($record['approved_at'] ?? null), 'col-md-4');
+            }
             $approvalRemarks = trim((string) ($record['approval_remarks'] ?? ''));
             if ($approvalRemarks !== '') {
                 $remarksLabel = (string) ($record['approval_status'] ?? '') === 'approved'

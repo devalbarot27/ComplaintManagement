@@ -48,6 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_help_support']
 
         if ($isEdit && $existing === null) {
             $error_message = 'Record not found or already deleted.';
+        } elseif ($isEdit && in_array((string) ($existing['approval_status'] ?? ''), ['approved', 'rejected'], true)) {
+            $error_message = 'Approved or rejected Help & Support items cannot be edited.';
         } elseif ($uploadError !== null) {
             $error_message = $uploadError;
         } else {

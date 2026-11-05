@@ -195,7 +195,7 @@ function initOutlookEmailsDatatable() {
             url: 'api/outlook_emails_datatable.php',
             type: 'POST'
         },
-        order: [[1, 'asc']],
+        order: [[3, 'desc']],
         pageLength: 10,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         columns: [
