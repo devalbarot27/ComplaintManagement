@@ -5606,7 +5606,7 @@ class orderClass
                     'order_type'       => htmlspecialchars(
                         trim((string) ($row['order_type'] ?? '')) !== ''
                             ? (string) $row['order_type']
-                            : 'Normal Order',
+                            : 'Units',
                         ENT_QUOTES,
                         'UTF-8'
                     ),
@@ -6779,7 +6779,7 @@ class orderClass
                     : '-',
                 'order_type' => trim((string) ($headerRow['order_type'] ?? '')) !== ''
                     ? trim((string) $headerRow['order_type'])
-                    : 'Normal Order',
+                    : 'Units',
                 'delivery_term' => trim((string) ($headerRow['delivery_term'] ?? '')) !== ''
                     ? trim((string) $headerRow['delivery_term'])
                     : '-',

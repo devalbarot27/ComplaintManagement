@@ -77,9 +77,9 @@ function plexecom_public_column_exists(PDO $conn, string $table, string $column)
 
 /**
  * SQL expression for Recent Orders "Order Type":
- * Create Order / Order Booking ? Normal Order
- * FOC ? FOC
- * Service Claim ? Service Claim
+ * FOC and Service Claim keep those labels.
+ * Other orders show Units or Spares from the stored order type
+ * (aoseries YUU/YUS, otherwise company 401/490 or depot Y0001/Y0011).
  */
 function plexecom_order_type_sql(PDO $conn, string $alias = 'a'): string
 {
@@ -129,7 +129,13 @@ function plexecom_order_type_sql(PDO $conn, string $alias = 'a'): string
     }
 
     $sql .= "
-            ELSE 'Normal Order'
+            ELSE CASE
+                WHEN UPPER(TRIM(COALESCE({$a}.aoseries, ''))) = 'YUU' THEN 'Units'
+                WHEN UPPER(TRIM(COALESCE({$a}.aoseries, ''))) = 'YUS' THEN 'Spares'
+                WHEN COALESCE({$a}.company, 0) = 490
+                  OR UPPER(TRIM(COALESCE({$a}.dpst, ''))) = 'Y0011' THEN 'Spares'
+                ELSE 'Units'
+            END
         END";
 
     return $sql;
