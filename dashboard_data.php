@@ -559,6 +559,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                                     <thead>
                                         <tr>
                                             <th>Ref No</th>
+                                            <th>Customer</th>
                                             <th>AO Number</th>
                                             <th>Category</th>
                                             <th>Order Type</th>
@@ -569,6 +570,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                                             <th>Added By</th>
                                             <?php } ?>
                                             <th>Order Status</th>
+                                            <th>Approval Status</th>
                                             <th>Order Date</th>
                                             <th>Action</th>
                                         </tr>
@@ -1038,6 +1040,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
             },
             columns: [
                 { data: 'ref_no' },
+                { data: 'customer_name' },
                 { data: 'order_no' },
                 { data: 'category' },
                 { data: 'order_type' },
@@ -1048,6 +1051,7 @@ unset($safeMonthlyChartLabels, $safeMonthlyChartDatasets, $safeData);
                 { data: 'added_by' },
                 <?php } ?>
                 { data: 'order_status' },
+                { data: 'approval_status' },
                 { data: 'order_date' },
                 {
                     data: 'lines',

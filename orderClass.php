@@ -5224,7 +5224,7 @@ class orderClass
         }
 
         $matched = [];
-        foreach (['Pending', 'Despatched', 'AO'] as $label) {
+        foreach (['Pending', 'Despatched', 'AO', 'Rejected'] as $label) {
             if (str_contains(strtolower($label), $needle)) {
                 $matched[] = $label;
             }
@@ -5272,6 +5272,11 @@ class orderClass
         }
 
         return '{' . implode(',', $parts) . '}';
+    }
+
+    private function recentOrderIsRejectedSql(): string
+    {
+        return "LOWER(TRIM(COALESCE(a.approval_status, ''))) = 'rejected'";
     }
 
     private function recentOrderIsDespatchedSql(): string
@@ -5377,28 +5382,40 @@ class orderClass
 
                 $statusLabels = $this->recentOrderStatusLabelsMatchingSearch($search);
                 if ($statusLabels !== []) {
-                    $despatchPairs = $this->recentOrderDespatchPairLiterals();
-                    $params[':despatch_cunos'] = $despatchPairs['cunos'];
-                    $params[':despatch_ordnos'] = $despatchPairs['ordnos'];
+                    $needsDespatchPairs = array_intersect($statusLabels, ['Pending', 'Despatched', 'AO']) !== [];
+                    if ($needsDespatchPairs) {
+                        $despatchPairs = $this->recentOrderDespatchPairLiterals();
+                        $params[':despatch_cunos'] = $despatchPairs['cunos'];
+                        $params[':despatch_ordnos'] = $despatchPairs['ordnos'];
+                    }
                     $isDespatched = $this->recentOrderIsDespatchedSql();
                     $isAcknowledged = $this->recentOrderIsAcknowledgedSql();
+                    $isRejected = $this->recentOrderIsRejectedSql();
                     $hasOrderIdentity = "TRIM(COALESCE(a.order_number, '')) <> '' AND TRIM(COALESCE(a.cuno, '')) <> ''";
+                    if (in_array('Rejected', $statusLabels, true)) {
+                        $where .= "
+                    OR ({$isRejected})
+                        ";
+                    }
                     if (in_array('Despatched', $statusLabels, true)) {
                         $where .= "
-                    OR ({$hasOrderIdentity} AND {$isDespatched})
+                    OR (NOT ({$isRejected}) AND {$hasOrderIdentity} AND {$isDespatched})
                         ";
                     }
                     if (in_array('AO', $statusLabels, true)) {
                         $where .= "
-                    OR ({$hasOrderIdentity} AND {$isAcknowledged} AND NOT {$isDespatched})
+                    OR (NOT ({$isRejected}) AND {$hasOrderIdentity} AND {$isAcknowledged} AND NOT {$isDespatched})
                         ";
                     }
                     if (in_array('Pending', $statusLabels, true)) {
                         $where .= "
                     OR (
-                        TRIM(COALESCE(a.order_number, '')) = ''
-                        OR TRIM(COALESCE(a.cuno, '')) = ''
-                        OR ({$hasOrderIdentity} AND NOT {$isAcknowledged} AND NOT {$isDespatched})
+                        NOT ({$isRejected})
+                        AND (
+                            TRIM(COALESCE(a.order_number, '')) = ''
+                            OR TRIM(COALESCE(a.cuno, '')) = ''
+                            OR ({$hasOrderIdentity} AND NOT {$isAcknowledged} AND NOT {$isDespatched})
+                        )
                     )
                         ";
                     }
@@ -5509,7 +5526,11 @@ class orderClass
                 'po_number' => 'recent_orders.pono',
                 'payment_term' => "COALESCE(NULLIF(TRIM(recent_orders.pay_desc), ''), '100% Advance')",
                 'transporter' => 'recent_orders.transporter',
-                'order_status' => "CASE WHEN TRIM(COALESCE(recent_orders.order_number, '')) = '' THEN 0 ELSE 1 END",
+                'order_status' => "CASE
+                    WHEN LOWER(TRIM(COALESCE(recent_orders.approval_status, ''))) = 'rejected' THEN 2
+                    WHEN TRIM(COALESCE(recent_orders.order_number, '')) = '' THEN 0
+                    ELSE 1
+                END",
                 'approval_status' => 'recent_orders.approval_status',
                 'order_date' => 'recent_orders.sort_order_date',
             ];
@@ -5564,8 +5585,9 @@ class orderClass
                 $refno = (string) ($row['refno'] ?? '');
                 $orderNumber = trim((string) ($row['order_number'] ?? ''));
                 $orderCuno = trim((string) ($row['cuno'] ?? $this->userId));
-                $orderStatus = $this->resolveRecentOrderStatus($orderNumber, $orderCuno);
-                $orderStatusLabel = $this->resolveRecentOrderStatusLabel($orderNumber, $orderCuno);
+                $approvalStatus = (string) ($row['approval_status'] ?? '');
+                $orderStatus = $this->resolveRecentOrderStatus($orderNumber, $orderCuno, $approvalStatus);
+                $orderStatusLabel = $this->resolveRecentOrderStatusLabel($orderNumber, $orderCuno, $approvalStatus);
                 $orderDateRaw = $row['order_date'] ?? $row['indent_date'] ?? null;
                 $orderTimeRaw = $row['order_time'] ?? null;
                 $orderDateFormatted = !empty($orderDateRaw)
@@ -5583,7 +5605,7 @@ class orderClass
                     $orderStatusLabel,
                     $orderDateRaw,
                     $orderTimeRaw,
-                    (string) ($row['approval_status'] ?? '')
+                    $approvalStatus
                 )) {
                     $cooldownUntil = $this->resolveRecentOrderRepushCooldownUntil($row['ediprocessdt'] ?? null);
                     $disabledAttr = $cooldownUntil !== null ? ' disabled' : '';
@@ -5866,13 +5888,17 @@ class orderClass
         }
     }
 
-    private function resolveRecentOrderStatus(string $orderNumber, string $cuno): string
+    private function resolveRecentOrderStatus(string $orderNumber, string $cuno, string $approvalStatus = ''): string
 
     {
 
         $orderNumber = trim($orderNumber);
 
         $cuno = trim($cuno);
+
+        if (strcasecmp(trim($approvalStatus), 'rejected') === 0) {
+            return '<span class="status-badge border border-dark">Rejected</span>';
+        }
 
         if ($orderNumber === '' || $cuno === '') {
 
@@ -6808,7 +6834,11 @@ class orderClass
                 'end_customer_street1' => '',
                 'end_customer_street2' => '',
                 'end_customer_city' => '',
-                'order_status' => $this->resolveRecentOrderStatusLabel($orderNumber, $cuno),
+                'order_status' => $this->resolveRecentOrderStatusLabel(
+                    $orderNumber,
+                    $cuno,
+                    (string) ($headerRow['approval_status'] ?? '')
+                ),
                 'remarks' => trim((string) ($headerRow['remarks'] ?? '')),
             ];
             $header = array_merge(
@@ -6962,10 +6992,14 @@ class orderClass
         return $lines === [] ? '-' : implode("\n", $lines);
     }
 
-    private function resolveRecentOrderStatusLabel(string $orderNumber, string $cuno): string
+    private function resolveRecentOrderStatusLabel(string $orderNumber, string $cuno, string $approvalStatus = ''): string
     {
         $orderNumber = trim($orderNumber);
         $cuno = trim($cuno);
+
+        if (strcasecmp(trim($approvalStatus), 'rejected') === 0) {
+            return 'Rejected';
+        }
 
         if ($orderNumber === '' || $cuno === '') {
             return 'Pending';

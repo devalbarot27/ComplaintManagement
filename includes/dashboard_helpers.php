@@ -90,7 +90,7 @@ function dashboard_fetch_stats(PDO $dpconn, PDO $obconn, ?string $period = null)
  *
  * Total/Created = distinct Recent Orders
  * Acknowledged  = orders with AO Number (order_number)
- * Pending       = orders without AO Number
+ * Pending       = orders without AO Number, excluding Order Status Rejected
  * Dispatched    = orders with invoice details in despatch
  *
  * @return array{total:int,created:int,acknowledged:int,pending:int,dispatched:int}
@@ -122,12 +122,14 @@ function dashboard_fetch_recent_order_pipeline_stats(PDO $obconn, PDO $dpconn, s
             SELECT
                 a.refno,
                 a.cuno,
-                TRIM(COALESCE(a.order_number, '')) AS order_number
+                TRIM(COALESCE(a.order_number, '')) AS order_number,
+                LOWER(TRIM(COALESCE(a.approval_status, ''))) AS approval_status
             FROM (
                 SELECT DISTINCT ON (a.refno)
                     a.refno,
                     a.cuno,
                     a.order_number,
+                    a.approval_status,
                     a.indent_date
                 FROM plexecom_customer_units AS a
                 WHERE {$userWhere}
@@ -153,6 +155,9 @@ function dashboard_fetch_recent_order_pipeline_stats(PDO $obconn, PDO $dpconn, s
             $cuno = trim((string) ($row['cuno'] ?? ''));
 
             if ($orderNumber === '') {
+                if ((string) ($row['approval_status'] ?? '') === 'rejected') {
+                    continue;
+                }
                 $pending++;
                 continue;
             }
@@ -231,8 +236,8 @@ function dashboard_count_recent_orders_with_invoice(PDO $dpconn, array $aoByCuno
     return $dispatched;
 }
 
-// Orders pending for more than 10 days ù same Pending definition as Order Pipeline:
-// Recent Orders (plexecom_customer_units) without AO Number, indent_date older than 10 days.
+// Orders pending for more than 10 days ? same Pending definition as Order Pipeline:
+// Recent Orders without AO Number, excluding Order Status Rejected, indent_date older than 10 days.
 function dashboard_fetch_pending_over_10_days_count(PDO $dpconn, array $scope, PDO $obconn): int
 {
     try {
@@ -251,12 +256,14 @@ function dashboard_fetch_pending_over_10_days_count(PDO $dpconn, array $scope, P
                 SELECT DISTINCT ON (a.refno)
                     a.refno,
                     a.order_number,
+                    a.approval_status,
                     a.indent_date
                 FROM plexecom_customer_units AS a
                 WHERE {$userWhere}
                 ORDER BY a.refno DESC, a.indent_date DESC
             ) AS a
             WHERE TRIM(COALESCE(a.order_number, '')) = ''
+              AND LOWER(TRIM(COALESCE(a.approval_status, ''))) <> 'rejected'
               AND a.indent_date IS NOT NULL
               AND a.indent_date::date < (CURRENT_DATE - INTERVAL '10 days')::date
         ";
@@ -448,8 +455,8 @@ function dashboard_fetch_monthly_acknowledgement_counts(PDO $obconn, string $sta
     return $counts;
 }
 
-// Monthly Pending ù same definition as Order Pipeline Pending:
-// Recent Orders (plexecom_customer_units) without AO Number, by indent_date month.
+// Monthly Pending ? same definition as Order Pipeline Pending:
+// Recent Orders without AO Number, excluding Order Status Rejected, by indent_date month.
 function dashboard_fetch_monthly_pending_counts(PDO $obconn, string $startDate): array
 {
     $counts = [];
@@ -473,6 +480,7 @@ function dashboard_fetch_monthly_pending_counts(PDO $obconn, string $startDate):
                 SELECT DISTINCT ON (a.refno)
                     a.refno,
                     a.order_number,
+                    a.approval_status,
                     a.indent_date,
                     a.cuno
                 FROM plexecom_customer_units AS a
@@ -482,6 +490,7 @@ function dashboard_fetch_monthly_pending_counts(PDO $obconn, string $startDate):
                 ORDER BY a.refno DESC, a.indent_date DESC
             ) AS a
             WHERE TRIM(COALESCE(a.order_number, '')) = ''
+              AND LOWER(TRIM(COALESCE(a.approval_status, ''))) <> 'rejected'
             GROUP BY month_key
             ORDER BY month_key
         ";
