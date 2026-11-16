@@ -6196,7 +6196,7 @@ class orderClass
 
         $dealer = trim($_POST['dealer'] ?? '');
 
-        $sql = "SELECT adr_code, cuname
+        $sql = "SELECT adr_code, cuname, st1, st2, city, pin, state, country, custaddr
             FROM customer_address
             WHERE length(adr_code) = 9";
       
@@ -6236,9 +6236,26 @@ class orderClass
         $result = [];
 
         while ($row = $stmt->fetch(PDO::FETCH_OBJ)) {
+            $address = order_approval_format_address_text($row->custaddr ?? '');
+            if ($address === '') {
+                $parts = array_filter([
+                    trim((string) ($row->cuname ?? '')),
+                    trim((string) ($row->st1 ?? '')),
+                    trim((string) ($row->st2 ?? '')),
+                    trim((string) ($row->city ?? '')),
+                    trim((string) ($row->state ?? '')),
+                    trim((string) ($row->pin ?? '')),
+                    trim((string) ($row->country ?? '')),
+                ], static function ($value) {
+                    return $value !== '' && $value !== '-';
+                });
+                $address = implode("\n", $parts);
+            }
+
             $result[] = [
                 'id'   => $row->adr_code,
-                'text' => $row->cuname . ' - [' . $row->adr_code . ']'
+                'text' => $row->cuname . ' - [' . $row->adr_code . ']',
+                'address' => $address,
             ];
         }
 

@@ -56,6 +56,12 @@ $freightPercentage = 4;
             display: contents;
         }
 
+        #dealerFullAddress {
+            resize: none;
+            min-height: 50px;
+            background-color: #ededed;
+        }
+
         .delivery-date-group {
             position: relative;
         }
@@ -383,6 +389,11 @@ $freightPercentage = 4;
                                     <option value="">Select</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label for="dealerFullAddress">Address</label>
+                                <textarea class="form-control" id="dealerFullAddress" rows="2" readonly
+                                    placeholder="Select a dealer address"></textarea>
+                            </div>
                         </div>
                     <?php
                     } else {
@@ -394,6 +405,11 @@ $freightPercentage = 4;
                                 <select class="form-control" id="customer_master">
                                     <option value="">Select</option>
                                 </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="dealerFullAddress">Address</label>
+                                <textarea class="form-control" id="dealerFullAddress" rows="2" readonly
+                                    placeholder="Select a dealer address"></textarea>
                             </div>
                         </div>
                     <?php
@@ -821,6 +837,20 @@ $freightPercentage = 4;
                     };
                 },
                 cache: true
+            }
+        });
+
+        function setDealerFullAddress(address) {
+            $('#dealerFullAddress').val(address || '');
+        }
+
+        $('#customer_master').on('select2:select', function(e) {
+            var selected = e.params && e.params.data ? e.params.data : null;
+            setDealerFullAddress(selected && selected.address ? selected.address : '');
+        });
+        $('#customer_master').on('select2:clear change', function() {
+            if (!$(this).val()) {
+                setDealerFullAddress('');
             }
         });
 
